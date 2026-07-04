@@ -4,9 +4,9 @@ import { EventBus } from "../../../core/EventBus";
 import { AllPlayers } from "../../../core/game/Game";
 import { TerraNulliusImpl } from "../../../core/game/TerraNulliusImpl";
 import { Emoji, flattenedEmojiTable } from "../../../core/Util";
+import { SendEmojiIntentEvent } from "../../board/BoardEvents";
 import { CloseViewEvent, ShowEmojiMenuEvent } from "../../InputHandler";
 import { TransformHandler } from "../../TransformHandler";
-import { SendEmojiIntentEvent } from "../../Transport";
 import { GameView, PlayerView } from "../../view";
 
 @customElement("emoji-table")

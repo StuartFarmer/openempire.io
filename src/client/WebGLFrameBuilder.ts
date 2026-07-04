@@ -13,7 +13,7 @@ import {
 } from "../core/CosmeticSchemas";
 import { decodePatternData } from "../core/PatternDecoder";
 import { PlayerType } from "../core/game/Game";
-import { getCachedCosmetics } from "./Cosmetics";
+import { getCachedCosmetics } from "./CosmeticCache";
 import { uploadFrameData } from "./render/frame/Upload";
 // Type-only: a value import would pull GPURenderer and its `.glsl?raw` shader
 // imports into any non-Vite consumer (e.g. the Node perf harness).

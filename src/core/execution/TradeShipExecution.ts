@@ -1,4 +1,4 @@
-import { renderNumber } from "../../client/Utils";
+import { renderNumber } from "../formatting/NumberFormat";
 import {
   Execution,
   Game,

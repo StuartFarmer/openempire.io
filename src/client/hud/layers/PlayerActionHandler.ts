@@ -13,7 +13,7 @@ import {
   SendEmojiIntentEvent,
   SendSpawnIntentEvent,
   SendTargetPlayerIntentEvent,
-} from "../../Transport";
+} from "../../board/BoardEvents";
 import { UIState } from "../../UIState";
 import { PlayerView } from "../../view";
 

@@ -5,7 +5,7 @@ import { within } from "../../../core/Util";
 import {
   SendDonateGoldIntentEvent,
   SendDonateTroopsIntentEvent,
-} from "../../Transport";
+} from "../../board/BoardEvents";
 import { UIState } from "../../UIState";
 import { renderTroops, translateText } from "../../Utils";
 import { GameView, PlayerView } from "../../view";

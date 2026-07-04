@@ -28,22 +28,13 @@ import {
   invalidateUserMe,
   purchaseWithCurrency,
 } from "./Api";
+import { getCachedCosmetics, setCachedCosmetics } from "./CosmeticCache";
 import { translateText } from "./Utils";
 
 export const TEMP_FLARE_OFFSET = 1 * 60 * 1000; // 1 minute
 
 let __cosmetics: Promise<Cosmetics | null> | null = null;
 let __cosmeticsHash: string | null = null;
-let __cosmeticsCache: Cosmetics | null = null;
-
-/**
- * Synchronous accessor for the most recently resolved cosmetics. Returns null
- * before the first successful `fetchCosmetics()` call. Useful when a code path
- * cannot await (e.g. WebGL per-frame sync).
- */
-export function getCachedCosmetics(): Cosmetics | null {
-  return __cosmeticsCache;
-}
 
 /**
  * Resolve the local player's selected skin from UserSettings + cached
@@ -53,7 +44,7 @@ export function getCachedCosmetics(): Cosmetics | null {
 export function getLocalSelectedSkin(): { name: string; url: string } | null {
   const skinName = new UserSettings().getSelectedSkinName();
   if (!skinName) return null;
-  const skin = __cosmeticsCache?.skins?.[skinName];
+  const skin = getCachedCosmetics()?.skins?.[skinName];
   if (!skin) return null;
   return { name: skin.name, url: skin.url };
 }
@@ -225,7 +216,7 @@ export async function fetchCosmetics(): Promise<Cosmetics | null> {
         .map((k) => k + (result.data.patterns[k].product ? "sale" : ""))
         .join(",");
       __cosmeticsHash = simpleHash(hashInput);
-      __cosmeticsCache = result.data;
+      setCachedCosmetics(result.data);
       return result.data;
     } catch (error) {
       console.error("Error getting cosmetics:", error);

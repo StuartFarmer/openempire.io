@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { PlayerView } from "../../client/view";
 import { AssetManifest } from "../AssetUrls";
 import { DoomsdayClockSpeed } from "../game/DoomsdayClock";
 import {
@@ -22,6 +21,17 @@ import { UserSettings } from "../game/UserSettings";
 import { GameConfig, TeamCountConfig } from "../Schemas";
 import { NukeType } from "../StatsSchemas";
 import { assertNever, sigmoid, toInt, within } from "../Util";
+
+interface EconomyPlayer {
+  type(): PlayerType;
+  isLobbyCreator(): boolean;
+  numTilesOwned(): number;
+  troops(): number;
+  units(type: UnitType): Array<{
+    isUnderConstruction(): boolean;
+    level(): number;
+  }>;
+}
 
 declare global {
   interface Window {
@@ -246,7 +256,7 @@ export class Config {
   trainGold(
     rel: "self" | "team" | "ally" | "other",
     citiesVisited: number,
-    player: Player | PlayerView,
+    player: EconomyPlayer,
   ): Gold {
     // No penalty for the first 10 cities.
     citiesVisited = Math.max(0, citiesVisited - 9);
@@ -278,7 +288,7 @@ export class Config {
     return this.trainStationMaxRange() * 1.4142;
   }
 
-  tradeShipGold(dist: number, player: Player | PlayerView): Gold {
+  tradeShipGold(dist: number, player: EconomyPlayer): Gold {
     // Sigmoid: concave start, sharp S-curve middle, linear end - heavily punishes trades under range debuff.
     const debuff = this.tradeShipShortRangeDebuff();
     const baseGold =
@@ -445,13 +455,13 @@ export class Config {
     return info;
   }
 
-  private hasInfiniteGoldFor(player: Player | PlayerView): boolean {
+  private hasInfiniteGoldFor(player: EconomyPlayer): boolean {
     if (this.infiniteGold()) return true;
     const hc = this._gameConfig.hostCheats;
     return (hc?.infiniteGold ?? false) && player.isLobbyCreator();
   }
 
-  private hasInfiniteTroopsFor(player: Player | PlayerView): boolean {
+  private hasInfiniteTroopsFor(player: EconomyPlayer): boolean {
     if (this.infiniteTroops()) return true;
     return (
       (this._gameConfig.hostCheats?.infiniteTroops ?? false) &&
@@ -467,7 +477,7 @@ export class Config {
     );
   }
 
-  private goldMultiplierFor(player: Player | PlayerView): number {
+  private goldMultiplierFor(player: EconomyPlayer): number {
     const base = this.goldMultiplier();
     const hc = this._gameConfig.hostCheats;
     if (hc?.goldMultiplier && player.isLobbyCreator()) {
@@ -783,7 +793,7 @@ export class Config {
     return this.hasInfiniteTroopsForInfo(playerInfo) ? 1_000_000 : 25_000;
   }
 
-  maxTroops(player: Player | PlayerView): number {
+  maxTroops(player: EconomyPlayer): number {
     const maxTroops =
       player.type() === PlayerType.Human && this.hasInfiniteTroopsFor(player)
         ? 1_000_000_000
@@ -817,7 +827,7 @@ export class Config {
     }
   }
 
-  troopIncreaseRate(player: Player | PlayerView): number {
+  troopIncreaseRate(player: EconomyPlayer): number {
     const max = this.maxTroops(player);
 
     let toAdd = 10 + Math.pow(player.troops(), 0.73) / 4;
@@ -851,7 +861,7 @@ export class Config {
     return Math.min(player.troops() + toAdd, max) - player.troops();
   }
 
-  goldAdditionRate(player: Player | PlayerView): Gold {
+  goldAdditionRate(player: EconomyPlayer): Gold {
     const multiplier = this.goldMultiplierFor(player);
     let baseRate: bigint;
     if (player.type() === PlayerType.Bot) {

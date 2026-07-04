@@ -1,7 +1,7 @@
 import { EventBus } from "../../core/EventBus";
 import { LiveStats, PlayerLiveStats } from "../../core/Schemas";
 import { Controller } from "../Controller";
-import { SendLiveStatsEvent } from "../Transport";
+import { SendLiveStatsEvent } from "../board/BoardEvents";
 import { GameView } from "../view";
 
 // Clients each report a live stats snapshot to the server every ~10s (turns are

@@ -26,10 +26,10 @@ vi.mock("../../../../src/client/components/ui/ActionButton", () => ({
   actionButton: vi.fn((props: unknown) => props),
 }));
 
+import { SendKickPlayerIntentEvent } from "../../../../src/client/board/BoardEvents";
 import { actionButton } from "../../../../src/client/components/ui/ActionButton";
 import { PlayerModerationModal } from "../../../../src/client/hud/layers/PlayerModerationModal";
 import { PlayerPanel } from "../../../../src/client/hud/layers/PlayerPanel";
-import { SendKickPlayerIntentEvent } from "../../../../src/client/Transport";
 import { PlayerView } from "../../../../src/client/view";
 import { PlayerType } from "../../../../src/core/game/Game";
 

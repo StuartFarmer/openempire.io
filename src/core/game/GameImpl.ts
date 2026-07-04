@@ -1,7 +1,6 @@
-import { renderNumber } from "../../client/Utils";
-import { UnitView } from "../../client/view";
 import { Config } from "../configuration/Config";
 import { SharedWaterCache } from "../execution/nation/SharedWaterCache";
+import { renderNumber } from "../formatting/NumberFormat";
 import { AbstractGraph } from "../pathfinding/algorithms/AbstractGraph";
 import { PathFinder } from "../pathfinding/types";
 import { AllPlayersStats, ClientID, Winner } from "../Schemas";
@@ -1027,7 +1026,7 @@ export class GameImpl implements Game {
       tile,
       searchRange,
       types,
-      predicate as (unit: Unit | UnitView) => boolean,
+      predicate,
       playerId,
       includeUnderConstruction,
     );

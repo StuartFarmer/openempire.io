@@ -6,7 +6,6 @@ import {
   TerrainType,
   TerraNullius,
   Tick,
-  Unit,
   UnitInfo,
   UnitType,
 } from "../../core/game/Game";
@@ -112,7 +111,7 @@ export class GameView implements GameMap {
   /** Alliance clusters: allies changed, or a player was added. */
   private _clustersDirty = true;
 
-  private unitGrid: UnitGrid;
+  private unitGrid: UnitGrid<UnitView>;
   private unitMotionPlans = new Map<
     number,
     {
@@ -143,7 +142,7 @@ export class GameView implements GameMap {
   ) {
     this._map = this._mapData.gameMap;
     this.lastUpdate = null;
-    this.unitGrid = new UnitGrid(this._map);
+    this.unitGrid = new UnitGrid<UnitView>(this._map);
     this._cosmetics = new Map(
       humans.map((h) => [h.clientID, h.cosmetics ?? {}]),
     );
@@ -906,17 +905,9 @@ export class GameView implements GameMap {
     tile: TileRef,
     searchRange: number,
     types: UnitType | readonly UnitType[],
-    predicate?: UnitPredicate,
+    predicate?: UnitPredicate<UnitView>,
   ): Array<{ unit: UnitView; distSquared: number }> {
-    return this.unitGrid.nearbyUnits(
-      tile,
-      searchRange,
-      types,
-      predicate,
-    ) as Array<{
-      unit: UnitView;
-      distSquared: number;
-    }>;
+    return this.unitGrid.nearbyUnits(tile, searchRange, types, predicate);
   }
 
   hasUnitNearby(
@@ -947,7 +938,7 @@ export class GameView implements GameMap {
       tile,
       searchRange,
       types,
-      predicate as (unit: Unit | UnitView) => boolean,
+      predicate,
       playerId,
       includeUnderConstruction,
     );

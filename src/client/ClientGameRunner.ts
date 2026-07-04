@@ -1,4 +1,3 @@
-import { Config } from "src/core/configuration/Config";
 import { translateText } from "../client/Utils";
 import { EventBus } from "../core/EventBus";
 import {
@@ -28,11 +27,7 @@ import {
   WinUpdate,
 } from "../core/game/GameUpdates";
 import { loadTerrainMap, TerrainMapData } from "../core/game/TerrainMapLoader";
-import {
-  GRAPHICS_KEY,
-  USER_SETTINGS_CHANGED_EVENT,
-  UserSettings,
-} from "../core/game/UserSettings";
+import { UserSettings } from "../core/game/UserSettings";
 import { WorkerClient } from "../core/worker/WorkerClient";
 import { getPersistentID } from "./Auth";
 import {
@@ -46,13 +41,14 @@ import {
   MouseMoveEvent,
   MouseUpEvent,
   TickMetricsEvent,
-  ToggleRenderDebugGuiEvent,
 } from "./InputHandler";
 import { endGame, startGame, startTime } from "./LocalPersistantStats";
 import { terrainMapFileLoader } from "./TerrainMapFileLoader";
 import { GoToPlayerEvent } from "./TransformHandler";
+import { Transport } from "./Transport";
+import { WebGLFrameBuilder } from "./WebGLFrameBuilder";
+import { createGameBoard, type BoardRenderer } from "./board";
 import {
-  MoveWarshipIntentEvent,
   SendAllianceExtensionIntentEvent,
   SendAllianceRequestIntentEvent,
   SendAttackIntentEvent,
@@ -61,24 +57,9 @@ import {
   SendHashEvent,
   SendSpawnIntentEvent,
   SendUpgradeStructureIntentEvent,
-  Transport,
-} from "./Transport";
-import { createCanvas } from "./Utils";
-import { WebGLFrameBuilder } from "./WebGLFrameBuilder";
-import { createRenderer, GameRenderer } from "./hud/GameRenderer";
-import {
-  applyGraphicsOverrides,
-  createRenderSettings,
-  deepAssign,
-  GLUnavailableError,
-  MapRenderer,
-  preloadAtlasData,
-  renderDpr,
-  type RenderSettings,
-  showGLGate,
-  trackGLInit,
-} from "./render/gl";
-import { ALL_UNIT_TYPES, UnitState } from "./render/types";
+} from "./board/BoardEvents";
+import { createRenderer } from "./hud/GameRenderer";
+import { GLUnavailableError, showGLGate } from "./render/gl";
 import { SoundManager } from "./sound/SoundManager";
 import { themeProvider } from "./theme/ThemeProvider";
 import { GameView, PlayerView } from "./view";
@@ -260,222 +241,6 @@ export function joinLobby(
   };
 }
 
-// Build the WebGL view + its glCanvas. Must run before createRenderer so the
-// controllers can be wired directly to the view.
-function createWebGLView(
-  terrainMap: TerrainMapData,
-  config: Config,
-  settings: RenderSettings,
-): {
-  view: MapRenderer;
-  glCanvas: HTMLCanvasElement;
-  cachedWebGLFrameCallback: { current: FrameRequestCallback | null };
-} {
-  const gameMap = terrainMap.gameMap;
-  const mapWidth = gameMap.width();
-  const mapHeight = gameMap.height();
-
-  const terrainBytes = new Uint8Array(mapWidth * mapHeight);
-  for (let y = 0; y < mapHeight; y++) {
-    for (let x = 0; x < mapWidth; x++) {
-      terrainBytes[y * mapWidth + x] = gameMap.terrainByte(gameMap.ref(x, y));
-    }
-  }
-
-  const glCanvas = createCanvas();
-  glCanvas.id = "webgl-debug-canvas";
-  glCanvas.style.pointerEvents = "none";
-  document.body.insertBefore(glCanvas, document.body.firstChild);
-
-  // Capture the WebGL renderer's animation-frame callback rather than letting
-  // it run its own RAF loop. Two independent RAF loops race: when the user
-  // pans, the WebGL renderer can draw with one-frame-stale camera state
-  // because its RAF fires before canvas2D's RAF (which would have synced the
-  // camera). Driving WebGL's draw synchronously from canvas2D's onPreRender
-  // hook locks them to the same frame.
-  const cachedWebGLFrameCallback: { current: FrameRequestCallback | null } = {
-    current: null,
-  };
-  const captureRaf = (cb: FrameRequestCallback): number => {
-    cachedWebGLFrameCallback.current = cb;
-    return 0;
-  };
-  const captureCaf = (_id: number): void => {
-    cachedWebGLFrameCallback.current = null;
-  };
-
-  const palette = new Float32Array(4096 * 2 * 4);
-  // Log the GPU init result on every session so we can size the real % of
-  // users on software/missing WebGL2. MapRenderer constructs the GL context;
-  // a non-accelerated context throws GLUnavailableError (handled by the
-  // game-start catch, which shows the gate).
-  let view: MapRenderer;
-  try {
-    view = new MapRenderer(
-      glCanvas,
-      {
-        mapWidth,
-        mapHeight,
-        unitTypes: [...ALL_UNIT_TYPES],
-        players: [],
-        // Pre-allocate renderer textures for up to 1024 players. We add players
-        // dynamically via view.addPlayers() as they come in from the simulation,
-        // but the NamePass / palette / relation matrix all need a static upper
-        // bound at construction time.
-        maxPlayers: 1024,
-      },
-      terrainBytes,
-      palette,
-      config,
-      settings,
-      captureRaf,
-      captureCaf,
-    );
-  } catch (e) {
-    if (e instanceof GLUnavailableError) {
-      trackGLInit(e.glStatus, e.renderer);
-    }
-    // The renderer never took ownership of the canvas, so remove it here —
-    // otherwise it lingers in the DOM holding a (possibly software) GL context.
-    glCanvas.remove();
-    throw e;
-  }
-  // Fingerprint-capped context (#4357): the game runs, but the map may render
-  // with black areas. Warn with fix instructions; the player can continue.
-  if (view.glLimited) {
-    trackGLInit(
-      "limited",
-      view.glLimited.renderer,
-      view.glLimited.maxTextureSize,
-    );
-    showGLGate("limited");
-  } else {
-    trackGLInit("ok", "");
-  }
-
-  (window as unknown as { __webglView?: unknown }).__webglView = view;
-
-  return { view, glCanvas, cachedWebGLFrameCallback };
-}
-
-function mountWebGLFrameLoop(
-  terrainMap: TerrainMapData,
-  view: MapRenderer,
-  glCanvas: HTMLCanvasElement,
-  cachedWebGLFrameCallback: { current: FrameRequestCallback | null },
-  transformHandler: import("./TransformHandler").TransformHandler,
-  gameView: GameView,
-  eventBus: EventBus,
-): { builder: WebGLFrameBuilder; stopFrameLoop: () => void } {
-  const gameMap = terrainMap.gameMap;
-  const mapWidth = gameMap.width();
-  const mapHeight = gameMap.height();
-
-  // Cache canvas dimensions to avoid forced reflows every frame. Reading
-  // clientWidth/clientHeight flushes pending layout — at 60fps that's a
-  // measurable cost. Only update on resize events from the observer.
-  let cachedCanvasW = glCanvas.clientWidth;
-  let cachedCanvasH = glCanvas.clientHeight;
-  const resizeObs = new ResizeObserver((entries) => {
-    for (const entry of entries) {
-      const { width, height } = entry.contentRect;
-      if (width > 0 && height > 0) {
-        cachedCanvasW = width;
-        cachedCanvasH = height;
-      }
-    }
-  });
-  resizeObs.observe(glCanvas);
-
-  const syncCamera = (): void => {
-    const scale = transformHandler.scale;
-    const dpr = renderDpr();
-    const centerX =
-      transformHandler.offsetX +
-      mapWidth / 2 +
-      (cachedCanvasW - mapWidth) / (2 * scale);
-    const centerY =
-      transformHandler.offsetY +
-      mapHeight / 2 +
-      (cachedCanvasH - mapHeight) / (2 * scale);
-    view.setCameraState(centerX, centerY, scale * dpr);
-    // Invoke the WebGL renderer's frame callback synchronously, with the just-
-    // updated camera state. The callback re-arms itself via captureRaf, so
-    // we'll get a fresh callback ready for the next canvas2D frame.
-    const cb = cachedWebGLFrameCallback.current;
-    cachedWebGLFrameCallback.current = null;
-    cb?.(performance.now());
-  };
-
-  // Move-target chevrons: when the player issues a warship move, show the
-  // animated chevron pass at the target tile. The renderer needs the target's
-  // tile x/y and the warship's owner smallID (so the chevrons use the right
-  // color).
-  eventBus.on(MoveWarshipIntentEvent, (e) => {
-    const tile = e.tile;
-    const tx = gameView.x(tile);
-    const ty = gameView.y(tile);
-    // Resolve owner via the first unit in the move set.
-    const firstUnit = gameView.unit(e.unitIds[0]);
-    if (firstUnit === undefined) return;
-    view.showMoveIndicator(tx, ty, firstUnit.owner().smallID());
-  });
-
-  // Self-driving RAF: syncCamera reads the latest camera state from
-  // TransformHandler, pushes it to WebGL, and synchronously invokes the
-  // renderer's captured frame callback (which draws). One RAF = one
-  // synchronized camera-update + WebGL render.
-  let rafId: number | null = null;
-  const driveFrame = (): void => {
-    syncCamera();
-    rafId = requestAnimationFrame(driveFrame);
-  };
-  rafId = requestAnimationFrame(driveFrame);
-
-  // Tear down the per-frame loop so a stopped game stops driving WebGL and
-  // releases the view for disposal. Left running, the RAF keeps the WebGL
-  // context referenced (and alive) forever — each new game would then stack
-  // another context until the browser's limit is hit.
-  const stopFrameLoop = (): void => {
-    if (rafId !== null) {
-      cancelAnimationFrame(rafId);
-      rafId = null;
-    }
-    resizeObs.disconnect();
-  };
-
-  const builder = new WebGLFrameBuilder(view);
-
-  // When context is lost and restored, WebGL loses all textures and geometry.
-  // Force a full re-upload of the simulation state.
-  view.onContextRestored = () => {
-    builder.clearCaches();
-
-    // Full upload of terrain, territory & trail state
-    const mapSize = mapWidth * mapHeight;
-    const allRefs = new Array(mapSize);
-    const allTerrain = new Uint8Array(mapSize);
-    for (let i = 0; i < mapSize; i++) {
-      allRefs[i] = i;
-      allTerrain[i] = gameView.terrainByte(i);
-    }
-    view.applyTerrainDelta(allRefs, allTerrain);
-
-    const frameData = gameView.frameData();
-    view.uploadTileAndTrailState(frameData.tileState, frameData.trailState);
-
-    // Structures, railroads and relations normally skip GPU upload unless
-    // marked dirty, now force
-    view.updateStructures(frameData.units as Map<number, UnitState>);
-    view.uploadRailroadState(frameData.railroadState);
-    view.updateRelations(frameData.relationMatrix, frameData.relationSize);
-
-    builder.update(gameView);
-  };
-
-  return { builder, stopFrameLoop };
-}
-
 async function createClientGame(
   lobbyConfig: LobbyConfig,
   clientID: ClientID | undefined,
@@ -488,175 +253,23 @@ async function createClientGame(
   if (lobbyConfig.gameStartInfo === undefined) {
     throw new Error("missing gameStartInfo");
   }
-  const config = new Config(
-    lobbyConfig.gameStartInfo.config,
-    userSettings,
-    lobbyConfig.gameRecord !== undefined,
-  );
-  let gameMap: TerrainMapData;
-
-  if (terrainLoad) {
-    gameMap = await terrainLoad;
-  } else {
-    gameMap = await loadTerrainMap(
-      lobbyConfig.gameStartInfo.config.gameMap,
-      lobbyConfig.gameStartInfo.config.gameMapSize,
-      mapLoader,
-    );
-  }
-  // Kick off the font-atlas fetch so it overlaps with worker init; the
-  // render passes need it parsed before createWebGLView runs.
-  const atlasDataLoad = preloadAtlasData();
-  const worker = new WorkerClient(lobbyConfig.gameStartInfo, clientID);
-  await worker.initialize();
-  await atlasDataLoad;
-  const gameView = new GameView(
-    worker,
-    config,
-    gameMap,
-    clientID,
-    lobbyConfig.playerName,
-    lobbyConfig.playerClanTag,
-    lobbyConfig.gameStartInfo.gameID,
-    lobbyConfig.gameStartInfo.players,
-  );
-
-  // Transparent fullscreen overlay used purely as the pointer-event /
-  // bounding-rect target for InputHandler + TransformHandler. The actual
-  // map drawing happens on the WebGL canvas created in createWebGLView.
-  const inputOverlay = document.createElement("div");
-  inputOverlay.id = "game-input-overlay";
-  inputOverlay.style.position = "fixed";
-  inputOverlay.style.left = "0";
-  inputOverlay.style.top = "0";
-  inputOverlay.style.width = "100%";
-  inputOverlay.style.height = "100%";
-  inputOverlay.style.touchAction = "none";
-  document.body.appendChild(inputOverlay);
-
   const soundManager = new SoundManager(eventBus, userSettings);
   try {
-    // Resolve render settings (defaults + user overrides) up front so the
-    // renderer is built with the final values — no construct-with-defaults,
-    // re-apply-overrides dance, and texture-baking passes (terrain) get the
-    // right colors on the first build.
-    const resolveRenderSettings = (): RenderSettings => {
-      const settings = createRenderSettings();
-      applyGraphicsOverrides(settings, userSettings.graphicsOverrides());
-      return settings;
-    };
-
-    const { view, glCanvas, cachedWebGLFrameCallback } = createWebGLView(
-      gameMap,
-      config,
-      resolveRenderSettings(),
-    );
-
-    const graphicsListenerAbort = new AbortController();
-
-    view.setShowPatterns(userSettings.territoryPatterns());
-    globalThis.addEventListener(
-      `${USER_SETTINGS_CHANGED_EVENT}:settings.territoryPatterns`,
-      (e) => view.setShowPatterns((e as CustomEvent<string>).detail === "true"),
-      { signal: graphicsListenerAbort.signal },
-    );
-
-    // Re-resolve names drawn on the map when the anonymous-names setting toggles
-    // so they switch live, like the leaderboard.
-    globalThis.addEventListener(
-      `${USER_SETTINGS_CHANGED_EVENT}:settings.anonymousNames`,
-      () => webglBuilder.refreshNames(gameView),
-      { signal: graphicsListenerAbort.signal },
-    );
-
-    // Re-resolve settings and copy them onto the renderer's live object in
-    // place (passes hold a reference to it, so they pick the change up).
-    const regenerateRenderSettings = (): void => {
-      deepAssign(view.getSettings(), resolveRenderSettings());
-    };
-    // Rebuild the GPU-derived graphics state that the per-frame passes don't
-    // pick up from the live settings object on their own.
-    const refreshDerivedGraphics = (): void => {
-      // Terrain is baked into a GPU texture rather than read per-frame, so a
-      // terrain-color override (e.g. ocean) needs an explicit texture rebuild.
-      view.rebuildTerrain();
-      // A graphics override can switch the active theme (e.g. colorblind mode),
-      // so re-theme existing players and re-upload the palette to recolor their
-      // territory fills/borders live.
-      gameView.refreshPlayerColors();
-      webglBuilder.refreshPalette(gameView);
-    };
-    // Re-apply render settings, then re-theme and recolor players, on a
-    // graphics-override change (covers a theme switch such as colorblind mode).
-    const onGraphicsChanged = (): void => {
-      regenerateRenderSettings();
-      refreshDerivedGraphics();
-    };
-    // No initial regenerate or terrain rebuild needed — the renderer was
-    // constructed with the resolved settings above, so the terrain texture
-    // already bakes any saved ocean-color override.
-    globalThis.addEventListener(
-      `${USER_SETTINGS_CHANGED_EVENT}:${GRAPHICS_KEY}`,
-      onGraphicsChanged,
-      { signal: graphicsListenerAbort.signal },
-    );
-
-    // Loaded on demand so lil-gui and the debug GUI stay out of the main bundle.
-    let debugGui: { open(): void; destroy(): void } | null = null;
-    let debugGuiLoading = false;
-    eventBus.on(ToggleRenderDebugGuiEvent, () => {
-      if (debugGui === null) {
-        if (debugGuiLoading) return;
-        debugGuiLoading = true;
-        import("./render/gl/debug/index")
-          .then(({ createDebugGui }) => {
-            debugGui = createDebugGui(
-              view.getSettings(),
-              resolveRenderSettings,
-              refreshDerivedGraphics,
-            );
-            debugGui.open();
-          })
-          .finally(() => {
-            debugGuiLoading = false;
-          });
-      } else {
-        debugGui.destroy();
-        debugGui = null;
-      }
+    const board = await createGameBoard({
+      container: document.body,
+      eventBus,
+      gameStartInfo: lobbyConfig.gameStartInfo,
+      clientID,
+      playerName: lobbyConfig.playerName,
+      playerClanTag: lobbyConfig.playerClanTag,
+      playerRole: lobbyConfig.playerRole,
+      userSettings,
+      isReplay: lobbyConfig.gameRecord !== undefined,
+      terrainLoad,
+      mapLoader,
+      createRenderer,
+      turnAdapter: false,
     });
-
-    const gameRenderer = createRenderer(
-      inputOverlay,
-      gameView,
-      eventBus,
-      lobbyConfig.playerRole,
-      view,
-    );
-
-    const { builder: webglBuilder, stopFrameLoop } = mountWebGLFrameLoop(
-      gameMap,
-      view,
-      glCanvas,
-      cachedWebGLFrameCallback,
-      gameRenderer.transformHandler,
-      gameView,
-      eventBus,
-    );
-
-    // Releases all WebGL/DOM resources this game created. Without it, stopping
-    // a game (e.g. joining another without a page reload) leaks the WebGL
-    // context, canvas and input overlay — a few games and mobile browsers hit
-    // their WebGL context limit. Idempotent: stop() may be called more than once.
-    let rendererDisposed = false;
-    const disposeRenderer = (): void => {
-      if (rendererDisposed) return;
-      rendererDisposed = true;
-      stopFrameLoop();
-      view.dispose();
-      glCanvas.remove();
-      inputOverlay.remove();
-    };
 
     console.log(
       `creating private game got difficulty: ${lobbyConfig.gameStartInfo.config.difficulty}`,
@@ -666,16 +279,16 @@ async function createClientGame(
       lobbyConfig,
       clientID,
       eventBus,
-      gameRenderer,
-      new InputHandler(gameView, gameRenderer.uiState, inputOverlay, eventBus),
+      board.renderer,
+      board.input,
       transport,
-      worker,
-      gameView,
+      board.worker,
+      board.gameView,
       soundManager,
       userSettings,
-      webglBuilder,
-      graphicsListenerAbort,
-      disposeRenderer,
+      board.webglBuilder,
+      null,
+      board.dispose,
     );
   } catch (err) {
     soundManager.dispose();
@@ -701,7 +314,7 @@ export class ClientGameRunner {
     private lobby: LobbyConfig,
     private clientID: ClientID | undefined,
     private eventBus: EventBus,
-    private renderer: GameRenderer,
+    private renderer: BoardRenderer,
     private input: InputHandler,
     private transport: Transport,
     private worker: WorkerClient,
@@ -972,7 +585,9 @@ export class ClientGameRunner {
     if (!this.isActive) return;
 
     this.isActive = false;
-    this.worker.cleanup();
+    if (this.disposeRenderer === null) {
+      this.worker.cleanup();
+    }
     this.transport.leaveGame();
     if (this.connectionCheckInterval) {
       clearInterval(this.connectionCheckInterval);

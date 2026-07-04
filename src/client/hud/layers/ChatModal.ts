@@ -6,8 +6,8 @@ import { GameView, PlayerView } from "../../view";
 
 import quickChatData from "resources/QuickChat.json";
 import { EventBus } from "../../../core/EventBus";
+import { SendQuickChatEvent } from "../../board/BoardEvents";
 import { CloseViewEvent } from "../../InputHandler";
-import { SendQuickChatEvent } from "../../Transport";
 import { translateText } from "../../Utils";
 
 export type QuickChatPhrase = {

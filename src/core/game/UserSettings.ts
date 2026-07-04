@@ -1,9 +1,9 @@
+import { Cosmetics } from "../CosmeticSchemas";
+import { PlayerPattern } from "../Schemas";
 import {
   GraphicsOverrides,
   GraphicsOverridesSchema,
-} from "../../client/render/gl/GraphicsOverrides";
-import { Cosmetics } from "../CosmeticSchemas";
-import { PlayerPattern } from "../Schemas";
+} from "./GraphicsOverrides";
 
 export function getDefaultKeybinds(isMac: boolean): Record<string, string> {
   return {

@@ -1,4 +1,3 @@
-import type { PlayerState } from "../../client/render/types";
 import type { EmojiMessage } from "./Game";
 import {
   AllianceView,
@@ -6,6 +5,7 @@ import {
   GameUpdateType,
   PlayerUpdate,
 } from "./GameUpdates";
+import type { PlayerState } from "./PlayerState";
 
 /**
  * Build a partial PlayerUpdate containing only fields whose value differs

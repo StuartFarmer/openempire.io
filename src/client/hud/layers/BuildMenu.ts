@@ -11,6 +11,10 @@ import {
   UnitType,
 } from "../../../core/game/Game";
 import { TileRef } from "../../../core/game/GameMap";
+import {
+  BuildUnitIntentEvent,
+  SendUpgradeStructureIntentEvent,
+} from "../../board/BoardEvents";
 import { Controller } from "../../Controller";
 import {
   CloseViewEvent,
@@ -19,10 +23,6 @@ import {
   ShowEmojiMenuEvent,
 } from "../../InputHandler";
 import { TransformHandler } from "../../TransformHandler";
-import {
-  BuildUnitIntentEvent,
-  SendUpgradeStructureIntentEvent,
-} from "../../Transport";
 import { UIState } from "../../UIState";
 import { renderNumber } from "../../Utils";
 import { GameView } from "../../view";

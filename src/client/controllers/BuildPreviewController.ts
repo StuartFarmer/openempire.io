@@ -19,6 +19,10 @@ import {
 } from "../../core/game/Game";
 import { TileRef } from "../../core/game/GameMap";
 import { UserSettings } from "../../core/game/UserSettings";
+import {
+  BuildUnitIntentEvent,
+  SendUpgradeStructureIntentEvent,
+} from "../board/BoardEvents";
 import { Controller } from "../Controller";
 import {
   ConfirmGhostStructureEvent,
@@ -29,10 +33,6 @@ import { MapRenderer, buildNukeTrajectory } from "../render/gl";
 import type { SAMInfo } from "../render/gl/utils/NukeTrajectory";
 import type { GhostPreviewData } from "../render/types";
 import { TransformHandler } from "../TransformHandler";
-import {
-  BuildUnitIntentEvent,
-  SendUpgradeStructureIntentEvent,
-} from "../Transport";
 import { UIState } from "../UIState";
 import { GameView } from "../view";
 

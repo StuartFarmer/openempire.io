@@ -12,6 +12,14 @@ import {
 } from "../../../core/game/Game";
 import { TileRef } from "../../../core/game/GameMap";
 import { Emoji, flattenedEmojiTable } from "../../../core/Util";
+import {
+  SendAllianceRequestIntentEvent,
+  SendBreakAllianceIntentEvent,
+  SendEmbargoAllIntentEvent,
+  SendEmbargoIntentEvent,
+  SendEmojiIntentEvent,
+  SendTargetPlayerIntentEvent,
+} from "../../board/BoardEvents";
 import { actionButton } from "../../components/ui/ActionButton";
 import "../../components/ui/Divider";
 import { Controller } from "../../Controller";
@@ -20,14 +28,6 @@ import {
   MouseUpEvent,
   SwapRocketDirectionEvent,
 } from "../../InputHandler";
-import {
-  SendAllianceRequestIntentEvent,
-  SendBreakAllianceIntentEvent,
-  SendEmbargoAllIntentEvent,
-  SendEmbargoIntentEvent,
-  SendEmojiIntentEvent,
-  SendTargetPlayerIntentEvent,
-} from "../../Transport";
 import { UIState } from "../../UIState";
 import {
   renderDuration,

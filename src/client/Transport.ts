@@ -1,17 +1,8 @@
 import { ClientEnv } from "src/client/ClientEnv";
 import { z } from "zod";
-import { EventBus, GameEvent } from "../core/EventBus";
+import { EventBus } from "../core/EventBus";
+import { AllPlayers, GameType } from "../core/game/Game";
 import {
-  AllPlayers,
-  GameType,
-  Gold,
-  PlayerID,
-  Tick,
-  UnitType,
-} from "../core/game/Game";
-import { TileRef } from "../core/game/GameMap";
-import {
-  AllPlayersStats,
   ClientHashMessage,
   ClientIntentMessage,
   ClientJoinMessage,
@@ -20,168 +11,43 @@ import {
   ClientRejoinMessage,
   ClientSendLiveStatsMessage,
   ClientSendWinnerMessage,
-  GameConfig,
   Intent,
-  LiveStats,
   ServerMessage,
   ServerMessageSchema,
-  Winner,
 } from "../core/Schemas";
 import { replacer } from "../core/Util";
 import { getPlayToken } from "./Auth";
+import {
+  BuildUnitIntentEvent,
+  CancelAttackIntentEvent,
+  CancelBoatIntentEvent,
+  MoveWarshipIntentEvent,
+  PauseGameIntentEvent,
+  SendAllianceExtensionIntentEvent,
+  SendAllianceRejectIntentEvent,
+  SendAllianceRequestIntentEvent,
+  SendAttackIntentEvent,
+  SendBoatAttackIntentEvent,
+  SendBreakAllianceIntentEvent,
+  SendDeleteUnitIntentEvent,
+  SendDonateGoldIntentEvent,
+  SendDonateTroopsIntentEvent,
+  SendEmbargoAllIntentEvent,
+  SendEmbargoIntentEvent,
+  SendEmojiIntentEvent,
+  SendHashEvent,
+  SendKickPlayerIntentEvent,
+  SendLiveStatsEvent,
+  SendQuickChatEvent,
+  SendSpawnIntentEvent,
+  SendTargetPlayerIntentEvent,
+  SendToggleGameStartTimer,
+  SendUpdateGameConfigIntentEvent,
+  SendUpgradeStructureIntentEvent,
+  SendWinnerEvent,
+} from "./board/BoardEvents";
 import { LobbyConfig } from "./ClientGameRunner";
 import { LocalServer } from "./LocalServer";
-import { PlayerView } from "./view";
-
-export class PauseGameIntentEvent implements GameEvent {
-  constructor(public readonly paused: boolean) {}
-}
-
-export class SendAllianceRequestIntentEvent implements GameEvent {
-  constructor(
-    public readonly requestor: PlayerView,
-    public readonly recipient: PlayerView,
-  ) {}
-}
-
-export class SendBreakAllianceIntentEvent implements GameEvent {
-  constructor(
-    public readonly requestor: PlayerView,
-    public readonly recipient: PlayerView,
-  ) {}
-}
-
-export class SendUpgradeStructureIntentEvent implements GameEvent {
-  constructor(
-    public readonly unitId: number,
-    public readonly unitType: UnitType,
-  ) {}
-}
-
-export class SendAllianceRejectIntentEvent implements GameEvent {
-  constructor(public readonly requestor: PlayerView) {}
-}
-
-export class SendAllianceExtensionIntentEvent implements GameEvent {
-  constructor(public readonly recipient: PlayerView) {}
-}
-
-export class SendSpawnIntentEvent implements GameEvent {
-  constructor(public readonly tile: TileRef) {}
-}
-
-export class SendAttackIntentEvent implements GameEvent {
-  constructor(
-    public readonly targetID: PlayerID | null,
-    public readonly troops: number,
-  ) {}
-}
-
-export class SendBoatAttackIntentEvent implements GameEvent {
-  constructor(
-    public readonly dst: TileRef,
-    public readonly troops: number,
-  ) {}
-}
-
-export class BuildUnitIntentEvent implements GameEvent {
-  constructor(
-    public readonly unit: UnitType,
-    public readonly tile: TileRef,
-    public readonly rocketDirectionUp?: boolean,
-  ) {}
-}
-
-export class SendTargetPlayerIntentEvent implements GameEvent {
-  constructor(public readonly targetID: PlayerID) {}
-}
-
-export class SendEmojiIntentEvent implements GameEvent {
-  constructor(
-    public readonly recipient: PlayerView | typeof AllPlayers,
-    public readonly emoji: number,
-  ) {}
-}
-
-export class SendDonateGoldIntentEvent implements GameEvent {
-  constructor(
-    public readonly recipient: PlayerView,
-    public readonly gold: Gold | null,
-  ) {}
-}
-
-export class SendDonateTroopsIntentEvent implements GameEvent {
-  constructor(
-    public readonly recipient: PlayerView,
-    public readonly troops: number | null,
-  ) {}
-}
-
-export class SendQuickChatEvent implements GameEvent {
-  constructor(
-    public readonly recipient: PlayerView,
-    public readonly quickChatKey: string,
-    public readonly target?: PlayerID,
-  ) {}
-}
-
-export class SendEmbargoIntentEvent implements GameEvent {
-  constructor(
-    public readonly target: PlayerView,
-    public readonly action: "start" | "stop",
-  ) {}
-}
-
-export class SendEmbargoAllIntentEvent implements GameEvent {
-  constructor(public readonly action: "start" | "stop") {}
-}
-
-export class SendDeleteUnitIntentEvent implements GameEvent {
-  constructor(public readonly unitId: number) {}
-}
-
-export class CancelAttackIntentEvent implements GameEvent {
-  constructor(public readonly attackID: string) {}
-}
-
-export class CancelBoatIntentEvent implements GameEvent {
-  constructor(public readonly unitID: number) {}
-}
-
-export class SendWinnerEvent implements GameEvent {
-  constructor(
-    public readonly winner: Winner,
-    public readonly allPlayersStats: AllPlayersStats,
-  ) {}
-}
-export class SendLiveStatsEvent implements GameEvent {
-  constructor(public readonly stats: LiveStats) {}
-}
-export class SendHashEvent implements GameEvent {
-  constructor(
-    public readonly tick: Tick,
-    public readonly hash: number,
-  ) {}
-}
-
-export class MoveWarshipIntentEvent implements GameEvent {
-  constructor(
-    public readonly unitIds: number[],
-    public readonly tile: number,
-  ) {}
-}
-
-export class SendKickPlayerIntentEvent implements GameEvent {
-  constructor(public readonly target: string) {}
-}
-
-export class SendUpdateGameConfigIntentEvent implements GameEvent {
-  constructor(public readonly config: Partial<GameConfig>) {}
-}
-
-export class SendToggleGameStartTimer implements GameEvent {
-  constructor() {}
-}
 
 export class Transport {
   private socket: WebSocket | null = null;

@@ -1,5 +1,11 @@
 {
   "name": "openfront-client",
+  "exports": {
+    ".": "./src/client/board/index.ts",
+    "./board": "./src/client/board/index.ts",
+    "./core": "./src/core/index.ts",
+    "./render": "./src/client/render/gl/index.ts"
+  },
   "scripts": {
     "build-dev": "concurrently \"tsc --noEmit\" \"vite build --mode development\"",
     "build-prod": "concurrently --kill-others-on-fail \"tsc --noEmit\" \"vite build\"",

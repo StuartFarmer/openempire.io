@@ -8,6 +8,10 @@
  * Float32Array(PALETTE_SIZE × 2 × 4) to the GPURenderer constructor.
  */
 
+import {
+  validateBoardMap,
+  type BoardMap,
+} from "../../../../core/game/BoardMap";
 import renderDefaults from "../render-settings.json";
 
 /** Must cover 12-bit smallID range (0-4095). */
@@ -167,6 +171,23 @@ export function buildTerrainRGBA(
   const pixels = new Uint8Array(w * h * 4);
   for (let i = 0; i < w * h; i++) {
     encodeTerrainTile(terrainBytes[i], pixels, i * 4, colors);
+  }
+  return pixels;
+}
+
+export function buildBoardMapTerrainRGBA(
+  map: BoardMap,
+  colors?: TerrainColorOverrides,
+): Uint8Array {
+  validateBoardMap(map);
+  const pixels =
+    map.colorizer?.(map) ??
+    buildTerrainRGBA(map.terrain, map.width, map.height, colors);
+  const expected = map.width * map.height * 4;
+  if (pixels.length !== expected) {
+    throw new Error(
+      `terrain colorizer length ${pixels.length} does not match ${map.width}x${map.height} RGBA`,
+    );
   }
   return pixels;
 }

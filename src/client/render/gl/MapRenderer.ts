@@ -12,6 +12,7 @@
  */
 
 import type { Config } from "../../../core/configuration/Config";
+import type { BoardMap } from "../../../core/game/BoardMap";
 import type {
   AttackRingInput,
   BonusEvent,
@@ -56,6 +57,7 @@ export class MapRenderer {
     private settings: RenderSettings,
     private raf?: typeof requestAnimationFrame,
     private caf?: typeof cancelAnimationFrame,
+    private boardMap?: BoardMap,
   ) {
     this.initRenderer();
 
@@ -85,6 +87,7 @@ export class MapRenderer {
       this.settings,
       this.raf,
       this.caf,
+      this.boardMap,
     );
 
     const rect = this.canvas.getBoundingClientRect();

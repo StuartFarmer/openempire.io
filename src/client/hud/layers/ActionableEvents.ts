@@ -9,14 +9,14 @@ import {
   BrokeAllianceUpdate,
   GameUpdateType,
 } from "../../../core/game/GameUpdates";
-import { Controller } from "../../Controller";
-import { PlaySoundEffectEvent } from "../../sound/Sounds";
-import { GoToPlayerEvent } from "../../TransformHandler";
 import {
   SendAllianceExtensionIntentEvent,
   SendAllianceRejectIntentEvent,
   SendAllianceRequestIntentEvent,
-} from "../../Transport";
+} from "../../board/BoardEvents";
+import { Controller } from "../../Controller";
+import { PlaySoundEffectEvent } from "../../sound/Sounds";
+import { GoToPlayerEvent } from "../../TransformHandler";
 import { UIState } from "../../UIState";
 import { getMessageTypeClasses, translateText } from "../../Utils";
 import { GameView, PlayerView } from "../../view";

@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { SendUpgradeStructureIntentEvent } from "../src/client/Transport";
+import { SendUpgradeStructureIntentEvent } from "../src/client/board/BoardEvents";
 import { EventBus } from "../src/core/EventBus";
 import { UnitType } from "../src/core/game/Game";
 import { TileRef } from "../src/core/game/GameMap";

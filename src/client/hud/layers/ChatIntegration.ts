@@ -1,5 +1,5 @@
 import { EventBus } from "../../../core/EventBus";
-import { SendQuickChatEvent } from "../../Transport";
+import { SendQuickChatEvent } from "../../board/BoardEvents";
 import { translateText } from "../../Utils";
 import { GameView, PlayerView } from "../../view";
 import { ChatModal, QuickChatPhrase, quickChatPhrases } from "./ChatModal";

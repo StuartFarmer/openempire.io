@@ -1,7 +1,7 @@
-import { GameView } from "../../client/view";
 import { NukeMagnitude } from "../configuration/Config";
-import { Game, Player, Structures } from "../game/Game";
+import { Game, Player, Structures, UnitType } from "../game/Game";
 import { euclDistFN, GameMap, TileRef } from "../game/GameMap";
+import type { GridUnit } from "../game/UnitGrid";
 
 export interface NukeBlastParams {
   gm: GameMap;
@@ -36,11 +36,34 @@ export function computeNukeBlastCounts(
 }
 
 export interface NukeAllianceCheckParams {
-  game: Game | GameView;
+  game: GameMap & {
+    anyUnitNearby(
+      tile: TileRef,
+      searchRange: number,
+      types: readonly UnitType[],
+      predicate: (unit: NukeCheckUnit) => boolean,
+    ): boolean;
+    nearbyUnits(
+      tile: TileRef,
+      searchRange: number,
+      types: readonly UnitType[],
+    ): Array<{
+      unit: NukeCheckUnit;
+      distSquared: number;
+    }>;
+  };
   targetTile: TileRef;
   magnitude: NukeMagnitude;
   allySmallIds?: Set<number>;
   threshold: number;
+}
+
+interface NukeCheckUnit extends GridUnit {
+  owner(): {
+    id(): string;
+    isPlayer(): boolean;
+    smallID(): number;
+  };
 }
 
 // Checks if nuking this tile would break an alliance.

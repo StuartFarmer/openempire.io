@@ -8,9 +8,11 @@
  * so each terrain cell stays pixel-crisp at every zoom level.
  */
 
+import type { BoardMap } from "../../../../core/game/BoardMap";
 import terrainFragSrc from "../shaders/terrain/terrain.frag.glsl?raw";
 import terrainVertSrc from "../shaders/terrain/terrain.vert.glsl?raw";
 import {
+  buildBoardMapTerrainRGBA,
   buildTerrainRGBA,
   encodeTerrainTile,
   TerrainColorOverrides,
@@ -44,6 +46,7 @@ export class TerrainPass {
     mapW: number,
     mapH: number,
     terrainColors?: TerrainColorOverrides,
+    private boardMap?: BoardMap,
   ) {
     this.mapW = mapW;
     this.mapH = mapH;
@@ -61,7 +64,7 @@ export class TerrainPass {
       internalFormat: gl.RGBA8,
       format: gl.RGBA,
       type: gl.UNSIGNED_BYTE,
-      data: buildTerrainRGBA(terrainBytes, mapW, mapH, terrainColors),
+      data: this.buildTerrainPixels(terrainColors),
       filter: gl.NEAREST, // pixel-crisp at all zoom levels
     });
 
@@ -86,8 +89,21 @@ export class TerrainPass {
       this.mapH,
       gl.RGBA,
       gl.UNSIGNED_BYTE,
-      buildTerrainRGBA(this.terrainBytes, this.mapW, this.mapH, terrainColors),
+      this.buildTerrainPixels(terrainColors),
     );
+  }
+
+  private buildTerrainPixels(
+    terrainColors?: TerrainColorOverrides,
+  ): Uint8Array {
+    return this.boardMap
+      ? buildBoardMapTerrainRGBA(this.boardMap, terrainColors)
+      : buildTerrainRGBA(
+          this.terrainBytes,
+          this.mapW,
+          this.mapH,
+          terrainColors,
+        );
   }
 
   /**

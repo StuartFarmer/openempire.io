@@ -1,14 +1,22 @@
-import { UnitView } from "../../client/view";
 import { PlayerID, Unit, UnitType } from "./Game";
 import { GameMap, TileRef } from "./GameMap";
 
-export type UnitPredicate = (value: {
-  unit: Unit | UnitView;
+export interface GridUnit {
+  tile(): TileRef;
+  lastTile(): TileRef;
+  type(): UnitType;
+  isActive(): boolean;
+  isUnderConstruction(): boolean;
+  owner(): { id(): PlayerID };
+}
+
+export type UnitPredicate<TUnit extends GridUnit = GridUnit> = (value: {
+  unit: TUnit;
   distSquared: number;
 }) => boolean;
 
-export class UnitGrid {
-  private grid: Map<UnitType, Set<Unit | UnitView>>[][];
+export class UnitGrid<TUnit extends GridUnit = Unit> {
+  private grid: Map<UnitType, Set<TUnit>>[][];
   private readonly cellSize = 100;
 
   constructor(private gm: GameMap) {
@@ -17,7 +25,7 @@ export class UnitGrid {
       .map(() =>
         Array(Math.ceil(gm.width() / this.cellSize))
           .fill(null)
-          .map(() => new Map<UnitType, Set<Unit | UnitView>>()),
+          .map(() => new Map<UnitType, Set<TUnit>>()),
       );
   }
 
@@ -27,7 +35,7 @@ export class UnitGrid {
   }
 
   // Add a unit to the grid
-  addUnit(unit: Unit | UnitView) {
+  addUnit(unit: TUnit) {
     const tile = unit.tile();
     const [gridX, gridY] = this.getGridCoords(this.gm.x(tile), this.gm.y(tile));
 
@@ -36,21 +44,18 @@ export class UnitGrid {
       if (unitSet !== undefined) {
         unitSet.add(unit);
       } else {
-        this.grid[gridY][gridX].set(
-          unit.type(),
-          new Set<Unit | UnitView>([unit]),
-        );
+        this.grid[gridY][gridX].set(unit.type(), new Set<TUnit>([unit]));
       }
     }
   }
 
   // Remove a unit from the grid
-  removeUnit(unit: Unit | UnitView) {
+  removeUnit(unit: TUnit) {
     const tile = unit.tile();
     this.removeUnitByTile(unit, tile);
   }
 
-  removeUnitByTile(unit: Unit | UnitView, tile: TileRef) {
+  removeUnitByTile(unit: TUnit, tile: TileRef) {
     const [gridX, gridY] = this.getGridCoords(this.gm.x(tile), this.gm.y(tile));
 
     if (this.isValidCell(gridX, gridY)) {
@@ -64,7 +69,7 @@ export class UnitGrid {
   /**
    * Move an unit to its new cell if it changed
    */
-  updateUnitCell(unit: Unit | UnitView) {
+  updateUnitCell(unit: TUnit) {
     const newTile = unit.tile();
     const oldTile = unit.lastTile();
     const [gridX, gridY] = this.getGridCoords(
@@ -116,10 +121,7 @@ export class UnitGrid {
     return { startGridX, endGridX, startGridY, endGridY };
   }
 
-  private squaredDistanceFromTile(
-    unit: Unit | UnitView,
-    tile: TileRef,
-  ): number {
+  private squaredDistanceFromTile(unit: TUnit, tile: TileRef): number {
     const x = this.gm.x(tile);
     const y = this.gm.y(tile);
     const tileX = this.gm.x(unit.tile());
@@ -136,10 +138,10 @@ export class UnitGrid {
     tile: TileRef,
     searchRange: number,
     types: readonly UnitType[] | UnitType,
-    predicate?: UnitPredicate,
+    predicate?: UnitPredicate<TUnit>,
     includeUnderConstruction: boolean = false,
-  ): Array<{ unit: Unit | UnitView; distSquared: number }> {
-    const nearby: Array<{ unit: Unit | UnitView; distSquared: number }> = [];
+  ): Array<{ unit: TUnit; distSquared: number }> {
+    const nearby: Array<{ unit: TUnit; distSquared: number }> = [];
     const gm = this.gm;
     const x = gm.x(tile);
     const y = gm.y(tile);
@@ -202,7 +204,7 @@ export class UnitGrid {
   }
 
   private unitIsInRange(
-    unit: Unit | UnitView,
+    unit: TUnit,
     tile: TileRef,
     rangeSquared: number,
     playerId?: PlayerID,
@@ -263,7 +265,7 @@ export class UnitGrid {
     tile: TileRef,
     searchRange: number,
     types: readonly UnitType[],
-    predicate: (unit: Unit | UnitView) => boolean,
+    predicate: (unit: TUnit) => boolean,
     playerId?: PlayerID,
     includeUnderConstruction: boolean = false,
   ): boolean {
