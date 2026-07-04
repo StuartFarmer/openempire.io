@@ -574,6 +574,11 @@ class Client {
     }
 
     const onHashUpdate = () => {
+      if (window.location.hash === "#alternative") {
+        window.showPage?.("page-alternative-sandbox");
+        return;
+      }
+
       // Router-managed hash changes (#modal=...) are handled by the router
       // syncing in/out; we don't need to tear down the lobby state for them.
       if (modalRouter.isHashRouted()) {
