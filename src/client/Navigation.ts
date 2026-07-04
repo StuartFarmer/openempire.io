@@ -157,5 +157,9 @@ export function initNavigation() {
   });
 
   // Ensure Play is the default visible/active page on load.
-  showPage("page-play");
+  showPage(
+    window.location.hash === "#alternative"
+      ? "page-alternative-sandbox"
+      : "page-play",
+  );
 }
