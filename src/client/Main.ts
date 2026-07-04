@@ -14,6 +14,7 @@ import { GameEnv } from "../core/configuration/Config";
 import { GameType } from "../core/game/Game";
 import { UserSettings } from "../core/game/UserSettings";
 import "./AccountModal";
+import "./AlternativeSandboxPage";
 import { getUserMe, invalidateUserMe } from "./Api";
 import { userAuth } from "./Auth";
 import "./ClanModal";
@@ -766,6 +767,11 @@ class Client {
 
       strip();
       this.tokenLoginModal.openWithToken(token);
+      return;
+    }
+
+    if (decodedHash === "#alternative") {
+      window.showPage?.("page-alternative-sandbox");
       return;
     }
 
