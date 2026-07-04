@@ -78,6 +78,12 @@ export function initNavigation() {
 
   window.showPage = showPage;
 
+  window.addEventListener("hashchange", () => {
+    if (window.location.hash === "#alternative") {
+      showPage("page-alternative-sandbox");
+    }
+  });
+
   // Use event delegation for navigation items (they may be inside Lit components)
   document.addEventListener("click", async (e) => {
     const target = (e.target as HTMLElement).closest(

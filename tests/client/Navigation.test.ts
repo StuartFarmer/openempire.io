@@ -25,4 +25,24 @@ describe("initNavigation", () => {
         ?.classList.contains("hidden"),
     ).toBe(false);
   });
+
+  test("opens the alternative sandbox page when hash changes to #alternative", () => {
+    document.body.innerHTML = `
+      <div id="page-play"></div>
+      <alternative-sandbox-page id="page-alternative-sandbox" class="hidden page-content"></alternative-sandbox-page>
+    `;
+
+    initNavigation();
+    history.replaceState(null, "", "/#alternative");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+
+    expect(
+      document.getElementById("page-play")?.classList.contains("hidden"),
+    ).toBe(true);
+    expect(
+      document
+        .getElementById("page-alternative-sandbox")
+        ?.classList.contains("hidden"),
+    ).toBe(false);
+  });
 });
