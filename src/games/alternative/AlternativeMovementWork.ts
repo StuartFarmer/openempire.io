@@ -75,7 +75,10 @@ export function calculateAlternativeMovementWork(
   );
 }
 
-export function advanceAlternativeMovementJob(runtime: BoardRuntime): {
+export function advanceAlternativeMovementJob(
+  runtime: BoardRuntime,
+  maxSpend = Number.POSITIVE_INFINITY,
+): {
   spent: number;
   complete: boolean;
 } {
@@ -85,6 +88,7 @@ export function advanceAlternativeMovementJob(runtime: BoardRuntime): {
     getAlternativeFood(runtime, job.ownerId),
     job.troopAmount * getAlternativeTuning(runtime).troopWorkPerTick,
     job.workRemaining,
+    maxSpend,
   );
   if (spent <= 0) return { spent: 0, complete: false };
 

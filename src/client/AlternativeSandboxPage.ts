@@ -7,7 +7,11 @@ import {
   type BoardRuntime,
 } from "../core/game/BoardRuntime";
 import { createAlternativeOpenFrontRuntime } from "../games/alternative";
-import { describeAlternativeEconomy } from "../games/alternative/AlternativeFoodEconomy";
+import {
+  buildAlternativeFarm,
+  buildAlternativeSettlement,
+  describeAlternativeEconomy,
+} from "../games/alternative/AlternativeFoodEconomy";
 import { describeAlternativeMovementWork } from "../games/alternative/AlternativeMovementWork";
 import {
   DEFAULT_ALTERNATIVE_TUNING,
@@ -40,9 +44,15 @@ export class AlternativeSandboxPage extends LitElement {
   @state()
   private settlements = 0;
   @state()
+  private farms = 0;
+  @state()
   private movementWork: { remaining: number; total: number } | null = null;
   @state()
   private tuning: AlternativeTuning = DEFAULT_ALTERNATIVE_TUNING;
+  @state()
+  private buildMode: "expand" | "farm" | "settlement" = "expand";
+  @state()
+  private expandEnergyBudget = 200;
 
   createRenderRoot() {
     return this;
@@ -91,12 +101,17 @@ export class AlternativeSandboxPage extends LitElement {
         ref,
       });
       if (countOwned(this.map) > 0) this.startClock();
+    } else if (this.buildMode === "farm") {
+      buildAlternativeFarm(this.runtime, 1, ref);
+    } else if (this.buildMode === "settlement") {
+      buildAlternativeSettlement(this.runtime, 1, ref);
     } else {
       dispatchBoardCommand(this.runtime, {
         type: "alternative.expand",
         ownerId: 1,
         ref,
         troops: 2_000,
+        energyBudget: this.expandEnergyBudget,
       });
       this.startClock();
     }
@@ -125,6 +140,7 @@ export class AlternativeSandboxPage extends LitElement {
     this.food = economy.food;
     this.foodPerTick = economy.foodPerTick;
     this.settlements = economy.settlements;
+    this.farms = economy.farms;
     this.movementWork = describeAlternativeMovementWork(this.runtime);
     this.tuning = getAlternativeTuning(this.runtime);
   }
@@ -134,6 +150,12 @@ export class AlternativeSandboxPage extends LitElement {
     if (!Number.isFinite(value)) return;
     setAlternativeTuning(this.runtime, { [key]: Math.max(0, value) });
     this.refreshStats();
+  }
+
+  private updateExpandEnergyBudget(event: Event): void {
+    const value = Number((event.currentTarget as HTMLInputElement).value);
+    if (!Number.isFinite(value)) return;
+    this.expandEnergyBudget = Math.max(0, value);
   }
 
   private paint(): void {
@@ -177,6 +199,7 @@ export class AlternativeSandboxPage extends LitElement {
             <span>Food: ${Math.floor(this.food)}</span>
             <span>Food/tick: ${this.foodPerTick}</span>
             <span>Settlements: ${this.settlements}</span>
+            <span>Farms: ${this.farms}</span>
             ${this.movementWork
               ? html`<span>
                   Move work:
@@ -193,6 +216,26 @@ export class AlternativeSandboxPage extends LitElement {
               @click=${this.handleCanvasClick}
             ></canvas>
             <aside class="border border-white/15 p-3 flex flex-col gap-3">
+              <div class="flex flex-col gap-2">
+                <h2 class="text-base font-semibold">Build</h2>
+                <div class="grid grid-cols-3 gap-2">
+                  ${this.renderModeButton("Expand", "expand")}
+                  ${this.renderModeButton("Farm", "farm")}
+                  ${this.renderModeButton("Settlement", "settlement")}
+                </div>
+                <label class="flex flex-col gap-1 text-sm text-white/75">
+                  <span>Expand energy</span>
+                  <input
+                    class="w-full bg-black border border-white/20 px-2 py-1 text-white"
+                    name="expandEnergyBudget"
+                    type="number"
+                    min="0"
+                    step="10"
+                    .value=${String(this.expandEnergyBudget)}
+                    @input=${this.updateExpandEnergyBudget}
+                  />
+                </label>
+              </div>
               <div class="flex items-center justify-between gap-3">
                 <h2 class="text-base font-semibold">Tuning</h2>
                 <button
@@ -244,6 +287,25 @@ export class AlternativeSandboxPage extends LitElement {
           @input=${(event: Event) => this.updateTuning(key, event)}
         />
       </label>
+    `;
+  }
+
+  private renderModeButton(
+    label: string,
+    mode: "expand" | "farm" | "settlement",
+  ) {
+    const selected = this.buildMode === mode;
+    return html`
+      <button
+        class=${selected
+          ? "px-2 py-1 bg-white text-black text-xs font-medium"
+          : "px-2 py-1 border border-white/30 text-xs font-medium"}
+        @click=${() => {
+          this.buildMode = mode;
+        }}
+      >
+        ${label}
+      </button>
     `;
   }
 }

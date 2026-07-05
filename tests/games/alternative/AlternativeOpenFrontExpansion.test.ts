@@ -9,7 +9,10 @@ import {
   createAlternativeMap,
   createAlternativeOpenFrontRuntime,
 } from "../../../src/games/alternative";
-import { setAlternativeFood } from "../../../src/games/alternative/AlternativeFoodEconomy";
+import {
+  addAlternativeSettlement,
+  setAlternativeFood,
+} from "../../../src/games/alternative/AlternativeFoodEconomy";
 
 describe("alternative OpenFront expansion", () => {
   test("starts with no placed owner so the first click can place", () => {
@@ -67,6 +70,25 @@ describe("alternative OpenFront expansion", () => {
 
     expect(countOwned(runtime.map.state)).toBeGreaterThan(1);
     expect(runtime.map.state[target] & 0x0fff).toBe(1);
+  });
+
+  test("stops expansion when the order energy budget is spent", () => {
+    const runtime = createFlatRuntime();
+    const center = 12;
+    runtime.map.state[center] = 1;
+    addAlternativeSettlement(runtime, 1, center);
+    setAlternativeFood(runtime, 1, 1_000);
+
+    dispatchBoardCommand(runtime, {
+      type: "alternative.expand",
+      ownerId: 1,
+      ref: 13,
+      troops: 400,
+      energyBudget: 10,
+    });
+    for (let i = 0; i < 20; i++) tickBoardRuntime(runtime);
+
+    expect(countOwned(runtime.map.state)).toBe(1);
   });
 
   test("neutral expansion is not steered into a line by the clicked tile", () => {

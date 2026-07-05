@@ -30,6 +30,7 @@ export interface AlternativeMapOptions {
 interface ActiveExpansion {
   ownerId: number;
   troops: number;
+  energyBudgetRemaining: number;
   frontier: FrontierTile[];
   queued: Set<number>;
 }
@@ -58,7 +59,13 @@ export class AlternativeOpenFrontExpansionSystem implements BoardSystem {
       this.place(runtime, command.ref, command.ownerId);
       return;
     }
-    this.startExpansion(runtime, command.ref, command.ownerId, command.troops);
+    this.startExpansion(
+      runtime,
+      command.ref,
+      command.ownerId,
+      command.troops,
+      command.energyBudget,
+    );
   }
 
   tick(runtime: BoardRuntime): void {
@@ -77,8 +84,15 @@ export class AlternativeOpenFrontExpansionSystem implements BoardSystem {
       return;
     }
 
-    const result = advanceAlternativeMovementJob(runtime);
-    if (!result.complete) return;
+    const result = advanceAlternativeMovementJob(
+      runtime,
+      expansion.energyBudgetRemaining,
+    );
+    expansion.energyBudgetRemaining -= result.spent;
+    if (!result.complete) {
+      if (expansion.energyBudgetRemaining <= 0) this.stopExpansion(runtime);
+      return;
+    }
 
     clearAlternativeMovementJob(runtime);
     if (
@@ -90,6 +104,10 @@ export class AlternativeOpenFrontExpansionSystem implements BoardSystem {
       this.enqueueNeutralNeighbors(runtime.map, expansion, job.to);
     }
 
+    if (expansion.energyBudgetRemaining <= 0) {
+      this.stopExpansion(runtime);
+      return;
+    }
     if (expansion.frontier.length === 0) this.active = null;
   }
 
@@ -134,16 +152,20 @@ export class AlternativeOpenFrontExpansionSystem implements BoardSystem {
     ref: unknown,
     ownerId: unknown,
     troops: unknown,
+    energyBudget: unknown,
   ): void {
     const map = runtime.map;
     if (!validRef(map, ref) || !validOwner(ownerId) || !canClaim(map, ref))
       return;
     if (!hasOwner(map, ownerId)) return;
+    const budget = expansionEnergyBudget(energyBudget);
+    if (budget <= 0) return;
     clearAlternativeMovementJob(runtime);
     const expansion: ActiveExpansion = {
       ownerId,
       troops:
         typeof troops === "number" && Number.isFinite(troops) ? troops : 2_000,
+      energyBudgetRemaining: budget,
       frontier: [],
       queued: new Set(),
     };
@@ -170,6 +192,11 @@ export class AlternativeOpenFrontExpansionSystem implements BoardSystem {
         priority: this.priority(map, neighbor, expansion.ownerId),
       });
     }
+  }
+
+  private stopExpansion(runtime: BoardRuntime): void {
+    clearAlternativeMovementJob(runtime);
+    this.active = null;
   }
 
   private priority(map: BoardMap, ref: number, ownerId: number): number {
@@ -265,4 +292,10 @@ function validOwner(value: unknown): value is number {
     value > 0 &&
     value <= OWNER_MASK
   );
+}
+
+function expansionEnergyBudget(value: unknown): number {
+  if (value === undefined) return Number.POSITIVE_INFINITY;
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+  return Math.max(0, value);
 }

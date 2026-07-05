@@ -75,6 +75,72 @@ describe("alternative-sandbox-page", () => {
     expect(el.runtime.globals["alternative.tuning"].baseMoveWork).toBe(120);
   });
 
+  test("expand energy input caps a clicked expansion order", async () => {
+    vi.useFakeTimers();
+    const el = document.createElement("alternative-sandbox-page") as any;
+
+    document.body.appendChild(el);
+    await el.updateComplete;
+
+    const start = firstLand(el.map.terrain);
+    clickTile(el, start);
+    await vi.advanceTimersByTimeAsync(400);
+    await el.updateComplete;
+
+    const input = el.querySelector(
+      'input[name="expandEnergyBudget"]',
+    ) as HTMLInputElement;
+    input.value = "10";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    clickTile(el, nearestNeutralLand(el.map, start));
+
+    await vi.advanceTimersByTimeAsync(2_000);
+    await el.updateComplete;
+
+    expect(countOwned(el.map.state)).toBe(1);
+    expect(el.textContent).not.toContain("Move work:");
+  });
+
+  test("build controls place farms and settlements on owned tiles", async () => {
+    const el = document.createElement("alternative-sandbox-page") as any;
+
+    document.body.appendChild(el);
+    await el.updateComplete;
+
+    const start = firstLand(el.map.terrain);
+    clickTile(el, start);
+    const farmTile = nearestNeutralLand(el.map, start);
+    el.map.state[farmTile] = 1;
+    const settlementTile = nearestNeutralLand(el.map, farmTile);
+    el.map.state[settlementTile] = 1;
+    el.runtime.globals["alternative.food.1"] = 1_000;
+    await el.updateComplete;
+
+    const farmButton = Array.from<HTMLButtonElement>(
+      el.querySelectorAll("button"),
+    ).find((button) =>
+      button.textContent?.includes("Farm"),
+    ) as HTMLButtonElement;
+    farmButton.click();
+    await el.updateComplete;
+    clickTile(el, farmTile);
+    await el.updateComplete;
+
+    expect(el.textContent).toContain("Farms: 1");
+
+    const settlementButton = Array.from<HTMLButtonElement>(
+      el.querySelectorAll("button"),
+    ).find((button) =>
+      button.textContent?.includes("Settlement"),
+    ) as HTMLButtonElement;
+    settlementButton.click();
+    await el.updateComplete;
+    clickTile(el, settlementTile);
+    await el.updateComplete;
+
+    expect(el.textContent).toContain("Settlements: 2");
+  });
+
   test("clicking to expand starts a timer that grows owned tiles", async () => {
     vi.useFakeTimers();
     const el = document.createElement("alternative-sandbox-page") as any;

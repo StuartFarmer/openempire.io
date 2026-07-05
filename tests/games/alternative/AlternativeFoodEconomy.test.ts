@@ -10,8 +10,11 @@ import {
 } from "../../../src/games/alternative";
 import {
   alternativeClaimFoodCost,
+  alternativeFarmCount,
   alternativeFoodPerTick,
   alternativeSettlementCount,
+  buildAlternativeFarm,
+  buildAlternativeSettlement,
   getAlternativeFood,
   setAlternativeFood,
 } from "../../../src/games/alternative/AlternativeFoodEconomy";
@@ -95,6 +98,48 @@ describe("alternative food economy", () => {
     for (let i = 0; i < 10; i++) tickBoardRuntime(runtime);
     expect(countOwned(runtime.map.state)).toBeGreaterThan(1);
   });
+
+  test("building a farm spends food and increases food production", () => {
+    const runtime = createFlatRuntime();
+    placeOwnedSettlement(runtime, 12);
+    runtime.map.state[13] = 1;
+    setAlternativeFood(runtime, 1, 1_000);
+    const beforeFood = getAlternativeFood(runtime, 1);
+    const beforeProduction = alternativeFoodPerTick(runtime, 1);
+
+    expect(buildAlternativeFarm(runtime, 1, 13)).toBe(true);
+
+    expect(alternativeFarmCount(runtime, 1)).toBe(1);
+    expect(alternativeFoodPerTick(runtime, 1)).toBeGreaterThan(
+      beforeProduction,
+    );
+    expect(getAlternativeFood(runtime, 1)).toBeLessThan(beforeFood);
+  });
+
+  test("building fails without enough food", () => {
+    const runtime = createFlatRuntime();
+    placeOwnedSettlement(runtime, 12);
+    runtime.map.state[13] = 1;
+    setAlternativeFood(runtime, 1, 0);
+
+    expect(buildAlternativeFarm(runtime, 1, 13)).toBe(false);
+
+    expect(alternativeFarmCount(runtime, 1)).toBe(0);
+    expect(getAlternativeFood(runtime, 1)).toBe(0);
+  });
+
+  test("building an additional settlement recalculates settlement distance", () => {
+    const runtime = createFlatRuntime();
+    placeOwnedSettlement(runtime, 12);
+    runtime.map.state[3] = 1;
+    setAlternativeFood(runtime, 1, 1_000);
+    const before = alternativeClaimFoodCost(runtime, 1, 4);
+
+    expect(buildAlternativeSettlement(runtime, 1, 3)).toBe(true);
+
+    expect(alternativeSettlementCount(runtime, 1)).toBe(2);
+    expect(alternativeClaimFoodCost(runtime, 1, 4)).toBeLessThan(before);
+  });
 });
 
 function createFlatRuntime() {
@@ -123,4 +168,12 @@ function firstLand(terrain: Uint8Array): number {
   const ref = terrain.findIndex((tile) => (tile & 0x80) !== 0);
   if (ref < 0) throw new Error("missing land tile");
   return ref;
+}
+
+function placeOwnedSettlement(
+  runtime: ReturnType<typeof createFlatRuntime>,
+  ref: number,
+): void {
+  runtime.map.state[ref] = 1;
+  buildAlternativeSettlement(runtime, 1, ref, { free: true });
 }

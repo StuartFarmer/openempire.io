@@ -41,7 +41,7 @@ The alternative sandbox already has a `BoardRuntime`, an OpenFront-style expansi
 - Additional settlements reduce distance costs nearby.
 - Building costs food and uses the same settlement-distance multiplier.
 
-Milestone 2 is deferred from this change.
+Milestone 2 implementation uses a small build mode in the alternative sandbox: select farm or settlement, then click an owned land tile. Building state is stored as `BoardEntity` records with `type: "farm"` or `type: "settlement"`. Farms contribute to `foodPerTick`; new settlements recalculate `settlement.distance`.
 
 ## Risks / Trade-offs
 

@@ -7,7 +7,10 @@ import { getAlternativeTuning } from "./AlternativeTuning";
 
 export const ALTERNATIVE_SETTLEMENT_DISTANCE_LAYER = "settlement.distance";
 export const ALTERNATIVE_SETTLEMENT_FOOD_PER_TICK = 10;
+export const ALTERNATIVE_FARM_FOOD_PER_TICK = 5;
 export const ALTERNATIVE_BASE_CLAIM_FOOD_COST = 25;
+export const ALTERNATIVE_FARM_BUILD_COST = 80;
+export const ALTERNATIVE_SETTLEMENT_BUILD_COST = 200;
 
 const LAND = 0x80;
 const MAX_DISTANCE = 0xffff;
@@ -26,6 +29,57 @@ export function addAlternativeSettlement(
   updateAlternativeSettlementDistance(runtime);
 }
 
+export function buildAlternativeFarm(
+  runtime: BoardRuntime,
+  ownerId: number,
+  ref: number,
+  options: { free?: boolean } = {},
+): boolean {
+  if (!canBuildOn(runtime, ownerId, ref)) return false;
+  const id = `farm:${ownerId}:${ref}`;
+  if (runtime.entities.has(id)) return false;
+  if (
+    !options.free &&
+    !spendAlternativeFood(
+      runtime,
+      ownerId,
+      buildCost(runtime, ref, ALTERNATIVE_FARM_BUILD_COST),
+    )
+  ) {
+    return false;
+  }
+  runtime.entities.set(id, {
+    id,
+    type: "farm",
+    tileRef: ref,
+    components: { ownerId },
+  });
+  return true;
+}
+
+export function buildAlternativeSettlement(
+  runtime: BoardRuntime,
+  ownerId: number,
+  ref: number,
+  options: { free?: boolean } = {},
+): boolean {
+  if (!canBuildOn(runtime, ownerId, ref)) return false;
+  const id = `settlement:${ownerId}:${ref}`;
+  if (runtime.entities.has(id)) return false;
+  if (
+    !options.free &&
+    !spendAlternativeFood(
+      runtime,
+      ownerId,
+      buildCost(runtime, ref, ALTERNATIVE_SETTLEMENT_BUILD_COST),
+    )
+  ) {
+    return false;
+  }
+  addAlternativeSettlement(runtime, ownerId, ref);
+  return true;
+}
+
 export function alternativeSettlementCount(
   runtime: BoardRuntime,
   ownerId: number,
@@ -42,13 +96,27 @@ export function alternativeSettlementCount(
   return count;
 }
 
+export function alternativeFarmCount(
+  runtime: BoardRuntime,
+  ownerId: number,
+): number {
+  let count = 0;
+  for (const entity of runtime.entities.values()) {
+    if (entity.type === "farm" && entity.components?.ownerId === ownerId) {
+      count++;
+    }
+  }
+  return count;
+}
+
 export function alternativeFoodPerTick(
   runtime: BoardRuntime,
   ownerId: number,
 ): number {
   return (
     alternativeSettlementCount(runtime, ownerId) *
-    getAlternativeTuning(runtime).settlementFoodPerTick
+      getAlternativeTuning(runtime).settlementFoodPerTick +
+    alternativeFarmCount(runtime, ownerId) * ALTERNATIVE_FARM_FOOD_PER_TICK
   );
 }
 
@@ -140,11 +208,12 @@ export function updateAlternativeSettlementDistance(
 export function describeAlternativeEconomy(
   runtime: BoardRuntime,
   ownerId: number,
-): { food: number; foodPerTick: number; settlements: number } {
+): { food: number; foodPerTick: number; settlements: number; farms: number } {
   return {
     food: getAlternativeFood(runtime, ownerId),
     foodPerTick: alternativeFoodPerTick(runtime, ownerId),
     settlements: alternativeSettlementCount(runtime, ownerId),
+    farms: alternativeFarmCount(runtime, ownerId),
   };
 }
 
@@ -155,6 +224,31 @@ function settlementDistance(runtime: BoardRuntime, ref: number): number {
 
 function foodKey(ownerId: number): string {
   return `alternative.food.${ownerId}`;
+}
+
+function canBuildOn(
+  runtime: BoardRuntime,
+  ownerId: number,
+  ref: number,
+): boolean {
+  return (
+    Number.isInteger(ref) &&
+    ref >= 0 &&
+    ref < runtime.map.state.length &&
+    (runtime.map.terrain[ref] & LAND) !== 0 &&
+    (runtime.map.state[ref] & 0x0fff) === ownerId
+  );
+}
+
+function buildCost(runtime: BoardRuntime, ref: number, base: number): number {
+  const distance = settlementDistance(runtime, ref);
+  if (distance >= MAX_DISTANCE) return Number.POSITIVE_INFINITY;
+  const terrain = runtime.map.terrain[ref] & 0x1f;
+  return (
+    base *
+    (1 + distance * getAlternativeTuning(runtime).logisticsDistanceFactor) *
+    (1 + terrain / 128)
+  );
 }
 
 function neighbors4(

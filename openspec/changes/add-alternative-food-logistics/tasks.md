@@ -14,3 +14,21 @@
 - [x] 3.1 Run focused alternative economy and sandbox tests.
 - [x] 3.2 Run TypeScript/build verification.
 - [x] 3.3 Validate the OpenSpec change.
+
+## 4. Milestone 2 Tests
+
+- [x] 4.1 Add economy tests for farm building, farm food production, build costs, and insufficient-food failure.
+- [x] 4.2 Add economy tests for additional settlement building and settlement-distance recalculation.
+- [x] 4.3 Add sandbox tests for farm/settlement build controls.
+
+## 5. Milestone 2 Implementation
+
+- [x] 5.1 Add minimal alternative building helpers for farms and settlements.
+- [x] 5.2 Update food production to include farms.
+- [x] 5.3 Update the alternative sandbox with build mode controls and building counts.
+
+## 6. Milestone 2 Verification
+
+- [x] 6.1 Run focused alternative economy, movement, expansion, and sandbox tests.
+- [x] 6.2 Run TypeScript/build verification.
+- [x] 6.3 Validate the OpenSpec change.
