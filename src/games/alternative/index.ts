@@ -19,6 +19,10 @@ export function createAlternativeMap(
   return createAlternativeWorldEngineMap(options).map;
 }
 
+export {
+  AlternativeOpenFrontExpansionSystem,
+  createAlternativeOpenFrontRuntime,
+} from "./OpenFrontExpansionSystem";
 export { createAlternativeWorldEngineMap, type AlternativeWorldEngineMap };
 
 export function expandAlternativeTerritory(

@@ -2,15 +2,21 @@ import { LitElement, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import type { BoardMap } from "../core/game/BoardMap";
 import {
-  createAlternativeMap,
-  expandAlternativeTerritory,
-} from "../games/alternative";
+  dispatchBoardCommand,
+  tickBoardRuntime,
+  type BoardRuntime,
+} from "../core/game/BoardRuntime";
+import { createAlternativeOpenFrontRuntime } from "../games/alternative";
 import { buildBoardMapTerrainRGBA } from "./render/gl";
 
 @customElement("alternative-sandbox-page")
 export class AlternativeSandboxPage extends LitElement {
   @state()
-  private map: BoardMap = createAlternativeMap();
+  private runtime: BoardRuntime = createAlternativeOpenFrontRuntime();
+
+  private get map(): BoardMap {
+    return this.runtime.map;
+  }
 
   @state()
   private ownedTiles = countOwned(this.map);
@@ -28,12 +34,35 @@ export class AlternativeSandboxPage extends LitElement {
   }
 
   private expand = (): void => {
-    expandAlternativeTerritory(this.map, 1);
+    runTicks(this.runtime, 20);
     this.ownedTiles = countOwned(this.map);
   };
 
   private reset = (): void => {
-    this.map = createAlternativeMap();
+    this.runtime = createAlternativeOpenFrontRuntime();
+    this.ownedTiles = countOwned(this.map);
+  };
+
+  private handleCanvasClick = (event: MouseEvent): void => {
+    const canvas = event.currentTarget as HTMLCanvasElement;
+    const ref = canvasEventToTileRef(canvas, event, this.map);
+    if (ref === null) return;
+
+    if (countOwned(this.map) === 0) {
+      dispatchBoardCommand(this.runtime, {
+        type: "alternative.place",
+        ownerId: 1,
+        ref,
+      });
+    } else {
+      dispatchBoardCommand(this.runtime, {
+        type: "alternative.expand",
+        ownerId: 1,
+        ref,
+        troops: 2_000,
+      });
+      runTicks(this.runtime, 20);
+    }
     this.ownedTiles = countOwned(this.map);
   };
 
@@ -79,11 +108,16 @@ export class AlternativeSandboxPage extends LitElement {
           <canvas
             class="w-full max-w-[640px] aspect-square [image-rendering:pixelated] border border-white/15 bg-black"
             aria-label="Alternative game board preview"
+            @click=${this.handleCanvasClick}
           ></canvas>
         </div>
       </section>
     `;
   }
+}
+
+function runTicks(runtime: BoardRuntime, count: number): void {
+  for (let i = 0; i < count; i++) tickBoardRuntime(runtime);
 }
 
 function countOwned(map: BoardMap): number {
@@ -92,6 +126,19 @@ function countOwned(map: BoardMap): number {
     if ((state & 0x0fff) !== 0) count++;
   }
   return count;
+}
+
+function canvasEventToTileRef(
+  canvas: HTMLCanvasElement,
+  event: MouseEvent,
+  map: BoardMap,
+): number | null {
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return null;
+  const x = Math.floor(((event.clientX - rect.left) / rect.width) * map.width);
+  const y = Math.floor(((event.clientY - rect.top) / rect.height) * map.height);
+  if (x < 0 || y < 0 || x >= map.width || y >= map.height) return null;
+  return y * map.width + x;
 }
 
 function tintOwnedTiles(pixels: Uint8ClampedArray, state: Uint16Array): void {

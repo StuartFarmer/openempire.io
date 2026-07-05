@@ -4,7 +4,8 @@ export type TileLayerData =
   | Uint8Array
   | Uint16Array
   | Uint32Array
-  | Float32Array;
+  | Float32Array
+  | Float64Array;
 export type TileLayers = Record<string, TileLayerData>;
 
 export interface BoardMap {

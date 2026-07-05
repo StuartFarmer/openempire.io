@@ -1,5 +1,4 @@
 import type { BoardMap, TileLayers } from "../../../core/game/BoardMap";
-import { FOUNDATION_LAND_TERRAIN_BIT } from "./FoundationTerrain";
 import {
   createWorldEngineFoundationMap,
   type FoundationWorldEngineLayers,
@@ -20,13 +19,6 @@ export function createAlternativeWorldEngineMap(
   const state = generated.map.stateBuffer();
   const terrainColors = generated.terrainColors;
   const layers = boardMapLayersFromWorldEngine(generated.layers);
-
-  const spawn = nearestLandToCenter(
-    generated.map.width(),
-    generated.map.height(),
-    terrain,
-  );
-  if (spawn >= 0) state[spawn] = 1;
 
   return {
     map: {
@@ -64,27 +56,4 @@ function boardMapLayersFromWorldEngine(
     "resource.oil": layers.resources.oil,
     "resource.metal": layers.resources.metal,
   };
-}
-
-function nearestLandToCenter(
-  width: number,
-  height: number,
-  terrain: Uint8Array,
-): number {
-  const centerX = Math.floor(width / 2);
-  const centerY = Math.floor(height / 2);
-  let best = -1;
-  let bestDist = Number.POSITIVE_INFINITY;
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const ref = y * width + x;
-      if ((terrain[ref] & FOUNDATION_LAND_TERRAIN_BIT) === 0) continue;
-      const dist = Math.abs(x - centerX) + Math.abs(y - centerY);
-      if (dist < bestDist) {
-        best = ref;
-        bestDist = dist;
-      }
-    }
-  }
-  return best;
 }
