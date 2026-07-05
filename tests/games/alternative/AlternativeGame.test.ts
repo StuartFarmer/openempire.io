@@ -7,15 +7,15 @@ import {
 
 describe("alternative game sandbox", () => {
   test("creates a deterministic board map with byte layers", () => {
-    const first = createAlternativeMap({ width: 12, height: 8, seed: 7 });
-    const second = createAlternativeMap({ width: 12, height: 8, seed: 7 });
+    const first = createAlternativeMap({ width: 32, height: 32, seed: 7 });
+    const second = createAlternativeMap({ width: 32, height: 32, seed: 7 });
 
-    expect(first.width).toBe(12);
-    expect(first.height).toBe(8);
-    expect(first.terrain).toHaveLength(96);
-    expect(first.state).toHaveLength(96);
-    expect(first.layers?.elevation).toHaveLength(96);
-    expect(first.layers?.moisture).toHaveLength(96);
+    expect(first.width).toBe(32);
+    expect(first.height).toBe(32);
+    expect(first.terrain).toHaveLength(1024);
+    expect(first.state).toHaveLength(1024);
+    expect(first.layers?.elevation).toHaveLength(1024);
+    expect(first.layers?.moisture).toHaveLength(1024);
     expect(Array.from(first.terrain)).toEqual(Array.from(second.terrain));
     expect(Array.from(first.layers!.elevation)).toEqual(
       Array.from(second.layers!.elevation),
@@ -23,9 +23,9 @@ describe("alternative game sandbox", () => {
   });
 
   test("colorizer returns one RGBA pixel per tile", () => {
-    const map = createAlternativeMap({ width: 4, height: 4, seed: 1 });
+    const map = createAlternativeMap({ width: 32, height: 32, seed: 1 });
 
-    expect(buildBoardMapTerrainRGBA(map)).toHaveLength(4 * 4 * 4);
+    expect(buildBoardMapTerrainRGBA(map)).toHaveLength(32 * 32 * 4);
   });
 
   test("expands into neighboring land and leaves water unowned", () => {

@@ -13,4 +13,19 @@ describe("alternative-sandbox-page", () => {
 
     el.remove();
   });
+
+  test("reset replaces the generated map", async () => {
+    const el = document.createElement("alternative-sandbox-page") as any;
+
+    document.body.appendChild(el);
+    await el.updateComplete;
+
+    const before = el.map;
+    el.querySelectorAll("button")[1].click();
+    await el.updateComplete;
+
+    expect(el.map).not.toBe(before);
+
+    el.remove();
+  });
 });

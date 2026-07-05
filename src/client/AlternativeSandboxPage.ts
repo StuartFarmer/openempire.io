@@ -9,7 +9,8 @@ import { buildBoardMapTerrainRGBA } from "./render/gl";
 
 @customElement("alternative-sandbox-page")
 export class AlternativeSandboxPage extends LitElement {
-  private readonly map: BoardMap = createAlternativeMap();
+  @state()
+  private map: BoardMap = createAlternativeMap();
 
   @state()
   private ownedTiles = countOwned(this.map);
@@ -32,11 +33,7 @@ export class AlternativeSandboxPage extends LitElement {
   };
 
   private reset = (): void => {
-    const fresh = createAlternativeMap();
-    this.map.terrain.set(fresh.terrain);
-    this.map.state.set(fresh.state);
-    this.map.layers!.elevation.set(fresh.layers!.elevation);
-    this.map.layers!.moisture.set(fresh.layers!.moisture);
+    this.map = createAlternativeMap();
     this.ownedTiles = countOwned(this.map);
   };
 
