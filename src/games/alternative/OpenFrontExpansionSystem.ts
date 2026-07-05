@@ -6,6 +6,16 @@ import {
   type BoardSystem,
 } from "../../core/game/BoardRuntime";
 import { PseudoRandom } from "../../core/PseudoRandom";
+import {
+  addAlternativeSettlement,
+  produceAlternativeFood,
+} from "./AlternativeFoodEconomy";
+import {
+  advanceAlternativeMovementJob,
+  clearAlternativeMovementJob,
+  createAlternativeMovementJob,
+  getAlternativeMovementJob,
+} from "./AlternativeMovementWork";
 import { createAlternativeWorldEngineMap } from "./world";
 
 const LAND = 0x80;
@@ -26,6 +36,7 @@ interface ActiveExpansion {
 
 interface FrontierTile {
   ref: number;
+  from: number;
   priority: number;
 }
 
@@ -44,57 +55,91 @@ export class AlternativeOpenFrontExpansionSystem implements BoardSystem {
 
   handle(command: BoardCommand, runtime: BoardRuntime): void {
     if (command.type === "alternative.place") {
-      this.place(runtime.map, command.ref, command.ownerId);
+      this.place(runtime, command.ref, command.ownerId);
       return;
     }
-    this.startExpansion(
-      runtime.map,
-      command.ref,
-      command.ownerId,
-      command.troops,
-    );
+    this.startExpansion(runtime, command.ref, command.ownerId, command.troops);
   }
 
   tick(runtime: BoardRuntime): void {
     this.ticks++;
-    if (!this.active) return;
-    const expansion = this.active;
-    const tilesThisTick = Math.max(
-      1,
-      Math.min(12, Math.floor(expansion.troops / 400)),
-    );
+    if (this.active) this.advanceExpansion(runtime, this.active);
+    produceAlternativeFood(runtime, 1);
+  }
 
-    for (let i = 0; i < tilesThisTick && expansion.frontier.length > 0; i++) {
-      const ref = dequeueNext(expansion);
-      expansion.queued.delete(ref);
-      if (
-        !canClaim(runtime.map, ref) ||
-        !touchesOwner(runtime.map, ref, expansion.ownerId)
-      ) {
-        continue;
-      }
-      runtime.map.state[ref] = expansion.ownerId;
-      this.enqueueNeutralNeighbors(runtime.map, expansion, ref);
+  private advanceExpansion(
+    runtime: BoardRuntime,
+    expansion: ActiveExpansion,
+  ): void {
+    const job = getAlternativeMovementJob(runtime);
+    if (!job) {
+      this.createNextMovementJob(runtime, expansion);
+      return;
+    }
+
+    const result = advanceAlternativeMovementJob(runtime);
+    if (!result.complete) return;
+
+    clearAlternativeMovementJob(runtime);
+    if (
+      canClaim(runtime.map, job.to) &&
+      touchesOwner(runtime.map, job.to, job.ownerId)
+    ) {
+      removeFrontier(expansion, job.to);
+      runtime.map.state[job.to] = job.ownerId;
+      this.enqueueNeutralNeighbors(runtime.map, expansion, job.to);
     }
 
     if (expansion.frontier.length === 0) this.active = null;
   }
 
-  private place(map: BoardMap, ref: unknown, ownerId: unknown): void {
+  private createNextMovementJob(
+    runtime: BoardRuntime,
+    expansion: ActiveExpansion,
+  ): void {
+    while (expansion.frontier.length > 0) {
+      const index = nextFrontierIndex(expansion);
+      const frontier = expansion.frontier[index];
+      const ref = frontier.ref;
+      if (
+        !canClaim(runtime.map, ref) ||
+        !touchesOwner(runtime.map, ref, expansion.ownerId)
+      ) {
+        expansion.frontier.splice(index, 1);
+        expansion.queued.delete(ref);
+        continue;
+      }
+      createAlternativeMovementJob(
+        runtime,
+        expansion.ownerId,
+        frontier.from,
+        frontier.ref,
+        expansion.troops,
+      );
+      return;
+    }
+    this.active = null;
+  }
+
+  private place(runtime: BoardRuntime, ref: unknown, ownerId: unknown): void {
+    const map = runtime.map;
     if (!validRef(map, ref) || !validOwner(ownerId) || !canClaim(map, ref))
       return;
     map.state[ref] = ownerId;
+    addAlternativeSettlement(runtime, ownerId, ref);
   }
 
   private startExpansion(
-    map: BoardMap,
+    runtime: BoardRuntime,
     ref: unknown,
     ownerId: unknown,
     troops: unknown,
   ): void {
+    const map = runtime.map;
     if (!validRef(map, ref) || !validOwner(ownerId) || !canClaim(map, ref))
       return;
     if (!hasOwner(map, ownerId)) return;
+    clearAlternativeMovementJob(runtime);
     const expansion: ActiveExpansion = {
       ownerId,
       troops:
@@ -108,6 +153,7 @@ export class AlternativeOpenFrontExpansionSystem implements BoardSystem {
       }
     }
     this.active = expansion.frontier.length > 0 ? expansion : null;
+    if (this.active) this.createNextMovementJob(runtime, this.active);
   }
 
   private enqueueNeutralNeighbors(
@@ -120,6 +166,7 @@ export class AlternativeOpenFrontExpansionSystem implements BoardSystem {
       expansion.queued.add(neighbor);
       expansion.frontier.push({
         ref: neighbor,
+        from: ref,
         priority: this.priority(map, neighbor, expansion.ownerId),
       });
     }
@@ -146,7 +193,7 @@ export function createAlternativeOpenFrontRuntime(
   });
 }
 
-function dequeueNext(expansion: ActiveExpansion): number {
+function nextFrontierIndex(expansion: ActiveExpansion): number {
   let bestIndex = 0;
   let bestPriority = expansion.frontier[0].priority;
   for (let i = 1; i < expansion.frontier.length; i++) {
@@ -156,8 +203,15 @@ function dequeueNext(expansion: ActiveExpansion): number {
       bestIndex = i;
     }
   }
-  const [frontierTile] = expansion.frontier.splice(bestIndex, 1);
-  return frontierTile.ref;
+  return bestIndex;
+}
+
+function removeFrontier(expansion: ActiveExpansion, ref: number): void {
+  const index = expansion.frontier.findIndex(
+    (frontier) => frontier.ref === ref,
+  );
+  if (index >= 0) expansion.frontier.splice(index, 1);
+  expansion.queued.delete(ref);
 }
 
 function terrainPriorityMagnitude(map: BoardMap, ref: number): number {

@@ -42,6 +42,39 @@ describe("alternative-sandbox-page", () => {
     expect(el.textContent).toContain("Owned tiles: 1");
   });
 
+  test("initial settlement starts food production display", async () => {
+    vi.useFakeTimers();
+    const el = document.createElement("alternative-sandbox-page") as any;
+
+    document.body.appendChild(el);
+    await el.updateComplete;
+
+    clickTile(el, firstLand(el.map.terrain));
+    await vi.advanceTimersByTimeAsync(100);
+    await el.updateComplete;
+
+    expect(el.textContent).toContain("Food:");
+    expect(el.textContent).toContain("Food/tick:");
+    expect(el.textContent).toContain("Settlements: 1");
+  });
+
+  test("tuning panel updates runtime knobs", async () => {
+    const el = document.createElement("alternative-sandbox-page") as any;
+
+    document.body.appendChild(el);
+    await el.updateComplete;
+
+    expect(el.textContent).toContain("Tuning");
+    const input = el.querySelector(
+      'input[name="baseMoveWork"]',
+    ) as HTMLInputElement;
+    input.value = "120";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await el.updateComplete;
+
+    expect(el.runtime.globals["alternative.tuning"].baseMoveWork).toBe(120);
+  });
+
   test("clicking to expand starts a timer that grows owned tiles", async () => {
     vi.useFakeTimers();
     const el = document.createElement("alternative-sandbox-page") as any;
@@ -51,10 +84,15 @@ describe("alternative-sandbox-page", () => {
 
     const start = firstLand(el.map.terrain);
     clickTile(el, start);
+    await vi.advanceTimersByTimeAsync(400);
     await el.updateComplete;
 
     clickTile(el, nearestNeutralLand(el.map, start));
-    await vi.advanceTimersByTimeAsync(500);
+    await el.updateComplete;
+
+    expect(el.textContent).toContain("Move work:");
+
+    await vi.advanceTimersByTimeAsync(1000);
     await el.updateComplete;
 
     expect(countOwned(el.map.state)).toBeGreaterThan(1);

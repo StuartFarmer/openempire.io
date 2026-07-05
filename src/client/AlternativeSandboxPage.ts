@@ -7,6 +7,15 @@ import {
   type BoardRuntime,
 } from "../core/game/BoardRuntime";
 import { createAlternativeOpenFrontRuntime } from "../games/alternative";
+import { describeAlternativeEconomy } from "../games/alternative/AlternativeFoodEconomy";
+import { describeAlternativeMovementWork } from "../games/alternative/AlternativeMovementWork";
+import {
+  DEFAULT_ALTERNATIVE_TUNING,
+  getAlternativeTuning,
+  resetAlternativeTuning,
+  setAlternativeTuning,
+  type AlternativeTuning,
+} from "../games/alternative/AlternativeTuning";
 import { BoardRuntimeFrameBridge } from "./render/frame";
 import { buildBoardMapTerrainRGBA } from "./render/gl";
 
@@ -24,6 +33,16 @@ export class AlternativeSandboxPage extends LitElement {
 
   @state()
   private ownedTiles = countOwned(this.map);
+  @state()
+  private food = 0;
+  @state()
+  private foodPerTick = 0;
+  @state()
+  private settlements = 0;
+  @state()
+  private movementWork: { remaining: number; total: number } | null = null;
+  @state()
+  private tuning: AlternativeTuning = DEFAULT_ALTERNATIVE_TUNING;
 
   createRenderRoot() {
     return this;
@@ -45,14 +64,19 @@ export class AlternativeSandboxPage extends LitElement {
   private expand = (): void => {
     runTicks(this.runtime, 20);
     this.frameBridge.nextFrame();
-    this.ownedTiles = countOwned(this.map);
+    this.refreshStats();
   };
 
   private reset = (): void => {
     this.stopClock();
     this.runtime = createAlternativeOpenFrontRuntime();
     this.frameBridge = new BoardRuntimeFrameBridge(this.runtime);
-    this.ownedTiles = countOwned(this.map);
+    this.refreshStats();
+  };
+
+  private resetTuning = (): void => {
+    resetAlternativeTuning(this.runtime);
+    this.refreshStats();
   };
 
   private handleCanvasClick = (event: MouseEvent): void => {
@@ -66,6 +90,7 @@ export class AlternativeSandboxPage extends LitElement {
         ownerId: 1,
         ref,
       });
+      if (countOwned(this.map) > 0) this.startClock();
     } else {
       dispatchBoardCommand(this.runtime, {
         type: "alternative.expand",
@@ -76,7 +101,7 @@ export class AlternativeSandboxPage extends LitElement {
       this.startClock();
     }
     this.frameBridge.nextFrame();
-    this.ownedTiles = countOwned(this.map);
+    this.refreshStats();
   };
 
   private startClock(): void {
@@ -84,7 +109,7 @@ export class AlternativeSandboxPage extends LitElement {
     this.tickTimer = window.setInterval(() => {
       tickBoardRuntime(this.runtime);
       this.frameBridge.nextFrame();
-      this.ownedTiles = countOwned(this.map);
+      this.refreshStats();
     }, 100);
   }
 
@@ -92,6 +117,23 @@ export class AlternativeSandboxPage extends LitElement {
     if (this.tickTimer === null) return;
     window.clearInterval(this.tickTimer);
     this.tickTimer = null;
+  }
+
+  private refreshStats(): void {
+    const economy = describeAlternativeEconomy(this.runtime, 1);
+    this.ownedTiles = countOwned(this.map);
+    this.food = economy.food;
+    this.foodPerTick = economy.foodPerTick;
+    this.settlements = economy.settlements;
+    this.movementWork = describeAlternativeMovementWork(this.runtime);
+    this.tuning = getAlternativeTuning(this.runtime);
+  }
+
+  private updateTuning(key: keyof AlternativeTuning, event: Event): void {
+    const value = Number((event.currentTarget as HTMLInputElement).value);
+    if (!Number.isFinite(value)) return;
+    setAlternativeTuning(this.runtime, { [key]: Math.max(0, value) });
+    this.refreshStats();
   }
 
   private paint(): void {
@@ -112,7 +154,7 @@ export class AlternativeSandboxPage extends LitElement {
       <section
         class="w-full h-full bg-neutral-950 text-white overflow-auto p-4 sm:p-6"
       >
-        <div class="max-w-5xl mx-auto flex flex-col gap-4">
+        <div class="max-w-6xl mx-auto flex flex-col gap-4">
           <div class="flex items-center justify-between gap-3 flex-wrap">
             <h1 class="text-2xl font-semibold">Alternative Sandbox</h1>
             <div class="flex gap-2">
@@ -130,16 +172,78 @@ export class AlternativeSandboxPage extends LitElement {
               </button>
             </div>
           </div>
-          <div class="text-sm text-white/70">
+          <div class="text-sm text-white/70 flex gap-4 flex-wrap">
             Owned tiles: ${this.ownedTiles}
+            <span>Food: ${Math.floor(this.food)}</span>
+            <span>Food/tick: ${this.foodPerTick}</span>
+            <span>Settlements: ${this.settlements}</span>
+            ${this.movementWork
+              ? html`<span>
+                  Move work:
+                  ${Math.ceil(this.movementWork.remaining)}/${Math.ceil(
+                    this.movementWork.total,
+                  )}
+                </span>`
+              : ""}
           </div>
-          <canvas
-            class="w-full max-w-[640px] aspect-square [image-rendering:pixelated] border border-white/15 bg-black"
-            aria-label="Alternative game board preview"
-            @click=${this.handleCanvasClick}
-          ></canvas>
+          <div class="grid gap-4 lg:grid-cols-[minmax(0,640px)_280px]">
+            <canvas
+              class="w-full max-w-[640px] aspect-square [image-rendering:pixelated] border border-white/15 bg-black"
+              aria-label="Alternative game board preview"
+              @click=${this.handleCanvasClick}
+            ></canvas>
+            <aside class="border border-white/15 p-3 flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-3">
+                <h2 class="text-base font-semibold">Tuning</h2>
+                <button
+                  class="px-2 py-1 border border-white/30 text-xs font-medium"
+                  @click=${this.resetTuning}
+                >
+                  Reset
+                </button>
+              </div>
+              ${this.renderTuningInput(
+                "Settlement food/tick",
+                "settlementFoodPerTick",
+                1,
+              )}
+              ${this.renderTuningInput("Base move work", "baseMoveWork", 1)}
+              ${this.renderTuningInput(
+                "Troop work/tick",
+                "troopWorkPerTick",
+                0.05,
+              )}
+              ${this.renderTuningInput(
+                "Logistics distance factor",
+                "logisticsDistanceFactor",
+                0.05,
+              )}
+              ${this.renderTuningInput("Slope factor", "slopeFactor", 0.01)}
+            </aside>
+          </div>
         </div>
       </section>
+    `;
+  }
+
+  private renderTuningInput(
+    label: string,
+    key: keyof AlternativeTuning,
+    step: number,
+  ) {
+    return html`
+      <label class="flex flex-col gap-1 text-sm text-white/75">
+        <span>${label}</span>
+        <input
+          class="w-full bg-black border border-white/20 px-2 py-1 text-white"
+          name=${key}
+          type="number"
+          min="0"
+          step=${step}
+          .value=${String(this.tuning[key])}
+          @input=${(event: Event) => this.updateTuning(key, event)}
+        />
+      </label>
     `;
   }
 }

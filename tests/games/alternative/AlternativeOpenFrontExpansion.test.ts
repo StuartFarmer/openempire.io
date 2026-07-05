@@ -9,6 +9,7 @@ import {
   createAlternativeMap,
   createAlternativeOpenFrontRuntime,
 } from "../../../src/games/alternative";
+import { setAlternativeFood } from "../../../src/games/alternative/AlternativeFoodEconomy";
 
 describe("alternative OpenFront expansion", () => {
   test("starts with no placed owner so the first click can place", () => {
@@ -53,6 +54,7 @@ describe("alternative OpenFront expansion", () => {
       ownerId: 1,
       ref: start,
     });
+    setAlternativeFood(runtime, 1, 1_000);
     const target = nearestNeutralLand(runtime.map, start);
 
     dispatchBoardCommand(runtime, {
