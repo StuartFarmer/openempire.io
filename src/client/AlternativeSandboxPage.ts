@@ -7,12 +7,16 @@ import {
   type BoardRuntime,
 } from "../core/game/BoardRuntime";
 import { createAlternativeOpenFrontRuntime } from "../games/alternative";
+import { BoardRuntimeFrameBridge } from "./render/frame";
 import { buildBoardMapTerrainRGBA } from "./render/gl";
 
 @customElement("alternative-sandbox-page")
 export class AlternativeSandboxPage extends LitElement {
   @state()
   private runtime: BoardRuntime = createAlternativeOpenFrontRuntime();
+
+  private frameBridge = new BoardRuntimeFrameBridge(this.runtime);
+  private tickTimer: number | null = null;
 
   private get map(): BoardMap {
     return this.runtime.map;
@@ -33,13 +37,21 @@ export class AlternativeSandboxPage extends LitElement {
     this.paint();
   }
 
+  disconnectedCallback(): void {
+    this.stopClock();
+    super.disconnectedCallback();
+  }
+
   private expand = (): void => {
     runTicks(this.runtime, 20);
+    this.frameBridge.nextFrame();
     this.ownedTiles = countOwned(this.map);
   };
 
   private reset = (): void => {
+    this.stopClock();
     this.runtime = createAlternativeOpenFrontRuntime();
+    this.frameBridge = new BoardRuntimeFrameBridge(this.runtime);
     this.ownedTiles = countOwned(this.map);
   };
 
@@ -61,10 +73,26 @@ export class AlternativeSandboxPage extends LitElement {
         ref,
         troops: 2_000,
       });
-      runTicks(this.runtime, 20);
+      this.startClock();
     }
+    this.frameBridge.nextFrame();
     this.ownedTiles = countOwned(this.map);
   };
+
+  private startClock(): void {
+    if (this.tickTimer !== null) return;
+    this.tickTimer = window.setInterval(() => {
+      tickBoardRuntime(this.runtime);
+      this.frameBridge.nextFrame();
+      this.ownedTiles = countOwned(this.map);
+    }, 100);
+  }
+
+  private stopClock(): void {
+    if (this.tickTimer === null) return;
+    window.clearInterval(this.tickTimer);
+    this.tickTimer = null;
+  }
 
   private paint(): void {
     const canvas = this.querySelector("canvas");
