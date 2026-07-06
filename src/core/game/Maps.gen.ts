@@ -60,6 +60,7 @@ export enum GameMapType {
   Lisbon = "Lisbon", // map-generator/assets/maps/lisbon/info.json
   LosAngeles = "Los Angeles", // map-generator/assets/maps/losangeles/info.json
   Luna = "Luna", // map-generator/assets/maps/luna/info.json
+  MajorMenor = "Majora y Menora", // map-generator/assets/maps/majormenor/info.json
   Manicouagan = "Manicouagan", // map-generator/assets/maps/manicouagan/info.json
   MareNostrum = "Mare Nostrum", // map-generator/assets/maps/marenostrum/info.json
   Mars = "Mars", // map-generator/assets/maps/mars/info.json
@@ -75,6 +76,8 @@ export enum GameMapType {
   Oceania = "Oceania", // map-generator/assets/maps/oceania/info.json
   Onion = "Onion", // map-generator/assets/maps/onion/info.json
   Pangaea = "Pangaea", // map-generator/assets/maps/pangaea/info.json
+  Pangea001 = "Pangea I", // map-generator/assets/maps/pangea001/info.json
+  Pangea002 = "Pangea II", // map-generator/assets/maps/pangea002/info.json
   Passage = "Passage", // map-generator/assets/maps/passage/info.json
   Pluto = "Pluto", // map-generator/assets/maps/pluto/info.json
   SanFrancisco = "San Francisco", // map-generator/assets/maps/sanfrancisco/info.json
@@ -579,6 +582,13 @@ export const maps: readonly MapInfo[] = [
     specialTeamCount: 2,
   },
   {
+    id: "MajorMenor",
+    type: GameMapType.MajorMenor,
+    translationKey: "map.majormenor",
+    categories: ["new", "fictional"],
+    multiplayerFrequency: 0,
+  },
+  {
     id: "Manicouagan",
     type: GameMapType.Manicouagan,
     translationKey: "map.manicouagan",
@@ -683,6 +693,20 @@ export const maps: readonly MapInfo[] = [
     translationKey: "map.pangaea",
     categories: ["fictional"],
     multiplayerFrequency: 5,
+  },
+  {
+    id: "Pangea001",
+    type: GameMapType.Pangea001,
+    translationKey: "map.pangea001",
+    categories: ["new", "fictional"],
+    multiplayerFrequency: 0,
+  },
+  {
+    id: "Pangea002",
+    type: GameMapType.Pangea002,
+    translationKey: "map.pangea002",
+    categories: ["new", "fictional"],
+    multiplayerFrequency: 0,
   },
   {
     id: "Passage",

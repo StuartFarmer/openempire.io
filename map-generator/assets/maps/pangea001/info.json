@@ -1,0 +1,8 @@
+{
+  "id": "Pangea001",
+  "name": "Pangea I",
+  "translation_key": "map.pangea001",
+  "categories": ["new", "fictional"],
+  "multiplayer_frequency": 0,
+  "nations": []
+}

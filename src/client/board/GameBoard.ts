@@ -38,6 +38,10 @@ import {
 import { ALL_UNIT_TYPES, UnitState } from "../render/types";
 import { GameView } from "../view";
 import { MoveWarshipIntentEvent } from "./BoardEvents";
+import {
+  loadTerrainColorSidecar,
+  withTerrainColorSidecar,
+} from "./TerrainColorSidecar";
 
 export interface BoardRenderer {
   transformHandler: TransformHandler;
@@ -187,7 +191,7 @@ export async function createGameBoard(
 
   const dom = createBoardDom(options.container);
   const graphicsListenerAbort = new AbortController();
-  const { view, cachedWebGLFrameCallback } = createWebGLView(
+  const { view, cachedWebGLFrameCallback } = await createWebGLView(
     dom.glCanvas,
     terrainMap,
     config,
@@ -290,19 +294,27 @@ function createLocalTurnAdapter(
   };
 }
 
-function createWebGLView(
+async function createWebGLView(
   glCanvas: HTMLCanvasElement,
   terrainMap: TerrainMapData,
   config: Config,
   settings: RenderSettings,
-): {
+): Promise<{
   view: MapRenderer;
   cachedWebGLFrameCallback: { current: FrameRequestCallback | null };
-} {
+}> {
   const gameMap = terrainMap.gameMap;
   const mapWidth = gameMap.width();
   const mapHeight = gameMap.height();
-  const boardMap = boardMapFromGameMap(gameMap);
+  const terrainColors = await loadTerrainColorSidecar(
+    terrainMap.terrainColorsPath,
+    mapWidth,
+    mapHeight,
+  );
+  const boardMap = withTerrainColorSidecar(
+    boardMapFromGameMap(gameMap),
+    terrainColors,
+  );
   const terrainBytes = boardMap.terrain;
 
   const cachedWebGLFrameCallback: { current: FrameRequestCallback | null } = {

@@ -8,6 +8,7 @@ export type TerrainMapData = {
   gameMap: GameMap;
   miniGameMap: GameMap;
   teamGameSpawnAreas?: TeamGameSpawnAreas;
+  terrainColorsPath?: string;
 };
 
 const loadedMaps = new Map<string, TerrainMapData>();
@@ -29,6 +30,7 @@ export interface MapManifest {
   // the remainder is generated procedurally.
   additionalNations?: AdditionalNation[];
   teamGameSpawnAreas?: TeamGameSpawnAreas;
+  terrain_colors?: boolean;
 }
 
 export interface Nation {
@@ -107,6 +109,9 @@ export async function loadTerrainMap(
     gameMap: gameMap,
     miniGameMap: miniMap,
     teamGameSpawnAreas,
+    terrainColorsPath: manifest.terrain_colors
+      ? mapFiles.terrainColorsPath
+      : undefined,
   };
   loadedMaps.set(cacheKey, result);
   return result;

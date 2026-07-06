@@ -11,4 +11,5 @@ export interface MapData {
   map16xBin: () => Promise<Uint8Array>;
   manifest: () => Promise<MapManifest>;
   webpPath: string;
+  terrainColorsPath?: string;
 }

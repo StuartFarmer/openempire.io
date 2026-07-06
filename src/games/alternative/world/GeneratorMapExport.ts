@@ -76,6 +76,30 @@ export function buildGeneratorSourceImage(
   return { width: map.width, height: map.height, data };
 }
 
+export function buildGeneratorTerrainColorImage(
+  map: Pick<
+    BoardMap,
+    "width" | "height" | "terrain" | "state" | "layers" | "colorizer"
+  >,
+): GeneratedMapSourceImage {
+  const colors = map.colorizer?.(map as BoardMap);
+  const expected = map.width * map.height * 4;
+  if (!colors) {
+    throw new Error("generated map does not provide terrain colors");
+  }
+  if (colors.length !== expected) {
+    throw new Error(
+      `terrain color length ${colors.length} does not match ${map.width}x${map.height} RGBA`,
+    );
+  }
+
+  return {
+    width: map.width,
+    height: map.height,
+    data: new Uint8ClampedArray(colors),
+  };
+}
+
 function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 }

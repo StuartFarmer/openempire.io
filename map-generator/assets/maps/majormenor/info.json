@@ -1,0 +1,8 @@
+{
+  "id": "MajorMenor",
+  "name": "Majora y Menora",
+  "translation_key": "map.majormenor",
+  "categories": ["new", "fictional"],
+  "multiplayer_frequency": 0,
+  "nations": []
+}

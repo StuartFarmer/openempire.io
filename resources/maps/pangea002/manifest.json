@@ -1,0 +1,27 @@
+{
+  "categories": [
+    "new",
+    "fictional"
+  ],
+  "id": "Pangea002",
+  "map": {
+    "height": 1024,
+    "num_land_tiles": 562478,
+    "width": 1024
+  },
+  "map16x": {
+    "height": 256,
+    "num_land_tiles": 33508,
+    "width": 256
+  },
+  "map4x": {
+    "height": 512,
+    "num_land_tiles": 138374,
+    "width": 512
+  },
+  "multiplayer_frequency": 0,
+  "name": "Pangea II",
+  "nations": [],
+  "terrain_colors": true,
+  "translation_key": "map.pangea002"
+}

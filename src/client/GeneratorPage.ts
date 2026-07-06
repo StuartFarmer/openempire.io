@@ -7,7 +7,9 @@ import {
 import {
   buildGeneratedMapInfo,
   buildGeneratorSourceImage,
+  buildGeneratorTerrainColorImage,
   normalizeGeneratedMapIdentity,
+  type GeneratedMapSourceImage,
 } from "../games/alternative/world/GeneratorMapExport";
 import {
   DEFAULT_FOUNDATION_WORLD_ENGINE_MAP_CONFIG,
@@ -123,18 +125,17 @@ export class GeneratorPage extends LitElement {
   };
 
   private downloadImage = (): void => {
-    const source = buildGeneratorSourceImage(this.generated.map);
-    const canvas = document.createElement("canvas");
-    canvas.width = source.width;
-    canvas.height = source.height;
-    const context = canvas.getContext("2d");
-    if (!context) return;
-    const image = context.createImageData(source.width, source.height);
-    image.data.set(source.data);
-    context.putImageData(image, 0, 0);
-    canvas.toBlob((blob) => {
-      if (blob) downloadBlob(blob, "image.png");
-    }, "image/png");
+    downloadImageData(
+      buildGeneratorSourceImage(this.generated.map),
+      "image.png",
+    );
+  };
+
+  private downloadTerrainColors = (): void => {
+    downloadImageData(
+      buildGeneratorTerrainColorImage(this.generated.map),
+      "terrain-colors.png",
+    );
   };
 
   private paint(): void {
@@ -174,6 +175,12 @@ export class GeneratorPage extends LitElement {
                   @click=${this.downloadImage}
                 >
                   image.png
+                </button>
+                <button
+                  class="px-3 py-2 border border-white/30 text-sm font-medium"
+                  @click=${this.downloadTerrainColors}
+                >
+                  terrain-colors.png
                 </button>
                 <button
                   class="px-3 py-2 border border-white/30 text-sm font-medium"
@@ -284,7 +291,7 @@ export class GeneratorPage extends LitElement {
               <div>
                 Folder: map-generator/assets/maps/${identity.folderName}
               </div>
-              <div>Files: image.png, info.json</div>
+              <div>Files: image.png, terrain-colors.png, info.json</div>
               <div>Then run: npm run gen-maps</div>
               <div>Size: ${map.width}x${map.height}</div>
             </div>
@@ -351,6 +358,23 @@ export class GeneratorPage extends LitElement {
       />
     </label>`;
   }
+}
+
+function downloadImageData(
+  source: GeneratedMapSourceImage,
+  filename: string,
+): void {
+  const canvas = document.createElement("canvas");
+  canvas.width = source.width;
+  canvas.height = source.height;
+  const context = canvas.getContext("2d");
+  if (!context) return;
+  const image = context.createImageData(source.width, source.height);
+  image.data.set(source.data);
+  context.putImageData(image, 0, 0);
+  canvas.toBlob((blob) => {
+    if (blob) downloadBlob(blob, filename);
+  }, "image/png");
 }
 
 function downloadBlob(blob: Blob, filename: string): void {

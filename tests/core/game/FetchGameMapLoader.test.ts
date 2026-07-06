@@ -20,6 +20,9 @@ describe("FetchGameMapLoader", () => {
     expect(mapData.webpPath).toBe(
       "/_assets/maps/britanniaclassic/thumbnail.webp.hashed",
     );
+    expect(mapData.terrainColorsPath).toBe(
+      "/_assets/maps/britanniaclassic/terrain-colors.png.hashed",
+    );
 
     await mapData.manifest();
 

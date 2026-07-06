@@ -157,6 +157,18 @@ func processMap(ctx context.Context, name string, isTest bool) error {
 	if err := os.WriteFile(filepath.Join(mapDir, "thumbnail.webp"), result.Thumbnail, 0644); err != nil {
 		return fmt.Errorf("failed to write thumbnail for %s: %w", name, err)
 	}
+	copiedTerrainColors, err := copyOptionalFile(
+		filepath.Join(inputMapDir, name, "terrain-colors.png"),
+		filepath.Join(mapDir, "terrain-colors.png"),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to copy terrain color sidecar for %s: %w", name, err)
+	}
+	if copiedTerrainColors {
+		manifest["terrain_colors"] = true
+	} else {
+		delete(manifest, "terrain_colors")
+	}
 
 	// Serialize the updated manifest to JSON
 	updatedManifest, err := json.MarshalIndent(manifest, "", "  ")
@@ -168,6 +180,20 @@ func processMap(ctx context.Context, name string, isTest bool) error {
 		return fmt.Errorf("failed to write manifest for %s: %w", name, err)
 	}
 	return nil
+}
+
+func copyOptionalFile(src string, dst string) (bool, error) {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return false, err
+	}
+	return true, os.WriteFile(dst, data, 0644)
 }
 
 // parseMapsFlag validates and parses the --maps command-line argument.

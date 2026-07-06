@@ -56,6 +56,7 @@ export class BinaryLoaderGameMapLoader implements GameMapLoader {
         }),
       ),
       webpPath: mapAssetUrl("thumbnail.webp"),
+      terrainColorsPath: mapAssetUrl("terrain-colors.png"),
     } satisfies MapData;
 
     this.maps.set(map, mapData);

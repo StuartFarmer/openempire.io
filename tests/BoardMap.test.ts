@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { withTerrainColorSidecar } from "../src/client/board/TerrainColorSidecar";
 import {
   buildBoardMapTerrainRGBA,
   buildTerrainRGBA,
@@ -92,5 +93,21 @@ describe("BoardMap", () => {
     expect(Array.from(buildBoardMapTerrainRGBA(boardMap))).toEqual([
       10, 0, 0, 255, 200, 0, 0, 255,
     ]);
+  });
+
+  test("uses terrain color sidecar before terrain-byte colors", () => {
+    const boardMap: BoardMap = {
+      width: 1,
+      height: 1,
+      terrain: new Uint8Array([0x80]),
+      state: new Uint16Array(1),
+    };
+    const sidecar = new Uint8Array([9, 8, 7, 255]);
+
+    expect(
+      Array.from(
+        buildBoardMapTerrainRGBA(withTerrainColorSidecar(boardMap, sidecar)),
+      ),
+    ).toEqual([9, 8, 7, 255]);
   });
 });
