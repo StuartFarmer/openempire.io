@@ -78,10 +78,16 @@ export function initNavigation() {
 
   window.showPage = showPage;
 
+  const hashPage = () => {
+    if (window.location.hash === "#alternative")
+      return "page-alternative-sandbox";
+    if (window.location.hash === "#generator") return "page-generator";
+    return "page-play";
+  };
+
   window.addEventListener("hashchange", () => {
-    if (window.location.hash === "#alternative") {
-      showPage("page-alternative-sandbox");
-    }
+    const page = hashPage();
+    if (page !== "page-play") showPage(page);
   });
 
   // Use event delegation for navigation items (they may be inside Lit components)
@@ -163,9 +169,5 @@ export function initNavigation() {
   });
 
   // Ensure Play is the default visible/active page on load.
-  showPage(
-    window.location.hash === "#alternative"
-      ? "page-alternative-sandbox"
-      : "page-play",
-  );
+  showPage(hashPage());
 }

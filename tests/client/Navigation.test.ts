@@ -45,4 +45,21 @@ describe("initNavigation", () => {
         ?.classList.contains("hidden"),
     ).toBe(false);
   });
+
+  test("opens the generator page for #generator", () => {
+    document.body.innerHTML = `
+      <div id="page-play"></div>
+      <generator-page id="page-generator" class="hidden page-content"></generator-page>
+    `;
+    history.replaceState(null, "", "/#generator");
+
+    initNavigation();
+
+    expect(
+      document.getElementById("page-play")?.classList.contains("hidden"),
+    ).toBe(true);
+    expect(
+      document.getElementById("page-generator")?.classList.contains("hidden"),
+    ).toBe(false);
+  });
 });

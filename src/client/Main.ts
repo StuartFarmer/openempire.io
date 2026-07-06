@@ -32,6 +32,7 @@ import { GameInfoModal } from "./GameInfoModal";
 import "./GameModeSelector";
 import { GameModeSelector } from "./GameModeSelector";
 import { GameStartingModal } from "./GameStartingModal";
+import "./GeneratorPage";
 import "./GoogleAdElement";
 import { HelpModal } from "./HelpModal";
 import "./HomepagePromos";
@@ -578,6 +579,10 @@ class Client {
         window.showPage?.("page-alternative-sandbox");
         return;
       }
+      if (window.location.hash === "#generator") {
+        window.showPage?.("page-generator");
+        return;
+      }
 
       // Router-managed hash changes (#modal=...) are handled by the router
       // syncing in/out; we don't need to tear down the lobby state for them.
@@ -777,6 +782,10 @@ class Client {
 
     if (decodedHash === "#alternative") {
       window.showPage?.("page-alternative-sandbox");
+      return;
+    }
+    if (decodedHash === "#generator") {
+      window.showPage?.("page-generator");
       return;
     }
 
