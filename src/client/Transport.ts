@@ -16,7 +16,7 @@ import {
   ServerMessageSchema,
 } from "../core/Schemas";
 import { replacer } from "../core/Util";
-import { getPlayToken } from "./Auth";
+import { getPlayToken } from "./PersistentID";
 import {
   BuildUnitIntentEvent,
   CancelAttackIntentEvent,

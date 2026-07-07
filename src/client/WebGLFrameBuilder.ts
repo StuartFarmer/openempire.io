@@ -2,6 +2,7 @@ import { Colord, colord } from "colord";
 import { base64url } from "jose";
 import { assetUrl } from "../core/AssetUrls";
 import {
+  type Cosmetics,
   findEffect,
   findEffectForSlot,
   isNukeExplosionEffect,
@@ -13,7 +14,6 @@ import {
 } from "../core/CosmeticSchemas";
 import { decodePatternData } from "../core/PatternDecoder";
 import { PlayerType } from "../core/game/Game";
-import { getCachedCosmetics } from "./CosmeticCache";
 import { uploadFrameData } from "./render/frame/Upload";
 // Type-only: a value import would pull GPURenderer and its `.glsl?raw` shader
 // imports into any non-Vite consumer (e.g. the Node perf harness).
@@ -58,6 +58,12 @@ void _EFFECT_BLOCK_ORDER;
 
 // Detonating bomb → nuke-explosion slot.
 // Only these unit types produce a shockwave; plain MIRV splits and never detonates.
+// The cosmetics service was removed; no catalog ever loads, so every
+// effect/pattern lookup falls back to default rendering.
+function getCachedCosmetics(): Cosmetics | null {
+  return null;
+}
+
 const UNIT_TYPE_TO_NUKE_TYPE: Readonly<Record<string, NukeExplosionType>> = {
   [UT_ATOM_BOMB]: "atom",
   [UT_HYDROGEN_BOMB]: "hydro",

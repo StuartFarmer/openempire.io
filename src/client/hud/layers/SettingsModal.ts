@@ -1,6 +1,5 @@
 import { html, LitElement } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
-import { crazyGamesSDK } from "src/client/CrazyGamesSDK";
 import { PauseGameIntentEvent } from "src/client/board/BoardEvents";
 import { assetUrl } from "../../../core/AssetUrls";
 import { EventBus } from "../../../core/EventBus";
@@ -109,11 +108,6 @@ export class SettingsModal extends LitElement implements Controller {
 
   private pauseGame(pause: boolean) {
     if (this.shouldPause && !this.wasPausedWhenOpened) {
-      if (pause) {
-        crazyGamesSDK.gameplayStop();
-      } else {
-        crazyGamesSDK.gameplayStart();
-      }
       this.eventBus.emit(new PauseGameIntentEvent(pause));
     }
   }

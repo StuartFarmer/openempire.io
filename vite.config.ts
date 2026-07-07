@@ -1,6 +1,5 @@
 import tailwindcss from "@tailwindcss/vite";
 import fs from "fs";
-import http from "http";
 import { lookup as lookupMime } from "mrmime";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -52,47 +51,9 @@ function serveProprietaryDir(
   };
 }
 
-// Dev-only stand-in for the nginx random-worker routing (the openfront_workers
-// upstream). Forwards these prefix-less POSTs to a randomly chosen worker port
-// so the worker can mint a self-owned id. Runs as direct middleware (before
-// vite's /api proxy).
-const RANDOM_WORKER_PATHS = ["/api/create_game", "/api/adminbot/create_game"];
-function randomWorkerCreateProxy(numWorkers: number): Plugin {
-  return {
-    name: "random-worker-create-proxy",
-    configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        if (req.method !== "POST") return next();
-        const path = (req.url ?? "").split("?")[0];
-        if (!RANDOM_WORKER_PATHS.includes(path)) return next();
-        const port = 3001 + Math.floor(Math.random() * numWorkers);
-        const proxyReq = http.request(
-          {
-            host: "localhost",
-            port,
-            path,
-            method: "POST",
-            headers: req.headers,
-          },
-          (proxyRes) => {
-            res.writeHead(proxyRes.statusCode ?? 502, proxyRes.headers);
-            proxyRes.pipe(res);
-          },
-        );
-        proxyReq.on("error", (err) => {
-          res.statusCode = 502;
-          res.end(`create proxy error: ${err.message}`);
-        });
-        req.pipe(proxyReq);
-      });
-    },
-  };
-}
-
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const isProduction = mode === "production";
-  const devNumWorkers = parseInt(env.NUM_WORKERS ?? "2", 10);
   const resourcesDir = getResourcesDir(__dirname);
   const proprietaryDir = getProprietaryDir(__dirname);
   const sourceDirs = [resourcesDir, proprietaryDir];
@@ -105,10 +66,6 @@ export default defineConfig(({ mode }) => {
     cdnBase: JSON.stringify(cdnBase),
     gameEnv: JSON.stringify(env.GAME_ENV ?? "dev"),
     numWorkers: JSON.stringify(parseInt(env.NUM_WORKERS ?? "2", 10)),
-    turnstileSiteKey: JSON.stringify(
-      env.TURNSTILE_SITE_KEY ?? "1x00000000000000000000AA",
-    ),
-    jwtAudience: JSON.stringify(env.DOMAIN ?? "localhost"),
     instanceId: JSON.stringify(env.INSTANCE_ID ?? "DEV_ID"),
     manifestHref: buildAssetUrl("manifest.json", assetManifest, cdnBase),
     faviconHref: buildAssetUrl("images/Favicon.svg", assetManifest, cdnBase),
@@ -169,25 +126,6 @@ export default defineConfig(({ mode }) => {
     },
   });
 
-  // In dev, redirect visits to /w*/game/* to "/" so Vite serves the index.html.
-  const devGameHtmlBypass = (req?: {
-    url?: string;
-    method?: string;
-    headers?: { accept?: string | string[] };
-  }) => {
-    if (req?.method !== "GET") return undefined;
-    const accept = req.headers?.accept;
-    const acceptValue = Array.isArray(accept)
-      ? accept.join(",")
-      : (accept ?? "");
-    if (!acceptValue.includes("text/html")) return undefined;
-    if (!req.url) return undefined;
-    if (/^\/w\d+\/game\/[^/]+/.test(req.url)) {
-      return "/";
-    }
-    return undefined;
-  };
-
   return {
     test: {
       globals: true,
@@ -209,7 +147,6 @@ export default defineConfig(({ mode }) => {
       ...(!isProduction
         ? [
             serveProprietaryDir(proprietaryDir, resourcesDir),
-            randomWorkerCreateProxy(devNumWorkers),
           ]
         : []),
       ...(isProduction
@@ -235,14 +172,7 @@ export default defineConfig(({ mode }) => {
 
     define: {
       __ASSET_MANIFEST__: JSON.stringify(assetManifest),
-      "process.env.WEBSOCKET_URL": JSON.stringify(
-        isProduction ? "" : "localhost:3000",
-      ),
       "process.env.GAME_ENV": JSON.stringify(isProduction ? "prod" : "dev"),
-      "process.env.STRIPE_PUBLISHABLE_KEY": JSON.stringify(
-        env.STRIPE_PUBLISHABLE_KEY,
-      ),
-      "process.env.API_DOMAIN": JSON.stringify(env.API_DOMAIN),
       // Add other process.env variables if needed, OR migrate code to import.meta.env
     },
 
@@ -253,7 +183,7 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           manualChunks: (id) => {
-            const vendorModules = ["pixi.js", "howler", "zod"];
+            const vendorModules = ["howler", "zod"];
             if (vendorModules.some((module) => id.includes(module))) {
               return "vendor";
             }
@@ -267,36 +197,6 @@ export default defineConfig(({ mode }) => {
       host: process.env.VITE_HOST === "lan",
       // Automatically open the browser when the server starts
       open: process.env.SKIP_BROWSER_OPEN !== "true",
-      proxy: {
-        "/lobbies": {
-          target: "ws://localhost:3000",
-          ws: true,
-          changeOrigin: true,
-        },
-        // Worker proxies
-        "/w0": {
-          target: "ws://localhost:3001",
-          ws: true,
-          secure: false,
-          changeOrigin: true,
-          bypass: (req) => devGameHtmlBypass(req),
-          rewrite: (path) => path.replace(/^\/w0/, ""),
-        },
-        "/w1": {
-          target: "ws://localhost:3002",
-          ws: true,
-          secure: false,
-          changeOrigin: true,
-          bypass: (req) => devGameHtmlBypass(req),
-          rewrite: (path) => path.replace(/^\/w1/, ""),
-        },
-        // API proxies
-        "/api": {
-          target: "http://localhost:3000",
-          changeOrigin: true,
-          secure: false,
-        },
-      },
     },
   };
 });

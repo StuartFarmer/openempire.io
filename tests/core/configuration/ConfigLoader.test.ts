@@ -31,8 +31,6 @@ describe("ClientEnv", () => {
     window.BOOTSTRAP_CONFIG = {
       gameEnv: "staging",
       numWorkers: 4,
-      turnstileSiteKey: "test-key",
-      jwtAudience: "openfront.dev",
       instanceId: "TEST_ID",
       gitCommit: "abc123",
     };
@@ -40,8 +38,6 @@ describe("ClientEnv", () => {
 
     expect(ClientEnv.env()).toBe(GameEnv.Preprod);
     expect(ClientEnv.numWorkers()).toBe(4);
-    expect(ClientEnv.turnstileSiteKey()).toBe("test-key");
-    expect(ClientEnv.jwtAudience()).toBe("openfront.dev");
     expect(ClientEnv.instanceId()).toBe("TEST_ID");
     expect(fetchSpy).not.toHaveBeenCalled();
   });
@@ -54,34 +50,8 @@ describe("ClientEnv", () => {
     window.BOOTSTRAP_CONFIG = {
       gameEnv: "dev",
       numWorkers: 1,
-      turnstileSiteKey: "k",
-      jwtAudience: "localhost",
       // instanceId missing
     };
     expect(() => ClientEnv.instanceId()).toThrow(/Missing BOOTSTRAP_CONFIG/);
-  });
-
-  test("jwtIssuer maps 'localhost' to http://localhost:8787", () => {
-    window.BOOTSTRAP_CONFIG = {
-      gameEnv: "dev",
-      numWorkers: 1,
-      turnstileSiteKey: "k",
-      jwtAudience: "localhost",
-      instanceId: "x",
-      gitCommit: "DEV",
-    };
-    expect(ClientEnv.jwtIssuer()).toBe("http://localhost:8787");
-  });
-
-  test("jwtIssuer derives api.<audience> for non-localhost", () => {
-    window.BOOTSTRAP_CONFIG = {
-      gameEnv: "prod",
-      numWorkers: 1,
-      turnstileSiteKey: "k",
-      jwtAudience: "openfront.io",
-      instanceId: "x",
-      gitCommit: "abc123",
-    };
-    expect(ClientEnv.jwtIssuer()).toBe("https://api.openfront.io");
   });
 });

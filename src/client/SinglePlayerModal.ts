@@ -1,8 +1,6 @@
-import { html, TemplateResult } from "lit";
+import { html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { translateText } from "../client/Utils";
-import { UserMeResponse } from "../core/ApiSchemas";
-import { assetUrl } from "../core/AssetUrls";
 import { DoomsdayClockSpeed } from "../core/game/DoomsdayClock";
 import {
   Difficulty,
@@ -10,21 +8,16 @@ import {
   GameMapType,
   GameMode,
   GameType,
-  maps,
   UnitType,
 } from "../core/game/Game";
 import { TeamCountConfig } from "../core/Schemas";
 import { generateID } from "../core/Util";
-import { hasLinkedAccount } from "./Api";
 import "./components/baseComponents/Button";
 import "./components/baseComponents/Modal";
 import { BaseModal } from "./components/BaseModal";
 import "./components/GameConfigSettings";
-import { MEDAL_ORDER, medalIcon } from "./components/map/Medals";
 import "./components/ToggleInputCard";
 import { modalHeader } from "./components/ui/ModalHeader";
-import { getPlayerCosmetics } from "./Cosmetics";
-import { crazyGamesSDK } from "./CrazyGamesSDK";
 import { JoinLobbyEvent } from "./Main";
 import { UsernameInput } from "./UsernameInput";
 import {
@@ -66,48 +59,6 @@ const DEFAULT_OPTIONS = {
   doomsdayClockSpeed: "normal" as DoomsdayClockSpeed,
 } as const;
 
-// A map earns achievements only if it has nations to conquer — the same rule
-// MapDisplay uses to decide whether to draw medals. Maps without nations (e.g.
-// Baikal Nuke Wars) must be excluded from the medal totals. The complete set is
-// cached for the page session and concurrent callers share the in-flight
-// promise so we never fetch the manifests twice. A load that hits any fetch
-// error resolves to null (not a partial set) and clears the shared promise, so
-// a transient failure retries on the next call rather than locking in an
-// undercount for the whole session.
-let eligibleMapsCache: Set<GameMapType> | null = null;
-let eligibleMapsPromise: Promise<Set<GameMapType> | null> | null = null;
-
-async function loadAchievementEligibleMaps(): Promise<Set<GameMapType> | null> {
-  if (eligibleMapsCache) return eligibleMapsCache;
-  eligibleMapsPromise ??= (async () => {
-    const eligible = new Set<GameMapType>();
-    let hadFailure = false;
-    await Promise.all(
-      maps.map(async (m) => {
-        try {
-          const manifest = await terrainMapFileLoader
-            .getMapData(m.type)
-            .manifest();
-          if (manifest.nations.length > 0) {
-            eligible.add(m.type);
-          }
-        } catch {
-          // A missing manifest would undercount the total; remember the failure
-          // so we don't cache this incomplete set below.
-          hadFailure = true;
-        }
-      }),
-    );
-    if (hadFailure) {
-      eligibleMapsPromise = null; // allow a later call to retry
-      return null;
-    }
-    eligibleMapsCache = eligible;
-    return eligible;
-  })();
-  return eligibleMapsPromise;
-}
-
 @customElement("single-player-modal")
 export class SinglePlayerModal extends BaseModal {
   protected routerName = "single-player";
@@ -129,12 +80,6 @@ export class SinglePlayerModal extends BaseModal {
   @state() private useRandomMap: boolean = DEFAULT_OPTIONS.useRandomMap;
   @state() private gameMode: GameMode = DEFAULT_OPTIONS.gameMode;
   @state() private teamCount: TeamCountConfig = DEFAULT_OPTIONS.teamCount;
-  @state() private showAchievements: boolean = false;
-  @state() private mapWins: Map<GameMapType, Set<Difficulty>> = new Map();
-  // Maps that support achievements (have nations). null until loaded — the
-  // medal overview shows a placeholder total meanwhile.
-  @state() private eligibleMaps: Set<GameMapType> | null = null;
-  @state() private userMeResponse: UserMeResponse | false = false;
   @state() private goldMultiplier: boolean = DEFAULT_OPTIONS.goldMultiplier;
   @state() private goldMultiplierValue: number | undefined =
     DEFAULT_OPTIONS.goldMultiplierValue;
@@ -155,100 +100,7 @@ export class SinglePlayerModal extends BaseModal {
 
   connectedCallback() {
     super.connectedCallback();
-    document.addEventListener(
-      "userMeResponse",
-      this.handleUserMeResponse as EventListener,
-    );
     void this.loadNationCount();
-  }
-
-  disconnectedCallback() {
-    document.removeEventListener(
-      "userMeResponse",
-      this.handleUserMeResponse as EventListener,
-    );
-    super.disconnectedCallback();
-  }
-
-  private toggleAchievements = () => {
-    this.showAchievements = !this.showAchievements;
-    if (this.showAchievements) void this.ensureEligibleMaps();
-  };
-
-  private async ensureEligibleMaps() {
-    if (this.eligibleMaps) return;
-    const eligible = await loadAchievementEligibleMaps();
-    // Leave eligibleMaps null on a failed/incomplete load so the overview keeps
-    // its placeholder total and the next toggle retries.
-    if (eligible) this.eligibleMaps = eligible;
-  }
-
-  // Medals earned per difficulty, counted only on achievement-eligible maps.
-  private medalCounts(): Record<Difficulty, number> {
-    const counts: Record<Difficulty, number> = {
-      [Difficulty.Easy]: 0,
-      [Difficulty.Medium]: 0,
-      [Difficulty.Hard]: 0,
-      [Difficulty.Impossible]: 0,
-    };
-    // Until eligibility is loaded, count nothing — otherwise the overview would
-    // briefly include wins on non-eligible maps before the manifests resolve.
-    if (!this.eligibleMaps) return counts;
-    for (const [map, difficulties] of this.mapWins) {
-      if (!this.eligibleMaps.has(map)) continue;
-      for (const difficulty of difficulties) counts[difficulty]++;
-    }
-    return counts;
-  }
-
-  private handleUserMeResponse = (
-    event: CustomEvent<UserMeResponse | false>,
-  ) => {
-    this.userMeResponse = event.detail;
-    this.applyAchievements(event.detail);
-  };
-
-  private renderNotLoggedInBanner(): TemplateResult {
-    if (crazyGamesSDK.isOnCrazyGames()) {
-      return html``;
-    }
-    return html`<button
-      class="px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors duration-200 rounded-lg bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 whitespace-nowrap shrink-0 cursor-pointer hover:bg-yellow-500/30"
-      @click=${() => {
-        this.close();
-        window.showPage?.("page-account");
-      }}
-    >
-      ${translateText("single_modal.sign_in_for_achievements")}
-    </button>`;
-  }
-
-  private applyAchievements(userMe: UserMeResponse | false) {
-    if (!userMe) {
-      this.mapWins = new Map();
-      return;
-    }
-
-    const completions = userMe.player.achievements.singleplayerMap;
-
-    const winsMap = new Map<GameMapType, Set<Difficulty>>();
-    for (const entry of completions) {
-      const { mapName, difficulty } = entry ?? {};
-      const isValidMap =
-        typeof mapName === "string" &&
-        Object.values(GameMapType).includes(mapName as GameMapType);
-      const isValidDifficulty =
-        typeof difficulty === "string" &&
-        Object.values(Difficulty).includes(difficulty as Difficulty);
-      if (!isValidMap || !isValidDifficulty) continue;
-
-      const map = mapName as GameMapType;
-      const set = winsMap.get(map) ?? new Set<Difficulty>();
-      set.add(difficulty as Difficulty);
-      winsMap.set(map, set);
-    }
-
-    this.mapWins = winsMap;
   }
 
   protected renderHeaderSlot() {
@@ -256,74 +108,7 @@ export class SinglePlayerModal extends BaseModal {
       title: translateText("main.solo") || "Solo",
       onBack: () => this.close(),
       ariaLabel: translateText("common.back"),
-      rightContent: hasLinkedAccount(this.userMeResponse)
-        ? html`<button
-              @click=${this.toggleAchievements}
-              class="flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all shrink-0 ${this
-                .showAchievements
-                ? "bg-yellow-500/10 border-yellow-500/30 text-yellow-400"
-                : "text-white/60"}"
-            >
-              <img
-                src=${assetUrl("images/MedalIconWhite.svg")}
-                class="w-4 h-4 opacity-80 shrink-0"
-                style="${this.showAchievements ? "" : "filter: grayscale(1);"}"
-              />
-              <span
-                class="text-xs font-bold uppercase tracking-wider whitespace-nowrap"
-                >${translateText("single_modal.toggle_achievements")}</span
-              >
-            </button>
-            ${this.showAchievements ? this.renderMedalOverview() : null}`
-        : this.renderNotLoggedInBanner(),
     });
-  }
-
-  // Compact summary that expands under the header while achievements are on:
-  // each colored medal with how many maps you've earned it on, plus the shared
-  // "out of N maps" total (N = achievement-eligible maps).
-  private renderMedalOverview(): TemplateResult {
-    const counts = this.medalCounts();
-    const total = this.eligibleMaps?.size ?? null;
-    return html`<div class="basis-full w-full">
-      <div
-        class="flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-2.5 rounded-xl border border-yellow-500/20 bg-yellow-500/5"
-      >
-        <span
-          class="text-[11px] font-bold uppercase tracking-wider text-yellow-400/80 shrink-0"
-        >
-          ${translateText("single_modal.medals_earned")}
-        </span>
-        <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-          ${MEDAL_ORDER.map((difficulty) =>
-            this.renderMedalStat(difficulty, counts[difficulty]),
-          )}
-        </div>
-        <span
-          class="ml-auto text-[11px] font-semibold uppercase tracking-wider text-white/40 shrink-0"
-        >
-          ${translateText("single_modal.medals_of_maps", {
-            total: total ?? "…",
-          })}
-        </span>
-      </div>
-    </div>`;
-  }
-
-  private renderMedalStat(
-    difficulty: Difficulty,
-    count: number,
-  ): TemplateResult {
-    return html`<div
-      class="flex items-center gap-1.5"
-      title=${translateText(`difficulty.${difficulty.toLowerCase()}`)}
-    >
-      ${medalIcon(difficulty, "w-4 h-4")}
-      <span class="text-xs font-medium text-white/50 hidden sm:inline"
-        >${translateText(`difficulty.${difficulty.toLowerCase()}`)}</span
-      >
-      <span class="text-sm font-bold text-white tabular-nums">${count}</span>
-    </div>`;
   }
 
   protected renderBody() {
@@ -393,8 +178,6 @@ export class SinglePlayerModal extends BaseModal {
               map: {
                 selected: this.selectedMap,
                 useRandom: this.useRandomMap,
-                showMedals: this.showAchievements,
-                mapWins: this.mapWins,
               },
               difficulty: {
                 selected: this.selectedDifficulty,
@@ -477,13 +260,6 @@ export class SinglePlayerModal extends BaseModal {
 
         <!-- Footer Action -->
         <div class="p-6 border-t border-white/10 bg-black/20 shrink-0">
-          ${hasLinkedAccount(this.userMeResponse) && this.hasOptionsChanged()
-            ? html`<div
-                class="mb-4 px-4 py-3 rounded-xl bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-xs font-bold uppercase tracking-wider text-center"
-              >
-                ${translateText("single_modal.options_changed_no_achievements")}
-              </div>`
-            : null}
           <o-button
             variant="primary"
             width="block"
@@ -795,8 +571,6 @@ export class SinglePlayerModal extends BaseModal {
       "username-input",
     ) as UsernameInput;
 
-    await crazyGamesSDK.requestMidgameAd();
-
     this.dispatchEvent(
       new CustomEvent("join-lobby", {
         detail: {
@@ -808,7 +582,6 @@ export class SinglePlayerModal extends BaseModal {
                 clientID,
                 username: usernameInput.getUsername(),
                 clanTag: usernameInput.getClanTag() ?? null,
-                cosmetics: await getPlayerCosmetics(),
               },
             ],
             config: {

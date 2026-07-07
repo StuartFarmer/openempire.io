@@ -1,7 +1,9 @@
 import { LitElement, html } from "lit";
 import { customElement } from "lit/decorators.js";
 import { assetUrl } from "../../core/AssetUrls";
-import "./NewsBox";
+import { translateText } from "../Utils";
+import type { SinglePlayerModal } from "../SinglePlayerModal";
+import type { UsernameInput } from "../UsernameInput";
 
 @customElement("play-page")
 export class PlayPage extends LitElement {
@@ -9,14 +11,26 @@ export class PlayPage extends LitElement {
     return this;
   }
 
+  private validateUsername(): boolean {
+    const usernameInput = document.querySelector(
+      "username-input",
+    ) as UsernameInput | null;
+    return usernameInput?.canPlay() ?? true;
+  }
+
+  private openSinglePlayerModal = () => {
+    if (!this.validateUsername()) return;
+    (
+      document.querySelector("single-player-modal") as SinglePlayerModal
+    )?.open();
+  };
+
   render() {
     return html`
       <div
         id="page-play"
         class="flex flex-col gap-2 w-full px-0 lg:px-4 min-h-0"
       >
-        <token-login class="absolute"></token-login>
-
         <!-- Mobile: Fixed top bar -->
         <div
           class="lg:hidden fixed left-0 right-0 top-0 z-40 pt-[env(safe-area-inset-top)] bg-surface border-b border-white/10"
@@ -66,18 +80,11 @@ export class PlayPage extends LitElement {
           </div>
         </div>
 
-        <div
-          class="w-full pb-4 lg:pb-0 flex flex-col gap-4 sm:-mx-4 sm:w-[calc(100%+2rem)] lg:mx-0 lg:w-full lg:grid lg:grid-cols-[2fr_1fr] lg:gap-4"
-        >
+        <div class="w-full pb-4 lg:pb-0 flex flex-col gap-4">
           <!-- Mobile: spacer for fixed top bar -->
-          <div
-            class="lg:hidden h-[calc(env(safe-area-inset-top)+56px)] lg:col-span-2 -mb-4"
-          ></div>
+          <div class="lg:hidden h-[calc(env(safe-area-inset-top)+56px)]"></div>
 
-          <!-- News box above username -->
-          <news-box class="lg:col-span-2"></news-box>
-
-          <!-- Username: left col -->
+          <!-- Username -->
           <div
             class="px-2 py-2 bg-surface border-y border-white/10 overflow-visible lg:flex lg:items-center lg:gap-x-2 lg:h-[60px] lg:p-3 lg:relative lg:z-20 lg:border-y-0 lg:rounded-xl"
           >
@@ -85,44 +92,33 @@ export class PlayPage extends LitElement {
               <username-input
                 class="flex-1 min-w-0 h-10 lg:h-[50px]"
               ></username-input>
-              <pattern-input
-                id="pattern-input-mobile"
-                show-select-label
-                adaptive-size
-                class="shrink-0 lg:hidden"
-              ></pattern-input>
-              <flag-input
-                id="flag-input-mobile"
-                show-select-label
-                class="shrink-0 lg:hidden h-10 w-10"
-              ></flag-input>
-              <effects-input
-                id="effects-input-mobile"
-                class="shrink-0 lg:hidden h-10 w-10"
-              ></effects-input>
             </div>
           </div>
 
-          <!-- Skin + flag: right col -->
-          <div class="hidden lg:flex h-[60px] gap-2">
-            <pattern-input
-              id="pattern-input-desktop"
-              show-select-label
-              class="flex-1 h-full"
-            ></pattern-input>
-            <flag-input
-              id="flag-input-desktop"
-              show-select-label
-              class="flex-1 h-full"
-            ></flag-input>
-            <effects-input
-              id="effects-input-desktop"
-              class="flex-1 h-full"
-            ></effects-input>
+          <!-- Game entry points -->
+          <div class="flex flex-col gap-3 px-2 lg:px-0">
+            <button
+              class="w-full py-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-lg font-bold uppercase tracking-wider transition-colors cursor-pointer"
+              @click=${this.openSinglePlayerModal}
+            >
+              ${translateText("play_page.singleplayer")}
+            </button>
+            <div class="flex gap-3">
+              <a
+                href="#generator"
+                class="flex-1 py-3 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white text-center font-medium uppercase tracking-wider transition-colors"
+              >
+                ${translateText("play_page.map_generator")}
+              </a>
+              <a
+                href="#alternative"
+                class="flex-1 py-3 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white text-center font-medium uppercase tracking-wider transition-colors"
+              >
+                ${translateText("play_page.sandbox")}
+              </a>
+            </div>
           </div>
         </div>
-
-        <game-mode-selector></game-mode-selector>
       </div>
     `;
   }

@@ -41,8 +41,6 @@ declare global {
       cdnBase?: string;
       gameEnv?: string;
       numWorkers?: number;
-      turnstileSiteKey?: string;
-      jwtAudience?: string;
       instanceId?: string;
     };
   }

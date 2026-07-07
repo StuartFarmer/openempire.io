@@ -29,7 +29,7 @@ import {
 import { loadTerrainMap, TerrainMapData } from "../core/game/TerrainMapLoader";
 import { UserSettings } from "../core/game/UserSettings";
 import { WorkerClient } from "../core/worker/WorkerClient";
-import { getPersistentID } from "./Auth";
+import { getPersistentID } from "./PersistentID";
 import {
   AutoUpgradeEvent,
   DoBoatAttackEvent,

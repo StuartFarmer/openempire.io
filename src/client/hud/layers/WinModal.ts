@@ -9,17 +9,8 @@ import {
 import { EventBus } from "../../../core/EventBus";
 import { RankedType } from "../../../core/game/Game";
 import { GameUpdateType } from "../../../core/game/GameUpdates";
-import { getUserMe } from "../../Api";
 import { SendWinnerEvent } from "../../board/BoardEvents";
-import "../../components/CosmeticButton";
 import { Controller } from "../../Controller";
-import {
-  fetchCosmetics,
-  purchaseCosmetic,
-  resolveCosmetics,
-} from "../../Cosmetics";
-import { crazyGamesSDK } from "../../CrazyGamesSDK";
-import { Platform } from "../../Platform";
 import { GameView } from "../../view";
 
 @customElement("win-modal")
@@ -40,9 +31,6 @@ export class WinModal extends LitElement implements Controller {
 
   @state()
   private isRankedGame = false;
-
-  @state()
-  private patternContent: TemplateResult | null = null;
 
   private _title: string;
 
@@ -113,12 +101,10 @@ export class WinModal extends LitElement implements Controller {
     if (!this.isWin && getGamesPlayed() < 3) {
       return this.renderYoutubeTutorial();
     }
-    if (this.rand < 0.25) {
+    if (this.rand < 0.5) {
       return this.steamWishlist();
-    } else if (this.rand < 0.5) {
-      return this.discordDisplay();
     } else {
-      return this.renderPatternButton();
+      return this.discordDisplay();
     }
   }
 
@@ -139,52 +125,6 @@ export class WinModal extends LitElement implements Controller {
             allowfullscreen
           ></iframe>
         </div>
-      </div>
-    `;
-  }
-
-  renderPatternButton() {
-    return html`
-      <div class="text-center mb-6 bg-black/30 p-2.5 rounded-sm">
-        <h3 class="text-xl font-semibold text-white mb-3">
-          ${translateText("win_modal.support_openfront")}
-        </h3>
-        <p class="text-white mb-3">
-          ${translateText("win_modal.territory_pattern")}
-        </p>
-        <div class="flex justify-center">${this.patternContent}</div>
-      </div>
-    `;
-  }
-
-  async loadPatternContent() {
-    const me = await getUserMe();
-    const cosmetics = await fetchCosmetics();
-
-    const purchasable = resolveCosmetics(cosmetics, me, null).filter(
-      (r) => r.type === "pattern" && r.relationship === "purchasable",
-    );
-
-    if (purchasable.length === 0) {
-      this.patternContent = html``;
-      return;
-    }
-
-    // Shuffle the array and take patterns based on screen size
-    const shuffled = [...purchasable].sort(() => Math.random() - 0.5);
-    const maxPatterns = Platform.isMobileWidth ? 1 : 3;
-    const selected = shuffled.slice(0, Math.min(maxPatterns, shuffled.length));
-
-    this.patternContent = html`
-      <div class="flex gap-4 flex-wrap justify-start">
-        ${selected.map(
-          (r) => html`
-            <cosmetic-button
-              .resolved=${r}
-              .onPurchase=${purchaseCosmetic}
-            ></cosmetic-button>
-          `,
-        )}
       </div>
     `;
   }
@@ -224,8 +164,6 @@ export class WinModal extends LitElement implements Controller {
   }
 
   async show() {
-    crazyGamesSDK.gameplayStop();
-    await this.loadPatternContent();
     // Check if this is a ranked game
     this.isRankedGame =
       this.game.config().gameConfig().rankedType === RankedType.OneVOne;
@@ -279,7 +217,6 @@ export class WinModal extends LitElement implements Controller {
         if (wu.winner[1] === this.game.myPlayer()?.team()) {
           this._title = translateText("win_modal.your_team");
           this.isWin = true;
-          crazyGamesSDK.happytime();
         } else {
           this._title = translateText("win_modal.other_team", {
             team: wu.winner[1],
@@ -309,7 +246,6 @@ export class WinModal extends LitElement implements Controller {
         ) {
           this._title = translateText("win_modal.you_won");
           this.isWin = true;
-          crazyGamesSDK.happytime();
         } else {
           this._title = translateText("win_modal.other_won", {
             player: winner.displayName(),

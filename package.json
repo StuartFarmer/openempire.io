@@ -63,7 +63,6 @@
     "vitest-canvas-mock": "^1.1.4"
   },
   "dependencies": {
-    "@lit-labs/virtualizer": "^2.1.1",
     "colord": "^2.9.3",
     "dompurify": "^3.4.11",
     "fastpriorityqueue": "^0.8.0",

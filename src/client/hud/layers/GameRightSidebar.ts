@@ -6,7 +6,6 @@ import { GameType } from "../../../core/game/Game";
 import { PauseGameIntentEvent, SendWinnerEvent } from "../../board/BoardEvents";
 import "../../components/DoomsdayClockPanel";
 import { Controller } from "../../Controller";
-import { crazyGamesSDK } from "../../CrazyGamesSDK";
 import { TogglePauseIntentEvent } from "../../InputHandler";
 import { translateText } from "../../Utils";
 import { GameView } from "../../view";
@@ -183,11 +182,6 @@ export class GameRightSidebar extends LitElement implements Controller {
 
   private onPauseButtonClick() {
     this.isPaused = !this.isPaused;
-    if (this.isPaused) {
-      crazyGamesSDK.gameplayStop();
-    } else {
-      crazyGamesSDK.gameplayStart();
-    }
     this.eventBus.emit(new PauseGameIntentEvent(this.isPaused));
   }
 
@@ -199,8 +193,6 @@ export class GameRightSidebar extends LitElement implements Controller {
       );
       if (!isConfirmed) return;
     }
-    await crazyGamesSDK.requestMidgameAd();
-    await crazyGamesSDK.gameplayStop();
     // redirect to the home page
     window.location.href = "/";
   }
