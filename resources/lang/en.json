@@ -817,10 +817,7 @@
     "text": "For fullscreen, add OpenFront to your Home Screen"
   },
   "kick_reason": {
-    "admin": "Kicked by an admin",
-    "duplicate_session": "Kicked from game (you may have been playing on another tab)",
-    "host_left": "The host has left the lobby.",
-    "lobby_creator": "Kicked by lobby creator"
+    "host_left": "The host has left the lobby."
   },
   "lang": {
     "en": "English",
