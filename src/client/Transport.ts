@@ -16,7 +16,6 @@ import {
   ServerMessageSchema,
 } from "../core/Schemas";
 import { replacer } from "../core/Util";
-import { getPlayToken } from "./PersistentID";
 import {
   BuildUnitIntentEvent,
   CancelAttackIntentEvent,
@@ -48,6 +47,7 @@ import {
 } from "./board/BoardEvents";
 import { LobbyConfig } from "./ClientGameRunner";
 import { LocalServer } from "./LocalServer";
+import { getPlayToken } from "./PersistentID";
 
 export class Transport {
   private socket: WebSocket | null = null;

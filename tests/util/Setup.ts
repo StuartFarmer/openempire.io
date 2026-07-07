@@ -54,7 +54,7 @@ export async function setup(
   const miniGameMap = await genTerrainFromBin(manifest.map4x, miniMapBinBuffer);
 
   const gameConfig: GameConfig = {
-    gameMap: GameMapType.Asia,
+    gameMap: GameMapType.World,
     gameMapSize: GameMapSize.Normal,
     gameMode: GameMode.FFA,
     gameType: GameType.Singleplayer,

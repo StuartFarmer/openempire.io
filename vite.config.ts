@@ -145,9 +145,7 @@ export default defineConfig(({ mode }) => {
 
     plugins: [
       ...(!isProduction
-        ? [
-            serveProprietaryDir(proprietaryDir, resourcesDir),
-          ]
+        ? [serveProprietaryDir(proprietaryDir, resourcesDir)]
         : []),
       ...(isProduction
         ? []

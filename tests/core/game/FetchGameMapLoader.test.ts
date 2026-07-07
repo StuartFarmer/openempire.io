@@ -15,19 +15,19 @@ describe("FetchGameMapLoader", () => {
     const loader = new FetchGameMapLoader(
       (path) => `/_assets/maps/${path}.hashed`,
     );
-    const mapData = loader.getMapData(GameMapType.BritanniaClassic);
+    const mapData = loader.getMapData(GameMapType.World);
 
     expect(mapData.webpPath).toBe(
-      "/_assets/maps/britanniaclassic/thumbnail.webp.hashed",
+      "/_assets/maps/world/thumbnail.webp.hashed",
     );
     expect(mapData.terrainColorsPath).toBe(
-      "/_assets/maps/britanniaclassic/terrain-colors.png.hashed",
+      "/_assets/maps/world/terrain-colors.png.hashed",
     );
 
     await mapData.manifest();
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/_assets/maps/britanniaclassic/manifest.json.hashed",
+      "/_assets/maps/world/manifest.json.hashed",
     );
   });
 });

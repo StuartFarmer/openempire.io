@@ -18,15 +18,6 @@ const allMapKeys = Object.keys(GameMapType) as GameMapName[];
 
 // Maps excluded from the frequency requirement (not part of regular playlists).
 const FREQUENCY_EXEMPTIONS: Set<GameMapName> = new Set([
-  "GiantWorldMap",
-  "Oceania",
-  "BaikalNukeWars",
-  "Tourney1",
-  "Tourney2",
-  "Tourney3",
-  "Tourney4",
-  "EuropeClassic",
-  "BritanniaClassic",
   // Generated maps (world-engine generator output, not in multiplayer rotation).
   "MajorMenor",
   "Pangea001",

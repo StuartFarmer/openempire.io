@@ -29,7 +29,6 @@ import {
 import { loadTerrainMap, TerrainMapData } from "../core/game/TerrainMapLoader";
 import { UserSettings } from "../core/game/UserSettings";
 import { WorkerClient } from "../core/worker/WorkerClient";
-import { getPersistentID } from "./PersistentID";
 import {
   AutoUpgradeEvent,
   DoBoatAttackEvent,
@@ -43,6 +42,7 @@ import {
   TickMetricsEvent,
 } from "./InputHandler";
 import { endGame, startGame, startTime } from "./LocalPersistantStats";
+import { getPersistentID } from "./PersistentID";
 import { terrainMapFileLoader } from "./TerrainMapFileLoader";
 import { GoToPlayerEvent } from "./TransformHandler";
 import { Transport } from "./Transport";

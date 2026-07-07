@@ -148,16 +148,13 @@ export class GameView implements GameMap {
     );
     for (const nation of this._mapData.nations) {
       // Nations don't have client ids, so we use their name as the key instead.
-      this._cosmetics.set(nation.name, {
-        flag: nation.flag ? `/flags/${nation.flag}.svg` : undefined,
-      } satisfies PlayerCosmetics);
+      // Flag assets are not part of the lean build; nations render unflagged.
+      this._cosmetics.set(nation.name, {} satisfies PlayerCosmetics);
     }
     for (const extra of this._mapData.additionalNations) {
       // Only set if not already provided by a manifest nation with the same name.
       if (this._cosmetics.has(extra.name)) continue;
-      this._cosmetics.set(extra.name, {
-        flag: extra.flag ? `/flags/${extra.flag}.svg` : undefined,
-      } satisfies PlayerCosmetics);
+      this._cosmetics.set(extra.name, {} satisfies PlayerCosmetics);
     }
 
     const mapW = this._map.width();

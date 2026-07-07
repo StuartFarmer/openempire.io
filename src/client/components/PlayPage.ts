@@ -1,9 +1,9 @@
 import { LitElement, html } from "lit";
 import { customElement } from "lit/decorators.js";
 import { assetUrl } from "../../core/AssetUrls";
-import { translateText } from "../Utils";
 import type { SinglePlayerModal } from "../SinglePlayerModal";
 import type { UsernameInput } from "../UsernameInput";
+import { translateText } from "../Utils";
 
 @customElement("play-page")
 export class PlayPage extends LitElement {

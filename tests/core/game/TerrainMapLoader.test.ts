@@ -14,7 +14,7 @@ describe("TerrainMapLoader", () => {
       testLoader({ terrain_colors: true }),
     );
     const withoutSidecar = await loadTerrainMap(
-      GameMapType.Europe,
+      GameMapType.Pangea001,
       GameMapSize.Normal,
       testLoader({}),
     );

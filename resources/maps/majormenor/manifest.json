@@ -1,8 +1,5 @@
 {
-  "categories": [
-    "new",
-    "fictional"
-  ],
+  "categories": ["new", "fictional"],
   "id": "MajorMenor",
   "map": {
     "height": 1024,

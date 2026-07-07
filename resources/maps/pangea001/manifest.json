@@ -1,8 +1,5 @@
 {
-  "categories": [
-    "new",
-    "fictional"
-  ],
+  "categories": ["new", "fictional"],
   "id": "Pangea001",
   "map": {
     "height": 256,

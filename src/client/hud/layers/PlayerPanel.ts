@@ -1,6 +1,5 @@
 import { html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import Countries from "resources/countries.json" with { type: "json" };
 import { assetUrl } from "../../../core/AssetUrls";
 import { EventBus } from "../../../core/EventBus";
 import {
@@ -492,12 +491,6 @@ export class PlayerPanel extends LitElement implements Controller {
   }
 
   private renderIdentityRow(other: PlayerView, my: PlayerView) {
-    const flagCode = other.cosmetics.flag;
-    const country =
-      typeof flagCode === "string"
-        ? Countries.find((c) => c.code === flagCode)
-        : undefined;
-
     const chip =
       other.type() === PlayerType.Human
         ? null
@@ -505,17 +498,6 @@ export class PlayerPanel extends LitElement implements Controller {
 
     return html`
       <div class="flex items-center gap-2.5 flex-wrap">
-        ${country && typeof flagCode === "string"
-          ? html`<img
-              src=${assetUrl(`flags/${encodeURIComponent(flagCode)}.svg`)}
-              alt=${country?.name ?? "Flag"}
-              class="h-10 w-10 rounded-full object-cover"
-              @error=${(e: Event) => {
-                (e.target as HTMLImageElement).style.display = "none";
-              }}
-            />`
-          : ""}
-
         <div class="flex-1 min-w-0">
           <h2
             class="text-xl font-bold tracking-[-0.01em] text-zinc-50 truncate"

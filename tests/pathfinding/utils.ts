@@ -257,7 +257,7 @@ export async function setupFromPath(
 
   const config = new TestConfig(
     {
-      gameMap: GameMapType.Asia,
+      gameMap: GameMapType.World,
       gameMapSize: GameMapSize.Normal,
       gameMode: GameMode.FFA,
       gameType: GameType.Singleplayer,

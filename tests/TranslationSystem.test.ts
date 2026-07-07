@@ -5,7 +5,6 @@ import ts from "typescript";
 
 const PROJECT_ROOT = path.join(__dirname, "..");
 const LANGUAGE_DIR = path.join(PROJECT_ROOT, "resources", "lang");
-const FLAG_DIR = path.join(PROJECT_ROOT, "resources", "flags");
 const METADATA_FILE = path.join(LANGUAGE_DIR, "metadata.json");
 
 /**
@@ -455,7 +454,6 @@ describe("Translation System", () => {
 
     for (const entry of metadata) {
       const code = entry?.code;
-      const svg = entry?.svg;
 
       if (typeof code !== "string" || code.length === 0) {
         errors.push(
@@ -464,21 +462,8 @@ describe("Translation System", () => {
         continue;
       }
 
-      if (typeof svg !== "string" || svg.length === 0) {
-        errors.push(
-          `[${code}]: metadata svg is missing or not a non-empty string`,
-        );
-        continue;
-      }
-
       if (!knownLanguageFiles.has(`${code}.json`)) {
         errors.push(`[${code}]: lang json file does not exist: ${code}.json`);
-      }
-
-      const svgFile = svg.endsWith(".svg") ? svg : `${svg}.svg`;
-      const flagPath = path.join(FLAG_DIR, svgFile);
-      if (!fs.existsSync(flagPath)) {
-        errors.push(`[${code}]: SVG file does not exist: ${svgFile}`);
       }
     }
 

@@ -2,10 +2,7 @@
   "id": "Pangea002",
   "name": "Pangea II",
   "translation_key": "map.pangea002",
-  "categories": [
-    "new",
-    "fictional"
-  ],
+  "categories": ["new", "fictional"],
   "multiplayer_frequency": 0,
   "nations": []
 }
