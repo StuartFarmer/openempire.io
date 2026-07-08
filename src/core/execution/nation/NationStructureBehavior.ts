@@ -654,29 +654,62 @@ export class NationStructureBehavior {
     return false;
   }
 
-  /** Sample owned tiles near the border; optionally maximize crop fertility. */
+  /**
+   * Sample candidate anchors near the border and around existing same-type
+   * plots; score by fertility (farms) × district adjacency so bots paint
+   * contiguous belts and clusters instead of scattering plots.
+   */
   private spawnTribalStructure(type: UnitType, maximizeCrop: boolean): boolean {
     const game = this.game;
     const player = this.player;
     const border = player.borderTiles();
     if (border.size === 0) return false;
     const anchors = Array.from(border);
+    const ownPlots = player.units(type);
+    const bonus = game.config().food().adjacencyBonus;
+
+    const adjacency = (t: TileRef): number => {
+      let count = 0;
+      const x = game.x(t);
+      const y = game.y(t);
+      for (const [dx, dy] of [
+        [-2, 0],
+        [2, 0],
+        [0, -2],
+        [0, 2],
+      ]) {
+        if (!game.isValidCoord(x + dx, y + dy)) continue;
+        const p = game.plotAt(game.ref(x + dx, y + dy));
+        if (p !== undefined && p.type() === type && p.owner() === player) {
+          count++;
+        }
+      }
+      return count;
+    };
 
     let best: TileRef | null = null;
     let bestScore = -1;
     for (let attempt = 0; attempt < 40; attempt++) {
-      const anchor = this.random.randElement(anchors);
-      const x = this.random.nextInt(game.x(anchor) - 6, game.x(anchor) + 7);
-      const y = this.random.nextInt(game.y(anchor) - 6, game.y(anchor) + 7);
+      // Half the samples hug existing plots (district growth), half explore.
+      const nearPlot = ownPlots.length > 0 && attempt % 2 === 0;
+      const around = nearPlot
+        ? this.random.randElement(ownPlots).tile()
+        : this.random.randElement(anchors);
+      const spread = nearPlot ? 4 : 6;
+      const x = this.random.nextInt(
+        game.x(around) - spread,
+        game.x(around) + spread + 1,
+      );
+      const y = this.random.nextInt(
+        game.y(around) - spread,
+        game.y(around) + spread + 1,
+      );
       if (!game.isValidCoord(x, y)) continue;
       const t = game.ref(x, y);
       if (game.owner(t) !== player) continue;
       if (player.canBuild(type, t) === false) continue;
-      if (!maximizeCrop) {
-        best = t;
-        break;
-      }
-      const score = game.layer("crop", t);
+      const fertility = maximizeCrop ? game.layer("crop", t) : 100;
+      const score = fertility * (1 + adjacency(t) * bonus);
       if (score > bestScore) {
         bestScore = score;
         best = t;

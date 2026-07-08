@@ -389,19 +389,66 @@ describe("Tribal scarcity (rework-tribal-scarcity)", () => {
     expect(big).toBeLessThanOrEqual(2 * small + 1);
   });
 
-  test("one farm out-produces a large territory's land harvest", () => {
-    conquerBlock(game, player, 0, 0, 8); // 64 tiles of land harvest
+  test("a small farm district out-produces a large territory's land harvest", () => {
+    conquerBlock(game, player, 0, 0, 10); // 100 tiles of land harvest
     player.addFood(10_000n);
     activate(game, player);
     game.executeNextTick();
     const f = game.config().food();
-    const ghost = Math.floor((f.baseFarmFertility * f.farmProductionMilli) / 1000);
+    const ghost = Math.floor(
+      (f.baseFarmFertility * f.farmProductionMilli) / 1000,
+    );
     const landOnly = flow(player).production - ghost;
 
-    player.buildUnit(UnitType.Farmland, game.ref(2, 2), {});
+    // Paint a 4-plot farm belt (2×2 plots packed edge to edge).
+    for (const x of [2, 4, 6, 8]) {
+      player.buildUnit(UnitType.Farmland, game.ref(x, 2), {});
+    }
     game.executeNextTick();
-    const farmDelta = flow(player).production - ghost - landOnly;
-    expect(farmDelta).toBeGreaterThan(landOnly);
+    const beltDelta = flow(player).production - ghost - landOnly;
+    expect(beltDelta).toBeGreaterThan(2 * landOnly);
+  });
+
+  test("adjacency: a farm belt out-produces scattered farms", async () => {
+    const scatteredGame = await layeredGame();
+    const sp = scatteredGame.player(humanInfo.id);
+    conquerBlock(game, player, 0, 0, 12);
+    conquerBlock(scatteredGame, sp, 0, 0, 12);
+    player.addFood(10_000n);
+    sp.addFood(10_000n);
+    activate(game, player);
+    activate(scatteredGame, sp);
+    player.setTroops(0);
+    sp.setTroops(0);
+
+    // Belt: 4 plots edge to edge; scattered: 4 isolated plots.
+    for (const x of [2, 4, 6, 8]) {
+      player.buildUnit(UnitType.Farmland, game.ref(x, 2), {});
+    }
+    for (const [x, y] of [
+      [1, 1],
+      [6, 1],
+      [1, 6],
+      [6, 6],
+    ]) {
+      sp.buildUnit(UnitType.Farmland, scatteredGame.ref(x, y), {});
+    }
+    game.executeNextTick();
+    scatteredGame.executeNextTick();
+    expect(flow(player).production).toBeGreaterThan(flow(sp).production);
+  });
+
+  test("plots pack edge to edge but cannot overlap", () => {
+    conquerBlock(game, player, 0, 0, 6);
+    player.addFood(10_000n);
+    expect(player.canBuild(UnitType.Farmland, game.ref(0, 0))).not.toBe(false);
+    player.buildUnit(UnitType.Farmland, game.ref(0, 0), {});
+    // Edge-to-edge packing is allowed…
+    expect(player.canBuild(UnitType.Farmland, game.ref(2, 0))).not.toBe(false);
+    // …but overlapping an existing footprint is rejected.
+    expect(player.canBuild(UnitType.Farmland, game.ref(1, 0))).toBe(false);
+    // Anchors whose footprint leaves owned land are rejected.
+    expect(player.canBuild(UnitType.Farmland, game.ref(5, 5))).toBe(false);
   });
 
   test("costs escalate per owned building", () => {
@@ -410,12 +457,17 @@ describe("Tribal scarcity (rework-tribal-scarcity)", () => {
     const cost = () =>
       game.config().unitInfo(UnitType.Farmland).cost(game, player);
 
+    const f = game.config().food();
     const base = cost();
-    expect(base).toBe(BigInt(game.config().food().farmlandCost));
+    expect(base).toBe(BigInt(f.farmlandCost));
     player.buildUnit(UnitType.Farmland, game.ref(2, 2), {});
-    expect(cost()).toBe(base * 2n);
+    expect(cost()).toBe(
+      BigInt(Math.ceil(f.farmlandCost * (1 + f.costGrowthPerOwned))),
+    );
     player.buildUnit(UnitType.Farmland, game.ref(20, 20), {});
-    expect(cost()).toBe(base * 3n);
+    expect(cost()).toBe(
+      BigInt(Math.ceil(f.farmlandCost * (1 + 2 * f.costGrowthPerOwned))),
+    );
   });
 
   test("invest-or-starve: idle stake drains, then population shrinks; farms stop the bleed", () => {
@@ -465,8 +517,8 @@ describe("Ghost start + starvation parity", () => {
 
   test("every player starts with a ghost settlement and ghost farmland", () => {
     const f = game.config().food();
-    // Ghost settlement: base cap equals one built Settlement's worth.
-    expect(f.basePopulation).toBe(f.populationPerSettlement);
+    // Ghost settlement district: the base cap stands in for a starting town
+    // (several plots' worth now that settlements are painted 2×2 plots).
     expect(game.config().maxTroops(player)).toBe(f.basePopulation);
 
     // Ghost farmland: production with zero buildings includes one farm-worth.

@@ -1,4 +1,40 @@
-import { Game, Player, UnitType } from "../../game/Game";
+import { Game, Player, Unit, UnitType } from "../../game/Game";
+
+/**
+ * Count distinct same-type, same-owner plots edge-adjacent to this plot's
+ * 2×2 footprint (max 4 — one per side). The district bonus multiplier is
+ * 1 + count × Config.food().adjacencyBonus.
+ */
+export function sameTypeNeighborPlots(mg: Game, plot: Unit): number {
+  const x = mg.x(plot.tile());
+  const y = mg.y(plot.tile());
+  // The 8 tiles hugging the four edges of a 2×2 footprint at (x, y).
+  const edges: Array<[number, number]> = [
+    [x - 1, y],
+    [x - 1, y + 1],
+    [x + 2, y],
+    [x + 2, y + 1],
+    [x, y - 1],
+    [x + 1, y - 1],
+    [x, y + 2],
+    [x + 1, y + 2],
+  ];
+  const seen = new Set<Unit>();
+  for (const [ex, ey] of edges) {
+    if (!mg.isValidCoord(ex, ey)) continue;
+    const neighbor = mg.plotAt(mg.ref(ex, ey));
+    if (
+      neighbor !== undefined &&
+      neighbor !== plot &&
+      neighbor.type() === plot.type() &&
+      neighbor.owner() === plot.owner() &&
+      !neighbor.isUnderConstruction()
+    ) {
+      seen.add(neighbor);
+    }
+  }
+  return Math.min(4, seen.size);
+}
 
 /**
  * The Tribal-age food tick (see openspec add-tribal-food-economy). Runs once
@@ -21,14 +57,18 @@ export function foodTick(mg: Game, player: Player): void {
   let farmFertility = f.baseFarmFertility;
   for (const farm of player.units(UnitType.Farmland)) {
     if (farm.isUnderConstruction()) continue;
-    farmFertility += mg.layer("crop", farm.tile()) * farm.level();
+    // District bonus: contiguous farm belts out-produce scattered plots.
+    const district = 1 + sameTypeNeighborPlots(mg, farm) * f.adjacencyBonus;
+    farmFertility += mg.layer("crop", farm.tile()) * farm.level() * district;
   }
   const landMilli = Math.floor(
     Math.pow(player.fertilitySum(), f.landHarvestExponent) *
       f.landHarvestMilli,
   );
+  // farmFertility carries fractional district multipliers — floor before
+  // the value flows into bigint stock math.
   const productionMilli =
-    landMilli + farmFertility * f.farmProductionMilli;
+    landMilli + Math.floor(farmFertility * f.farmProductionMilli);
 
   // ── Consumption: idle population < moving troops < fighting troops ──────
   // Attack and boat troops leave the player's troops() pool while deployed,
@@ -59,7 +99,9 @@ export function foodTick(mg: Game, player: Player): void {
 
   // ── Storage: overflow is lost, then the remainder decays ────────────────
   const capMilli =
-    BigInt(f.baseStorage + barnLevels(player) * f.storagePerBarn) * 1000n;
+    BigInt(
+      f.baseStorage + Math.floor(barnCapacity(mg, player) * f.storagePerBarn),
+    ) * 1000n;
   if (stock > capMilli) {
     stock = capMilli;
   }
@@ -94,7 +136,11 @@ export function foodTick(mg: Game, player: Player): void {
     const surplusRatio =
       (productionMilli - consumptionMilli) / Math.max(1, consumptionMilli);
     const surplusFactor = Math.min(1, surplusRatio / f.surplusForFullGrowth);
-    const growth = mg.config().troopIncreaseRate(player) * surplusFactor;
+    // Settlement districts: clustered towns grow population faster.
+    const growth =
+      mg.config().troopIncreaseRate(player) *
+      surplusFactor *
+      (1 + settlementDistrictAvg(mg, player) * f.adjacencyBonus);
     player.addTroops(growth);
   }
 
@@ -113,11 +159,26 @@ export function foodTick(mg: Game, player: Player): void {
   flow.starvedTroops = starved;
 }
 
-function barnLevels(player: Player): number {
-  let levels = 0;
+/** Barn levels weighted by their district (adjacency) multiplier. */
+function barnCapacity(mg: Game, player: Player): number {
+  const bonus = mg.config().food().adjacencyBonus;
+  let capacity = 0;
   for (const barn of player.units(UnitType.Barn)) {
     if (barn.isUnderConstruction()) continue;
-    levels += barn.level();
+    capacity +=
+      barn.level() * (1 + sameTypeNeighborPlots(mg, barn) * bonus);
   }
-  return levels;
+  return capacity;
+}
+
+/** Average settlement adjacency (0..4) — the town-cluster growth factor. */
+function settlementDistrictAvg(mg: Game, player: Player): number {
+  let sum = 0;
+  let count = 0;
+  for (const s of player.units(UnitType.Settlement)) {
+    if (s.isUnderConstruction()) continue;
+    sum += sameTypeNeighborPlots(mg, s);
+    count++;
+  }
+  return count === 0 ? 0 : sum / count;
 }

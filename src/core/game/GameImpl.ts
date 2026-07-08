@@ -35,6 +35,7 @@ import {
   TerraNullius,
   Trios,
   Unit,
+  TribalStructures,
   UnitInfo,
   UnitType,
 } from "./Game";
@@ -103,6 +104,8 @@ export class GameImpl implements Game {
   private planDrivenUnitIds = new Set<number>();
   private unitGrid: UnitGrid;
   private _unitMap = new Map<number, Unit>();
+  /** Tribal plot occupancy: every tile of every 2×2 plot footprint. */
+  private _plotOccupancy = new Map<TileRef, Unit>();
 
   private playerTeams: Team[] = [];
   private botTeam: Team = ColoredTeams.Bot;
@@ -1003,14 +1006,45 @@ export class GameImpl implements Game {
   addUnit(u: Unit) {
     this.unitGrid.addUnit(u);
     this._unitMap.set(u.id(), u);
+    if (TribalStructures.has(u.type())) {
+      for (const t of this.plotTiles(u.tile())) {
+        this._plotOccupancy.set(t, u);
+      }
+    }
   }
   removeUnit(u: Unit) {
     this.unitGrid.removeUnit(u);
     this._unitMap.delete(u.id());
     this.planDrivenUnitIds.delete(u.id());
+    if (TribalStructures.has(u.type())) {
+      for (const t of this.plotTiles(u.tile())) {
+        if (this._plotOccupancy.get(t) === u) {
+          this._plotOccupancy.delete(t);
+        }
+      }
+    }
     if (u.hasTrainStation()) {
       this._railNetwork.removeStation(u);
     }
+  }
+
+  /**
+   * The 2×2 footprint of a tribal plot anchored at `anchor` — the anchor
+   * plus right/down/diagonal neighbors that exist on the map.
+   */
+  plotTiles(anchor: TileRef): TileRef[] {
+    const x = this.x(anchor);
+    const y = this.y(anchor);
+    const tiles: TileRef[] = [anchor];
+    if (this.isValidCoord(x + 1, y)) tiles.push(this.ref(x + 1, y));
+    if (this.isValidCoord(x, y + 1)) tiles.push(this.ref(x, y + 1));
+    if (this.isValidCoord(x + 1, y + 1)) tiles.push(this.ref(x + 1, y + 1));
+    return tiles;
+  }
+
+  /** The tribal plot (if any) covering this tile. */
+  plotAt(tile: TileRef): Unit | undefined {
+    return this._plotOccupancy.get(tile);
   }
   updateUnitTile(u: Unit) {
     this.unitGrid.updateUnitCell(u);

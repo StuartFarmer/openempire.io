@@ -164,13 +164,21 @@ export interface FoodConfig {
   /** Fraction of unfed population that starves per deficit tick. */
   starvationDeathFraction: number;
   /**
-   * Building cost bases (display food). Actual cost = base × (owned + 1),
-   * so every purchase escalates and competes with the others; the storage
-   * cap gates the higher tiers (save-for requires Barns).
+   * Plot cost bases (display food). Actual cost =
+   * base × (1 + owned × costGrowthPerOwned) — cheap plots, gently rising,
+   * so empires are painted from dozens of them; the storage cap still
+   * gates saving for large batches.
    */
   settlementCost: number;
   farmlandCost: number;
   barnCost: number;
+  /** Per-owned-plot cost growth (0.03 → plot #34 costs ~2× base). */
+  costGrowthPerOwned: number;
+  /**
+   * Bonus per edge-adjacent same-type plot (max 4 neighbors) applied to a
+   * plot's effect — rewards contiguous districts (farm belts, towns).
+   */
+  adjacencyBonus: number;
   /** Starting stock: buys the first farms, not comfort (fits baseStorage). */
   startingFood: number;
 }
@@ -188,20 +196,22 @@ const FOOD_DEFAULTS: FoodConfig = {
   fightConsumptionMilli: 40,
   landHarvestMilli: 200,
   landHarvestExponent: 0.5,
-  farmProductionMilli: 400,
-  baseFarmFertility: 90,
+  farmProductionMilli: 80,
+  baseFarmFertility: 450, // ghost farm stays 36 food/tick (450 × 80 milli)
   basePopulation: 15_000,
   startPopulation: 5_000,
-  populationPerSettlement: 15_000,
+  populationPerSettlement: 3_000,
   baseStorage: 5_000,
-  storagePerBarn: 8_000,
+  storagePerBarn: 1_500,
   decayNumer: 1,
   decayDenom: 5000,
   surplusForFullGrowth: 0.25,
   starvationDeathFraction: 0.02,
-  settlementCost: 2_000,
-  farmlandCost: 1_000,
-  barnCost: 800,
+  settlementCost: 150,
+  farmlandCost: 40,
+  barnCost: 60,
+  costGrowthPerOwned: 0.03,
+  adjacencyBonus: 0.1,
   startingFood: 4_000,
 };
 
@@ -584,10 +594,10 @@ export class Config {
   }
 
   /**
-   * Escalating food cost: base × (owned + 1), with the same owned-counting
-   * convention as the gold costWrapper. Linear (not 2^n) because storage
-   * capacity — not price growth — is the ladder gate: saving for a higher
-   * tier requires Barns first.
+   * Plot food cost: base × (1 + owned × costGrowthPerOwned), with the same
+   * owned-counting convention as the gold costWrapper. Gentle growth — an
+   * empire is painted from dozens of cheap plots; storage capacity remains
+   * the gate for saving up large batches.
    */
   private foodCostWrapper(
     baseFn: () => number,
@@ -598,7 +608,9 @@ export class Config {
         player.unitsOwned(type),
         player.unitsConstructed(type),
       );
-      return BigInt(baseFn() * (owned + 1));
+      return BigInt(
+        Math.ceil(baseFn() * (1 + owned * this.food().costGrowthPerOwned)),
+      );
     };
   }
 

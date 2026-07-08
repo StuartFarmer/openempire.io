@@ -850,6 +850,12 @@ export interface Game extends GameMap {
   numTilesWithFallout(): number;
   stats(): Stats;
 
+  // Tribal 2×2 plots (add-tile-painted-structures)
+  /** The up-to-4 tiles of a plot anchored at `anchor` (map-edge clipped). */
+  plotTiles(anchor: TileRef): TileRef[];
+  /** The tribal plot (if any) covering this tile. */
+  plotAt(tile: TileRef): Unit | undefined;
+
   addUpdate(update: GameUpdate): void;
   railNetwork(): RailNetwork;
   conquerPlayer(conqueror: Player, conquered: Player): void;
