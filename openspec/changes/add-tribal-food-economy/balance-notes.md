@@ -66,3 +66,25 @@ npx tsx tests/perf/balance/BalanceRun.ts --map verdantia --runs 3 \
 ```
 
 Same seed + config ⇒ identical output (`--check-repro`).
+
+## v2.1 — ghost start + starvation parity
+
+Playtest report: the human "eats through all food" while nations "expand
+no problem". Probe confirmed a mechanical asymmetry, not perception:
+troops deployed in attacks left the starvable pool — a 90%-committed
+army kept 17.7k of 20k troops through a famine (and conquered 5.7×
+territory) while an identical idle player starved to 1.6k. Nations
+always attack; cautious humans didn't. Fixes:
+
+1. Starvation now hits idle + attack + boat troops proportionally
+   (probe after: attacker ends at 3.3k total vs idle 4.6k — territory
+   now *costs* population).
+2. Ghost start: basePopulation = one Settlement (15k) and a ghost
+   Farmland (baseFarmFertility 150 ≈ 30 food/tick) soften the opening
+   for everyone. (Humans still start with more mouths: startManpower
+   25k vs Medium nations' 18.75k — vanilla difficulty scaling, kept.)
+
+Harness after (3 seeds × 3000 ticks × 25 nations): leader 12.8% mean /
+15.9% max, ~205 farms, 21–23 nations alive (up from 14–16), first
+eliminations at tick 1400–2100 (was ~950) — the opening is economic
+pressure rather than early elimination.

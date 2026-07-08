@@ -16,7 +16,9 @@ export function foodTick(mg: Game, player: Player): void {
 
   // ── Production: farms are the engine; raw land is a marginal, sublinear
   // harvest (fertilitySum^exponent) so expansion alone cannot feed a nation.
-  let farmFertility = 0;
+  // Every player also works one "ghost" farmland (baseFarmFertility) — the
+  // starting infrastructure that exists without a building on the map.
+  let farmFertility = f.baseFarmFertility;
   for (const farm of player.units(UnitType.Farmland)) {
     if (farm.isUnderConstruction()) continue;
     farmFertility += mg.layer("crop", farm.tile()) * farm.level();
@@ -70,12 +72,24 @@ export function foodTick(mg: Game, player: Player): void {
   // don't multiply); uncovered deficit → starve.
   let starved = 0;
   if (deficitMilli > 0) {
+    // Starvation hits the WHOLE population proportionally — idle pool,
+    // troops deployed in attacks, and troops on boats. Deployed troops must
+    // not be a famine shelter: without this, "attack with everything" was
+    // starvation-immune (and conquered land on top).
+    const total = idle + fighting + moving;
     const unfed = deficitMilli / f.idleConsumptionMilli;
-    starved = Math.min(
-      player.troops(),
-      Math.ceil(unfed * f.starvationDeathFraction),
-    );
-    player.removeTroops(starved);
+    starved = Math.min(total, Math.ceil(unfed * f.starvationDeathFraction));
+    if (total > 0 && starved > 0) {
+      player.removeTroops(Math.round((starved * idle) / total));
+      for (const attack of player.outgoingAttacks()) {
+        const share = Math.round((starved * attack.troops()) / total);
+        attack.setTroops(Math.max(0, attack.troops() - share));
+      }
+      for (const boat of player.units(UnitType.TransportShip)) {
+        const share = Math.round((starved * boat.troops()) / total);
+        boat.setTroops(Math.max(0, boat.troops() - share));
+      }
+    }
   } else if (productionMilli > consumptionMilli) {
     const surplusRatio =
       (productionMilli - consumptionMilli) / Math.max(1, consumptionMilli);

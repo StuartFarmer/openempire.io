@@ -45,3 +45,21 @@ On layered maps each player SHALL start with a configured food stock — enough 
 
 - **WHEN** a player spends nothing after spawning
 - **THEN** the stock drains, then population starves down toward the land-sustainable level
+
+### Requirement: Ghost starting infrastructure
+
+Every player SHALL start with one "ghost" Settlement and one "ghost" Farmland — baseline population cap equal to one built Settlement and baseline production equal to one decent built Farmland — without physical buildings on the map. Built structures add on top.
+
+#### Scenario: Ghost baseline
+
+- **WHEN** a player has no buildings
+- **THEN** their population cap equals one Settlement's worth and their production includes one Farmland's worth
+
+### Requirement: Starvation applies to deployed troops
+
+Starvation deaths SHALL be distributed proportionally across the whole population — the idle pool, troops committed to attacks, and troops on boats. Deployment MUST NOT shelter an army from famine (armies eat more while fighting, so overextended pushes shrink).
+
+#### Scenario: No famine shelter
+
+- **WHEN** two equally provisioned players face the same deficit and one commits its army to an attack
+- **THEN** the attacker's total population (idle + deployed) ends no better off than the idle player's

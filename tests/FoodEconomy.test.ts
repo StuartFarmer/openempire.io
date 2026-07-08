@@ -122,15 +122,15 @@ describe("Food economy (layered maps)", () => {
   test("storage buffers a deficit; empty storage starves", () => {
     // Own one tile (stay alive) → negligible production; troops eat every tick.
     player.conquer(game.ref(0, 0));
-    player.setTroops(5000);
-    // Clear the starting stake, then give ~2 ticks of buffer:
-    // 5000 troops × 10 milli = 50 food/tick vs ~3 food/tick land harvest.
+    player.setTroops(10_000);
+    // Clear the starting stake, then give ~2 ticks of buffer: 10k troops
+    // eat 100 food/tick vs ~33/tick production (ghost farm + one tile).
     player.removeFood(player.food());
-    player.addFood(100n);
+    player.addFood(150n);
     activate(game, player);
     game.executeNextTick();
     // Storage drained, nobody starved while it lasted.
-    expect(player.troops()).toBe(5000);
+    expect(player.troops()).toBe(10_000);
     expect(player.food()).toBeLessThan(10_000n);
 
     game.executeNextTick();
@@ -160,9 +160,12 @@ describe("Food economy (layered maps)", () => {
     p.addFood(3_000n); // under the base storage cap
     barren.executeNextTick();
     const f = barren.config().food();
-    // One decay step: floor(3M milli × numer/denom) removed.
+    // Even a barren world has the ghost farm's production; with zero
+    // consumption the tick is: +ghost, clamp, then one decay step.
+    const ghostMilli = BigInt(f.baseFarmFertility * f.farmProductionMilli);
+    const afterFlow = 3_000_000n + ghostMilli;
     const expectedMilli =
-      3_000_000n - (3_000_000n * BigInt(f.decayNumer)) / BigInt(f.decayDenom);
+      afterFlow - (afterFlow * BigInt(f.decayNumer)) / BigInt(f.decayDenom);
     expect(p.food()).toBe(expectedMilli / 1000n);
   });
 
@@ -391,11 +394,14 @@ describe("Tribal scarcity (rework-tribal-scarcity)", () => {
     player.addFood(10_000n);
     activate(game, player);
     game.executeNextTick();
-    const landOnly = flow(player).production;
+    const f = game.config().food();
+    const ghost = Math.floor((f.baseFarmFertility * f.farmProductionMilli) / 1000);
+    const landOnly = flow(player).production - ghost;
 
     player.buildUnit(UnitType.Farmland, game.ref(2, 2), {});
     game.executeNextTick();
-    expect(flow(player).production).toBeGreaterThan(2 * landOnly);
+    const farmDelta = flow(player).production - ghost - landOnly;
+    expect(farmDelta).toBeGreaterThan(landOnly);
   });
 
   test("costs escalate per owned building", () => {
@@ -413,14 +419,14 @@ describe("Tribal scarcity (rework-tribal-scarcity)", () => {
   });
 
   test("invest-or-starve: idle stake drains, then population shrinks; farms stop the bleed", () => {
-    conquerBlock(game, player, 0, 0, 10); // land sustains only ~2-3k
-    player.setTroops(8000);
+    conquerBlock(game, player, 0, 0, 10); // land+ghost sustain only ~6k
+    player.setTroops(15_000);
     activate(game, player);
 
     // Spend nothing: stake drains, then starvation.
-    for (let i = 0; i < 80; i++) game.executeNextTick();
+    for (let i = 0; i < 100; i++) game.executeNextTick();
     const starvedTo = player.troops();
-    expect(starvedTo).toBeLessThan(8000);
+    expect(starvedTo).toBeLessThan(15_000);
     expect(flow(player).starvedTroops).toBeGreaterThan(0);
 
     // Invest: two farms lift production; starvation stops shortly after.
@@ -430,6 +436,58 @@ describe("Tribal scarcity (rework-tribal-scarcity)", () => {
     for (let i = 0; i < 100; i++) game.executeNextTick();
     expect(flow(player).starvedTroops).toBe(0);
     expect(player.isAlive()).toBe(true);
+  });
+});
+
+describe("Ghost start + starvation parity", () => {
+  let game: Game;
+  let player: Player;
+
+  beforeEach(async () => {
+    game = await layeredGame();
+    player = game.player(humanInfo.id);
+  });
+
+  test("every player starts with a ghost settlement and ghost farmland", () => {
+    const f = game.config().food();
+    // Ghost settlement: base cap equals one built Settlement's worth.
+    expect(f.basePopulation).toBe(f.populationPerSettlement);
+    expect(game.config().maxTroops(player)).toBe(f.basePopulation);
+
+    // Ghost farmland: production with zero buildings includes one farm-worth.
+    player.conquer(game.ref(0, 0));
+    player.setTroops(0);
+    activate(game, player);
+    game.executeNextTick();
+    const ghost = Math.floor(
+      (f.baseFarmFertility * f.farmProductionMilli) / 1000,
+    );
+    expect(flow(player).production).toBeGreaterThanOrEqual(ghost);
+  });
+
+  test("troops deployed in attacks starve too — no famine shelter", () => {
+    const rival = game.player(rivalInfo.id);
+    conquerBlock(game, player, 0, 0, 8);
+    conquerBlock(game, rival, 40, 40, 8);
+    player.setTroops(20_000);
+    rival.setTroops(20_000);
+    player.removeFood(player.food());
+    rival.removeFood(rival.food());
+    activate(game, player, rival);
+
+    // Rival commits nearly everything to an expansion attack; player idles.
+    game.addExecution(new AttackExecution(18_000, rival, null));
+    for (let i = 0; i < 200; i++) game.executeNextTick();
+
+    const rivalTotal =
+      rival.troops() +
+      rival.outgoingAttacks().reduce((a, at) => a + at.troops(), 0);
+    // Both starved massively; deployment must not shield the army. The
+    // attacker eats at 4× while fighting, so it should end up no better
+    // off in total population than the idle player.
+    expect(player.troops()).toBeLessThan(20_000);
+    expect(rivalTotal).toBeLessThan(20_000);
+    expect(rivalTotal).toBeLessThanOrEqual(player.troops() * 2);
   });
 });
 
@@ -471,7 +529,8 @@ describe("Tribal bot economy", () => {
     // 35×35: room for several structures at the 15-tile spacing (farm slots
     // deliberately scale with territory — expansion pressure).
     conquerBlock(game, bot, 0, 0, 35);
-    bot.setTroops(9000); // presses on the base cap → Settlement trigger
+    // Presses on the (ghost-settlement) base cap → Settlement trigger.
+    bot.setTroops(Math.ceil(0.85 * game.config().food().basePopulation));
     bot.addFood(20_000n); // seed stock: buffers the early deficit
     activate(game, bot);
 

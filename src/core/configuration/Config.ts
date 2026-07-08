@@ -129,7 +129,15 @@ export interface FoodConfig {
   landHarvestExponent: number;
   /** Milli-food per tick per (tile crop byte × level) of each Farmland. */
   farmProductionMilli: number;
-  /** Population cap with zero Settlements. */
+  /**
+   * Ghost farmland: fertility points every player works from the start,
+   * without a building on the map. Sized like one decent built farm.
+   */
+  baseFarmFertility: number;
+  /**
+   * Population cap with zero Settlements — the "ghost settlement" every
+   * player starts with. Sized like one built Settlement.
+   */
   basePopulation: number;
   /** Extra population cap per Settlement level. */
   populationPerSettlement: number;
@@ -175,7 +183,8 @@ const FOOD_DEFAULTS: FoodConfig = {
   landHarvestMilli: 200,
   landHarvestExponent: 0.5,
   farmProductionMilli: 200,
-  basePopulation: 10_000,
+  baseFarmFertility: 150,
+  basePopulation: 15_000,
   populationPerSettlement: 15_000,
   baseStorage: 5_000,
   storagePerBarn: 8_000,
