@@ -15,6 +15,7 @@
 import type { RendererConfig, UnitState } from "../../types";
 import {
   STRUCTURE_TYPES,
+  TRIBAL_PLOT_TYPE_INDEX,
   UT_CITY,
   UT_DEFENSE_POST,
   UT_FACTORY,
@@ -312,6 +313,8 @@ export class StructureLevelPass {
     for (const unit of units.values()) {
       if (!unit.isActive) continue;
       if (!STRUCTURE_TYPES.has(unit.unitType)) continue;
+      // Tribal plots have no sprite to badge (painted patterns instead).
+      if (TRIBAL_PLOT_TYPE_INDEX.has(unit.unitType)) continue;
       if (unit.level <= 1) continue;
 
       const levelStr = unit.level.toString();

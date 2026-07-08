@@ -1,5 +1,9 @@
 import { EventBus, GameEvent } from "../core/EventBus";
-import { PlayerBuildableUnitType, UnitType } from "../core/game/Game";
+import {
+  PlayerBuildableUnitType,
+  TribalStructures,
+  UnitType,
+} from "../core/game/Game";
 import { UserSettings } from "../core/game/UserSettings";
 import { Platform } from "./Platform";
 import { UIState } from "./UIState";
@@ -37,6 +41,14 @@ export class UnitSelectionEvent implements GameEvent {
     public readonly unit: UnitView | null,
     public readonly isSelected: boolean,
     public readonly units: UnitView[] = [],
+  ) {}
+}
+
+/** Paint-mode drag: pointer moved while painting tribal plots. */
+export class PaintDragEvent implements GameEvent {
+  constructor(
+    public readonly x: number,
+    public readonly y: number,
   ) {}
 }
 
@@ -871,6 +883,18 @@ export class InputHandler {
           clearTimeout(this.longPressTimer);
           this.longPressTimer = null;
         }
+      }
+
+      // Paint mode: dragging with a tribal plot ghost paints plots instead
+      // of panning the camera. (Exit paint mode to pan; zoom still works.)
+      if (
+        this.uiState.ghostStructure !== null &&
+        TribalStructures.has(this.uiState.ghostStructure)
+      ) {
+        this.eventBus.emit(new PaintDragEvent(event.clientX, event.clientY));
+        this.lastPointerX = event.clientX;
+        this.lastPointerY = event.clientY;
+        return;
       }
 
       // If shift is held OR touch long-press is active OR selection box already

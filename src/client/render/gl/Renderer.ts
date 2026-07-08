@@ -27,6 +27,7 @@ import type {
   TilePair,
   UnitState,
 } from "../types";
+import { TRIBAL_PLOT_TYPE_INDEX } from "../types";
 import { Camera } from "./Camera";
 import { GLUnavailableError, initGL } from "./initGL";
 import { BarPass } from "./passes/BarPass";
@@ -44,6 +45,7 @@ import { NamePass } from "./passes/name-pass";
 import { NightCompositePass } from "./passes/NightCompositePass";
 import { NukeTelegraphPass } from "./passes/NukeTelegraphPass";
 import { NukeTrajectoryPass } from "./passes/NukeTrajectoryPass";
+import { PlotPass } from "./passes/PlotPass";
 import { PointLightPass } from "./passes/PointLightPass";
 import { RailroadPass } from "./passes/RailroadPass";
 import { RangeCirclePass } from "./passes/RangeCirclePass";
@@ -132,6 +134,7 @@ export class GPURenderer {
   private samRadiusPass: SAMRadiusPass;
   private crosshairPass: CrosshairPass;
   private railroadPass: RailroadPass;
+  private plotPass: PlotPass;
   private barPass: BarPass;
   private worldTextPass: WorldTextPass;
   private selectionBoxPass: SelectionBoxPass;
@@ -507,6 +510,9 @@ export class GPURenderer {
       this.settings,
     );
 
+    // --- Tribal plot patterns (2×2 painted structures) ---
+    this.plotPass = new PlotPass(gl, mapW, mapH);
+
     // --- Range circle (ghost preview radius) ---
     this.rangeCirclePass = new RangeCirclePass(gl);
 
@@ -819,6 +825,10 @@ export class GPURenderer {
     );
   }
 
+  uploadPlotState(data: Uint8Array): void {
+    this.plotPass.uploadPlotState(data);
+  }
+
   uploadRailroadState(data: Uint8Array): void {
     this.railroadPass.uploadRailroadState(data);
   }
@@ -948,6 +958,39 @@ export class GPURenderer {
   }
 
   updateGhostPreview(data: GhostPreviewData | null): void {
+    // Tribal plots preview as painted 2×2 patterns (PlotPass); the sprite
+    // ghost and its satellites only see vanilla structures.
+    const plotTypeIdx =
+      data === null ? undefined : TRIBAL_PLOT_TYPE_INDEX.get(data.ghostType);
+    if (data !== null && plotTypeIdx !== undefined) {
+      this.plotPass.setGhost({
+        // The cursor loop feeds icon-centering coords (world - 0.5); snap
+        // back to the hovered tile, which is the build anchor.
+        anchorX: Math.floor(data.tileX + 0.5),
+        anchorY: Math.floor(data.tileY + 0.5),
+        typeIdx: plotTypeIdx,
+        valid: data.canBuild,
+      });
+      this.structurePass.updateGhostPreview(null);
+      this.railroadPass.updateGhostPreview(null);
+      this.rangeCirclePass.updateGhostPreview(null);
+      this.crosshairPass.updateGhostPreview(null);
+      this.worldTextPass.setGhostCostLabel(
+        data.showCost && data.cost > 0
+          ? {
+              tileX: data.tileX,
+              tileY: data.tileY,
+              cost: data.cost,
+              canAfford: data.canAfford,
+              canPlace: data.canBuild || data.canUpgrade,
+            }
+          : null,
+      );
+      this.samGhostVisible = false;
+      this.samRadiusPass.setVisible(this.samHighlightVisible);
+      return;
+    }
+    this.plotPass.setGhost(null);
     this.structurePass.updateGhostPreview(data);
     this.railroadPass.updateGhostPreview(data);
     this.rangeCirclePass.updateGhostPreview(data);
@@ -1219,6 +1262,7 @@ export class GPURenderer {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     if (pe.territory) this.territoryPass.draw(cam);
+    this.plotPass.draw(cam);
   }
 
   private renderOverlays(cam: Float32Array, zoom: number): void {
@@ -1288,6 +1332,7 @@ export class GPURenderer {
     this.coordinateGridPass.dispose();
     this.spawnOverlayPass.dispose();
     this.railroadPass.dispose();
+    this.plotPass.dispose();
     this.rangeCirclePass.dispose();
     this.samRadiusPass.dispose();
     this.crosshairPass.dispose();

@@ -164,6 +164,10 @@ export class MapRenderer {
   setPlayerSpawn(smallID: number, x: number, y: number): void {
     this.renderer?.setPlayerSpawn(smallID, x, y);
   }
+  uploadPlotState(data: Uint8Array): void {
+    this.renderer?.uploadPlotState(data);
+  }
+
   uploadRailroadState(data: Uint8Array): void {
     this.renderer?.uploadRailroadState(data);
   }

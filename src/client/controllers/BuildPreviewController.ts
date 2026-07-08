@@ -15,6 +15,7 @@ import {
 import {
   BuildableUnit,
   PlayerBuildableUnitType,
+  TribalStructures,
   UnitType,
 } from "../../core/game/Game";
 import { TileRef } from "../../core/game/GameMap";
@@ -26,8 +27,10 @@ import {
 import { Controller } from "../Controller";
 import {
   ConfirmGhostStructureEvent,
+  MouseDownEvent,
   MouseMoveEvent,
   MouseUpEvent,
+  PaintDragEvent,
 } from "../InputHandler";
 import { MapRenderer, buildNukeTrajectory } from "../render/gl";
 import type { SAMInfo } from "../render/gl/utils/NukeTrajectory";
@@ -36,9 +39,16 @@ import { TransformHandler } from "../TransformHandler";
 import { UIState } from "../UIState";
 import { GameView } from "../view";
 
-/** True for nuke types (AtomBomb, HydrogenBomb): ghost is preserved after placement so user can place multiple or keep selection (Enter/key confirm). */
+/**
+ * True for nuke types (ghost preserved so the user can place multiple) and
+ * for tribal plots (paint mode is sticky — exit via Escape/right-click).
+ */
 export function shouldPreserveGhostAfterBuild(unitType: UnitType): boolean {
-  return unitType === UnitType.AtomBomb || unitType === UnitType.HydrogenBomb;
+  return (
+    unitType === UnitType.AtomBomb ||
+    unitType === UnitType.HydrogenBomb ||
+    TribalStructures.has(unitType)
+  );
 }
 
 /**
@@ -101,6 +111,8 @@ export class BuildPreviewController implements Controller {
   init() {
     this.eventBus.on(MouseMoveEvent, (e) => this.moveGhost(e));
     this.eventBus.on(MouseUpEvent, (e) => this.requestConfirmStructure(e));
+    this.eventBus.on(MouseDownEvent, () => this.paintedAnchors.clear());
+    this.eventBus.on(PaintDragEvent, (e) => this.paintAt(e.x, e.y));
     this.eventBus.on(ConfirmGhostStructureEvent, () =>
       this.requestConfirmStructure(
         new MouseUpEvent(this.mousePos.x, this.mousePos.y),
@@ -493,13 +505,73 @@ export class BuildPreviewController implements Controller {
     }
   }
 
+  /** Anchors attempted during the current paint drag (cleared on pointer down). */
+  private readonly paintedAnchors: Set<number> = new Set();
+
+  /**
+   * Paint-mode drag placement: one build intent per new valid plot anchor the
+   * cursor crosses. Cheap client-side prechecks only — the sim re-validates
+   * authoritatively (cost, exact ownership, occupancy).
+   */
+  private paintAt(screenX: number, screenY: number): void {
+    if (!this.ghostUnit) return;
+    const type = this.ghostUnit.buildableUnit.type;
+    if (!TribalStructures.has(type)) return;
+    this.mousePos.x = screenX;
+    this.mousePos.y = screenY;
+
+    const tile = this.transformHandler.screenToWorldCoordinates(
+      screenX,
+      screenY,
+    );
+    if (!this.game.isValidCoord(tile.x, tile.y)) return;
+    const anchor = this.game.ref(tile.x, tile.y);
+
+    // Dedupe: skip anchors whose 2×2 footprint would overlap any anchor
+    // already attempted this drag (Chebyshev distance < 2).
+    const w = this.game.width();
+    for (const prev of this.paintedAnchors) {
+      const px = prev % w;
+      const py = (prev - px) / w;
+      if (Math.abs(tile.x - px) < 2 && Math.abs(tile.y - py) < 2) {
+        return;
+      }
+    }
+
+    // Cheap validity: all four footprint tiles on-map, mine, land, unplotted.
+    const me = this.game.myPlayer();
+    if (me === null) return;
+    const mySmallID = me.smallID();
+    for (let ly = 0; ly < 2; ly++) {
+      for (let lx = 0; lx < 2; lx++) {
+        const x = tile.x + lx;
+        const y = tile.y + ly;
+        if (!this.game.isValidCoord(x, y)) return;
+        const ref = this.game.ref(x, y);
+        if (
+          !this.game.isLand(ref) ||
+          this.game.ownerID(ref) !== mySmallID ||
+          this.game.plotStateAt(ref) !== 0
+        ) {
+          return;
+        }
+      }
+    }
+
+    this.paintedAnchors.add(anchor);
+    this.eventBus.emit(new BuildUnitIntentEvent(type, anchor, undefined));
+  }
+
   private createStructure(e: MouseUpEvent) {
     if (!this.ghostUnit) return;
     if (
       this.ghostUnit.buildableUnit.canBuild === false &&
       this.ghostUnit.buildableUnit.canUpgrade === false
     ) {
-      this.removeGhostStructure();
+      // Paint mode: an invalid spot fails silently — the mode persists.
+      if (!TribalStructures.has(this.ghostUnit.buildableUnit.type)) {
+        this.removeGhostStructure();
+      }
       return;
     }
     const tile = this.transformHandler.screenToWorldCoordinates(e.x, e.y);

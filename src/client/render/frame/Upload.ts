@@ -28,6 +28,7 @@ export interface FrameUploadTarget {
     dirtyRowMax: number,
   ): void;
   uploadRailroadState(data: Uint8Array): void;
+  uploadPlotState(data: Uint8Array): void;
   applyRailroadDust(tileRefs: number[]): void;
   updateUnits(units: ReadonlyMap<number, UnitState>, gameTick: number): void;
   updateStructures(units: ReadonlyMap<number, UnitState>): void;
@@ -81,6 +82,11 @@ export function uploadFrameData(
     if (frame.revealedRailTiles.length > 0) {
       view.applyRailroadDust(frame.revealedRailTiles);
     }
+  }
+
+  // --- Tribal plots ---
+  if (frame.plotDirty) {
+    view.uploadPlotState(frame.plotState);
   }
 
   // --- Units + structures ---

@@ -32,6 +32,7 @@ import { extractAttackRings } from "../render/frame/derive/AttackRings";
 import { extractNukeTelegraphs } from "../render/frame/derive/NukeTelegraphs";
 import { computePlayerStatus } from "../render/frame/derive/PlayerStatus";
 import { buildRelationMatrix } from "../render/frame/derive/RelationMatrix";
+import { PLOT_TYPE_INDEX, PlotCache } from "../render/frame/PlotCache";
 import { RailroadCache } from "../render/frame/RailroadCache";
 import { TrailManager } from "../render/frame/TrailManager";
 import type { FrameData, NameEntry, TilePair } from "../render/types";
@@ -85,6 +86,7 @@ export class GameView implements GameMap {
   // ── FrameData accumulators (renderer-bound state) ─────────────────────
   private trailManager!: TrailManager;
   private railroadCache!: RailroadCache;
+  private plotCache!: PlotCache;
   /** Long-lived NameEntry map for the renderer's NamePass. */
   private _names = new Map<string, NameEntry>();
   /** Reusable scratch buffers for per-tick deltas. */
@@ -162,6 +164,7 @@ export class GameView implements GameMap {
     const mapH = this._map.height();
     this.trailManager = new TrailManager(mapW, mapH);
     this.railroadCache = new RailroadCache(mapW, mapH);
+    this.plotCache = new PlotCache(mapW, mapH);
 
     // Long-lived FrameData. Most fields are mutable references to long-lived
     // buffers (tileState, trailState, etc.); some (_changedTilesScratch,
@@ -174,6 +177,7 @@ export class GameView implements GameMap {
       tileState: this._map.tileStateBuffer(),
       trailState: this.trailManager.getTrailState(),
       railroadState: this.railroadCache.railroadState,
+      plotState: this.plotCache.plotState,
       units: this._unitStates,
       players: this._playerStates,
       names: this._names,
@@ -185,6 +189,7 @@ export class GameView implements GameMap {
       changedTiles: this._changedTilesScratch,
       railroadDirty: false,
       revealedRailTiles: this.railroadCache.revealedRailTiles,
+      plotDirty: false,
       trailDirtyRowMin: 0,
       trailDirtyRowMax: -1,
       // Derived data — populated each tick by populateFrame(). Empty defaults
@@ -460,6 +465,9 @@ export class GameView implements GameMap {
         this._unitStates.set(update.id, unit.state);
         this.unitGrid.addUnit(unit);
         if (isStructure) this._structuresDirty = true;
+        if (PLOT_TYPE_INDEX.has(update.unitType)) {
+          this.plotCache.addPlot(unit.tile(), update.unitType);
+        }
       }
       if (!update.isActive) {
         this.unitGrid.removeUnit(unit);
@@ -469,6 +477,9 @@ export class GameView implements GameMap {
       if (!unit.isActive()) {
         // Wait until next tick to delete the unit.
         this.toDelete.add(unit.id());
+        if (PLOT_TYPE_INDEX.has(unit.type())) {
+          this.plotCache.removePlot(unit.tile());
+        }
         if (this.unitMotionPlans.delete(unit.id())) {
           this.markMotionPlannedUnitIdsDirty();
         }
@@ -545,6 +556,7 @@ export class GameView implements GameMap {
     f.tick = gu.tick;
     f.inSpawnPhase = this.startTick === null;
     f.railroadDirty = this.railroadCache.railroadDirty;
+    f.plotDirty = this.plotCache.plotDirty;
     f.trailDirtyRowMin = this.trailManager.dirtyRowMin;
     f.trailDirtyRowMax = this.trailManager.dirtyRowMax;
 
@@ -610,6 +622,7 @@ export class GameView implements GameMap {
 
     // Reset transient flags for next tick.
     this.railroadCache.clearDirty();
+    this.plotCache.clearDirty();
     this._structuresDirty = false;
   }
 
@@ -1218,6 +1231,10 @@ export class GameView implements GameMap {
   }
   hasLayers(): boolean {
     return this._map.hasLayers();
+  }
+  /** Tribal plot-type value at a tile (0 = none) — paint-mode prechecks. */
+  plotStateAt(ref: TileRef): number {
+    return this.plotCache.plotStateAt(ref);
   }
   layer(name: LayerName, ref: TileRef): number {
     return this._map.layer(name, ref);

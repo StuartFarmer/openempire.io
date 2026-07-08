@@ -13,9 +13,9 @@
 
 ## 3. Client (paint UX + rendering)
 
-- [ ] 3.1 Per-tile plot-type buffer → GL texture; terrain composite paints per-type 2×2 patterns (farmland tilled rows etc.); StructurePass skips tribal types
-- [ ] 3.2 Paint mode: sticky placement (no exit on build), drag-paint one intent per new valid anchor, right-click/Escape exits; 2×2 ghost with validity coloring
-- [ ] 3.3 In-game verify on verdantia: paint a farm belt by dragging, patterns render, adjacency visible in production readout
+- [x] 3.1 Per-tile plot-type buffer → GL texture; terrain composite paints per-type 2×2 patterns (farmland tilled rows etc.); StructurePass skips tribal types
+- [x] 3.2 Paint mode: sticky placement (no exit on build), drag-paint one intent per new valid anchor, right-click/Escape exits; 2×2 ghost with validity coloring
+- [x] 3.3 In-game verify on verdantia: paint a farm belt by dragging, patterns render, adjacency visible in production readout
 
 ## 4. Balance + gates
 

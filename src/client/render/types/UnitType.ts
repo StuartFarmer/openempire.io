@@ -51,6 +51,13 @@ export const STRUCTURE_TYPES: ReadonlySet<string> = new Set([
   UT_BARN,
 ]);
 
+/** Tribal plot types → plot-type index (0..2) for the PlotPass encoding. */
+export const TRIBAL_PLOT_TYPE_INDEX: ReadonlyMap<string, number> = new Map([
+  [UT_SETTLEMENT, 0],
+  [UT_FARMLAND, 1],
+  [UT_BARN, 2],
+]);
+
 export const NUKE_TYPES: ReadonlySet<string> = new Set([
   UT_ATOM_BOMB,
   UT_HYDROGEN_BOMB,

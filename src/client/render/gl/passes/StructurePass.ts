@@ -25,6 +25,7 @@ import {
   UT_PORT,
   UT_SAM_LAUNCHER,
   UT_SETTLEMENT,
+  TRIBAL_PLOT_TYPE_INDEX,
 } from "../../types";
 import { DynamicInstanceBuffer } from "../DynamicBuffer";
 import type { RenderSettings } from "../RenderSettings";
@@ -293,6 +294,8 @@ export class StructurePass {
 
     for (const unit of units.values()) {
       if (!unit.isActive) continue;
+      // Tribal plots render as painted 2×2 patterns (PlotPass), not sprites.
+      if (TRIBAL_PLOT_TYPE_INDEX.has(unit.unitType)) continue;
       const atlasIdx = this.typeToAtlasCol.get(unit.unitType);
       if (atlasIdx === undefined) continue;
 
