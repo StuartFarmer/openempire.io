@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-This is a **lean fork of OpenFront.io**: vanilla game rules, singleplayer-only, with a procedural world generator. The online periphery (server, auth, cosmetics, store, clans, ads, chat, moderation, multiplayer lobbies) has been stripped. See "Boundaries" below before adding anything back.
+This is a **lean fork of OpenFront.io** being grown into a 3-age resource game (Tribal/food, Middle/metal, Modern/oil): singleplayer-only, with a procedural world generator. The online periphery (server, auth, cosmetics, store, clans, ads, chat, moderation, multiplayer lobbies) has been stripped. Game rules diverge from vanilla **only via OpenSpec changes** (`openspec/changes/`) — see "Boundaries" below.
 
 ## Commands
 
@@ -14,7 +14,14 @@ npm run lint       # ESLint
 npm run format     # Prettier
 npm run gen-maps   # Bake maps: map-generator/assets/maps/* → resources/maps/* + Maps.gen.ts (needs Go)
 npm run build-prod # Production build (static site)
+
+# Author a new world headlessly (CLI twin of the #generator page), then bake:
+npx tsx map-generator/gen-world.ts --name myworld --seed 7 --width 512 --height 256
+# Balance harness: seeded headless bot games with food-knob overrides
+npx tsx tests/perf/balance/BalanceRun.ts --map verdantia --runs 3 --nations 25
 ```
+
+Note: `gen-world.ts` and the run-openfront skill need the unsaved dev deps `canvas` and `playwright`; install them **together** (`npm install --no-save playwright canvas && npm rebuild canvas`) — installing one evicts the other.
 
 **Run a single test file:**
 
@@ -53,12 +60,17 @@ GeneratorPage (#generator route, in-browser, seeded WorldEngine)
 
 - **Tile format (1 byte/tile, must stay in sync):** bit 7 land, bit 6 shoreline, bit 5 ocean, bits 0–4 magnitude (31 = impassable). Encoder: `map-generator/map_generator.go` (`packTerrain`). Decoder: `src/core/game/GameMap.ts`.
 - **terrain-colors.png sidecar:** optional full-res RGBA baked by the generator. `manifest.terrain_colors: true` → `TerrainColorSidecar.ts` attaches it as `BoardMap.colorizer` → `TerrainPass` renders it instead of procedural terrain shading. Full-res only (rejected for compact/4x map size).
+- **layers.bin sidecar:** 5 Uint8 planes (crop, metal, oil, temperature, humidity) — format owned by `src/core/game/MapLayers.ts` (exporter and sim both import it). `manifest.layers: true` → loaded at Normal size → `game.hasLayers()` / `game.layer("crop", tile) → 0..255` in the sim. **All new-game mechanics gate on `hasLayers()`** — classic maps play byte-identical vanilla.
 - The Go tool regenerates `Maps.gen.ts` and the en.json map section from whatever folders exist — adding/removing a map is adding/removing a folder and re-running `gen-maps`.
-- Maps kept: `world` (classic), `pangea001`, `pangea002`, `majormenor` (generated).
+- Maps kept: `world` (classic), `pangea001`, `pangea002`, `majormenor` (generated, unlayered), `verdantia` (generated, **layered** — the food-economy playtest map), `tribalsmall` (layered test fixture in `tests/testdata/maps/`).
+
+### Food economy (Tribal age, layered maps only)
+
+`Config.food()` holds every knob; the per-tick loop lives in `src/core/execution/utils/FoodEconomy.ts` (called from `PlayerExecution`): fertility+Farmland production → activity-scaled consumption (idle < boats < attacks) → Barn-capped storage with decay → surplus-scaled growth / starvation. Population cap comes from Settlements (`Config.maxTroops` branches on `player.hasFoodEconomy()`). Settlement/Farmland/Barn cost food via `UnitInfo.costResource` — later ages add metal/oil there, not new plumbing. Balance work happens in the harness (`tests/perf/balance/`, findings in `openspec/changes/add-tribal-food-economy/balance-notes.md`): `populationPerSettlement` is the anti-snowball lever. All food math is integer (bigint milliunits).
 
 ## Boundaries — read before making changes
 
-- **Game rules stay vanilla.** Do not remove or alter core sim features (nukes, trains, warships, alliances, teams, bots, win conditions…). This fork changes _terrain_, not _rules_. Gameplay experiments live in git history (branch `analysis-game-board-library-componentization`), not here.
+- **Rules change only through OpenSpec changes.** Do not remove or alter core sim features (nukes, trains, warships, alliances, teams, bots, win conditions…) or add mechanics ad hoc — every rule change is a scoped change in `openspec/changes/` with specs and tests. On unlayered (classic) maps, behavior must stay byte-identical vanilla; new mechanics activate only behind `game.hasLayers()`.
 - **Do not re-add stripped subsystems** (server, auth/JWT, cosmetics/patterns/store, clans, ads, analytics, matchmaking, chat UI, moderation, CI/deploy scripts) unless explicitly asked.
 - `src/games/alternative/index.ts` re-exports only the world generator. Don't grow it back into a gameplay module without an explicit request.
 
