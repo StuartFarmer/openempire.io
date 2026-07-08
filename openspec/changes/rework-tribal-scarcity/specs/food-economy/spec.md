@@ -63,3 +63,12 @@ Starvation deaths SHALL be distributed proportionally across the whole populatio
 
 - **WHEN** two equally provisioned players face the same deficit and one commits its army to an attack
 - **THEN** the attacker's total population (idle + deployed) ends no better off than the idle player's
+
+### Requirement: Uniform, sustainable start population
+
+On layered maps every player type SHALL start with the same population (`startPopulation`), sized to what the ghost infrastructure plus a modest spawn's land harvest can feed — an idle player at spawn SHALL neither starve nor grow (stasis; only storage decay pressures the stake). Classic maps keep vanilla startManpower.
+
+#### Scenario: Idle spawn is stable
+
+- **WHEN** a player spawns and takes no actions for hundreds of ticks
+- **THEN** their population holds at the start level with zero starvation

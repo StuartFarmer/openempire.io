@@ -139,6 +139,12 @@ export interface FoodConfig {
    * player starts with. Sized like one built Settlement.
    */
   basePopulation: number;
+  /**
+   * Starting population for every player type (replaces vanilla
+   * startManpower on layered maps). Sized to what the ghost farmland +
+   * a modest spawn's land harvest can feed — idling must not starve.
+   */
+  startPopulation: number;
   /** Extra population cap per Settlement level. */
   populationPerSettlement: number;
   /** Storage cap (display food) with zero Barns. */
@@ -183,8 +189,9 @@ const FOOD_DEFAULTS: FoodConfig = {
   landHarvestMilli: 200,
   landHarvestExponent: 0.5,
   farmProductionMilli: 200,
-  baseFarmFertility: 150,
+  baseFarmFertility: 180,
   basePopulation: 15_000,
+  startPopulation: 5_000,
   populationPerSettlement: 15_000,
   baseStorage: 5_000,
   storagePerBarn: 8_000,

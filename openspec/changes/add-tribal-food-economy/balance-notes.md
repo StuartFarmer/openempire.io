@@ -88,3 +88,17 @@ Harness after (3 seeds × 3000 ticks × 25 nations): leader 12.8% mean /
 15.9% max, ~205 farms, 21–23 nations alive (up from 14–16), first
 eliminations at tick 1400–2100 (was ~950) — the opening is economic
 pressure rather than early elimination.
+
+## v2.2 — uniform start population
+
+Second playtest report: still "out of food immediately" while idle.
+Cause: vanilla startManpower survived on layered maps — humans spawned
+with 25k people (nations 18.75k, bots 10k) against ghost infrastructure
+that feeds ~5k, so the human's stake burned in ~2s and stock pinned to 0
+through the starve-down while nations (fewer mouths + instant farm
+builds) banked to cap. Fix: on layered maps every player type starts at
+`startPopulation` (5k) and the ghost farm was sized up (baseFarmFertility
+180) so a modest spawn is at production/consumption breakeven. In-game:
+idle player holds 5,033 population indefinitely; food drifts down only
+via storage decay (~0.6/tick) — the intended "invest your stake" nudge.
+Harness unchanged in shape: leader 13.6%/15.4%, ~213 farms.

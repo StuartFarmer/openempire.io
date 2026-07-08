@@ -613,11 +613,17 @@ export class GameImpl implements Game {
   }
 
   addPlayer(playerInfo: PlayerInfo, team: Team | null = null): Player {
+    // Layered maps: every player type starts at the population the ghost
+    // infrastructure feeds (no vanilla human/nation/bot asymmetry — idling
+    // at spawn must not starve). Classic maps keep vanilla startManpower.
+    const startTroops = this._hasLayers
+      ? this.config().food().startPopulation
+      : this.config().startManpower(playerInfo);
     const player = new PlayerImpl(
       this,
       this.nextPlayerID,
       playerInfo,
-      this.config().startManpower(playerInfo),
+      startTroops,
       team ?? this.maybeAssignTeam(playerInfo),
     );
     this._playersBySmallID.push(player);

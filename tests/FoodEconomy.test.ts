@@ -448,6 +448,21 @@ describe("Ghost start + starvation parity", () => {
     player = game.player(humanInfo.id);
   });
 
+  test("idling at spawn does not starve — ghost infra feeds the start population", () => {
+    const f = game.config().food();
+    // Default start population (no setTroops): the layered-map override.
+    expect(player.troops()).toBe(f.startPopulation);
+
+    conquerBlock(game, player, 0, 0, 7); // a modest spawn blob
+    activate(game, player);
+    for (let i = 0; i < 200; i++) game.executeNextTick();
+
+    // No famine while doing nothing: population holds, the stake survives.
+    expect(flow(player).starvedTroops).toBe(0);
+    expect(player.troops()).toBeGreaterThanOrEqual(f.startPopulation * 0.98);
+    expect(player.food()).toBeGreaterThan(BigInt(f.startingFood / 2));
+  });
+
   test("every player starts with a ghost settlement and ghost farmland", () => {
     const f = game.config().food();
     // Ghost settlement: base cap equals one built Settlement's worth.
