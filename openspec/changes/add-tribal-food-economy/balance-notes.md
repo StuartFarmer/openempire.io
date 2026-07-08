@@ -102,3 +102,22 @@ builds) banked to cap. Fix: on layered maps every player type starts at
 idle player holds 5,033 population indefinitely; food drifts down only
 via storage decay (~0.6/tick) — the intended "invest your stake" nudge.
 Harness unchanged in shape: leader 13.6%/15.4%, ~213 farms.
+
+## v2.3 — farms out-produce the population cap (banking works)
+
+Playtest feel report: spendable food fluctuated with population, and
+barns never held surplus. Probe showed a growth homeostat: population
+expands until consumption equals production, equilibrium landed BELOW
+the settlement cap, so net inflow → ~0 and storage decay slowly bled
+the stock — barns raised a ceiling that nothing ever filled.
+
+Fix chosen (Stuart): raise farm output rather than restructure growth.
+farmProductionMilli 200→400 (baseFarmFertility 180→90 so the ghost farm
+stays 36/tick and idle stasis is unchanged). Two good farms now exceed
+the base cap's consumption → population pins at the settlement cap →
+surplus genuinely banks → barns visibly fill (probe: stock 5k-capped →
+13k after one barn, holds). Ladder: farm → surplus → pop caps → storage
+overflows → barn banks → bank buys the next settlement.
+
+Harness: ~200 farms / ~58 barns / ~40 settlements (barns + settlements
+both up — banked food is being spent), leader 15.6%/18.0%, Gini 0.38.
