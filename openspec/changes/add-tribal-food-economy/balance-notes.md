@@ -121,3 +121,14 @@ overflows → barn banks → bank buys the next settlement.
 
 Harness: ~200 farms / ~58 barns / ~40 settlements (barns + settlements
 both up — banked food is being spent), leader 15.6%/18.0%, Gini 0.38.
+
+## v3 — tile-painted 2×2 plots (add-tile-painted-structures)
+
+Structures became cheap 2×2 plots painted onto owned land (no spacing,
+escalation flattened to +3%/plot, effects ~5× smaller each, +10%/edge-
+adjacent same-type neighbor). Standard protocol (3 seeds × 3000 ticks ×
+25 nations): ~760 farm plots / ~137 barns / ~103 settlements per game
+(~35+ plots per nation — empires are painted), leader 13.2% mean /
+14.2% max, Gini 0.35. Territory is now the binding constraint on
+building; districts (belts/clusters) confirmed in bot placement and in
+the belt-vs-scattered production test.

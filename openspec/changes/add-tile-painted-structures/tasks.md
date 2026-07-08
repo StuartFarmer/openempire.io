@@ -19,5 +19,5 @@
 
 ## 4. Balance + gates
 
-- [ ] 4.1 Harness re-sweep; balance-notes entry; verify plots-per-game census (dozens per nation) and sane leader share
-- [ ] 4.2 tsc/lint/full vitest at baseline
+- [x] 4.1 Harness re-sweep; balance-notes entry; verify plots-per-game census (dozens per nation) and sane leader share
+- [x] 4.2 tsc/lint/full vitest at baseline
