@@ -2,7 +2,6 @@ import type { FrameEvents } from "./FrameEvents";
 import type {
   AttackRingInput,
   NameEntry,
-  NukeTelegraphData,
   PlayerState,
   PlayerStatusData,
   TilePair,
@@ -24,7 +23,6 @@ export interface FrameData {
   readonly inSpawnPhase: boolean;
   readonly tileState: Uint16Array;
   readonly trailState: Uint16Array;
-  readonly railroadState: Uint8Array;
   readonly units: ReadonlyMap<number, UnitState>;
   readonly players: ReadonlyMap<number, PlayerState>;
   readonly names: ReadonlyMap<string, NameEntry>;
@@ -42,8 +40,6 @@ export interface FrameData {
    * - array → only these tiles changed (empty = skip upload)
    */
   readonly changedTiles: TilePair[] | null;
-  readonly railroadDirty: boolean;
-  readonly revealedRailTiles: number[];
 
   /**
    * Trail dirty row range for partial GPU upload.
@@ -64,8 +60,6 @@ export interface FrameData {
    * triggers — when false.
    */
   readonly relationsDirty: boolean;
-  readonly allianceClusters: ReadonlyMap<number, number>;
-  readonly nukeTelegraphs: NukeTelegraphData[];
   readonly attackRings: AttackRingInput[];
   /** True when structures changed this tick (added/removed/level change). */
   readonly structuresDirty: boolean;

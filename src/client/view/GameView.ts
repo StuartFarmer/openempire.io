@@ -26,12 +26,8 @@ import { UnitGrid, UnitPredicate } from "../../core/game/UnitGrid";
 import { ClientID, GameID, Player, PlayerCosmetics } from "../../core/Schemas";
 import { formatPlayerDisplayName } from "../../core/Util";
 import { WorkerClient } from "../../core/worker/WorkerClient";
-import { computeAllianceClusters } from "../render/frame/derive/AllianceClusters";
 import { extractAttackRings } from "../render/frame/derive/AttackRings";
-import { extractNukeTelegraphs } from "../render/frame/derive/NukeTelegraphs";
 import { computePlayerStatus } from "../render/frame/derive/PlayerStatus";
-import { buildRelationMatrix } from "../render/frame/derive/RelationMatrix";
-import { RailroadCache } from "../render/frame/RailroadCache";
 import { TrailManager } from "../render/frame/TrailManager";
 import type { FrameData, NameEntry, TilePair } from "../render/types";
 import { STRUCTURE_TYPES } from "../render/types";
@@ -83,7 +79,6 @@ export class GameView implements GameMap {
 
   // ── FrameData accumulators (renderer-bound state) ─────────────────────
   private trailManager!: TrailManager;
-  private railroadCache!: RailroadCache;
   /** Long-lived NameEntry map for the renderer's NamePass. */
   private _names = new Map<string, NameEntry>();
   /** Reusable scratch buffers for per-tick deltas. */
@@ -160,7 +155,6 @@ export class GameView implements GameMap {
     const mapW = this._map.width();
     const mapH = this._map.height();
     this.trailManager = new TrailManager(mapW, mapH);
-    this.railroadCache = new RailroadCache(mapW, mapH);
 
     // Long-lived FrameData. Most fields are mutable references to long-lived
     // buffers (tileState, trailState, etc.); some (_changedTilesScratch,
@@ -172,7 +166,6 @@ export class GameView implements GameMap {
       inSpawnPhase: true,
       tileState: this._map.tileStateBuffer(),
       trailState: this.trailManager.getTrailState(),
-      railroadState: this.railroadCache.railroadState,
       units: this._unitStates,
       players: this._playerStates,
       names: this._names,
@@ -182,8 +175,6 @@ export class GameView implements GameMap {
         bonusEvents: [],
       },
       changedTiles: this._changedTilesScratch,
-      railroadDirty: false,
-      revealedRailTiles: this.railroadCache.revealedRailTiles,
       trailDirtyRowMin: 0,
       trailDirtyRowMax: -1,
       // Derived data — populated each tick by populateFrame(). Empty defaults
@@ -192,8 +183,6 @@ export class GameView implements GameMap {
       relationMatrix: new Uint8Array(0),
       relationSize: 0,
       relationsDirty: false,
-      allianceClusters: new Map(),
-      nukeTelegraphs: [],
       attackRings: [],
       structuresDirty: false,
     };
@@ -493,10 +482,6 @@ export class GameView implements GameMap {
     // below repaints rows and re-sets these as it goes.
     this.trailManager.clearDirtyRows();
 
-    // Railroad events accumulate into the cache; revealedRailTiles is cleared
-    // at the start of apply().
-    this.railroadCache.apply(gu);
-
     // Trail update: walk active trail-type units and stamp/decay.
     this._trailIdsScratch.length = 0;
     for (const u of this._units.values()) {
@@ -543,7 +528,6 @@ export class GameView implements GameMap {
     };
     f.tick = gu.tick;
     f.inSpawnPhase = this.startTick === null;
-    f.railroadDirty = this.railroadCache.railroadDirty;
     f.trailDirtyRowMin = this.trailManager.dirtyRowMin;
     f.trailDirtyRowMax = this.trailManager.dirtyRowMax;
 
@@ -558,35 +542,9 @@ export class GameView implements GameMap {
       doomsdayClockWarnTicks:
         this._config.doomsdayClockConfig().warnSeconds * 10,
     });
-    // Relations + clusters depend only on allies/embargoes/teams, which
-    // change rarely (teams only when a player is added) — recompute only
-    // when one of those inputs arrived this tick. buildRelationMatrix
-    // writes into a reusable module-level buffer, so skipping the call
-    // leaves f.relationMatrix's contents intact. f.relationsDirty lets the
-    // upload layer skip the GPU push (and the full-map border recompute it
-    // triggers) on unchanged ticks.
-    if (this._relationsDirty) {
-      this._relationsDirty = false;
-      const rel = buildRelationMatrix(this._playerStates, this._teams);
-      f.relationMatrix = rel.matrix;
-      f.relationSize = rel.size;
-      f.relationsDirty = true;
-    } else {
-      f.relationsDirty = false;
-    }
-    if (this._clustersDirty) {
-      this._clustersDirty = false;
-      f.allianceClusters = computeAllianceClusters(this._playerStates);
-    }
-    f.nukeTelegraphs = extractNukeTelegraphs(
-      this._unitStates,
-      this._map.width(),
-      this._myPlayer?.smallID() ?? 0,
-      // The latest relation matrix — recomputed above when dirty, otherwise
-      // carried over on the frame from the last rebuild.
-      f.relationMatrix,
-      f.relationSize,
-    );
+    // Relation-matrix / alliance-cluster derivation was removed with the
+    // alliance render passes; the frame keeps an empty matrix.
+    f.relationsDirty = false;
     f.attackRings = this._myPlayer
       ? extractAttackRings(
           this._unitStates,
@@ -608,7 +566,6 @@ export class GameView implements GameMap {
     }
 
     // Reset transient flags for next tick.
-    this.railroadCache.clearDirty();
     this._structuresDirty = false;
   }
 

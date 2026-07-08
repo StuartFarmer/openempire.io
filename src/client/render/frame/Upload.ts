@@ -5,7 +5,6 @@ import type {
   DeadUnitFx,
   FrameData,
   NameEntry,
-  NukeTelegraphData,
   PlayerState,
   PlayerStatusData,
   TilePair,
@@ -27,15 +26,12 @@ export interface FrameUploadTarget {
     dirtyRowMin: number,
     dirtyRowMax: number,
   ): void;
-  uploadRailroadState(data: Uint8Array): void;
-  applyRailroadDust(tileRefs: number[]): void;
   updateUnits(units: ReadonlyMap<number, UnitState>, gameTick: number): void;
   updateStructures(units: ReadonlyMap<number, UnitState>): void;
   applyDeadUnits(deadUnits: DeadUnitFx[]): void;
   applyConquestEvents(events: ConquestFx[]): void;
   applyBonusEvents(events: BonusEvent[]): void;
   updateAttackRings(rings: AttackRingInput[]): void;
-  updateNukeTelegraphs(data: NukeTelegraphData[]): void;
   updateNames(
     names: ReadonlyMap<string, NameEntry>,
     players: ReadonlyMap<number, PlayerState>,
@@ -43,14 +39,13 @@ export interface FrameUploadTarget {
     statusData?: ReadonlyMap<number, PlayerStatusData>,
   ): void;
   updateRelations(data: Uint8Array, size: number): void;
-  setSAMAllianceClusters(clusters: ReadonlyMap<number, number>): void;
 }
 
 /**
  * Upload a FrameData snapshot to the GPU view.
  *
- * A straightforward dispatch loop: pushes tile/trail deltas, then all the
- * conditional railroad/ephemeral uploads, to the view's update*() methods.
+ * A straightforward dispatch loop: pushes tile/trail deltas, then the
+ * conditional ephemeral uploads, to the view's update*() methods.
  */
 export function uploadFrameData(
   view: FrameUploadTarget,
@@ -75,14 +70,6 @@ export function uploadFrameData(
     view.uploadTileAndTrailState(frame.tileState, frame.trailState);
   }
 
-  // --- Railroads ---
-  if (frame.railroadDirty) {
-    view.uploadRailroadState(frame.railroadState);
-    if (frame.revealedRailTiles.length > 0) {
-      view.applyRailroadDust(frame.revealedRailTiles);
-    }
-  }
-
   // --- Units + structures ---
   view.updateUnits(frame.units, frame.tick);
   if (frame.structuresDirty) {
@@ -100,9 +87,8 @@ export function uploadFrameData(
     view.applyBonusEvents(frame.events.bonusEvents);
   }
 
-  // --- Attack rings + nuke telegraphs ---
+  // --- Attack rings ---
   view.updateAttackRings(frame.attackRings);
-  view.updateNukeTelegraphs(frame.nukeTelegraphs);
 
   // --- Names + player status ---
   view.updateNames(frame.names, frame.players, false, frame.playerStatus);
@@ -113,7 +99,4 @@ export function uploadFrameData(
   if (frame.relationsDirty) {
     view.updateRelations(frame.relationMatrix, frame.relationSize);
   }
-
-  // --- Alliance clusters (SAM pass) ---
-  view.setSAMAllianceClusters(frame.allianceClusters);
 }

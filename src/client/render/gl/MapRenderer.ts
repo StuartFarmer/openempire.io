@@ -20,8 +20,6 @@ import type {
   DeadUnitFx,
   GhostPreviewData,
   NameEntry,
-  NukeTelegraphData,
-  NukeTrajectoryData,
   PlayerState,
   PlayerStatic,
   PlayerStatusData,
@@ -164,9 +162,6 @@ export class MapRenderer {
   setPlayerSpawn(smallID: number, x: number, y: number): void {
     this.renderer?.setPlayerSpawn(smallID, x, y);
   }
-  uploadRailroadState(data: Uint8Array): void {
-    this.renderer?.uploadRailroadState(data);
-  }
   updateUnits(units: Map<number, UnitState>, gameTick: number): void {
     this.renderer?.updateUnits(units, gameTick);
   }
@@ -199,9 +194,6 @@ export class MapRenderer {
   applyBonusEvents(events: BonusEvent[]): void {
     this.renderer?.applyBonusEvents(events);
   }
-  applyRailroadDust(tileRefs: number[]): void {
-    this.renderer?.applyRailroadDust(tileRefs);
-  }
   /** Refresh terrain texels whose underlying terrain byte changed (water nukes). */
   applyTerrainDelta(refs: readonly number[], terrainBytes: Uint8Array): void {
     this.renderer?.applyTerrainDelta(refs, terrainBytes);
@@ -223,15 +215,7 @@ export class MapRenderer {
   // ---- Nuke UI ----
 
   /** Update nuke trajectory preview arc. null = hide. */
-  updateNukeTrajectory(data: NukeTrajectoryData | null): void {
-    this.renderer?.updateNukeTrajectory(data);
-  }
-
   /** Update in-flight nuke target telegraph circles. */
-  updateNukeTelegraphs(data: NukeTelegraphData[]): void {
-    this.renderer?.updateNukeTelegraphs(data);
-  }
-
   /** Update spawn phase overlay (tile highlights + breathing rings). */
   updateSpawnOverlay(inSpawnPhase: boolean, centers: SpawnCenter[]): void {
     this.renderer?.updateSpawnOverlay(inSpawnPhase, centers);
@@ -251,19 +235,12 @@ export class MapRenderer {
 
   // ---- SAM radius ----
 
-  setSAMAllianceClusters(clusters: Map<number, number>): void {
-    this.renderer?.setSAMAllianceClusters(clusters);
-  }
-
   // ---- Other ----
 
   setLocalPlayerID(id: number): void {
     this.renderer?.setLocalPlayerID(id);
   }
   /** Rail color for the local player (0–1 RGB). */
-  setLocalRailColor(r: number, g: number, b: number): void {
-    this.renderer?.setLocalRailColor(r, g, b);
-  }
   setAltView(active: boolean): void {
     this.renderer?.setAltView(active);
   }

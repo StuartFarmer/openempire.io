@@ -51,9 +51,6 @@ export interface RenderSettings {
     structure: boolean;
     unit: boolean;
     name: boolean;
-    falloutBloom: boolean;
-    falloutLight: boolean;
-    railroad: boolean;
     fx: boolean;
     bar: boolean;
     nameDebug: boolean;
@@ -68,54 +65,6 @@ export interface RenderSettings {
     plainsColor: string;
     highlandColor: string;
     mountainColor: string;
-  };
-  falloutBloom: {
-    broilSpeedCold: number;
-    broilSpeedHot: number;
-    noiseFreq1: number;
-    noiseFreq2: number;
-    contrastLoCold: number;
-    contrastLoHot: number;
-    contrastHiCold: number;
-    contrastHiHot: number;
-    metaFreq: number;
-    intensityCold: number;
-    intensityHot: number;
-    metaInfluenceCold: number;
-    metaInfluenceHot: number;
-    opacityFadeEnd: number;
-    bloomR: number;
-    bloomG: number;
-    bloomB: number;
-    bloomCoverage: number;
-    heatDecayPerTick: number;
-    particleColorDarkR: number;
-    particleColorDarkG: number;
-    particleColorDarkB: number;
-    particleColorBrightR: number;
-    particleColorBrightG: number;
-    particleColorBrightB: number;
-    particleThresholdUnowned: number;
-    particleThresholdOwned: number;
-    particleFlickerSpeed: number;
-    particleStrength: number;
-    particleFreshScale: number;
-  };
-  lighting: {
-    ambient: number;
-    enabled: boolean;
-    falloffPower: number;
-    falloutLightR: number;
-    falloutLightG: number;
-    falloutLightB: number;
-    falloutLightIntensity: number;
-    falloutLightThreshold: number;
-    emberLightR: number;
-    emberLightG: number;
-    emberLightB: number;
-    emberLightIntensity: number;
-    blurZoomDivisor: number;
-    lightRadiusMultiplier: number;
   };
   mapOverlay: {
     trailAlpha: number;
@@ -159,14 +108,6 @@ export interface RenderSettings {
     enemyR: number;
     enemyG: number;
     enemyB: number;
-  };
-  railroad: {
-    railMinZoom: number;
-    railFadeRange: number;
-    railDetailZoom: number;
-    railAlpha: number;
-    /** Track width multiplier (1 = default width). */
-    railThickness: number;
   };
   structure: {
     iconSize: number;
@@ -296,62 +237,12 @@ export interface RenderSettings {
     conquestFadeIn: number;
     conquestFadeOut: number;
   };
-  nukeTrajectory: {
-    lineWidth: number; // px — main line stroke width
-    outlineWidth: number; // px — extra width for outline behind line
-    dashTargetable: number; // px — dash length in targetable zone
-    gapTargetable: number; // px — gap length in targetable zone
-    dashUntargetable: number; // px — dash length in untargetable zone
-    gapUntargetable: number; // px — gap length in untargetable zone
-    lineR: number; // normal line color
-    lineG: number;
-    lineB: number;
-    interceptR: number; // line color after SAM intercept
-    interceptG: number;
-    interceptB: number;
-    outlineR: number; // outline color (normal)
-    outlineG: number;
-    outlineB: number;
-    interceptOutlineR: number; // outline color (after intercept)
-    interceptOutlineG: number;
-    interceptOutlineB: number;
-    markerCircleRadius: number; // px — zone boundary circle size
-    markerXRadius: number; // px — SAM intercept X size
-  };
-  nukeTelegraph: {
-    strokeWidth: number; // world units — circle ring width
-    dashLen: number; // world units — outer ring dash length
-    gapLen: number; // world units — outer ring gap length
-    rotationSpeed: number; // outer ring rotation speed
-    baseAlpha: number; // base opacity (0–1)
-    pulseAmplitude: number; // alpha pulse ±
-    pulseSpeed: number; // pulse frequency (radians/sec)
-    fillAlphaOffset: number; // inner fill is baseAlpha minus this
-    colorR: number; // circle color — enemy nukes
-    colorG: number;
-    colorB: number;
-    selfColorR: number; // circle color — own nukes
-    selfColorG: number;
-    selfColorB: number;
-    allyColorR: number; // circle color — ally/teammate nukes
-    allyColorG: number;
-    allyColorB: number;
-  };
   moveIndicator: {
     startRadius: number; // screen px — initial distance from center
     chevronSize: number; // screen px — wing span
     lineWidth: number; // screen px — stroke width
     duration: number; // ms — total animation lifetime
     converge: number; // 0–1 — fraction of radius consumed during animation
-  };
-  samRadius: {
-    strokeWidth: number; // ring half-width in world units
-    dashLen: number; // dash length in world units
-    gapLen: number; // gap length in world units
-    rotationSpeed: number; // world units per second
-    alpha: number; // base opacity (0–1)
-    outlineWidth: number; // outline border width in world units
-    outlineSoftness: number; // smoothstep range (0 = hard, higher = softer)
   };
   bonusPopup: {
     scale: number;

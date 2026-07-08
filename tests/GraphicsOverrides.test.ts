@@ -251,7 +251,6 @@ describe("applyGraphicsOverrides", () => {
       name: { nameScaleFactor: 0.6, darkNames: true },
     });
     expect(s.passEnabled).toEqual(base.passEnabled);
-    expect(s.lighting).toEqual(base.lighting);
     expect(s.structure).toEqual(base.structure);
   });
 
@@ -347,80 +346,6 @@ describe("applyGraphicsOverrides", () => {
     const mo = gen({ mapOverlay: { territorySaturation: 0.2 } }).mapOverlay;
     expect(mo.territoryAlpha).toBe(defaults.territoryAlpha);
     expect(mo.territoryDefenseDarken).toBe(defaults.territoryDefenseDarken);
-  });
-
-  test("applies railMinZoom override (including 0)", () => {
-    expect(gen({ railroad: { railMinZoom: 7 } }).railroad.railMinZoom).toBe(7);
-    expect(gen({ railroad: { railMinZoom: 0 } }).railroad.railMinZoom).toBe(0);
-  });
-
-  test("applies railThickness override (including values below 1)", () => {
-    expect(
-      gen({ railroad: { railThickness: 2.5 } }).railroad.railThickness,
-    ).toBe(2.5);
-    expect(
-      gen({ railroad: { railThickness: 0.5 } }).railroad.railThickness,
-    ).toBe(0.5);
-  });
-
-  test("railroad override leaves other railroad fields at defaults", () => {
-    const defaults = createRenderSettings().railroad;
-    const r = gen({ railroad: { railThickness: 2 } }).railroad;
-    expect(r.railMinZoom).toBe(defaults.railMinZoom);
-    expect(r.railFadeRange).toBe(defaults.railFadeRange);
-    expect(r.railDetailZoom).toBe(defaults.railDetailZoom);
-    expect(r.railAlpha).toBe(defaults.railAlpha);
-    const z = gen({ railroad: { railMinZoom: 1 } }).railroad;
-    expect(z.railThickness).toBe(defaults.railThickness);
-  });
-
-  test("ambient < 1 sets ambient and enables the lighting pass", () => {
-    const l = gen({ lighting: { ambient: 0.5 } }).lighting;
-    expect(l.ambient).toBe(0.5);
-    expect(l.enabled).toBe(true);
-  });
-
-  test("ambient === 1 sets ambient but leaves lighting disabled (identity)", () => {
-    const l = gen({ lighting: { ambient: 1 } }).lighting;
-    expect(l.ambient).toBe(1);
-    expect(l.enabled).toBe(false);
-  });
-
-  test("ambient absent → lighting stays at render-settings.json defaults", () => {
-    const defaults = createRenderSettings().lighting;
-    expect(gen({}).lighting.ambient).toBe(defaults.ambient);
-    expect(gen({}).lighting.enabled).toBe(defaults.enabled);
-    expect(gen({ lighting: {} }).lighting.enabled).toBe(defaults.enabled);
-  });
-
-  test("applies falloffPower override (including values below default)", () => {
-    expect(gen({ lighting: { falloffPower: 1.4 } }).lighting.falloffPower).toBe(
-      1.4,
-    );
-    expect(gen({ lighting: { falloffPower: 3 } }).lighting.falloffPower).toBe(
-      3,
-    );
-  });
-
-  test("falloffPower override alone does not enable the lighting pass", () => {
-    expect(gen({ lighting: { falloffPower: 1.4 } }).lighting.enabled).toBe(
-      false,
-    );
-  });
-
-  test("lighting override leaves other lighting fields at defaults", () => {
-    const defaults = createRenderSettings().lighting;
-    const l = gen({ lighting: { ambient: 0.4 } }).lighting;
-    expect(l.falloffPower).toBe(defaults.falloffPower);
-    expect(l.blurZoomDivisor).toBe(defaults.blurZoomDivisor);
-    expect(l.lightRadiusMultiplier).toBe(defaults.lightRadiusMultiplier);
-  });
-
-  test("ambient + falloffPower compose together", () => {
-    const l = gen({ lighting: { ambient: 0.3, falloffPower: 1 } }).lighting;
-    expect(l.ambient).toBe(0.3);
-    expect(l.falloffPower).toBe(1);
-    expect(l.enabled).toBe(true);
   });
 
   test("classicIcons + name overrides compose independently", () => {

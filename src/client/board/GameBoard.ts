@@ -455,7 +455,6 @@ function mountWebGLFrameLoop(
     const frameData = gameView.frameData();
     view.uploadTileAndTrailState(frameData.tileState, frameData.trailState);
     view.updateStructures(frameData.units as Map<number, UnitState>);
-    view.uploadRailroadState(frameData.railroadState);
     view.updateRelations(frameData.relationMatrix, frameData.relationSize);
 
     builder.update(gameView);
