@@ -114,16 +114,21 @@ const DOOMSDAY_CLOCK_DEFAULTS = {
  * FoodEconomy.ts are shape, not numbers.
  */
 export interface FoodConfig {
-  /** Milli-food one idle person eats per tick (1000 = the spec's 1 food/tick). */
+  /** Milli-food one idle person eats per tick. */
   idleConsumptionMilli: number;
   /** Milli-food per tick for a troop in transit (boats). */
   moveConsumptionMilli: number;
   /** Milli-food per tick for a troop in an active attack. */
   fightConsumptionMilli: number;
-  /** Milli-food produced per tick per point of owned crop-layer byte. */
-  productionPerFertilityMilli: number;
-  /** A Farmland contributes tileCropByte × this as extra fertility points. */
-  farmlandFertilityMult: number;
+  /**
+   * Natural land harvest: production = floor(fertilitySum^exponent × milli).
+   * Sublinear by design — expansion has extreme diminishing food returns;
+   * Farmland is the production engine.
+   */
+  landHarvestMilli: number;
+  landHarvestExponent: number;
+  /** Milli-food per tick per (tile crop byte × level) of each Farmland. */
+  farmProductionMilli: number;
   /** Population cap with zero Settlements. */
   basePopulation: number;
   /** Extra population cap per Settlement level. */
@@ -144,35 +149,44 @@ export interface FoodConfig {
   surplusForFullGrowth: number;
   /** Fraction of unfed population that starves per deficit tick. */
   starvationDeathFraction: number;
-  /** Building costs in display food units. */
+  /**
+   * Building cost bases (display food). Actual cost = base × (owned + 1),
+   * so every purchase escalates and competes with the others; the storage
+   * cap gates the higher tiers (save-for requires Barns).
+   */
   settlementCost: number;
   farmlandCost: number;
   barnCost: number;
+  /** Starting stock: buys the first farms, not comfort (fits baseStorage). */
+  startingFood: number;
 }
 
-// Defaults chosen for internal coherence: a crop-200 tile produces 4000
-// milli/tick and an idle person eats 10, so one good tile feeds ~400 people
-// and a ~60-tile spawn sustains ~25k (the starting population). War eats
-// 2–4× idle. The balance harness (tests/perf/balance) is the tool for
-// revising these — acceptance target: leader territory share grows
-// sub-linearly post-spawn.
+// Scarcity-first defaults (rework-tribal-scarcity): raw land sustains only
+// ~15–20% of the base population cap (sqrt harvest), one good farm feeds
+// ~3k people, and the starting stake covers ~2 farms. The opening arc —
+// population starving down toward carrying capacity until farms come
+// online — is intended. Balance evidence in
+// openspec/changes/*/balance-notes.md; re-sweep with tests/perf/balance
+// before changing anything here.
 const FOOD_DEFAULTS: FoodConfig = {
   idleConsumptionMilli: 10,
   moveConsumptionMilli: 20,
   fightConsumptionMilli: 40,
-  productionPerFertilityMilli: 20,
-  farmlandFertilityMult: 400,
+  landHarvestMilli: 200,
+  landHarvestExponent: 0.5,
+  farmProductionMilli: 200,
   basePopulation: 10_000,
-  populationPerSettlement: 25_000,
-  baseStorage: 50_000,
-  storagePerBarn: 150_000,
+  populationPerSettlement: 15_000,
+  baseStorage: 5_000,
+  storagePerBarn: 8_000,
   decayNumer: 1,
   decayDenom: 5000,
   surplusForFullGrowth: 0.25,
   starvationDeathFraction: 0.02,
-  settlementCost: 5_000,
-  farmlandCost: 2_000,
-  barnCost: 3_000,
+  settlementCost: 2_000,
+  farmlandCost: 1_000,
+  barnCost: 800,
+  startingFood: 4_000,
 };
 
 export class Config {
@@ -518,7 +532,10 @@ export class Config {
         break;
       case UnitType.Settlement:
         info = {
-          cost: () => BigInt(this.food().settlementCost),
+          cost: this.foodCostWrapper(
+            () => this.food().settlementCost,
+            UnitType.Settlement,
+          ),
           costResource: "food",
           constructionDuration: this.instantBuild() ? 0 : 5 * 10,
           upgradable: true,
@@ -526,14 +543,17 @@ export class Config {
         break;
       case UnitType.Farmland:
         info = {
-          cost: () => BigInt(this.food().farmlandCost),
+          cost: this.foodCostWrapper(
+            () => this.food().farmlandCost,
+            UnitType.Farmland,
+          ),
           costResource: "food",
           constructionDuration: this.instantBuild() ? 0 : 3 * 10,
         };
         break;
       case UnitType.Barn:
         info = {
-          cost: () => BigInt(this.food().barnCost),
+          cost: this.foodCostWrapper(() => this.food().barnCost, UnitType.Barn),
           costResource: "food",
           constructionDuration: this.instantBuild() ? 0 : 3 * 10,
           upgradable: true,
@@ -545,6 +565,25 @@ export class Config {
 
     this.unitInfoCache.set(type, info);
     return info;
+  }
+
+  /**
+   * Escalating food cost: base × (owned + 1), with the same owned-counting
+   * convention as the gold costWrapper. Linear (not 2^n) because storage
+   * capacity — not price growth — is the ladder gate: saving for a higher
+   * tier requires Barns first.
+   */
+  private foodCostWrapper(
+    baseFn: () => number,
+    type: UnitType,
+  ): (g: Game, p: Player) => bigint {
+    return (_game: Game, player: Player) => {
+      const owned = Math.min(
+        player.unitsOwned(type),
+        player.unitsConstructed(type),
+      );
+      return BigInt(baseFn() * (owned + 1));
+    };
   }
 
   private hasInfiniteGoldFor(player: EconomyPlayer): boolean {

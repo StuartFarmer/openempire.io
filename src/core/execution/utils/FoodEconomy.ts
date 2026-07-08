@@ -14,15 +14,19 @@ import { Game, Player, UnitType } from "../../game/Game";
 export function foodTick(mg: Game, player: Player): void {
   const f = mg.config().food();
 
-  // ── Production: owned fertility + Farmland bonuses ──────────────────────
+  // ── Production: farms are the engine; raw land is a marginal, sublinear
+  // harvest (fertilitySum^exponent) so expansion alone cannot feed a nation.
   let farmFertility = 0;
   for (const farm of player.units(UnitType.Farmland)) {
     if (farm.isUnderConstruction()) continue;
-    farmFertility += mg.layer("crop", farm.tile()) * f.farmlandFertilityMult;
+    farmFertility += mg.layer("crop", farm.tile()) * farm.level();
   }
-  const productionMilli = Math.floor(
-    (player.fertilitySum() + farmFertility) * f.productionPerFertilityMilli,
+  const landMilli = Math.floor(
+    Math.pow(player.fertilitySum(), f.landHarvestExponent) *
+      f.landHarvestMilli,
   );
+  const productionMilli =
+    landMilli + farmFertility * f.farmProductionMilli;
 
   // ── Consumption: idle population < moving troops < fighting troops ──────
   // Attack and boat troops leave the player's troops() pool while deployed,

@@ -1,4 +1,27 @@
-# Balance notes — initial knob sweep (task 6.4)
+# Balance notes
+
+## v2 — scarcity economy (rework-tribal-scarcity)
+
+Same harness setup as v1 (verdantia, 25 nations + 10 bots, 3000 ticks,
+3 seeds). After removing gold, nerfing land harvest to √fertility, making
+farms the production engine, and escalating costs:
+
+| Config                     | mean leader | max leader | Gini | starved |
+| -------------------------- | ----------- | ---------- | ---- | ------- |
+| **v2 defaults**            | 12.5%       | 15.3%      | 0.37 | 7.5k    |
+| landHarvestMilli 400 (2×)  | 12.6%       | 14.0%      | 0.38 | 12k     |
+| farmProductionMilli 100 (½)| 11.7%       | 13.8%      | 0.42 | 7.1k    |
+| startingFood 2000 (½)      | 13.6%       | 17.2%      | 0.36 | 9.2k    |
+| populationPerSettlement 25k| 13.2%       | 14.6%      | 0.42 | 10k     |
+
+Structure census at defaults: ~180 Farmland, ~40 Barns, ~35 Settlements,
+zero gold structures — farms are the economy's engine as designed (v1 was
+15 farms / 70 settlements). Leader share fell from 28%/45% (v1) to
+12.5%/15.3%: the scarcity loop (escalating costs + storage-gated saving +
+√land harvest) is a much stronger flattener than any single v1 knob. The
+economy is robust to ±2× on individual knobs. Defaults accepted.
+
+## v1 — initial knob sweep (task 6.4, superseded by v2)
 
 First sweep with the BalanceRun harness. Setup: map `verdantia` (512×256,
 seed 42), 25 procedural nations + 10 bots, 3000 ticks (~5 min of game),

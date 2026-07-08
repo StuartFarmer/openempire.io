@@ -506,23 +506,30 @@ export class ControlPanel extends LitElement implements Controller {
         </div>
         <!-- Troop bar -->
         <div class="flex-1">${this.renderDesktopTroopBar()}</div>
-        <!-- Gold -->
-        <div
-          class="flex items-center gap-1 shrink-0 border rounded-md border-yellow-400 font-bold text-yellow-400 text-sm py-0.5 px-1 w-[4.5rem] relative"
-          translate="no"
-        >
-          ${this._goldGain !== null
-            ? keyed(
-                this._goldGainPulseId,
-                html`<span
-                  class="gold-gain-pop absolute -top-5 right-[5px] min-[1015px]:right-[9px] text-green-400 text-sm font-extrabold tabular-nums whitespace-nowrap pointer-events-none drop-shadow-[0_2px_3px_rgba(0,0,0,0.9)]"
-                  >+${renderNumber(this._goldGain)}</span
-                >`,
-              )
-            : ""}
-          <img src=${goldCoinIcon} width="13" height="13" class="shrink-0" />
-          <span class="tabular-nums">${renderNumber(this._gold)}</span>
-        </div>
+        <!-- Gold (classic maps only — the Tribal age has no gold) -->
+        ${this.game?.hasLayers()
+          ? ""
+          : html`<div
+              class="flex items-center gap-1 shrink-0 border rounded-md border-yellow-400 font-bold text-yellow-400 text-sm py-0.5 px-1 w-[4.5rem] relative"
+              translate="no"
+            >
+              ${this._goldGain !== null
+                ? keyed(
+                    this._goldGainPulseId,
+                    html`<span
+                      class="gold-gain-pop absolute -top-5 right-[5px] min-[1015px]:right-[9px] text-green-400 text-sm font-extrabold tabular-nums whitespace-nowrap pointer-events-none drop-shadow-[0_2px_3px_rgba(0,0,0,0.9)]"
+                      >+${renderNumber(this._goldGain)}</span
+                    >`,
+                  )
+                : ""}
+              <img
+                src=${goldCoinIcon}
+                width="13"
+                height="13"
+                class="shrink-0"
+              />
+              <span class="tabular-nums">${renderNumber(this._gold)}</span>
+            </div>`}
         ${this.renderFoodChip("text-sm")}
       </div>
       <!-- Row 2: attack ratio | slider -->
@@ -599,23 +606,25 @@ export class ControlPanel extends LitElement implements Controller {
     return html`
       ${this.renderNotification()}
       <div class="flex gap-2 items-center">
-        <!-- Gold -->
-        <div
-          class="flex items-center justify-center p-1 gap-0.5 border rounded-md border-yellow-400 font-bold text-yellow-400 text-xs w-1/5 shrink-0 relative"
-          translate="no"
-        >
-          ${this._goldGain !== null
-            ? keyed(
-                this._goldGainPulseId,
-                html`<span
-                  class="gold-gain-pop absolute -top-5 right-[5px] min-[1015px]:right-[9px] text-green-400 text-xs font-extrabold tabular-nums whitespace-nowrap pointer-events-none drop-shadow-[0_2px_3px_rgba(0,0,0,0.9)]"
-                  >+${renderNumber(this._goldGain)}</span
-                >`,
-              )
-            : ""}
-          <img src=${goldCoinIcon} width="13" height="13" />
-          <span class="px-0.5">${renderNumber(this._gold)}</span>
-        </div>
+        <!-- Gold (classic maps only — the Tribal age has no gold) -->
+        ${this.game?.hasLayers()
+          ? ""
+          : html`<div
+              class="flex items-center justify-center p-1 gap-0.5 border rounded-md border-yellow-400 font-bold text-yellow-400 text-xs w-1/5 shrink-0 relative"
+              translate="no"
+            >
+              ${this._goldGain !== null
+                ? keyed(
+                    this._goldGainPulseId,
+                    html`<span
+                      class="gold-gain-pop absolute -top-5 right-[5px] min-[1015px]:right-[9px] text-green-400 text-xs font-extrabold tabular-nums whitespace-nowrap pointer-events-none drop-shadow-[0_2px_3px_rgba(0,0,0,0.9)]"
+                      >+${renderNumber(this._goldGain)}</span
+                    >`,
+                  )
+                : ""}
+              <img src=${goldCoinIcon} width="13" height="13" />
+              <span class="px-0.5">${renderNumber(this._gold)}</span>
+            </div>`}
         ${this.renderFoodChip("text-xs")}
         <!-- Troop bar -->
         <div class="w-[40%] shrink-0 flex items-center">

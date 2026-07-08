@@ -85,11 +85,14 @@ export class Leaderboard extends LitElement implements Controller {
       .playerViews()
       .map((p) => ({ pv: p, maxTroops: maxTroops(p) }));
 
+    // On layered games the "gold" column shows food (the Tribal age has no
+    // gold); the sort key keeps its name as a display slot.
+    const wealth = (p: PlayerView) =>
+      Number(this.game!.hasLayers() ? p.food() : p.gold());
+
     switch (this._sortKey) {
       case "gold":
-        sorted.sort((a, b) =>
-          compare(Number(a.pv.gold()), Number(b.pv.gold())),
-        );
+        sorted.sort((a, b) => compare(wealth(a.pv), wealth(b.pv)));
         break;
       case "maxtroops":
         sorted.sort((a, b) => compare(a.maxTroops, b.maxTroops));
@@ -117,7 +120,9 @@ export class Leaderboard extends LitElement implements Controller {
         score: formatPercentage(
           player.numTilesOwned() / numTilesWithoutFallout,
         ),
-        gold: renderNumber(player.gold()),
+        gold: renderNumber(
+          this.game!.hasLayers() ? player.food() : player.gold(),
+        ),
         maxTroops: renderTroops(maxTroops),
         isMyPlayer: player === myPlayer,
         isOnSameTeam:
@@ -148,7 +153,9 @@ export class Leaderboard extends LitElement implements Controller {
           score: formatPercentage(
             myPlayer.numTilesOwned() / this.game.numLandTiles(),
           ),
-          gold: renderNumber(myPlayer.gold()),
+          gold: renderNumber(
+            this.game.hasLayers() ? myPlayer.food() : myPlayer.gold(),
+          ),
           maxTroops: renderTroops(myPlayerMaxTroops),
           isMyPlayer: true,
           isOnSameTeam: true,
@@ -205,7 +212,9 @@ export class Leaderboard extends LitElement implements Controller {
               class="py-1 md:py-2 text-center border-b border-slate-500 cursor-pointer whitespace-nowrap truncate"
               @click=${() => this.setSort("gold")}
             >
-              ${translateText("leaderboard.gold")}
+              ${this.game?.hasLayers()
+                ? translateText("leaderboard.food")
+                : translateText("leaderboard.gold")}
               ${this._sortKey === "gold"
                 ? this._sortOrder === "asc"
                   ? "⬆️"

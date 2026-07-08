@@ -609,20 +609,25 @@ export class NationStructureBehavior {
     const f = config.food();
     const player = this.player;
     const food = Number(player.food());
+    // Escalation-aware: cost = base × (owned + 1), from the unit info.
+    const cost = (type: UnitType) =>
+      Number(config.unitInfo(type).cost(this.game, player));
 
+    // Farmland first in the scarce economy — production is survival. Fires
+    // while production trails growth-sustaining surplus.
+    const flow = player.foodFlow();
     if (
-      player.troops() >= 0.8 * config.maxTroops(player) &&
-      food >= f.settlementCost &&
-      this.spawnTribalStructure(UnitType.Settlement, false)
+      flow.production < flow.consumption * 1.5 &&
+      food >= cost(UnitType.Farmland) &&
+      this.spawnTribalStructure(UnitType.Farmland, true)
     ) {
       return true;
     }
 
-    const flow = player.foodFlow();
     if (
-      flow.production < flow.consumption * 1.5 &&
-      food >= f.farmlandCost &&
-      this.spawnTribalStructure(UnitType.Farmland, true)
+      player.troops() >= 0.8 * config.maxTroops(player) &&
+      food >= cost(UnitType.Settlement) &&
+      this.spawnTribalStructure(UnitType.Settlement, false)
     ) {
       return true;
     }
@@ -639,8 +644,8 @@ export class NationStructureBehavior {
     const storageCap = f.baseStorage + barnLevels * f.storagePerBarn;
     if (
       food >= 0.9 * storageCap &&
-      food >= f.barnCost &&
-      barnLevels < levels(UnitType.Settlement) &&
+      food >= cost(UnitType.Barn) &&
+      barnLevels < levels(UnitType.Settlement) + 1 &&
       this.spawnTribalStructure(UnitType.Barn, false)
     ) {
       return true;

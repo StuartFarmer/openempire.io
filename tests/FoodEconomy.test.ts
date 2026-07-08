@@ -123,8 +123,9 @@ describe("Food economy (layered maps)", () => {
     // Own one tile (stay alive) → negligible production; troops eat every tick.
     player.conquer(game.ref(0, 0));
     player.setTroops(5000);
-    // 5000 troops × 10 milli = 50 food/tick vs 4 food/tick production →
-    // ~2 ticks of buffer.
+    // Clear the starting stake, then give ~2 ticks of buffer:
+    // 5000 troops × 10 milli = 50 food/tick vs ~3 food/tick land harvest.
+    player.removeFood(player.food());
     player.addFood(100n);
     activate(game, player);
     game.executeNextTick();
@@ -155,12 +156,13 @@ describe("Food economy (layered maps)", () => {
     p.conquer(barren.ref(0, 0));
     activate(barren, p);
     p.setTroops(0);
-    p.addFood(10_000n);
+    p.removeFood(p.food()); // clear the starting stake for exact math
+    p.addFood(3_000n); // under the base storage cap
     barren.executeNextTick();
     const f = barren.config().food();
-    // One decay step: floor(10M milli × numer/denom) removed.
+    // One decay step: floor(3M milli × numer/denom) removed.
     const expectedMilli =
-      10_000_000n - (10_000_000n * BigInt(f.decayNumer)) / BigInt(f.decayDenom);
+      3_000_000n - (3_000_000n * BigInt(f.decayNumer)) / BigInt(f.decayDenom);
     expect(p.food()).toBe(expectedMilli / 1000n);
   });
 
@@ -340,6 +342,97 @@ describe("Tribal buildings", () => {
   });
 });
 
+describe("Tribal scarcity (rework-tribal-scarcity)", () => {
+  let game: Game;
+  let player: Player;
+  let rival: Player;
+
+  beforeEach(async () => {
+    game = await layeredGame();
+    player = game.player(humanInfo.id);
+    rival = game.player(rivalInfo.id);
+  });
+
+  test("no gold on layered maps; starting food stake instead", async () => {
+    expect(player.gold()).toBe(0n);
+    expect(player.food()).toBe(BigInt(game.config().food().startingFood));
+
+    player.conquer(game.ref(0, 0));
+    activate(game, player);
+    for (let i = 0; i < 5; i++) game.executeNextTick();
+    expect(player.gold()).toBe(0n); // no income either
+
+    // Classic maps keep vanilla gold income.
+    const classic = await setup("plains", {}, [humanInfo]);
+    const cp = classic.player(humanInfo.id);
+    cp.conquer(classic.ref(0, 0));
+    activate(classic, cp);
+    const goldBefore = cp.gold();
+    classic.executeNextTick();
+    expect(cp.gold()).toBeGreaterThan(goldBefore);
+  });
+
+  test("land harvest has extreme diminishing returns (4× land → ≤2× food)", () => {
+    conquerBlock(game, player, 0, 0, 16); // 256 tiles
+    conquerBlock(game, rival, 40, 40, 8); // 64 tiles (4× fewer)
+    player.setTroops(0);
+    rival.setTroops(0);
+    activate(game, player, rival);
+    game.executeNextTick();
+
+    const big = flow(player).production;
+    const small = flow(rival).production;
+    expect(big).toBeGreaterThan(small);
+    expect(big).toBeLessThanOrEqual(2 * small + 1);
+  });
+
+  test("one farm out-produces a large territory's land harvest", () => {
+    conquerBlock(game, player, 0, 0, 8); // 64 tiles of land harvest
+    player.addFood(10_000n);
+    activate(game, player);
+    game.executeNextTick();
+    const landOnly = flow(player).production;
+
+    player.buildUnit(UnitType.Farmland, game.ref(2, 2), {});
+    game.executeNextTick();
+    expect(flow(player).production).toBeGreaterThan(2 * landOnly);
+  });
+
+  test("costs escalate per owned building", () => {
+    conquerBlock(game, player, 0, 0, 35);
+    player.addFood(50_000n);
+    const cost = () =>
+      game.config().unitInfo(UnitType.Farmland).cost(game, player);
+
+    const base = cost();
+    expect(base).toBe(BigInt(game.config().food().farmlandCost));
+    player.buildUnit(UnitType.Farmland, game.ref(2, 2), {});
+    expect(cost()).toBe(base * 2n);
+    player.buildUnit(UnitType.Farmland, game.ref(20, 20), {});
+    expect(cost()).toBe(base * 3n);
+  });
+
+  test("invest-or-starve: idle stake drains, then population shrinks; farms stop the bleed", () => {
+    conquerBlock(game, player, 0, 0, 10); // land sustains only ~2-3k
+    player.setTroops(8000);
+    activate(game, player);
+
+    // Spend nothing: stake drains, then starvation.
+    for (let i = 0; i < 80; i++) game.executeNextTick();
+    const starvedTo = player.troops();
+    expect(starvedTo).toBeLessThan(8000);
+    expect(flow(player).starvedTroops).toBeGreaterThan(0);
+
+    // Invest: two farms lift production; starvation stops shortly after.
+    player.addFood(5_000n);
+    player.buildUnit(UnitType.Farmland, game.ref(2, 2), {});
+    player.buildUnit(UnitType.Farmland, game.ref(2, 8), {});
+    for (let i = 0; i < 100; i++) game.executeNextTick();
+    expect(flow(player).starvedTroops).toBe(0);
+    expect(player.isAlive()).toBe(true);
+  });
+});
+
 describe("Baked layered fixture", () => {
   test("tribalsmall loads its layers.bin through setup()", async () => {
     const game = await setup("tribalsmall", {}, [humanInfo]);
@@ -399,12 +492,12 @@ describe("Tribal bot economy", () => {
     expect(bot.troops()).toBeGreaterThan(0);
     expect(bot.isAlive()).toBe(true);
 
-    // Abundance phase: population well under the cap (Settlement trigger
-    // quiet), fresh territory (the old block is saturated at the structure
-    // spacing), and a windfall at the storage ceiling — the bot responds
-    // with a Barn rather than more housing.
+    // Abundance phase: a small population (production comfortably exceeds
+    // consumption, so the Farmland/Settlement triggers stay quiet), fresh
+    // territory (the old block is saturated at the structure spacing), and
+    // a stock at the storage ceiling — the bot responds with a Barn.
     conquerBlock(game, bot, 40, 0, 30);
-    bot.setTroops(Math.floor(0.5 * game.config().maxTroops(bot)));
+    bot.setTroops(1000);
     bot.addFood(60_000n);
     for (let i = 0; i < 40 && bot.units(UnitType.Barn).length === 0; i++) {
       behavior.handleStructures();

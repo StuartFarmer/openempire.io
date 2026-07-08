@@ -78,17 +78,18 @@ export class PlayerExecution implements Execution {
 
     if (this.mg.hasLayers()) {
       // Layered maps: the food economy owns population growth/starvation
-      // (Config.food knobs; see execution/utils/FoodEconomy.ts).
+      // (Config.food knobs; see execution/utils/FoodEconomy.ts), and there
+      // is no gold in the Tribal age.
       foodTick(this.mg, this.player);
     } else {
       const troopInc = this.config.troopIncreaseRate(this.player);
       this.player.addTroops(troopInc);
-    }
-    const goldFromWorkers = this.config.goldAdditionRate(this.player);
-    this.player.addGold(goldFromWorkers);
+      const goldFromWorkers = this.config.goldAdditionRate(this.player);
+      this.player.addGold(goldFromWorkers);
 
-    // Record stats
-    this.mg.stats().goldWork(this.player, goldFromWorkers);
+      // Record stats
+      this.mg.stats().goldWork(this.player, goldFromWorkers);
+    }
 
     for (const alliance of this.player.alliances()) {
       if (alliance.expiresAt() <= this.mg.ticks()) {

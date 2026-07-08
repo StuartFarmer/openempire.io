@@ -1,0 +1,47 @@
+# Spec delta: food-economy (rework-tribal-scarcity)
+
+## MODIFIED Requirements
+
+### Requirement: Production comes from fertile owned land and Farmland
+
+Farmland SHALL be the primary food source: each Farmland contributes production proportional to its tile's crop byte (and level). Natural land harvest SHALL be marginal and sublinear — proportional to `fertilitySum^exponent` with exponent < 1 (default 0.5) — so expansion has extreme diminishing returns and cannot by itself sustain a meaningful population. A tile's fertility contribution SHALL still move to the conqueror when territory changes hands (it prices where farms are worth building).
+
+#### Scenario: Land alone cannot feed a nation
+
+- **WHEN** a player owns a large territory with no Farmland
+- **THEN** natural production sustains only a small fraction of the population cap, and quadrupling territory at most doubles natural production
+
+#### Scenario: Farms are the production engine
+
+- **WHEN** a player builds Farmland on fertile tiles
+- **THEN** production rises linearly with farms (scaled by tile fertility), dwarfing the land harvest
+
+#### Scenario: Conquest transfers land harvest
+
+- **WHEN** player A captures fertile tiles from player B
+- **THEN** A's fertility sum rises and B's falls by the same amount
+
+## ADDED Requirements
+
+### Requirement: Gold is removed on layered maps
+
+On layered maps there SHALL be no gold: zero starting gold, no per-tick gold income, no gold display in the HUD, and no gold-costed units offered in the build menu. Classic (unlayered) maps SHALL keep gold behavior byte-identical to vanilla.
+
+#### Scenario: No gold accrues
+
+- **WHEN** a game runs on a layered map
+- **THEN** every player's gold is 0 at start and no per-tick gold income is added
+
+#### Scenario: Classic maps unchanged
+
+- **WHEN** a game runs on an unlayered map
+- **THEN** starting gold and gold income match vanilla exactly
+
+### Requirement: Players start with a survival stake
+
+On layered maps each player SHALL start with a configured food stock — enough to buy early Farmland but not enough to avoid hard choices. A population above what raw land sustains SHALL shrink toward the land's carrying capacity unless production investments are made.
+
+#### Scenario: Invest or starve
+
+- **WHEN** a player spends nothing after spawning
+- **THEN** the stock drains, then population starves down toward the land-sustainable level

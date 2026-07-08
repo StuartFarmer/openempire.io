@@ -157,7 +157,14 @@ export class PlayerImpl implements Player {
     private readonly _team: Team | null,
   ) {
     this._troops = toInt(startTroops);
-    this._gold = mg.config().startingGold(playerInfo);
+    if (mg.hasLayers()) {
+      // Tribal age: no gold — the food stake is the survival budget
+      // (enough for the first farms, not for comfort).
+      this._gold = 0n;
+      this._foodMilli = BigInt(mg.config().food().startingFood) * 1000n;
+    } else {
+      this._gold = mg.config().startingGold(playerInfo);
+    }
     this._pseudo_random = new PseudoRandom(simpleHash(this.playerInfo.id));
   }
 
