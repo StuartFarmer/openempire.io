@@ -79,8 +79,6 @@ export function initNavigation() {
   window.showPage = showPage;
 
   const hashPage = () => {
-    if (window.location.hash === "#alternative")
-      return "page-alternative-sandbox";
     if (window.location.hash === "#generator") return "page-generator";
     return "page-play";
   };

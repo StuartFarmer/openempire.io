@@ -514,7 +514,6 @@
   },
   "play_page": {
     "map_generator": "Map Generator",
-    "sandbox": "Sandbox",
     "singleplayer": "Singleplayer"
   },
   "player_panel": {

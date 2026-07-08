@@ -2,7 +2,6 @@ import version from "resources/version.txt?raw";
 import { assetUrl } from "../core/AssetUrls";
 import { EventBus } from "../core/EventBus";
 import { GameInfo, GameRecord, GameStartInfo } from "../core/Schemas";
-import "./AlternativeSandboxPage";
 import { joinLobby, type JoinLobbyResult } from "./ClientGameRunner";
 import { GameStartingModal } from "./GameStartingModal";
 import "./GeneratorPage";
@@ -169,10 +168,6 @@ class Client {
     }
 
     const onHashUpdate = () => {
-      if (window.location.hash === "#alternative") {
-        window.showPage?.("page-alternative-sandbox");
-        return;
-      }
       if (window.location.hash === "#generator") {
         window.showPage?.("page-generator");
         return;
@@ -253,10 +248,6 @@ class Client {
     // Decode the hash first to handle encoded characters
     const decodedHash = decodeURIComponent(hash);
 
-    if (decodedHash === "#alternative") {
-      window.showPage?.("page-alternative-sandbox");
-      return;
-    }
     if (decodedHash === "#generator") {
       window.showPage?.("page-generator");
       return;

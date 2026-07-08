@@ -1,7 +1,6 @@
 export * from "./configuration/Config";
 export * from "./EventBus";
 export * from "./game/BoardMap";
-export * from "./game/BoardRuntime";
 export {
   Difficulty,
   GameMode,

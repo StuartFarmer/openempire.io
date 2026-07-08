@@ -110,12 +110,6 @@ export class PlayPage extends LitElement {
               >
                 ${translateText("play_page.map_generator")}
               </a>
-              <a
-                href="#alternative"
-                class="flex-1 py-3 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white text-center font-medium uppercase tracking-wider transition-colors"
-              >
-                ${translateText("play_page.sandbox")}
-              </a>
             </div>
           </div>
         </div>

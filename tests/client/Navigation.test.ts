@@ -7,42 +7,21 @@ describe("initNavigation", () => {
     history.replaceState(null, "", "/");
   });
 
-  test("opens the alternative sandbox page for #alternative", () => {
+  test("opens the generator page when hash changes to #generator", () => {
     document.body.innerHTML = `
       <div id="page-play"></div>
-      <alternative-sandbox-page id="page-alternative-sandbox" class="hidden page-content"></alternative-sandbox-page>
-    `;
-    history.replaceState(null, "", "/#alternative");
-
-    initNavigation();
-
-    expect(
-      document.getElementById("page-play")?.classList.contains("hidden"),
-    ).toBe(true);
-    expect(
-      document
-        .getElementById("page-alternative-sandbox")
-        ?.classList.contains("hidden"),
-    ).toBe(false);
-  });
-
-  test("opens the alternative sandbox page when hash changes to #alternative", () => {
-    document.body.innerHTML = `
-      <div id="page-play"></div>
-      <alternative-sandbox-page id="page-alternative-sandbox" class="hidden page-content"></alternative-sandbox-page>
+      <generator-page id="page-generator" class="hidden page-content"></generator-page>
     `;
 
     initNavigation();
-    history.replaceState(null, "", "/#alternative");
+    history.replaceState(null, "", "/#generator");
     window.dispatchEvent(new HashChangeEvent("hashchange"));
 
     expect(
       document.getElementById("page-play")?.classList.contains("hidden"),
     ).toBe(true);
     expect(
-      document
-        .getElementById("page-alternative-sandbox")
-        ?.classList.contains("hidden"),
+      document.getElementById("page-generator")?.classList.contains("hidden"),
     ).toBe(false);
   });
 
