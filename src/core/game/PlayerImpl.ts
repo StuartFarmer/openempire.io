@@ -308,6 +308,17 @@ export class PlayerImpl implements Player {
       }
     }
 
+    // Food fields exist only on layered games so classic-map updates stay
+    // byte-identical (all four stay undefined there).
+    const foodFields = this.hasFoodEconomy()
+      ? {
+          food: Number(this.food()),
+          foodProduction: this._foodFlow.production,
+          foodConsumption: this._foodFlow.consumption,
+          foodStarved: this._foodFlow.starvedTroops,
+        }
+      : undefined;
+
     return {
       type: GameUpdateType.Player,
       clientID: this.clientID(),
@@ -322,6 +333,7 @@ export class PlayerImpl implements Player {
       tilesOwned: this.numTilesOwned(),
       gold: this._gold,
       troops: this.troops(),
+      ...foodFields,
       allies: allies,
       embargoes: embargoes,
       isTraitor: this.isTraitor(),

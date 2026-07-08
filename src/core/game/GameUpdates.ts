@@ -229,6 +229,12 @@ export interface PlayerUpdate {
   tilesOwned?: number;
   gold?: Gold;
   troops?: number;
+  // Food economy fields — present only on layered games (hasFoodEconomy).
+  // Display units; they churn per tick and travel via the partial diff.
+  food?: number;
+  foodProduction?: number;
+  foodConsumption?: number;
+  foodStarved?: number;
   allies?: number[];
   embargoes?: Set<PlayerID>;
   isTraitor?: boolean;

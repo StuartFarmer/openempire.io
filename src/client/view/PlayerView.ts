@@ -79,6 +79,11 @@ function stateFromUpdate(pu: PlayerUpdate): PlayerState {
     tilesOwned: pu.tilesOwned!,
     gold: Number(pu.gold!),
     troops: pu.troops!,
+    // Food fields are absent on classic (unlayered) games — default to 0.
+    food: pu.food ?? 0,
+    foodProduction: pu.foodProduction ?? 0,
+    foodConsumption: pu.foodConsumption ?? 0,
+    foodStarved: pu.foodStarved ?? 0,
     isTraitor: pu.isTraitor!,
     traitorRemainingTicks: Math.max(0, pu.traitorRemainingTicks ?? 0),
     inDoomsdayClock: pu.inDoomsdayClock ?? false,
@@ -480,6 +485,23 @@ export class PlayerView {
 
   hasFoodEconomy(): boolean {
     return this.game.hasLayers();
+  }
+
+  /** Food stock in display units (layered games; 0n elsewhere). */
+  food(): Gold {
+    return BigInt(this.state.food);
+  }
+
+  foodProduction(): number {
+    return this.state.foodProduction;
+  }
+
+  foodConsumption(): number {
+    return this.state.foodConsumption;
+  }
+
+  foodStarved(): number {
+    return this.state.foodStarved;
   }
 
   totalUnitLevels(type: UnitType): number {

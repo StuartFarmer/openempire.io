@@ -174,6 +174,40 @@ describe("Food economy (layered maps)", () => {
     expect(player.food()).toBeLessThanOrEqual(BigInt(f.baseStorage));
   });
 
+  test("food fields flow through player updates on layered games only", async () => {
+    conquerBlock(game, player, 0, 0, 4);
+    player.setTroops(500);
+    player.addFood(777n);
+    activate(game, player);
+    game.executeNextTick();
+
+    type UpdateSource = Player & {
+      toUpdate(): {
+        food?: number;
+        foodProduction?: number;
+        foodConsumption?: number;
+        foodStarved?: number;
+      } | null;
+    };
+    // toUpdate() diffs against the last emission; grab a fresh full snapshot.
+    (player as Player & { lastSentUpdate?: unknown }).lastSentUpdate =
+      undefined;
+    const update = (player as UpdateSource).toUpdate();
+    expect(update).not.toBeNull();
+    expect(update!.food).toBeTypeOf("number");
+    expect(update!.foodProduction).toBeGreaterThan(0);
+    expect(update!.foodConsumption).toBeGreaterThan(0);
+    expect(update!.foodStarved).toBe(0);
+
+    // Classic game: the fields must be absent entirely.
+    const classic = await setup("plains", {}, [humanInfo]);
+    const cp = classic.player(humanInfo.id);
+    const classicUpdate = (cp as UpdateSource).toUpdate();
+    expect(classicUpdate).not.toBeNull();
+    expect(classicUpdate!.food).toBeUndefined();
+    expect(classicUpdate!.foodProduction).toBeUndefined();
+  });
+
   test("war consumption exceeds the idle baseline", () => {
     conquerBlock(game, player, 0, 0, 5);
     player.setTroops(4000);

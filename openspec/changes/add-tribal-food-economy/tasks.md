@@ -17,7 +17,7 @@
 
 - [x] 3.1 `UnitType.Settlement/Farmland/Barn` + unit info entries with `costResource: "food"`; `ConstructionExecution` cases; affordability check against food stock
 - [x] 3.2 Wire effects: Settlement→cap, Barn→storage, Farmland→production (own tile crop byte × mult); capture/destroy updates counts and effects
-- [ ] 3.3 BuildMenu entries + icons gated on `hasLayers()`; hidden on classic maps; en.json keys
+- [x] 3.3 BuildMenu entries + icons gated on `hasLayers()`; hidden on classic maps; en.json keys
 - [x] 3.4 Tests: build/deduct/reject-unaffordable, capture transfers effects, hidden on unlayered maps
 
 ## 4. Bots
@@ -27,8 +27,8 @@
 
 ## 5. Client readout
 
-- [ ] 5.1 Player update plumbing: food stock/cap, production, consumption to `PlayerView`
-- [ ] 5.2 ControlPanel food readout (stock/cap + net flow, starvation warning state) shown only on layered maps
+- [x] 5.1 Player update plumbing: food stock/cap, production, consumption to `PlayerView`
+- [x] 5.2 ControlPanel food readout (stock/cap + net flow, starvation warning state) shown only on layered maps
 
 ## 6. Balance harness + tuning
 

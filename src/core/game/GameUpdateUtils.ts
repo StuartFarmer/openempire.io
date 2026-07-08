@@ -53,6 +53,15 @@ export function diffPlayerUpdate(
   setIfDifferent("isAlive", prev.isAlive === next.isAlive);
   setIfDifferent("isDisconnected", prev.isDisconnected === next.isDisconnected);
   // tilesOwned / gold / troops intentionally absent — see EXCEPTION above.
+  // Food fields ride the diff deliberately (small numbers, singleplayer
+  // wire) instead of extending the packed quad format.
+  setIfDifferent("food", prev.food === next.food);
+  setIfDifferent("foodProduction", prev.foodProduction === next.foodProduction);
+  setIfDifferent(
+    "foodConsumption",
+    prev.foodConsumption === next.foodConsumption,
+  );
+  setIfDifferent("foodStarved", prev.foodStarved === next.foodStarved);
   setIfDifferent("isTraitor", prev.isTraitor === next.isTraitor);
   setIfDifferent(
     "traitorRemainingTicks",
@@ -123,6 +132,12 @@ export function applyStateUpdate(target: PlayerState, pu: PlayerUpdate): void {
   if (pu.tilesOwned !== undefined) target.tilesOwned = pu.tilesOwned;
   if (pu.gold !== undefined) target.gold = Number(pu.gold);
   if (pu.troops !== undefined) target.troops = pu.troops;
+  if (pu.food !== undefined) target.food = pu.food;
+  if (pu.foodProduction !== undefined)
+    target.foodProduction = pu.foodProduction;
+  if (pu.foodConsumption !== undefined)
+    target.foodConsumption = pu.foodConsumption;
+  if (pu.foodStarved !== undefined) target.foodStarved = pu.foodStarved;
   if (pu.isTraitor !== undefined) target.isTraitor = pu.isTraitor;
   if (pu.traitorRemainingTicks !== undefined) {
     target.traitorRemainingTicks = Math.max(0, pu.traitorRemainingTicks);

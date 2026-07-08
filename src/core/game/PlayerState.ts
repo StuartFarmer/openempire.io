@@ -28,6 +28,11 @@ export interface PlayerState {
   tilesOwned: number;
   gold: number;
   troops: number;
+  /** Food economy (layered games only; zero elsewhere), display units. */
+  food: number;
+  foodProduction: number;
+  foodConsumption: number;
+  foodStarved: number;
   isTraitor: boolean;
   traitorRemainingTicks: number;
   inDoomsdayClock: boolean;

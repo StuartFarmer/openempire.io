@@ -8,6 +8,7 @@ import {
   BuildMenus,
   Gold,
   PlayerBuildableUnitType,
+  TribalStructures,
   UnitType,
 } from "../../../core/game/Game";
 import { TileRef } from "../../../core/game/GameMap";
@@ -27,9 +28,13 @@ import { UIState } from "../../UIState";
 import { renderNumber } from "../../Utils";
 import { GameView } from "../../view";
 const warshipIcon = assetUrl("images/BattleshipIconWhite.svg");
+const barnIcon = assetUrl("images/BarnIconWhite.svg");
 const cityIcon = assetUrl("images/CityIconWhite.svg");
 const factoryIcon = assetUrl("images/FactoryIconWhite.svg");
+const farmlandIcon = assetUrl("images/FarmlandIconWhite.svg");
+const foodIcon = assetUrl("images/FoodIcon.svg");
 const goldCoinIcon = assetUrl("images/GoldCoinIcon.svg");
+const settlementIcon = assetUrl("images/SettlementIconWhite.svg");
 const mirvIcon = assetUrl("images/MIRVIcon.svg");
 const missileSiloIcon = assetUrl("images/MissileSiloIconWhite.svg");
 const hydrogenBombIcon = assetUrl("images/MushroomCloudIconWhite.svg");
@@ -116,6 +121,31 @@ export const buildTable: BuildItemDisplay[][] = [
       icon: factoryIcon,
       description: "build_menu.desc.factory",
       key: "unit_type.factory",
+      countable: true,
+    },
+  ],
+  // Tribal-age food economy — listed only on layered maps (see
+  // getBuildableUnits); costs are paid in food, not gold.
+  [
+    {
+      unitType: UnitType.Settlement,
+      icon: settlementIcon,
+      description: "build_menu.desc.settlement",
+      key: "unit_type.settlement",
+      countable: true,
+    },
+    {
+      unitType: UnitType.Farmland,
+      icon: farmlandIcon,
+      description: "build_menu.desc.farmland",
+      key: "unit_type.farmland",
+      countable: true,
+    },
+    {
+      unitType: UnitType.Barn,
+      icon: barnIcon,
+      description: "build_menu.desc.barn",
+      key: "unit_type.barn",
       countable: true,
     },
   ],
@@ -429,7 +459,11 @@ export class BuildMenu extends LitElement implements Controller {
                       this.sendBuildOrUpgrade(buildableUnit, this.clickedTile)}
                     ?disabled=${!enabled}
                     title=${!enabled
-                      ? translateText("build_menu.not_enough_money")
+                      ? translateText(
+                          TribalStructures.has(item.unitType)
+                            ? "build_menu.not_enough_food"
+                            : "build_menu.not_enough_money",
+                        )
                       : ""}
                   >
                     <img
@@ -450,8 +484,12 @@ export class BuildMenu extends LitElement implements Controller {
                         this.game && this.game.myPlayer() ? this.cost(item) : 0,
                       )}
                       <img
-                        src=${goldCoinIcon}
-                        alt="gold"
+                        src=${TribalStructures.has(item.unitType)
+                          ? foodIcon
+                          : goldCoinIcon}
+                        alt=${TribalStructures.has(item.unitType)
+                          ? "food"
+                          : "gold"}
                         width="12"
                         height="12"
                         class="align-middle"
@@ -497,9 +535,18 @@ export class BuildMenu extends LitElement implements Controller {
   }
 
   private getBuildableUnits(): BuildItemDisplay[][] {
-    return buildTable.map((row) =>
-      row.filter((item) => !this.game?.config()?.isUnitDisabled(item.unitType)),
-    );
+    return buildTable
+      .map((row) =>
+        row.filter(
+          (item) =>
+            !this.game?.config()?.isUnitDisabled(item.unitType) &&
+            // Tribal buildings exist only where the food economy is active —
+            // hidden (not greyed) on classic maps per the spec.
+            (!TribalStructures.has(item.unitType) ||
+              (this.game?.hasLayers() ?? false)),
+        ),
+      )
+      .filter((row) => row.length > 0);
   }
 
   get isVisible() {

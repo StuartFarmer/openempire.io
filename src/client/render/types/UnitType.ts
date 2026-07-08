@@ -30,6 +30,11 @@ export const UT_DEFENSE_POST = "Defense Post" as const;
 export const UT_SAM_LAUNCHER = "SAM Launcher" as const;
 export const UT_MISSILE_SILO = "Missile Silo" as const;
 
+// Tribal-age structures (food economy, layered maps only)
+export const UT_SETTLEMENT = "Settlement" as const;
+export const UT_FARMLAND = "Farmland" as const;
+export const UT_BARN = "Barn" as const;
+
 // ---------------------------------------------------------------------------
 // Derived sets
 // ---------------------------------------------------------------------------
@@ -41,6 +46,9 @@ export const STRUCTURE_TYPES: ReadonlySet<string> = new Set([
   UT_DEFENSE_POST,
   UT_SAM_LAUNCHER,
   UT_MISSILE_SILO,
+  UT_SETTLEMENT,
+  UT_FARMLAND,
+  UT_BARN,
 ]);
 
 export const NUKE_TYPES: ReadonlySet<string> = new Set([
@@ -90,4 +98,8 @@ export const ALL_UNIT_TYPES = [
   UT_SAM_LAUNCHER,
   UT_MISSILE_SILO,
   UT_TRAIN,
+  // Appended (not inserted) — existing atlas column indices must not shift.
+  UT_SETTLEMENT,
+  UT_FARMLAND,
+  UT_BARN,
 ] as const;

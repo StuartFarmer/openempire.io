@@ -20,6 +20,7 @@ import {
 } from "../../Utils";
 import { GameView } from "../../view";
 import { PlayerView } from "../../view/PlayerView";
+const foodIcon = assetUrl("images/FoodIcon.svg");
 const goldCoinIcon = assetUrl("images/GoldCoinIcon.svg");
 const soldierIcon = assetUrl("images/SoldierIcon.svg");
 const swordIcon = assetUrl("images/SwordIcon.svg");
@@ -52,6 +53,14 @@ export class ControlPanel extends LitElement implements Controller {
 
   @state()
   private _gold: Gold;
+
+  // Food economy (layered games only)
+  @state()
+  private _food: Gold = 0n;
+  @state()
+  private _foodNetPerTick: number = 0;
+  @state()
+  private _foodStarving: boolean = false;
 
   @state()
   private _attackingTroops: number = 0;
@@ -116,6 +125,11 @@ export class ControlPanel extends LitElement implements Controller {
     this._maxTroops = config.maxTroops(player);
     this._gold = player.gold();
     this._troops = player.troops();
+    if (this.game.hasLayers()) {
+      this._food = player.food();
+      this._foodNetPerTick = player.foodProduction() - player.foodConsumption();
+      this._foodStarving = player.foodStarved() > 0;
+    }
     this._attackingTroops = player
       .outgoingAttacks()
       .map((a) => a.troops)
@@ -509,6 +523,7 @@ export class ControlPanel extends LitElement implements Controller {
           <img src=${goldCoinIcon} width="13" height="13" class="shrink-0" />
           <span class="tabular-nums">${renderNumber(this._gold)}</span>
         </div>
+        ${this.renderFoodChip("text-sm")}
       </div>
       <!-- Row 2: attack ratio | slider -->
       <div class="flex items-center gap-1.5" translate="no">
@@ -543,6 +558,43 @@ export class ControlPanel extends LitElement implements Controller {
     `;
   }
 
+  /**
+   * Food stock + net flow chip — layered games only. Red border + red net
+   * while starving; green/red net sign otherwise.
+   */
+  private renderFoodChip(textSize: string) {
+    if (!this.game?.hasLayers()) {
+      return html``;
+    }
+    const netPerSec = this._foodNetPerTick * 10;
+    const gaining = this._foodNetPerTick >= 0;
+    return html`
+      <div
+        class="flex items-center gap-1 shrink-0 border rounded-md font-bold ${textSize} py-0.5 px-1 relative ${this
+          ._foodStarving
+          ? "border-red-500 text-red-400"
+          : "border-amber-300 text-amber-300"}"
+        translate="no"
+        title=${this._foodStarving
+          ? translateText("control_panel.food_starving")
+          : translateText("control_panel.food")}
+      >
+        <img src=${foodIcon} width="13" height="13" class="shrink-0" />
+        <span class="tabular-nums">${renderNumber(this._food)}</span>
+        <span
+          class="tabular-nums ${this._foodStarving
+            ? "text-red-400"
+            : gaining
+              ? "text-green-400"
+              : "text-orange-400"}"
+          >${gaining ? "+" : ""}${renderNumber(
+            BigInt(Math.round(netPerSec)),
+          )}/s</span
+        >
+      </div>
+    `;
+  }
+
   private renderMobile() {
     return html`
       ${this.renderNotification()}
@@ -564,6 +616,7 @@ export class ControlPanel extends LitElement implements Controller {
           <img src=${goldCoinIcon} width="13" height="13" />
           <span class="px-0.5">${renderNumber(this._gold)}</span>
         </div>
+        ${this.renderFoodChip("text-xs")}
         <!-- Troop bar -->
         <div class="w-[40%] shrink-0 flex items-center">
           ${this.renderMobileTroopBar()}
