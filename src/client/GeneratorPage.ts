@@ -6,6 +6,7 @@ import {
 } from "../games/alternative/world";
 import {
   buildGeneratedMapInfo,
+  buildGeneratorLayersBlob,
   buildGeneratorSourceImage,
   buildGeneratorTerrainColorImage,
   normalizeGeneratedMapIdentity,
@@ -138,6 +139,19 @@ export class GeneratorPage extends LitElement {
     );
   };
 
+  private downloadLayers = (): void => {
+    const blob = buildGeneratorLayersBlob(
+      this.generated.worldEngineLayers,
+      this.generated.map.width,
+      this.generated.map.height,
+    );
+    downloadBlob(
+      // Copy into a fresh ArrayBuffer-backed view — Blob rejects ArrayBufferLike.
+      new Blob([new Uint8Array(blob)], { type: "application/octet-stream" }),
+      "layers.bin",
+    );
+  };
+
   private paint(): void {
     const canvas = this.querySelector("canvas");
     const context = canvas?.getContext("2d");
@@ -181,6 +195,12 @@ export class GeneratorPage extends LitElement {
                   @click=${this.downloadTerrainColors}
                 >
                   terrain-colors.png
+                </button>
+                <button
+                  class="px-3 py-2 border border-white/30 text-sm font-medium"
+                  @click=${this.downloadLayers}
+                >
+                  layers.bin
                 </button>
                 <button
                   class="px-3 py-2 border border-white/30 text-sm font-medium"
@@ -291,7 +311,9 @@ export class GeneratorPage extends LitElement {
               <div>
                 Folder: map-generator/assets/maps/${identity.folderName}
               </div>
-              <div>Files: image.png, terrain-colors.png, info.json</div>
+              <div>
+                Files: image.png, terrain-colors.png, layers.bin, info.json
+              </div>
               <div>Then run: npm run gen-maps</div>
               <div>Size: ${map.width}x${map.height}</div>
             </div>

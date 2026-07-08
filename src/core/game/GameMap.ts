@@ -1,4 +1,5 @@
 import { Cell, TerrainType } from "./Game";
+import { decodeLayers, LayerName, layerPlaneOffset } from "./MapLayers";
 
 export type TileRef = number;
 
@@ -99,6 +100,18 @@ export interface GameMap {
   tileStateBuffer(): Uint16Array;
 
   numTilesWithFallout(): number;
+
+  /**
+   * True when the map was loaded with a layers.bin sidecar (generated maps
+   * at Normal size). Mechanics that read layers must gate on this.
+   */
+  hasLayers(): boolean;
+
+  /**
+   * Baked per-tile data layer value (0..255) from the layers.bin sidecar.
+   * Throws when the map has no layers — call hasLayers() first.
+   */
+  layer(name: LayerName, ref: TileRef): number;
 }
 
 export class GameMapImpl implements GameMap {
@@ -131,17 +144,23 @@ export class GameMapImpl implements GameMap {
   private static readonly DEFENSE_BONUS_BIT = 14;
   // Bit 15 still reserved
 
+  // layers.bin sidecar planes (see MapLayers.ts), or null when the map has none.
+  private readonly layers_: Uint8Array | null;
+
   constructor(
     width: number,
     height: number,
     terrainData: Uint8Array,
     private numLandTiles_: number,
+    layersData: Uint8Array | null = null,
   ) {
     if (terrainData.length !== width * height) {
       throw new Error(
         `Terrain data length ${terrainData.length} doesn't match dimensions ${width}x${height}`,
       );
     }
+    this.layers_ =
+      layersData === null ? null : decodeLayers(layersData, width, height);
     this.width_ = width;
     this.height_ = height;
     this.terrain = terrainData;
@@ -162,6 +181,19 @@ export class GameMapImpl implements GameMap {
   }
   numTilesWithFallout(): number {
     return this._numTilesWithFallout;
+  }
+
+  hasLayers(): boolean {
+    return this.layers_ !== null;
+  }
+
+  layer(name: LayerName, ref: TileRef): number {
+    if (this.layers_ === null) {
+      throw new Error(
+        `layer("${name}") read on a map without a layers sidecar — gate on hasLayers()`,
+      );
+    }
+    return this.layers_[layerPlaneOffset(name, this.width_, this.height_) + ref];
   }
 
   ref(x: number, y: number): TileRef {

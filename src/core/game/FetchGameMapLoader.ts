@@ -32,6 +32,7 @@ export class FetchGameMapLoader implements GameMapLoader {
       manifest: () => this.loadJsonFromUrl(this.url(fileName, "manifest.json")),
       webpPath: this.url(fileName, "thumbnail.webp"),
       terrainColorsPath: this.url(fileName, "terrain-colors.png"),
+      layersBin: () => this.loadBinaryFromUrl(this.url(fileName, "layers.bin")),
     } satisfies MapData;
 
     this.maps.set(map, mapData);

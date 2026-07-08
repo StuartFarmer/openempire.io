@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { GameMapSize, GameMapType } from "../../../src/core/game/Game";
 import type { GameMapLoader } from "../../../src/core/game/GameMapLoader";
+import { expectedLayersByteLength } from "../../../src/core/game/MapLayers";
 import {
   loadTerrainMap,
   type MapManifest,
@@ -21,10 +22,48 @@ describe("TerrainMapLoader", () => {
 
     expect(withSidecar.terrainColorsPath).toBe("/maps/test/terrain-colors.png");
     expect(withoutSidecar.terrainColorsPath).toBeUndefined();
+    // Neither manifest set layers: true, so both load unlayered.
+    expect(withSidecar.gameMap.hasLayers()).toBe(false);
+    expect(withoutSidecar.gameMap.hasLayers()).toBe(false);
+  });
+
+  test("loads layers when the manifest opts in at Normal size", async () => {
+    const data = await loadTerrainMap(
+      GameMapType.Pangea002,
+      GameMapSize.Normal,
+      testLoader({ layers: true }),
+    );
+    expect(data.gameMap.hasLayers()).toBe(true);
+    expect(data.gameMap.layer("crop", data.gameMap.ref(0, 0))).toBe(7);
+    // The minimap never carries layers.
+    expect(data.miniGameMap.hasLayers()).toBe(false);
+  });
+
+  test("ignores layers at Compact size even when the manifest opts in", async () => {
+    const data = await loadTerrainMap(
+      GameMapType.MajorMenor,
+      GameMapSize.Compact,
+      testLoader({ layers: true }),
+    );
+    expect(data.gameMap.hasLayers()).toBe(false);
+  });
+
+  test("a corrupt-size layers.bin downgrades to no layers instead of failing", async () => {
+    // loadTerrainMap caches by map:size — MajorMenor at Normal is otherwise
+    // unused in this file, so this exercises a fresh load.
+    const data = await loadTerrainMap(
+      GameMapType.MajorMenor,
+      GameMapSize.Normal,
+      testLoader({ layers: true }, new Uint8Array(3)),
+    );
+    expect(data.gameMap.hasLayers()).toBe(false);
   });
 });
 
-function testLoader(manifestOverrides: Partial<MapManifest>): GameMapLoader {
+function testLoader(
+  manifestOverrides: Partial<MapManifest>,
+  layersBytes?: Uint8Array,
+): GameMapLoader {
   const manifest: MapManifest = {
     name: "Test",
     map: { width: 1, height: 1, num_land_tiles: 1 },
@@ -33,6 +72,7 @@ function testLoader(manifestOverrides: Partial<MapManifest>): GameMapLoader {
     nations: [],
     ...manifestOverrides,
   };
+  const defaultLayers = new Uint8Array(expectedLayersByteLength(1, 1)).fill(7);
   return {
     getMapData: () => ({
       mapBin: async () => new Uint8Array([0x80]),
@@ -41,6 +81,7 @@ function testLoader(manifestOverrides: Partial<MapManifest>): GameMapLoader {
       manifest: async () => manifest,
       webpPath: "/maps/test/thumbnail.webp",
       terrainColorsPath: "/maps/test/terrain-colors.png",
+      layersBin: async () => layersBytes ?? defaultLayers,
     }),
   };
 }

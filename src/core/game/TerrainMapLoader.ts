@@ -1,6 +1,7 @@
 import { GameMapSize, GameMapType, TeamGameSpawnAreas } from "./Game";
 import { GameMap, GameMapImpl } from "./GameMap";
 import { GameMapLoader } from "./GameMapLoader";
+import { decodeLayers } from "./MapLayers";
 
 export type TerrainMapData = {
   nations: Nation[];
@@ -31,6 +32,7 @@ export interface MapManifest {
   additionalNations?: AdditionalNation[];
   teamGameSpawnAreas?: TeamGameSpawnAreas;
   terrain_colors?: boolean;
+  layers?: boolean;
 }
 
 export interface Nation {
@@ -56,9 +58,24 @@ export async function loadTerrainMap(
   const mapFiles = terrainMapFileLoader.getMapData(map);
   const manifest = await mapFiles.manifest();
 
+  // layers.bin sidecar: full resolution only — compact sizes load unlayered.
+  let layersData: Uint8Array | null = null;
+  if (
+    manifest.layers === true &&
+    mapSize === GameMapSize.Normal &&
+    mapFiles.layersBin !== undefined
+  ) {
+    const bytes = await mapFiles.layersBin();
+    try {
+      layersData = decodeLayers(bytes, manifest.map.width, manifest.map.height);
+    } catch (e) {
+      console.error(`[TerrainMapLoader] ignoring layers sidecar: ${e}`);
+    }
+  }
+
   const gameMap =
     mapSize === GameMapSize.Normal
-      ? await genTerrainFromBin(manifest.map, await mapFiles.mapBin())
+      ? await genTerrainFromBin(manifest.map, await mapFiles.mapBin(), layersData)
       : await genTerrainFromBin(manifest.map4x, await mapFiles.map4xBin());
 
   const miniMap =
@@ -120,6 +137,7 @@ export async function loadTerrainMap(
 export async function genTerrainFromBin(
   mapData: MapMetadata,
   data: Uint8Array,
+  layersData: Uint8Array | null = null,
 ): Promise<GameMap> {
   if (data.length !== mapData.width * mapData.height) {
     throw new Error(
@@ -132,5 +150,6 @@ export async function genTerrainFromBin(
     mapData.height,
     data,
     mapData.num_land_tiles,
+    layersData,
   );
 }

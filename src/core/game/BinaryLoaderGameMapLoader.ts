@@ -57,6 +57,9 @@ export class BinaryLoaderGameMapLoader implements GameMapLoader {
       ),
       webpPath: mapAssetUrl("thumbnail.webp"),
       terrainColorsPath: mapAssetUrl("terrain-colors.png"),
+      layersBin: this.createLazyLoader(() =>
+        loadBinary(mapAssetUrl("layers.bin")),
+      ),
     } satisfies MapData;
 
     this.maps.set(map, mapData);

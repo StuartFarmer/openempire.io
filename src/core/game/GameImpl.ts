@@ -39,6 +39,7 @@ import {
   UnitType,
 } from "./Game";
 import { GameMap, TileRef } from "./GameMap";
+import { LayerName } from "./MapLayers";
 import { GameUpdate, GameUpdateType } from "./GameUpdates";
 import { MotionPlanRecord, packMotionPlans } from "./MotionPlans";
 import { PlayerImpl } from "./PlayerImpl";
@@ -1181,6 +1182,12 @@ export class GameImpl implements Game {
   }
   numTilesWithFallout(): number {
     return this._map.numTilesWithFallout();
+  }
+  hasLayers(): boolean {
+    return this._map.hasLayers();
+  }
+  layer(name: LayerName, ref: TileRef): number {
+    return this._map.layer(name, ref);
   }
   stats(): Stats {
     return this._stats;

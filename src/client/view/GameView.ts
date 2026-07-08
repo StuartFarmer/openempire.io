@@ -10,6 +10,7 @@ import {
   UnitType,
 } from "../../core/game/Game";
 import { GameMap, TileRef } from "../../core/game/GameMap";
+import { LayerName } from "../../core/game/MapLayers";
 import {
   GameUpdateType,
   GameUpdateViewData,
@@ -1214,6 +1215,12 @@ export class GameView implements GameMap {
   }
   numTilesWithFallout(): number {
     return this._map.numTilesWithFallout();
+  }
+  hasLayers(): boolean {
+    return this._map.hasLayers();
+  }
+  layer(name: LayerName, ref: TileRef): number {
+    return this._map.layer(name, ref);
   }
   gameID(): GameID {
     return this._gameID;

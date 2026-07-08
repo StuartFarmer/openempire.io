@@ -1,4 +1,6 @@
 import type { BoardMap } from "../../../core/game/BoardMap";
+import { encodeLayers, type LayerName } from "../../../core/game/MapLayers";
+import type { FoundationWorldEngineLayers } from "./WorldEngineElevation";
 
 export interface GeneratedMapIdentity {
   id: string;
@@ -98,6 +100,31 @@ export function buildGeneratorTerrainColorImage(
     height: map.height,
     data: new Uint8ClampedArray(colors),
   };
+}
+
+/**
+ * Serialize the world engine's climate/resource fields into the layers.bin
+ * sidecar (see core MapLayers.ts for the format). The plane set and order are
+ * owned by core so the exporter and the sim cannot drift.
+ */
+export function buildGeneratorLayersBlob(
+  layers: Pick<FoundationWorldEngineLayers, "temperature" | "humidity"> & {
+    resources: Pick<
+      FoundationWorldEngineLayers["resources"],
+      "crop" | "metal" | "oil"
+    >;
+  },
+  width: number,
+  height: number,
+): Uint8Array {
+  const planes: Record<LayerName, ArrayLike<number>> = {
+    crop: layers.resources.crop,
+    metal: layers.resources.metal,
+    oil: layers.resources.oil,
+    temperature: layers.temperature,
+    humidity: layers.humidity,
+  };
+  return encodeLayers(planes, width, height);
 }
 
 function capitalize(value: string): string {

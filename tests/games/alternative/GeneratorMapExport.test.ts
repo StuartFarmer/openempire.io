@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
+import { GameMapImpl } from "../../../src/core/game/GameMap";
+import { LAYER_NAMES } from "../../../src/core/game/MapLayers";
+import { createAlternativeWorldEngineMap } from "../../../src/games/alternative/world";
 import {
   buildGeneratedMapInfo,
+  buildGeneratorLayersBlob,
   buildGeneratorSourceImage,
   buildGeneratorTerrainColorImage,
   normalizeGeneratedMapIdentity,
@@ -49,5 +53,49 @@ describe("generator map export", () => {
     expect(source.width).toBe(2);
     expect(source.height).toBe(1);
     expect(Array.from(source.data)).toEqual([1, 2, 3, 255, 4, 5, 6, 255]);
+  });
+
+  test("layers round-trip: engine → layers.bin → sim accessor, byte-for-byte", () => {
+    const generated = createAlternativeWorldEngineMap({
+      seed: 1337,
+      width: 32,
+      height: 32,
+    });
+    const { map, worldEngineLayers } = generated;
+
+    const blob = buildGeneratorLayersBlob(
+      worldEngineLayers,
+      map.width,
+      map.height,
+    );
+    const gameMap = new GameMapImpl(
+      map.width,
+      map.height,
+      new Uint8Array(map.terrain),
+      0,
+      blob,
+    );
+
+    expect(gameMap.hasLayers()).toBe(true);
+    const enginePlane = {
+      crop: worldEngineLayers.resources.crop,
+      metal: worldEngineLayers.resources.metal,
+      oil: worldEngineLayers.resources.oil,
+      temperature: worldEngineLayers.temperature,
+      humidity: worldEngineLayers.humidity,
+    };
+    for (const name of LAYER_NAMES) {
+      for (let i = 0; i < map.width * map.height; i++) {
+        const v = enginePlane[name][i];
+        const clamped = v <= 0 ? 0 : v >= 1 ? 1 : v;
+        expect(gameMap.layer(name, i)).toBe(Math.round(clamped * 255));
+      }
+    }
+    // Sanity: a generated world is not degenerate — fertility varies.
+    const crops = new Set<number>();
+    for (let i = 0; i < map.width * map.height; i++) {
+      crops.add(gameMap.layer("crop", i));
+    }
+    expect(crops.size).toBeGreaterThan(1);
   });
 });

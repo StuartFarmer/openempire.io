@@ -12,4 +12,7 @@ export interface MapData {
   manifest: () => Promise<MapManifest>;
   webpPath: string;
   terrainColorsPath?: string;
+  // layers.bin sidecar (see MapLayers.ts). Only fetched when the manifest
+  // sets layers: true — callers must not call this unconditionally.
+  layersBin?: () => Promise<Uint8Array>;
 }

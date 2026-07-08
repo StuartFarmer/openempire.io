@@ -72,7 +72,7 @@ describe("Map consistency", () => {
 
       const files = fs.readdirSync(dir).sort();
       const required = ["image.png", "info.json"];
-      const optional = ["terrain-colors.png"];
+      const optional = ["terrain-colors.png", "layers.bin"];
       const missing = required.filter((f) => !files.includes(f));
       const unexpected = files.filter(
         (f) => !required.includes(f) && !optional.includes(f),

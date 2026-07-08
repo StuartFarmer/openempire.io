@@ -170,6 +170,23 @@ func processMap(ctx context.Context, name string, isTest bool) error {
 		delete(manifest, "terrain_colors")
 	}
 
+	// layers.bin sidecar: 5 Uint8 planes (crop, metal, oil, temperature,
+	// humidity) at full resolution — see src/core/game/MapLayers.ts for the
+	// format. The baker only copies and size-checks; it never parses planes.
+	copiedLayers, err := copyOptionalSizedFile(
+		filepath.Join(inputMapDir, name, "layers.bin"),
+		filepath.Join(mapDir, "layers.bin"),
+		5*result.Map.Width*result.Map.Height,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to copy layers sidecar for %s: %w", name, err)
+	}
+	if copiedLayers {
+		manifest["layers"] = true
+	} else {
+		delete(manifest, "layers")
+	}
+
 	// Serialize the updated manifest to JSON
 	updatedManifest, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
@@ -189,6 +206,28 @@ func copyOptionalFile(src string, dst string) (bool, error) {
 			return false, nil
 		}
 		return false, err
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return false, err
+	}
+	return true, os.WriteFile(dst, data, 0644)
+}
+
+// copyOptionalSizedFile copies src to dst like copyOptionalFile, but skips the
+// copy (with a warning) when the file exists and its size doesn't match
+// expectedSize — a stale or truncated sidecar must not ship.
+func copyOptionalSizedFile(src string, dst string, expectedSize int) (bool, error) {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	if len(data) != expectedSize {
+		slog.Warn("skipping sidecar with unexpected size",
+			"file", src, "size", len(data), "expected", expectedSize)
+		return false, nil
 	}
 	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
 		return false, err
