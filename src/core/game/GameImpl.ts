@@ -112,6 +112,7 @@ export class GameImpl implements Game {
   private nextAllianceID: number = 0;
 
   private _isPaused: boolean = false;
+  private readonly _hasLayers: boolean;
   private _winner: Player | Team | null = null;
   private _waterManager: WaterManager;
   private _sharedWaterCache: SharedWaterCache;
@@ -132,6 +133,8 @@ export class GameImpl implements Game {
     this._terraNullius = new TerraNulliusImpl();
     this._width = _map.width();
     this._height = _map.height();
+    // Cached: conquer() runs per transferred tile in the hottest path.
+    this._hasLayers = _map.hasLayers();
     this.unitGrid = new UnitGrid(this._map);
     this._waterManager = new WaterManager(
       this._map,
@@ -698,13 +701,18 @@ export class GameImpl implements Game {
       throw Error(`cannot conquer impassable terrain`);
     }
     const previousOwner = this.owner(tile) as TerraNullius | PlayerImpl;
+    // Fertility accounting mirrors _tiles: incremental on transfer, never a
+    // full-map scan. Only meaningful on layered maps.
+    const crop = this._hasLayers ? this._map.layer("crop", tile) : 0;
     if (previousOwner.isPlayer()) {
       previousOwner._lastTileChange = this._ticks;
       previousOwner._tiles.delete(tile);
       previousOwner._borderTiles.delete(tile);
+      previousOwner._fertilitySum -= crop;
     }
     this._map.setOwnerID(tile, owner.smallID());
     owner._tiles.add(tile);
+    owner._fertilitySum += crop;
     owner._lastTileChange = this._ticks;
     this.updateBorders(tile);
     this._map.setFallout(tile, false);
@@ -723,6 +731,9 @@ export class GameImpl implements Game {
     previousOwner._lastTileChange = this._ticks;
     previousOwner._tiles.delete(tile);
     previousOwner._borderTiles.delete(tile);
+    if (this._hasLayers) {
+      previousOwner._fertilitySum -= this._map.layer("crop", tile);
+    }
 
     this._map.setOwnerID(tile, 0);
     this.updateBorders(tile);

@@ -9,6 +9,7 @@ import {
 } from "../game/Game";
 import { GameMap, TileRef } from "../game/GameMap";
 import { calculateBoundingBox, getMode, inscribed, simpleHash } from "../Util";
+import { foodTick } from "./utils/FoodEconomy";
 
 interface ClusterTraversalState {
   visited: Uint32Array;
@@ -75,8 +76,14 @@ export class PlayerExecution implements Execution {
       return;
     }
 
-    const troopInc = this.config.troopIncreaseRate(this.player);
-    this.player.addTroops(troopInc);
+    if (this.mg.hasLayers()) {
+      // Layered maps: the food economy owns population growth/starvation
+      // (Config.food knobs; see execution/utils/FoodEconomy.ts).
+      foodTick(this.mg, this.player);
+    } else {
+      const troopInc = this.config.troopIncreaseRate(this.player);
+      this.player.addTroops(troopInc);
+    }
     const goldFromWorkers = this.config.goldAdditionRate(this.player);
     this.player.addGold(goldFromWorkers);
 

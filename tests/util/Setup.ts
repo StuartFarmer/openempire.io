@@ -12,12 +12,24 @@ import {
 } from "../../src/core/game/Game";
 import { createGame } from "../../src/core/game/GameImpl";
 import {
+  expectedLayersByteLength,
+  LAYER_NAMES,
+  layerPlaneOffset,
+  type LayerName,
+} from "../../src/core/game/MapLayers";
+import {
   genTerrainFromBin,
   MapManifest,
 } from "../../src/core/game/TerrainMapLoader";
 import { UserSettings } from "../../src/core/game/UserSettings";
 import { GameConfig } from "../../src/core/Schemas";
 import { TestConfig } from "./TestConfig";
+
+/**
+ * Per-tile byte source for synthetic test layers (0..255). Games created
+ * with a layersFill run with the food economy active (hasLayers() true).
+ */
+export type LayersFill = (name: LayerName, x: number, y: number) => number;
 
 export async function setup(
   mapName: string,
@@ -26,6 +38,7 @@ export async function setup(
   currentDir: string = __dirname,
   ConfigClass: typeof TestConfig = TestConfig,
   autoEndSpawnPhase: boolean = true,
+  layersFill?: LayersFill,
 ): Promise<Game> {
   // Suppress console.debug for tests.
   console.debug = () => {};
@@ -50,7 +63,21 @@ export async function setup(
     fs.readFileSync(manifestPath, "utf8"),
   ) satisfies MapManifest;
 
-  const gameMap = await genTerrainFromBin(manifest.map, mapBinBuffer);
+  let layersData: Uint8Array | null = null;
+  if (layersFill !== undefined) {
+    const { width, height } = manifest.map;
+    layersData = new Uint8Array(expectedLayersByteLength(width, height));
+    for (const name of LAYER_NAMES) {
+      const offset = layerPlaneOffset(name, width, height);
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          layersData[offset + y * width + x] = layersFill(name, x, y);
+        }
+      }
+    }
+  }
+
+  const gameMap = await genTerrainFromBin(manifest.map, mapBinBuffer, layersData);
   const miniGameMap = await genTerrainFromBin(manifest.map4x, miniMapBinBuffer);
 
   const gameConfig: GameConfig = {

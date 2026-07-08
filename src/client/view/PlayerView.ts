@@ -478,6 +478,10 @@ export class PlayerView {
     return this.state.troops;
   }
 
+  hasFoodEconomy(): boolean {
+    return this.game.hasLayers();
+  }
+
   totalUnitLevels(type: UnitType): number {
     return this.units(type)
       .filter((unit) => !unit.isUnderConstruction())

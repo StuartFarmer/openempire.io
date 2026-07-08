@@ -32,6 +32,7 @@ import {
   PlayerType,
   Relation,
   Structures,
+  TribalStructures,
   Team,
   TerraNullius,
   Tick,
@@ -96,6 +97,15 @@ export class PlayerImpl implements Player {
 
   private _gold: bigint;
   private _troops: bigint;
+
+  // ── Tribal-age food economy (layered maps only) ─────────────────────────
+  /** Food stock in milliunits (1000 milli = 1 displayed food). */
+  public _foodMilli: bigint = 0n;
+  /** Sum of owned tiles' crop-layer bytes — maintained by GameImpl on
+   *  conquer/relinquish, never recomputed by scanning. */
+  public _fertilitySum: number = 0;
+  /** Last tick's food flow breakdown (display units), for UI/stats. */
+  public _foodFlow = { production: 0, consumption: 0, starvedTroops: 0 };
 
   markedTraitorTick = -1;
   markedDoomsdayClockTick = -1;
@@ -1145,6 +1155,32 @@ export class PlayerImpl implements Player {
     return this._gold;
   }
 
+  hasFoodEconomy(): boolean {
+    return this.mg.hasLayers();
+  }
+
+  /** Food stock in display units (floor of the milliunit stock). */
+  food(): Gold {
+    return this._foodMilli / 1000n;
+  }
+
+  addFood(toAdd: Gold): void {
+    this._foodMilli += toAdd * 1000n;
+  }
+
+  removeFood(toRemove: Gold): Gold {
+    if (toRemove <= 0n) {
+      return 0n;
+    }
+    const removedMilli = minInt(this._foodMilli, toRemove * 1000n);
+    this._foodMilli -= removedMilli;
+    return removedMilli / 1000n;
+  }
+
+  fertilitySum(): number {
+    return this._fertilitySum;
+  }
+
   addGold(toAdd: Gold, tile?: TileRef): void {
     this._gold += toAdd;
     if (tile) {
@@ -1216,7 +1252,7 @@ export class PlayerImpl implements Player {
     );
     this._units.push(b);
     this.recordUnitConstructed(type);
-    this.removeGold(cost);
+    this.removeCost(type, cost);
     this.removeTroops("troops" in params ? (params.troops ?? 0) : 0);
     this.mg.addUpdate(b.toUpdate());
     this.mg.addUnit(b);
@@ -1250,6 +1286,22 @@ export class PlayerImpl implements Player {
     return closest?.unit ?? false;
   }
 
+  /** The balance the given unit type's cost is paid from (gold or food). */
+  private costBalance(unitType: UnitType): Gold {
+    return this.mg.unitInfo(unitType).costResource === "food"
+      ? this.food()
+      : this._gold;
+  }
+
+  /** Deduct a unit cost from the resource its unit info names. */
+  private removeCost(unitType: UnitType, cost: Gold): void {
+    if (this.mg.unitInfo(unitType).costResource === "food") {
+      this.removeFood(cost);
+    } else {
+      this.removeGold(cost);
+    }
+  }
+
   private canBuildUnitType(
     unitType: UnitType,
     knownCost: Gold | null = null,
@@ -1257,8 +1309,12 @@ export class PlayerImpl implements Player {
     if (this.mg.config().isUnitDisabled(unitType)) {
       return false;
     }
+    // Tribal buildings exist only where the food economy is active.
+    if (TribalStructures.has(unitType) && !this.hasFoodEconomy()) {
+      return false;
+    }
     const cost = knownCost ?? this.mg.unitInfo(unitType).cost(this.mg, this);
-    if (this._gold < cost) {
+    if (this.costBalance(unitType) < cost) {
       return false;
     }
     if (unitType !== UnitType.MIRVWarhead && !this.isAlive()) {
@@ -1299,7 +1355,7 @@ export class PlayerImpl implements Player {
 
   upgradeUnit(unit: Unit) {
     const cost = this.mg.unitInfo(unit.type()).cost(this.mg, this);
-    this.removeGold(cost);
+    this.removeCost(unit.type(), cost);
     unit.increaseLevel();
     this.recordUnitConstructed(unit.type());
   }
@@ -1406,6 +1462,9 @@ export class PlayerImpl implements Player {
       case UnitType.SAMLauncher:
       case UnitType.City:
       case UnitType.Factory:
+      case UnitType.Settlement:
+      case UnitType.Farmland:
+      case UnitType.Barn:
         return this.landBasedStructureSpawn(targetTile, validTiles);
       default:
         assertNever(unitType);

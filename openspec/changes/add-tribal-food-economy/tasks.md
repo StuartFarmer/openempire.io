@@ -2,23 +2,23 @@
 
 ## 1. Config + state foundations
 
-- [ ] 1.1 Add `Config.food` block (all knobs: idle/move/fight consumption milli-rates, decay numer/denom, base pop cap, pop per Settlement, base storage, storage per Barn, farmland fertility mult, natural fertility production rate, starvation deaths per milli-deficit, surplus buffer ticks, building food costs)
-- [ ] 1.2 `PlayerImpl`: food stock (bigint milliunits), `fertilitySum`, cached Tribal building counts; expose `food()`, caps, production/consumption breakdown for the view
-- [ ] 1.3 Incremental `fertilitySum` maintenance on tile conquer/relinquish (mirror `numTilesOwned` accounting); tests for capture-transfers-production
+- [x] 1.1 Add `Config.food` block (all knobs: idle/move/fight consumption milli-rates, decay numer/denom, base pop cap, pop per Settlement, base storage, storage per Barn, farmland fertility mult, natural fertility production rate, starvation deaths per milli-deficit, surplus buffer ticks, building food costs)
+- [x] 1.2 `PlayerImpl`: food stock (bigint milliunits), `fertilitySum`, cached Tribal building counts; expose `food()`, caps, production/consumption breakdown for the view
+- [x] 1.3 Incremental `fertilitySum` maintenance on tile conquer/relinquish (mirror `numTilesOwned` accounting); tests for capture-transfers-production
 
 ## 2. The food tick
 
-- [ ] 2.1 Implement the fixed-order food pass in `PlayerExecution.tick`, gated on `game.hasLayers()`: production → activity-scaled consumption → storage overflow + decay → surplus-throttled growth / starvation
-- [ ] 2.2 Activity counters: moving troops (outgoing attacks not in contact + boats) and fighting troops (attacks exchanging tiles) exposed from existing attack state
-- [ ] 2.3 Replace max-troops with the Settlement cap on layered maps (`Config` branch with explicit `hasLayers` parameter; test both branches)
-- [ ] 2.4 Deterministic unit tests per spec scenario: abundance growth, cap binding, storage buffering, starvation, decay, overflow loss, war consumption premium, cross-client determinism (two sims, same seed)
+- [x] 2.1 Implement the fixed-order food pass in `PlayerExecution.tick`, gated on `game.hasLayers()`: production → activity-scaled consumption → storage overflow + decay → surplus-throttled growth / starvation
+- [x] 2.2 Activity counters: moving troops (outgoing attacks not in contact + boats) and fighting troops (attacks exchanging tiles) exposed from existing attack state
+- [x] 2.3 Replace max-troops with the Settlement cap on layered maps (`Config` branch with explicit `hasLayers` parameter; test both branches)
+- [x] 2.4 Deterministic unit tests per spec scenario: abundance growth, cap binding, storage buffering, starvation, decay, overflow loss, war consumption premium, cross-client determinism (two sims, same seed)
 
 ## 3. Tribal buildings
 
-- [ ] 3.1 `UnitType.Settlement/Farmland/Barn` + unit info entries with `costResource: "food"`; `ConstructionExecution` cases; affordability check against food stock
-- [ ] 3.2 Wire effects: Settlement→cap, Barn→storage, Farmland→production (own tile crop byte × mult); capture/destroy updates counts and effects
+- [x] 3.1 `UnitType.Settlement/Farmland/Barn` + unit info entries with `costResource: "food"`; `ConstructionExecution` cases; affordability check against food stock
+- [x] 3.2 Wire effects: Settlement→cap, Barn→storage, Farmland→production (own tile crop byte × mult); capture/destroy updates counts and effects
 - [ ] 3.3 BuildMenu entries + icons gated on `hasLayers()`; hidden on classic maps; en.json keys
-- [ ] 3.4 Tests: build/deduct/reject-unaffordable, capture transfers effects, hidden on unlayered maps
+- [x] 3.4 Tests: build/deduct/reject-unaffordable, capture transfers effects, hidden on unlayered maps
 
 ## 4. Bots
 

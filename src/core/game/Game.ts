@@ -151,6 +151,12 @@ export interface PublicGameModifiers {
 
 export interface UnitInfo {
   cost: (game: Game, player: Player) => Gold;
+  /**
+   * Which resource the cost is paid from. Defaults to gold. Tribal-age
+   * buildings cost food; later ages add metal/oil entries here rather than
+   * new plumbing.
+   */
+  costResource?: "gold" | "food";
   maxHealth?: number;
   damage?: number;
   constructionDuration?: number;
@@ -183,7 +189,18 @@ export enum UnitType {
   MIRVWarhead = "MIRV Warhead",
   Train = "Train",
   Factory = "Factory",
+  // Tribal-age food economy (layered maps only — see add-tribal-food-economy)
+  Settlement = "Settlement",
+  Farmland = "Farmland",
+  Barn = "Barn",
 }
+
+/** Tribal-age buildings — buildable only when the food economy is active. */
+export const TribalStructures = unitTypeGroup([
+  UnitType.Settlement,
+  UnitType.Farmland,
+  UnitType.Barn,
+] as const);
 
 export enum TrainType {
   Engine = "Engine",
@@ -212,6 +229,7 @@ export const Structures = unitTypeGroup([
   UnitType.MissileSilo,
   UnitType.Port,
   UnitType.Factory,
+  ...TribalStructures.types,
 ] as const);
 
 export const BuildMenus = unitTypeGroup([
@@ -288,6 +306,12 @@ export interface UnitParamsMap {
   [UnitType.MIRVWarhead]: {
     targetTile?: number;
   };
+
+  [UnitType.Settlement]: Record<string, never>;
+
+  [UnitType.Farmland]: Record<string, never>;
+
+  [UnitType.Barn]: Record<string, never>;
 }
 
 // Type helper to get params type for a specific unit type
@@ -582,6 +606,15 @@ export interface Player {
   setTroops(troops: number): void;
   addTroops(troops: number): void;
   removeTroops(troops: number): number;
+
+  // Food economy (layered maps only — see add-tribal-food-economy)
+  hasFoodEconomy(): boolean;
+  /** Food stock in display units. */
+  food(): Gold;
+  addFood(toAdd: Gold): void;
+  removeFood(toRemove: Gold): Gold;
+  /** Sum of owned tiles' crop-layer bytes (production input). */
+  fertilitySum(): number;
 
   // Units
   units(...types: UnitType[]): Unit[];

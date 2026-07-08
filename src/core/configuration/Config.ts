@@ -31,6 +31,8 @@ interface EconomyPlayer {
     isUnderConstruction(): boolean;
     level(): number;
   }>;
+  /** True when the game map has layer data — the food economy is active. */
+  hasFoodEconomy(): boolean;
 }
 
 declare global {
@@ -102,6 +104,75 @@ const DOOMSDAY_CLOCK_DEFAULTS = {
   drainStartPercent: 2, // starts bleeding at once (already beats troop income)
   drainMaxPercent: 6,
   drainRampSeconds: 50, // ramps LINEARLY to the max over this long
+};
+
+/**
+ * Tribal-age food economy knobs (see openspec add-tribal-food-economy).
+ * Active only on layered maps (game.hasLayers()). Food flows are computed in
+ * "milliunits" — 1000 milli = 1 displayed food — so sub-unit per-tick rates
+ * stay integer. All balance tuning happens here; the mechanics in
+ * FoodEconomy.ts are shape, not numbers.
+ */
+export interface FoodConfig {
+  /** Milli-food one idle person eats per tick (1000 = the spec's 1 food/tick). */
+  idleConsumptionMilli: number;
+  /** Milli-food per tick for a troop in transit (boats). */
+  moveConsumptionMilli: number;
+  /** Milli-food per tick for a troop in an active attack. */
+  fightConsumptionMilli: number;
+  /** Milli-food produced per tick per point of owned crop-layer byte. */
+  productionPerFertilityMilli: number;
+  /** A Farmland contributes tileCropByte × this as extra fertility points. */
+  farmlandFertilityMult: number;
+  /** Population cap with zero Settlements. */
+  basePopulation: number;
+  /** Extra population cap per Settlement level. */
+  populationPerSettlement: number;
+  /** Storage cap (display food) with zero Barns. */
+  baseStorage: number;
+  /** Extra storage (display food) per Barn level. */
+  storagePerBarn: number;
+  /** Stored food decays by numer/denom per tick (integer floor). */
+  decayNumer: number;
+  decayDenom: number;
+  /**
+   * Growth reaches full speed when production exceeds consumption by this
+   * fraction (e.g. 0.25 → a 25% surplus grows at the vanilla rate). Between
+   * break-even and that point, growth scales linearly. At or below
+   * break-even there is no growth (storage only buffers against starvation).
+   */
+  surplusForFullGrowth: number;
+  /** Fraction of unfed population that starves per deficit tick. */
+  starvationDeathFraction: number;
+  /** Building costs in display food units. */
+  settlementCost: number;
+  farmlandCost: number;
+  barnCost: number;
+}
+
+// Defaults chosen for internal coherence: a crop-200 tile produces 4000
+// milli/tick and an idle person eats 10, so one good tile feeds ~400 people
+// and a ~60-tile spawn sustains ~25k (the starting population). War eats
+// 2–4× idle. The balance harness (tests/perf/balance) is the tool for
+// revising these — acceptance target: leader territory share grows
+// sub-linearly post-spawn.
+const FOOD_DEFAULTS: FoodConfig = {
+  idleConsumptionMilli: 10,
+  moveConsumptionMilli: 20,
+  fightConsumptionMilli: 40,
+  productionPerFertilityMilli: 20,
+  farmlandFertilityMult: 400,
+  basePopulation: 10_000,
+  populationPerSettlement: 25_000,
+  baseStorage: 50_000,
+  storagePerBarn: 150_000,
+  decayNumer: 1,
+  decayDenom: 5000,
+  surplusForFullGrowth: 0.25,
+  starvationDeathFraction: 0.02,
+  settlementCost: 5_000,
+  farmlandCost: 2_000,
+  barnCost: 3_000,
 };
 
 export class Config {
@@ -443,6 +514,29 @@ export class Config {
       case UnitType.Train:
         info = {
           cost: () => 0n,
+        };
+        break;
+      case UnitType.Settlement:
+        info = {
+          cost: () => BigInt(this.food().settlementCost),
+          costResource: "food",
+          constructionDuration: this.instantBuild() ? 0 : 5 * 10,
+          upgradable: true,
+        };
+        break;
+      case UnitType.Farmland:
+        info = {
+          cost: () => BigInt(this.food().farmlandCost),
+          costResource: "food",
+          constructionDuration: this.instantBuild() ? 0 : 3 * 10,
+        };
+        break;
+      case UnitType.Barn:
+        info = {
+          cost: () => BigInt(this.food().barnCost),
+          costResource: "food",
+          constructionDuration: this.instantBuild() ? 0 : 3 * 10,
+          upgradable: true,
         };
         break;
       default:
@@ -791,17 +885,33 @@ export class Config {
     return this.hasInfiniteTroopsForInfo(playerInfo) ? 1_000_000 : 25_000;
   }
 
+  food(): FoodConfig {
+    return FOOD_DEFAULTS;
+  }
+
   maxTroops(player: EconomyPlayer): number {
+    if (player.type() === PlayerType.Human && this.hasInfiniteTroopsFor(player)) {
+      return 1_000_000_000;
+    }
+    if (player.hasFoodEconomy()) {
+      // Layered maps: carrying capacity comes from Settlements, not territory.
+      // Conquered land grants production, not population — you must build.
+      const f = this.food();
+      const settlementLevels = player
+        .units(UnitType.Settlement)
+        .filter((u) => !u.isUnderConstruction())
+        .map((s) => s.level())
+        .reduce((a, b) => a + b, 0);
+      return f.basePopulation + settlementLevels * f.populationPerSettlement;
+    }
     const maxTroops =
-      player.type() === PlayerType.Human && this.hasInfiniteTroopsFor(player)
-        ? 1_000_000_000
-        : 2 * (Math.pow(player.numTilesOwned(), 0.6) * 1000 + 50000) +
-          player
-            .units(UnitType.City)
-            .filter((u) => !u.isUnderConstruction())
-            .map((city) => city.level())
-            .reduce((a, b) => a + b, 0) *
-            this.cityTroopIncrease();
+      2 * (Math.pow(player.numTilesOwned(), 0.6) * 1000 + 50000) +
+      player
+        .units(UnitType.City)
+        .filter((u) => !u.isUnderConstruction())
+        .map((city) => city.level())
+        .reduce((a, b) => a + b, 0) *
+        this.cityTroopIncrease();
 
     if (player.type() === PlayerType.Bot) {
       return maxTroops / 3;
