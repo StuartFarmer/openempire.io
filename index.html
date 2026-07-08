@@ -185,24 +185,59 @@
       <div
         class="contents sm:flex sm:flex-col sm:pointer-events-none w-full sm:w-[500px] lg:col-start-2 sm:z-10"
       >
+        <attacks-display
+          class="w-full pointer-events-auto order-1 sm:order-none"
+        ></attacks-display>
         <div
           class="pointer-events-auto bg-gray-800/92 backdrop-blur-sm sm:rounded-tr-lg lg:rounded-t-lg min-[1200px]:rounded-lg shadow-lg order-3 sm:order-none"
         >
           <control-panel class="w-full"></control-panel>
+          <unit-display class="hidden lg:block w-full"></unit-display>
         </div>
+      </div>
+
+      <!-- events+chat: <sm between attacks and control (order-2), sm+ right side, lg+ col-3 -->
+      <div
+        class="flex flex-col pointer-events-none items-end order-2 sm:order-none sm:flex-1 lg:col-start-3 lg:self-end lg:justify-end"
+      >
+        <chat-display
+          class="w-full sm:w-auto pointer-events-auto"
+        ></chat-display>
+        <events-display
+          class="w-full sm:w-auto pointer-events-auto"
+        ></events-display>
+        <actionable-events
+          class="w-full sm:w-auto pointer-events-auto"
+        ></actionable-events>
       </div>
     </div>
 
     <!-- Game modals and overlays -->
+    <emoji-table></emoji-table>
     <build-menu></build-menu>
     <win-modal></win-modal>
     <game-starting-modal></game-starting-modal>
+    <div
+      class="flex flex-col items-end fixed top-0 right-0 min-[1200px]:top-4 min-[1200px]:right-4 z-1000 gap-2"
+    >
+      <game-right-sidebar></game-right-sidebar>
+      <replay-panel></replay-panel>
+    </div>
+    <settings-modal></settings-modal>
+    <graphics-settings-modal></graphics-settings-modal>
     <player-panel></player-panel>
+    <spawn-timer></spawn-timer>
+    <immunity-timer></immunity-timer>
 
     <game-info-modal></game-info-modal>
     <alert-frame></alert-frame>
+    <chat-modal></chat-modal>
+    <multi-tab-modal></multi-tab-modal>
+    <game-left-sidebar></game-left-sidebar>
+    <performance-overlay></performance-overlay>
     <player-info-overlay></player-info-overlay>
     <leader-board></leader-board>
+    <team-stats></team-stats>
     <heads-up-message></heads-up-message>
 
     <!-- Scripts -->

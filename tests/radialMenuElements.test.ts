@@ -58,6 +58,7 @@ const makeParams = (opts?: Partial<MenuElementParams>): MenuElementParams => {
       count: () => 0,
       sendBuildOrUpgrade: () => {},
     } as any,
+    emojiTable: {} as any,
     playerActionHandler: {
       handleBreakAlliance: vi.fn(),
       handleEmbargo: vi.fn(),
@@ -67,6 +68,9 @@ const makeParams = (opts?: Partial<MenuElementParams>): MenuElementParams => {
     } as any,
     playerPanel: {
       show: vi.fn(),
+    } as any,
+    chatIntegration: {
+      createQuickChatMenu: vi.fn(() => []),
     } as any,
     eventBus: {} as any,
     closeMenu: vi.fn(),

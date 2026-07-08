@@ -33,7 +33,10 @@ import {
   getPlayerIcons,
   IMAGE_ICON_KIND,
 } from "../PlayerIcons";
+import { ImmunityBarVisibleEvent } from "./ImmunityTimer";
 import { CloseRadialMenuEvent } from "./RadialMenu";
+import "./RelationSmiley";
+import { SpawnBarVisibleEvent } from "./SpawnTimer";
 const soldierIconAquarius = assetUrl("images/SoldierIconAquarius.svg");
 const allianceIcon = assetUrl("images/AllianceIcon.svg");
 const warshipIcon = assetUrl("images/BattleshipIconWhite.svg");
@@ -88,10 +91,15 @@ export class PlayerInfoOverlay extends LitElement implements Controller {
   @state()
   private _isInfoVisible: boolean = false;
 
+  @state()
+  private spawnBarVisible = false;
+  @state()
+  private immunityBarVisible = false;
+
   private _isActive = false;
 
   private get barOffset(): number {
-    return 0;
+    return (this.spawnBarVisible ? 7 : 0) + (this.immunityBarVisible ? 7 : 0);
   }
 
   private lastMouseUpdate = 0;
@@ -105,6 +113,12 @@ export class PlayerInfoOverlay extends LitElement implements Controller {
     );
     this.eventBus.on(TouchEvent, (e: TouchEvent) => this.maybeShow(e.x, e.y));
     this.eventBus.on(CloseRadialMenuEvent, () => this.hide());
+    this.eventBus.on(SpawnBarVisibleEvent, (e) => {
+      this.spawnBarVisible = e.visible;
+    });
+    this.eventBus.on(ImmunityBarVisibleEvent, (e) => {
+      this.immunityBarVisible = e.visible;
+    });
     this._isActive = true;
   }
 
@@ -166,6 +180,18 @@ export class PlayerInfoOverlay extends LitElement implements Controller {
   private getPlayerNameColor(isFriendly: boolean): string {
     if (isFriendly) return "text-green-500";
     return "text-white";
+  }
+
+  private getRelationSmiley(
+    player: PlayerView,
+    myPlayer: PlayerView | null | undefined,
+  ): TemplateResult | string {
+    if (!myPlayer || myPlayer === player || player.type() !== PlayerType.Nation)
+      return "";
+    const relation =
+      this.playerProfile?.relations[myPlayer.smallID()] ?? Relation.Neutral;
+    if (relation === Relation.Neutral) return "";
+    return html`<relation-smiley .relation=${relation}></relation-smiley>`;
   }
 
   private getRelationName(relation: Relation): string {
@@ -327,6 +353,7 @@ export class PlayerInfoOverlay extends LitElement implements Controller {
                 />`
               : html``}
             <span>${player.displayName()}</span>
+            ${this.getRelationSmiley(player, myPlayer)}
             ${playerTeam !== "" && player.type() !== PlayerType.Bot
               ? html`<div class="flex flex-col leading-tight">
                   <span class="text-gray-400 text-xs font-normal"
