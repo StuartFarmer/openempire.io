@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { AttackExecution } from "../src/core/execution/AttackExecution";
+import { NationStructureBehavior } from "../src/core/execution/nation/NationStructureBehavior";
 import { PlayerExecution } from "../src/core/execution/PlayerExecution";
+import { PseudoRandom } from "../src/core/PseudoRandom";
 import {
   Game,
   Player,
@@ -297,6 +299,60 @@ describe("Tribal buildings", () => {
       playerCapBefore + f.populationPerSettlement,
     );
     expect(game.config().maxTroops(rival)).toBe(f.basePopulation);
+  });
+});
+
+describe("Tribal bot economy", () => {
+  test("nation bot builds all three structures and survives at default knobs", async () => {
+    const botInfo = new PlayerInfo("botland", PlayerType.Nation, null, "bot_id");
+    // Scarce world: a small fertile patch, near-barren elsewhere — so the
+    // Farmland trigger (production trailing consumption) actually fires.
+    const game = await setup(
+      "plains",
+      { instantBuild: true },
+      [botInfo],
+      undefined,
+      undefined,
+      true,
+      (name, x, y) => (name === "crop" ? (x < 3 && y < 3 ? 200 : 5) : 0),
+    );
+    const bot = game.player(botInfo.id);
+    // 35×35: room for several structures at the 15-tile spacing (farm slots
+    // deliberately scale with territory — expansion pressure).
+    conquerBlock(game, bot, 0, 0, 35);
+    bot.setTroops(9000); // presses on the base cap → Settlement trigger
+    bot.addFood(20_000n); // seed stock: buffers the early deficit
+    activate(game, bot);
+
+    const behavior = new NationStructureBehavior(
+      new PseudoRandom(42),
+      game,
+      bot,
+    );
+    for (let i = 0; i < 600; i++) {
+      if (i % 10 === 0) behavior.handleStructures();
+      game.executeNextTick();
+    }
+
+    // Scarcity phase: the bot houses its population and farms fertile land,
+    // and never starves out.
+    expect(bot.units(UnitType.Settlement).length).toBeGreaterThan(0);
+    expect(bot.units(UnitType.Farmland).length).toBeGreaterThan(0);
+    expect(bot.troops()).toBeGreaterThan(0);
+    expect(bot.isAlive()).toBe(true);
+
+    // Abundance phase: population well under the cap (Settlement trigger
+    // quiet), fresh territory (the old block is saturated at the structure
+    // spacing), and a windfall at the storage ceiling — the bot responds
+    // with a Barn rather than more housing.
+    conquerBlock(game, bot, 40, 0, 30);
+    bot.setTroops(Math.floor(0.5 * game.config().maxTroops(bot)));
+    bot.addFood(60_000n);
+    for (let i = 0; i < 40 && bot.units(UnitType.Barn).length === 0; i++) {
+      behavior.handleStructures();
+      game.executeNextTick();
+    }
+    expect(bot.units(UnitType.Barn).length).toBeGreaterThan(0);
   });
 });
 

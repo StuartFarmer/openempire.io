@@ -615,6 +615,12 @@ export interface Player {
   removeFood(toRemove: Gold): Gold;
   /** Sum of owned tiles' crop-layer bytes (production input). */
   fertilitySum(): number;
+  /** Last food tick's flow breakdown, display units. */
+  foodFlow(): {
+    production: number;
+    consumption: number;
+    starvedTroops: number;
+  };
 
   // Units
   units(...types: UnitType[]): Unit[];

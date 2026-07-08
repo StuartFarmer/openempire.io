@@ -22,8 +22,8 @@
 
 ## 4. Bots
 
-- [ ] 4.1 `NationStructureBehavior` Tribal branch: Settlement when near cap, Farmland on highest-crop unfarmed owned tile, Barn when overflow lost exceeds threshold — gated on `hasLayers()`
-- [ ] 4.2 Test: seeded bot game on a layered fixture map — bots build all three types and avoid extinction-by-starvation at default knobs
+- [x] 4.1 `NationStructureBehavior` Tribal branch: Settlement when near cap, Farmland on highest-crop unfarmed owned tile, Barn when overflow lost exceeds threshold — gated on `hasLayers()`
+- [x] 4.2 Test: seeded bot game on a layered fixture map — bots build all three types and avoid extinction-by-starvation at default knobs
 
 ## 5. Client readout
 

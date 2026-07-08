@@ -423,6 +423,12 @@ export class NationStructureBehavior {
   private doHandleStructures(): boolean {
     this.reachableStationsCache = null;
     const config = this.game.config();
+
+    // Tribal-age economy: on layered maps, food buildings take priority over
+    // gold structures — a starving nation has no use for a port.
+    if (this.player.hasFoodEconomy() && this.tryBuildTribalStructures()) {
+      return true;
+    }
     const citiesDisabled = config.isUnitDisabled(UnitType.City);
     const cityCount = citiesDisabled
       ? Math.max(
@@ -587,6 +593,88 @@ export class NationStructureBehavior {
 
   private cost(type: UnitType): Gold {
     return this.game.unitInfo(type).cost(this.game, this.player);
+  }
+
+  /**
+   * Tribal-age build heuristic (add-tribal-food-economy §4.1): Settlement
+   * when population presses on the cap, Farmland (on the most fertile
+   * reachable tile) while production trails consumption, Barn when the stock
+   * sits near the storage ceiling. Deliberately simple — the balance harness
+   * tunes the knobs against this behavior.
+   */
+  private tryBuildTribalStructures(): boolean {
+    const config = this.game.config();
+    const f = config.food();
+    const player = this.player;
+    const food = Number(player.food());
+
+    if (
+      player.troops() >= 0.8 * config.maxTroops(player) &&
+      food >= f.settlementCost &&
+      this.spawnTribalStructure(UnitType.Settlement, false)
+    ) {
+      return true;
+    }
+
+    const flow = player.foodFlow();
+    if (
+      flow.production < flow.consumption * 1.5 &&
+      food >= f.farmlandCost &&
+      this.spawnTribalStructure(UnitType.Farmland, true)
+    ) {
+      return true;
+    }
+
+    const barnLevels = player
+      .units(UnitType.Barn)
+      .filter((b) => !b.isUnderConstruction())
+      .reduce((sum, b) => sum + b.level(), 0);
+    const storageCap = f.baseStorage + barnLevels * f.storagePerBarn;
+    if (
+      food >= 0.9 * storageCap &&
+      food >= f.barnCost &&
+      this.spawnTribalStructure(UnitType.Barn, false)
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /** Sample owned tiles near the border; optionally maximize crop fertility. */
+  private spawnTribalStructure(
+    type: UnitType,
+    maximizeCrop: boolean,
+  ): boolean {
+    const game = this.game;
+    const player = this.player;
+    const border = player.borderTiles();
+    if (border.size === 0) return false;
+    const anchors = Array.from(border);
+
+    let best: TileRef | null = null;
+    let bestScore = -1;
+    for (let attempt = 0; attempt < 40; attempt++) {
+      const anchor = this.random.randElement(anchors);
+      const x = this.random.nextInt(game.x(anchor) - 6, game.x(anchor) + 7);
+      const y = this.random.nextInt(game.y(anchor) - 6, game.y(anchor) + 7);
+      if (!game.isValidCoord(x, y)) continue;
+      const t = game.ref(x, y);
+      if (game.owner(t) !== player) continue;
+      if (player.canBuild(type, t) === false) continue;
+      if (!maximizeCrop) {
+        best = t;
+        break;
+      }
+      const score = game.layer("crop", t);
+      if (score > bestScore) {
+        bestScore = score;
+        best = t;
+      }
+    }
+    if (best === null) return false;
+    this.game.addExecution(new ConstructionExecution(player, type, best));
+    return true;
   }
 
   private maybeSpawnStructure(type: UnitType): boolean {

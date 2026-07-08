@@ -1181,6 +1181,10 @@ export class PlayerImpl implements Player {
     return this._fertilitySum;
   }
 
+  foodFlow(): { production: number; consumption: number; starvedTroops: number } {
+    return this._foodFlow;
+  }
+
   addGold(toAdd: Gold, tile?: TileRef): void {
     this._gold += toAdd;
     if (tile) {
