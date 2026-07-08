@@ -5,5 +5,6 @@ export type { FrameData } from "../types";
 export { BoardRuntimeFrameBridge } from "./BoardRuntimeFrameBridge";
 
 // Upload
+export type { RelationMatrixResult } from "./derive/RelationMatrix";
 export { uploadFrameData } from "./Upload";
 export type { FrameUploadTarget } from "./Upload";

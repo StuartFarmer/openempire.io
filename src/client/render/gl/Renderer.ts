@@ -2,10 +2,11 @@
  * GPURenderer v2 — normalized render pipeline.
  *
  * Draw order:
- *   DATA SYNC: tile flush → border compute
- *   BASE PASS: terrain → territory fill
- *   OVERLAYS: borders → ground units → structures → structure levels → bars →
- *     trails → missiles → fx → conquest → names
+ *   DATA SYNC: tile flush → heat update → border compute
+ *   BASE PASS (darkened by night): terrain → territory fill + stale-nuke ground
+ *   NIGHT COMPOSITE (optional): lightmap → scene × (ambient + lightmap)
+ *   FULL BRIGHTNESS (always): borders → railroads → ground units → structures →
+ *     structure levels → bars → bloom → trails → missiles → fx → conquest → names
  */
 
 import type { Config } from "../../../core/configuration/Config";
@@ -17,6 +18,8 @@ import type {
   DeadUnitFx,
   GhostPreviewData,
   NameEntry,
+  NukeTelegraphData,
+  NukeTrajectoryData,
   PlayerState,
   PlayerStatic,
   PlayerStatusData,
@@ -32,10 +35,19 @@ import { BorderStampPass } from "./passes/BorderStampPass";
 import { CoordinateGridPass } from "./passes/CoordinateGridPass";
 import { CrosshairPass } from "./passes/CrosshairPass";
 import { DefenseCoveragePass } from "./passes/DefenseCoveragePass";
+import { FalloutBloomPass } from "./passes/FalloutBloomPass";
+import { FalloutLightPass } from "./passes/FalloutLightPass";
 import { FxPass } from "./passes/fx-pass";
+import { LightmapPass } from "./passes/LightmapPass";
 import { MoveIndicatorPass } from "./passes/MoveIndicatorPass";
 import { NamePass } from "./passes/name-pass";
+import { NightCompositePass } from "./passes/NightCompositePass";
+import { NukeTelegraphPass } from "./passes/NukeTelegraphPass";
+import { NukeTrajectoryPass } from "./passes/NukeTrajectoryPass";
+import { PointLightPass } from "./passes/PointLightPass";
+import { RailroadPass } from "./passes/RailroadPass";
 import { RangeCirclePass } from "./passes/RangeCirclePass";
+import { SAMRadiusPass } from "./passes/SamRadiusPass";
 import { SelectionBoxPass } from "./passes/SelectionBoxPass";
 import { SkinAtlasArray } from "./passes/SkinAtlasArray";
 import type { SpawnCenter } from "./passes/SpawnOverlayPass";
@@ -56,12 +68,34 @@ import {
   TRAIL_EFFECT_BLOCKS,
 } from "./utils/ColorUtils";
 import { renderDpr } from "./utils/Dpr";
-import { createTexture2D, toScreen } from "./utils/GlUtils";
+import {
+  createTexture2D,
+  toScreen,
+  toTarget,
+  type RenderTarget,
+} from "./utils/GlUtils";
 import {
   createGPUResources,
   disposeGPUResources,
   type GPUResources,
 } from "./utils/GpuResources";
+import { HeatManager } from "./utils/HeatManager";
+
+/** Ghost types that trigger SAM radius overlay (matches upstream SAMRadiusLayer). */
+const SAM_RADIUS_GHOST_TYPES = new Set([
+  "Missile Silo",
+  "SAM Launcher",
+  "City",
+  "Atom Bomb",
+  "Hydrogen Bomb",
+]);
+
+/** Subset for build-button hover — excludes City/Silo (SAM radii irrelevant). */
+const SAM_RADIUS_HIGHLIGHT_TYPES = new Set([
+  "SAM Launcher",
+  "Atom Bomb",
+  "Hydrogen Bomb",
+]);
 
 const GRID_VIEW_KEY = "renderer:grid_view_enabled";
 
@@ -84,17 +118,27 @@ export class GPURenderer {
   private borderStampPass: BorderStampPass;
   private borderPass: BorderComputePass;
   private defenseCoveragePass: DefenseCoveragePass;
+  private bloomPass: FalloutBloomPass;
+  private pointLightPass: PointLightPass;
+  private falloutLightPass: FalloutLightPass;
+  private lightmapPass: LightmapPass;
+  private nightCompositePass: NightCompositePass;
   private structurePass: StructurePass;
   private structureLevelPass: StructureLevelPass;
   private unitPass: UnitPass;
   private namePass: NamePass;
   private fxPass: FxPass;
   private rangeCirclePass: RangeCirclePass;
+  private samRadiusPass: SAMRadiusPass;
   private crosshairPass: CrosshairPass;
+  private railroadPass: RailroadPass;
   private barPass: BarPass;
   private worldTextPass: WorldTextPass;
   private selectionBoxPass: SelectionBoxPass;
   private moveIndicatorPass: MoveIndicatorPass;
+  private nukeTrajectoryPass: NukeTrajectoryPass;
+  private nukeTelegraphPass: NukeTelegraphPass;
+  private heatManager: HeatManager;
   private affiliationPalette: AffiliationPalette;
   private coordinateGridPass: CoordinateGridPass;
   private spawnOverlayPass: SpawnOverlayPass;
@@ -119,6 +163,7 @@ export class GPURenderer {
   private skinAnchorCpu: Uint16Array;
   private canvas: HTMLCanvasElement;
   private settings: RenderSettings;
+  private sceneTarget: RenderTarget;
   private raf: typeof requestAnimationFrame;
   private caf: typeof cancelAnimationFrame;
 
@@ -334,6 +379,17 @@ export class GPURenderer {
       this.settings,
     );
 
+    // --- Heat manager (needs tileTex, heatTexA/B) ---
+    this.heatManager = new HeatManager(
+      gl,
+      mapW,
+      mapH,
+      this.res.tileTex,
+      this.res.heatTexA,
+      this.res.heatTexB,
+      this.settings,
+    );
+
     // --- Territory (needs tileTex, paletteTex, patternTexs, skinTexs) ---
     this.territoryPass = new TerritoryPass(
       gl,
@@ -397,8 +453,66 @@ export class GPURenderer {
       this.defenseCoveragePass.getCoverageTex(),
     );
 
+    // --- Fallout bloom (needs tileTex, heatManager) ---
+    this.bloomPass = new FalloutBloomPass(
+      gl,
+      mapW,
+      mapH,
+      this.res.tileTex,
+      this.heatManager,
+      this.settings,
+    );
+
+    // --- Point lights ---
+    this.pointLightPass = new PointLightPass(
+      gl,
+      header,
+      paletteData,
+      this.settings,
+      config,
+    );
+
+    // --- Fallout light (needs tileTex + heatManager; particle flicker is
+    //     computed inline using the falloutBloom particle settings) ---
+    this.falloutLightPass = new FalloutLightPass(
+      gl,
+      mapW,
+      mapH,
+      this.res.tileTex,
+      this.heatManager,
+      this.settings,
+    );
+
+    // --- Lightmap orchestrator ---
+    this.lightmapPass = new LightmapPass(
+      gl,
+      mapW,
+      mapH,
+      this.pointLightPass,
+      this.falloutLightPass,
+      this.settings,
+    );
+
+    // --- Night composite ---
+    this.nightCompositePass = new NightCompositePass(gl, this.settings);
+
+    // --- Railroad (needs tileTex) ---
+    this.railroadPass = new RailroadPass(
+      gl,
+      mapW,
+      mapH,
+      this.res.tileTex,
+      this.paletteTex,
+      terrainBytes,
+      this.settings,
+    );
+
     // --- Range circle (ghost preview radius) ---
     this.rangeCirclePass = new RangeCirclePass(gl);
+
+    // --- SAM radius overlay (dashed green circles during build mode) ---
+    this.samRadiusPass = new SAMRadiusPass(gl, mapW, this.settings);
+    this.samRadiusPass.setPaletteData(paletteData);
 
     // --- Crosshair (warship placement) ---
     this.crosshairPass = new CrosshairPass(gl);
@@ -431,7 +545,38 @@ export class GPURenderer {
     this.worldTextPass.setMapWidth(this.mapW);
     this.selectionBoxPass = new SelectionBoxPass(gl);
     this.moveIndicatorPass = new MoveIndicatorPass(gl, this.settings);
+    this.nukeTrajectoryPass = new NukeTrajectoryPass(gl, this.settings);
+    this.nukeTelegraphPass = new NukeTelegraphPass(gl, this.settings);
 
+    // --- Scene capture target (for night composite) ---
+    const sceneTex = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, sceneTex);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA8,
+      1,
+      1,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      null,
+    );
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const sceneFbo = gl.createFramebuffer()!;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFbo);
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER,
+      gl.COLOR_ATTACHMENT0,
+      gl.TEXTURE_2D,
+      sceneTex,
+      0,
+    );
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    this.sceneTarget = { fbo: sceneFbo, tex: sceneTex, w: 1, h: 1 };
 
     // --- Alt-view passes ---
     this.affiliationPalette = new AffiliationPalette(gl, this.settings);
@@ -537,6 +682,7 @@ export class GPURenderer {
       this.paletteData,
     );
     // SAM radius pass stores its own copy
+    this.samRadiusPass.setPaletteData(this.paletteData);
     // Name pass caches per-player colors and bakes them into slot rows
     this.namePass.refreshPlayerColors(this.paletteData);
   }
@@ -673,11 +819,17 @@ export class GPURenderer {
     );
   }
 
+  uploadRailroadState(data: Uint8Array): void {
+    this.railroadPass.uploadRailroadState(data);
+  }
+
   updateUnits(units: Map<number, UnitState>, gameTick: number): void {
     this.lastUnits = units;
     this.frameTick++;
     this.unitPass.updateUnits(units, this.frameTick);
     this.barPass.updateBars(units, this.lastStructures, gameTick);
+    this.pointLightPass.updateLights(units);
+    this.heatManager.decayHeat();
   }
 
   updateNames(
@@ -688,7 +840,7 @@ export class GPURenderer {
   ): void {
     this.namePass.updateNames(names, players, snap, statusData);
 
-    // Extract local player's allies + teammates for unit coloring
+    // Extract local player's allies + teammates for SAM radius coloring
     if (this.localPlayerID > 0) {
       const localPS = players.get(this.localPlayerID);
       const friendly = new Set(localPS?.allies ?? []);
@@ -698,6 +850,7 @@ export class GPURenderer {
           if (team === myTeam && sid !== this.localPlayerID) friendly.add(sid);
         }
       }
+      this.samRadiusPass.setAllies(friendly);
       this.unitPass.setAllies(friendly);
     }
   }
@@ -716,6 +869,7 @@ export class GPURenderer {
     this.lastStructures = units;
     this.structurePass.updateStructures(units);
     this.structureLevelPass.updateStructures(units);
+    this.samRadiusPass.updateStructures(units);
     this.unitPass.setStructures(units);
     const posts: { x: number; y: number; ownerID: number }[] = [];
     const w = this.mapW;
@@ -735,15 +889,20 @@ export class GPURenderer {
     if (deadUnits.length > 0) this.fxPass.applyDeadUnits(deadUnits);
   }
 
+  applyRailroadDust(tileRefs: number[]): void {
+    if (tileRefs.length > 0) this.fxPass.applyRailroadDust(tileRefs);
+  }
+
   /**
    * Update terrain texels for tiles whose terrain byte changed (e.g. water
    * nukes converting land → water). `terrainBytes[i]` is the new byte for
-   * `refs[i]`.
+   * `refs[i]`. Forwards to both TerrainPass (RGBA color) and RailroadPass
    * (R8UI water-detection for bridges).
    */
   applyTerrainDelta(refs: readonly number[], terrainBytes: Uint8Array): void {
     if (refs.length === 0) return;
     this.terrainPass.applyTerrainDelta(refs, terrainBytes);
+    this.railroadPass.applyTerrainDelta(refs, terrainBytes);
   }
 
   /**
@@ -790,6 +949,7 @@ export class GPURenderer {
 
   updateGhostPreview(data: GhostPreviewData | null): void {
     this.structurePass.updateGhostPreview(data);
+    this.railroadPass.updateGhostPreview(data);
     this.rangeCirclePass.updateGhostPreview(data);
     this.crosshairPass.updateGhostPreview(data);
     this.worldTextPass.setGhostCostLabel(
@@ -803,6 +963,19 @@ export class GPURenderer {
           }
         : null,
     );
+    this.samGhostVisible =
+      data !== null && SAM_RADIUS_GHOST_TYPES.has(data.ghostType);
+    this.samRadiusPass.setVisible(
+      this.samGhostVisible || this.samHighlightVisible,
+    );
+  }
+
+  updateNukeTrajectory(data: NukeTrajectoryData | null): void {
+    this.nukeTrajectoryPass.update(data);
+  }
+
+  updateNukeTelegraphs(data: NukeTelegraphData[]): void {
+    this.nukeTelegraphPass.update(data);
   }
 
   updateSpawnOverlay(inSpawnPhase: boolean, centers: SpawnCenter[]): void {
@@ -825,14 +998,30 @@ export class GPURenderer {
   setHighlightStructureTypes(unitTypes: string[] | null): void {
     this.structurePass.setHighlightTypes(unitTypes);
     this.structureLevelPass.setHighlightTypes(unitTypes);
+    this.samHighlightVisible =
+      unitTypes !== null &&
+      unitTypes.some((t) => SAM_RADIUS_HIGHLIGHT_TYPES.has(t));
+    this.samRadiusPass.setVisible(
+      this.samGhostVisible || this.samHighlightVisible,
+    );
   }
 
   setLocalPlayerID(id: number): void {
     if (id === this.localPlayerID) return;
     this.localPlayerID = id;
+    this.samRadiusPass.setLocalPlayer(id);
     this.structurePass.setLocalPlayer(id);
     this.affiliationPalette.setLocalPlayer(id);
     this.unitPass.setLocalPlayer(id);
+    this.railroadPass.setLocalPlayer(id);
+  }
+
+  setLocalRailColor(r: number, g: number, b: number): void {
+    this.railroadPass.setLocalRailColor(r, g, b);
+  }
+
+  setSAMAllianceClusters(clusters: Map<number, number>): void {
+    this.samRadiusPass.setAllianceClusters(clusters);
   }
 
   setAltView(active: boolean): void {
@@ -958,7 +1147,13 @@ export class GPURenderer {
       this.borderPass.markGlobalDirty();
       this.defenseCoveragePass.markDirty();
     }
+    // Heat decay only runs while fallout is in play — (re)activate whenever a
+    // fallout bit flipped in the tile state that just reached the GPU.
+    if (this.territoryPass.consumeFalloutTouched()) {
+      this.heatManager.activate();
+    }
     this.trailPass.flushTexture();
+    this.heatManager.updateHeat();
   }
 
   private computeTextures(): void {
@@ -973,10 +1168,45 @@ export class GPURenderer {
     const zoom = this.camera.zoom;
     const cw = this.canvas.width;
     const ch = this.canvas.height;
+    const compositingActive = this.isLightCompositingActive();
 
-    toScreen(this.gl, cw, ch, () => this.drawBaseLayer(cam));
+    if (compositingActive) {
+      this.resizeSceneTargetIfNeeded(cw, ch);
+      const sceneTex = toTarget(this.gl, this.sceneTarget, () =>
+        this.drawBaseLayer(cam),
+      );
+      const lightTex = this.lightmapPass.draw(cam, cw, ch, this.frameTick);
+      toScreen(this.gl, cw, ch, () =>
+        this.nightCompositePass.draw(sceneTex, lightTex),
+      );
+    } else {
+      toScreen(this.gl, cw, ch, () => this.drawBaseLayer(cam));
+    }
 
     this.renderOverlays(cam, zoom);
+  }
+
+  private isLightCompositingActive(): boolean {
+    return this.settings.lighting.enabled;
+  }
+
+  private resizeSceneTargetIfNeeded(cw: number, ch: number): void {
+    if (this.sceneTarget.w === cw && this.sceneTarget.h === ch) return;
+    this.sceneTarget.w = cw;
+    this.sceneTarget.h = ch;
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this.sceneTarget.tex);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA8,
+      cw,
+      ch,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      null,
+    );
   }
 
   private drawBaseLayer(cam: Float32Array): void {
@@ -1000,8 +1230,12 @@ export class GPURenderer {
 
     this.spawnOverlayPass.draw(cam);
     if (pe.borderStamp) this.borderStampPass.draw(cam);
+    if (pe.railroad) this.railroadPass.draw(cam, zoom);
     if (pe.unit) this.unitPass.drawGround(cam);
+    if (pe.falloutBloom) this.bloomPass.draw(cam, this.frameTick);
+    this.samRadiusPass.draw(cam);
     this.rangeCirclePass.draw(cam);
+    this.nukeTrajectoryPass.draw(cam);
     this.crosshairPass.draw(cam);
     if (pe.structure) this.structurePass.draw(cam, zoom);
     if (pe.structure) this.structureLevelPass.draw(cam, zoom);
@@ -1009,6 +1243,7 @@ export class GPURenderer {
     this.updateSelectionBox();
     this.selectionBoxPass.draw(cam, this.frameTick);
     this.moveIndicatorPass.draw(cam, zoom);
+    this.nukeTelegraphPass.draw(cam);
     if (pe.trail) this.trailPass.draw(cam);
     if (pe.unit) this.unitPass.drawMissiles(cam);
 
@@ -1021,7 +1256,7 @@ export class GPURenderer {
     // hold), not under the persistent M-key gridView toggle.
     if (this.gridView || this.altView) this.coordinateGridPass.draw(cam, zoom);
     if (pe.name && !this.altView)
-      this.namePass.draw(cam, 1.0);
+      this.namePass.draw(cam, this.nightCompositePass.getAmbient());
 
     // World text (attack-troop labels, popups, ghost cost) draws on top of
     // player names so attack callouts aren't hidden behind a centered name.
@@ -1043,10 +1278,18 @@ export class GPURenderer {
     this.borderStampPass.dispose();
     this.borderPass.dispose();
     this.defenseCoveragePass.dispose();
+    this.bloomPass.dispose();
+    this.pointLightPass.dispose();
+    this.falloutLightPass.dispose();
+    this.lightmapPass.dispose();
+    this.nightCompositePass.dispose();
+    this.heatManager.dispose();
     this.affiliationPalette.dispose();
     this.coordinateGridPass.dispose();
     this.spawnOverlayPass.dispose();
+    this.railroadPass.dispose();
     this.rangeCirclePass.dispose();
+    this.samRadiusPass.dispose();
     this.crosshairPass.dispose();
     this.structurePass.dispose();
     this.structureLevelPass.dispose();
@@ -1056,6 +1299,8 @@ export class GPURenderer {
     this.worldTextPass.dispose();
     this.selectionBoxPass.dispose();
     this.moveIndicatorPass.dispose();
+    this.nukeTrajectoryPass.dispose();
+    this.nukeTelegraphPass.dispose();
     this.barPass.dispose();
     disposeGPUResources(this.gl, this.res);
     this.gl.deleteTexture(this.paletteTex);
@@ -1065,6 +1310,8 @@ export class GPURenderer {
     this.gl.deleteTexture(this.skinLayerTex);
     this.gl.deleteTexture(this.skinAnchorTex);
     this.skinAtlas.dispose();
+    this.gl.deleteFramebuffer(this.sceneTarget.fbo);
+    this.gl.deleteTexture(this.sceneTarget.tex);
     this.lastUnits = new Map();
     this.lastStructures = new Map();
     // Deleting GL resources isn't enough — the context itself counts against

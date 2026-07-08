@@ -18,6 +18,8 @@ export {
   getPaletteSize,
 } from "./utils/ColorUtils";
 export { renderDpr } from "./utils/Dpr";
+export { buildNukeTrajectory, samRange } from "./utils/NukeTrajectory";
+export type { SAMInfo } from "./utils/NukeTrajectory";
 
 // Re-export shared types used in the public API
 export type {

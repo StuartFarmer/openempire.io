@@ -9,6 +9,7 @@
 
 import { EventBus } from "../../core/EventBus";
 import {
+  listNukeBreakAlliance,
   wouldNukeBreakAlliance,
 } from "../../core/execution/Util";
 import {
@@ -28,7 +29,8 @@ import {
   MouseMoveEvent,
   MouseUpEvent,
 } from "../InputHandler";
-import { MapRenderer } from "../render/gl";
+import { MapRenderer, buildNukeTrajectory } from "../render/gl";
+import type { SAMInfo } from "../render/gl/utils/NukeTrajectory";
 import type { GhostPreviewData } from "../render/types";
 import { TransformHandler } from "../TransformHandler";
 import { UIState } from "../UIState";
@@ -75,6 +77,18 @@ export class BuildPreviewController implements Controller {
   // frame with the current cursor world position.
   private lastGhostData: GhostPreviewData | null = null;
 
+  // Static inputs for the nuke trajectory preview (source silo + threatening
+  // SAMs + impassable-terrain blocker). Recomputed in the throttled renderGhost
+  // path; cursorLoop rebuilds the Bezier each frame with the live cursor
+  // position as the destination so the arc tracks the cursor smoothly instead
+  // of snapping tile-to-tile.
+  private nukeTrajectoryStatic: {
+    srcX: number;
+    srcY: number;
+    sams: SAMInfo[];
+    isBlocked: (x: number, y: number) => boolean;
+  } | null = null;
+
   constructor(
     private game: GameView,
     private eventBus: EventBus,
@@ -102,12 +116,13 @@ export class BuildPreviewController implements Controller {
     // place the icon exactly under the cursor.
     const cursorLoop = () => {
       const ghost = this.lastGhostData;
-      if (ghost !== null) {
+      const traj = this.nukeTrajectoryStatic;
+      if (ghost !== null || traj !== null) {
         const w = this.transformHandler.screenToWorldCoordinatesFloat(
           this.mousePos.x,
           this.mousePos.y,
         );
-        {
+        if (ghost !== null) {
           // The range circle (defense post / SAM / nuke radius) normally
           // follows the cursor, so smooth it the same way as the icon. When
           // upgrading, the circle is anchored to the existing structure's tile
@@ -123,6 +138,22 @@ export class BuildPreviewController implements Controller {
               ? { radiusTileX: w.x - 0.5, radiusTileY: w.y - 0.5 }
               : {}),
           });
+        }
+        if (traj !== null) {
+          // Rebuild the arc with the live cursor as the destination (same
+          // tile-center convention as the icon: shader adds +0.5).
+          this.view.updateNukeTrajectory(
+            buildNukeTrajectory(
+              traj.srcX,
+              traj.srcY,
+              w.x - 0.5,
+              w.y - 0.5,
+              this.game.height(),
+              this.uiState.rocketDirectionUp,
+              traj.sams,
+              traj.isBlocked,
+            ),
+          );
         }
       }
       requestAnimationFrame(cursorLoop);
@@ -258,6 +289,124 @@ export class BuildPreviewController implements Controller {
     } else {
       this.lastGhostData = data;
     }
+    this.updateNukeTrajectoryPreview(tileRef);
+  }
+
+  /**
+   * For AtomBomb / HydrogenBomb ghosts, push the Bezier trajectory preview
+   * (closest player-owned silo → target, accounting for non-allied SAMs).
+   * Cleared whenever the ghost isn't a nuke, has no target, or the player
+   * has no silos.
+   */
+  private updateNukeTrajectoryPreview(tileRef: TileRef | undefined): void {
+    if (!this.ghostUnit || tileRef === undefined) {
+      this.clearNukeTrajectory();
+      return;
+    }
+    const type = this.ghostUnit.buildableUnit.type;
+    if (type !== UnitType.AtomBomb && type !== UnitType.HydrogenBomb) {
+      this.clearNukeTrajectory();
+      return;
+    }
+    const myPlayer = this.game.myPlayer();
+    if (!myPlayer) {
+      this.clearNukeTrajectory();
+      return;
+    }
+
+    // Mirror PlayerImpl.nukeSpawn (the source NukeExecution actually fires
+    // from): only silos that are active, not reloading, and not under
+    // construction are eligible, and the nearest is chosen by Manhattan
+    // distance. Keeping these in sync prevents the preview arc from
+    // originating from a silo the game wouldn't use.
+    const silos = myPlayer
+      .units(UnitType.MissileSilo)
+      .filter(
+        (u) => u.isActive() && !u.isInCooldown() && !u.isUnderConstruction(),
+      );
+    if (silos.length === 0) {
+      this.clearNukeTrajectory();
+      return;
+    }
+
+    const dstX = this.game.x(tileRef);
+    const dstY = this.game.y(tileRef);
+    let bestSilo = silos[0];
+    let bestDist = Infinity;
+    for (const s of silos) {
+      const sx = this.game.x(s.tile());
+      const sy = this.game.y(s.tile());
+      const d = Math.abs(sx - dstX) + Math.abs(sy - dstY);
+      if (d < bestDist) {
+        bestDist = d;
+        bestSilo = s;
+      }
+    }
+    const srcX = this.game.x(bestSilo.tile());
+    const srcY = this.game.y(bestSilo.tile());
+
+    // Non-friendly SAMs threaten the trajectory; own + teammate + allied SAMs
+    // don't — except allies this strike would betray: the alliance breaks at
+    // launch (NukeExecution.maybeBreakAlliances), so their SAMs will intercept.
+    // Teammates have no such exception (a strike never breaks a team).
+    // listNukeBreakAlliance is the same function the sim uses there.
+    const teammateIds = new Set<number>();
+    for (const p of this.game.players()) {
+      if (myPlayer.isOnSameTeam(p)) teammateIds.add(p.smallID());
+    }
+    const allyIds = new Set<number>();
+    for (const a of myPlayer.allies()) allyIds.add(a.smallID());
+    const betrayedIds: ReadonlySet<number> =
+      allyIds.size > 0
+        ? listNukeBreakAlliance({
+            game: this.game,
+            targetTile: tileRef,
+            magnitude: this.game.config().nukeMagnitudes(type),
+            threshold: this.game.config().nukeAllianceBreakThreshold(),
+          })
+        : new Set();
+    const sams: SAMInfo[] = [];
+    for (const s of this.game.units(UnitType.SAMLauncher)) {
+      if (!s.isActive()) continue;
+      const owner = s.owner();
+      if (owner === myPlayer) continue;
+      if (
+        !samThreatensNukePreview(
+          owner.smallID(),
+          teammateIds,
+          allyIds,
+          betrayedIds,
+        )
+      ) {
+        continue;
+      }
+      const r = this.game.config().samRange(s.level());
+      sams.push({
+        x: this.game.x(s.tile()),
+        y: this.game.y(s.tile()),
+        rangeSq: r * r,
+      });
+    }
+
+    // Stash the static inputs; cursorLoop rebuilds the Bezier each frame with
+    // the live cursor as the destination so the arc tracks smoothly.
+    // The isBlocked callback tests impassable terrain so the trajectory turns
+    // red with a red X where it would cross impassable terrain (matching the
+    // simulation's abort-on-impassable behavior).
+    this.nukeTrajectoryStatic = {
+      srcX,
+      srcY,
+      sams,
+      isBlocked: (x: number, y: number) => {
+        if (!this.game.isValidCoord(x, y)) return false;
+        return this.game.isImpassable(this.game.ref(x, y));
+      },
+    };
+  }
+
+  private clearNukeTrajectory(): void {
+    this.nukeTrajectoryStatic = null;
+    this.view.updateNukeTrajectory(null);
   }
 
   private buildGhostPreviewData(
@@ -408,6 +557,7 @@ export class BuildPreviewController implements Controller {
     this.ghostUnit = null;
     this.lastGhostData = null;
     this.view.updateGhostPreview(null);
+    this.clearNukeTrajectory();
   }
 
   private removeGhostStructure() {

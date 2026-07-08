@@ -279,6 +279,10 @@ export class WebGLFrameBuilder {
     if (sid === this.localPlayerSmallID) return;
     this.localPlayerSmallID = sid;
     this.view.setLocalPlayerID(sid);
+    if (me) {
+      const rail = me.railColor().toRgb();
+      this.view.setLocalRailColor(rail.r / 255, rail.g / 255, rail.b / 255);
+    }
   }
 
   /**

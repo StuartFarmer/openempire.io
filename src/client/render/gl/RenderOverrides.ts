@@ -79,8 +79,20 @@ export function applyGraphicsOverrides(
       settings.mapOverlay.staleNukeB = rgb[2] / 255;
     }
   }
+  if (overrides.railroad?.railMinZoom !== undefined) {
+    settings.railroad.railMinZoom = overrides.railroad.railMinZoom;
+  }
+  if (overrides.railroad?.railThickness !== undefined) {
+    settings.railroad.railThickness = overrides.railroad.railThickness;
+  }
   if (overrides.passEnabled?.fx !== undefined) {
     settings.passEnabled.fx = overrides.passEnabled.fx;
+  }
+  if (overrides.passEnabled?.fallout !== undefined) {
+    // One user-facing toggle drives both fallout passes: the territory bloom
+    // and its additive light contribution in the day/night composite.
+    settings.passEnabled.falloutBloom = overrides.passEnabled.fallout;
+    settings.passEnabled.falloutLight = overrides.passEnabled.fallout;
   }
   if (overrides.terrain?.oceanColor !== undefined) {
     settings.terrain.oceanColor = overrides.terrain.oceanColor;
@@ -96,6 +108,16 @@ export function applyGraphicsOverrides(
   }
   if (overrides.terrain?.mountainColor !== undefined) {
     settings.terrain.mountainColor = overrides.terrain.mountainColor;
+  }
+  if (overrides.lighting?.ambient !== undefined) {
+    settings.lighting.ambient = overrides.lighting.ambient;
+    // The composite only darkens the scene (and reveals the structure/unit
+    // glow) when ambient < 1; at ambient === 1 it's a visual identity, so
+    // don't pay the scene-capture cost of enabling the lighting pass.
+    settings.lighting.enabled = overrides.lighting.ambient < 1;
+  }
+  if (overrides.lighting?.falloffPower !== undefined) {
+    settings.lighting.falloffPower = overrides.lighting.falloffPower;
   }
   if (overrides.name?.darkNames !== undefined) {
     const dark = overrides.name.darkNames;
