@@ -2,16 +2,18 @@
 
 ## Context
 
-Builds directly on `add-map-layer-sidecars` (crop bytes readable in the sim). The vanilla economy: population (troops+workers) grows by a logistic curve in `Config` (`populationIncreaseRate`), max troops scale with territory and Cities, gold arrives at a flat rate. Phase 1 replaces the *population* half of that on layered maps while leaving gold, existing units, and all classic-map behavior untouched. A previous in-core food implementation exists in git history (world-generator branch commits "woo"/"fuck") — it validated the seams (AttackExecution/Config/PlayerImpl) but is superseded by this cleaner, spec-driven design; do not resurrect it wholesale.
+Builds directly on `add-map-layer-sidecars` (crop bytes readable in the sim). The vanilla economy: population (troops+workers) grows by a logistic curve in `Config` (`populationIncreaseRate`), max troops scale with territory and Cities, gold arrives at a flat rate. Phase 1 replaces the _population_ half of that on layered maps while leaving gold, existing units, and all classic-map behavior untouched. A previous in-core food implementation exists in git history (world-generator branch commits "woo"/"fuck") — it validated the seams (AttackExecution/Config/PlayerImpl) but is superseded by this cleaner, spec-driven design; do not resurrect it wholesale.
 
 ## Goals / Non-Goals
 
 **Goals**
+
 - The produce→store→consume→grow/starve loop, integer-deterministic, fully knob-driven, active only on layered maps.
 - Spatial value: fertile land and Farmland placement matter; war has a food price.
 - Bots participate; balance harness proves no runaway loop before UI polish.
 
 **Non-Goals**
+
 - Ages framework, metal/oil, ships, gold removal (later specs).
 - Food trading/gifting, per-unit food upkeep for buildings, supply lines/logistics distance (explicitly out — the old branch's supply-diffusion experiment is parked).
 - HUD beyond a food readout + build menu entries.
@@ -20,7 +22,7 @@ Builds directly on `add-map-layer-sidecars` (crop bytes readable in the sim). Th
 
 1. **State on `PlayerImpl`, ticked by `PlayerExecution`.** Food stock (`bigint`, like gold), `fertilitySum` (number, sum of owned crop bytes), cached counts of Settlements/Farmland/Barns. The per-tick pass runs inside the existing `PlayerExecution.tick` (fixed order: production → consumption → overflow/decay → growth/starvation) rather than a new per-player execution — one fewer moving part, same hook the vanilla growth uses. Alternative (dedicated `FoodExecution` per player) rejected: no scheduling need justifies it.
 2. **Incremental fertility accounting.** `fertilitySum` updates in the same code paths that transfer tile ownership (conquer/relinquish in `GameImpl`/`AttackExecution`), mirroring how `numTilesOwned` is maintained. No per-tick map scans. Farmland contribution = its tile's crop byte × `farmlandFertilityMult`, added/removed on build/capture/destroy.
-3. **Integer math discipline.** Production/consumption computed in "food milliunits" (scaled integers) to allow sub-1 rates without floats; stock stored as bigint of milliunits, displayed ÷1000. Decay = `stock - floor(stock × decayNumer / decayDenom)` in bigint. The spec's "1 food per person per tick" is the *display-unit* default (`idleConsumptionMilli = 1000`).
+3. **Integer math discipline.** Production/consumption computed in "food milliunits" (scaled integers) to allow sub-1 rates without floats; stock stored as bigint of milliunits, displayed ÷1000. Decay = `stock - floor(stock × decayNumer / decayDenom)` in bigint. The spec's "1 food per person per tick" is the _display-unit_ default (`idleConsumptionMilli = 1000`).
 4. **Activity detection reuses existing state.** Moving = player's troops attached to outgoing `AttackExecution`s not yet in contact + boat troops; fighting = attacks currently exchanging tiles (the attack already knows). Exposed as two counters the food pass reads — no new bookkeeping inside combat.
 5. **Growth couples surplus to the vanilla curve shape.** Three regimes each tick: production > consumption → `growth = vanillaLogistic(pop, cap) × clamp01(surplusRatio / surplusForFullGrowth)` where `surplusRatio = (production − consumption) / consumption`; deficit covered by storage → stagnation (reserves feed people, they don't multiply); uncovered deficit → starvation `deaths = ceil(unfedPeople × starvationDeathFraction)` where `unfedPeople = deficitMilli / idleConsumptionMilli`. `cap = foodBasePop + settlementLevels × popPerSettlement` replaces the territory/City max-troops on layered maps via a `Config.maxTroops` branch keyed on `player.hasFoodEconomy()`. Keeping the logistic shape preserves familiar early-game feel; the food term only throttles it.
 6. **Buildings ride the existing build pipeline.** Three `UnitType` additions; `ConstructionExecution` gains cases; cost check reads food instead of gold via a `costResource` field on unit info (`"gold" | "food"`) so later ages reuse the mechanism (metal/oil become new entries, not new plumbing). Build menu filters by `game.hasLayers()`.

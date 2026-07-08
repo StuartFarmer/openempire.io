@@ -2,7 +2,7 @@
 
 ## Why
 
-Phase 1 of turning the lean base into a 3-age resource game (Stuart's Tribal Age spec): population should be earned through food production on good land, not granted by a logistic curve. This creates the game's core spatial decision — *where* you expand matters because fertility varies — and establishes the stock-and-flow pattern (produce → store → consume → grow/starve) that metal and oil will reuse in later ages.
+Phase 1 of turning the lean base into a 3-age resource game (Stuart's Tribal Age spec): population should be earned through food production on good land, not granted by a logistic curve. This creates the game's core spatial decision — _where_ you expand matters because fertility varies — and establishes the stock-and-flow pattern (produce → store → consume → grow/starve) that metal and oil will reuse in later ages.
 
 ## What Changes
 

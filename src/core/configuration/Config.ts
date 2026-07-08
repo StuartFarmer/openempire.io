@@ -781,7 +781,11 @@ export class Config {
         largeAttackerSpeedBonus = (100_000 / attacker.numTilesOwned()) ** 0.6;
       }
 
-      const defenderTroopLoss = defender.troops() / defender.numTilesOwned();
+      // Guard the divide: a defender can transiently report 0 tiles (e.g. a
+      // failed/re-rolled spawn) while an attack against it is still live —
+      // Infinity here NaN-poisons the attack and crashes removeTroops.
+      const defenderTroopLoss =
+        defender.troops() / Math.max(1, defender.numTilesOwned());
       const traitorMod = defender.isTraitor() ? this.traitorDefenseDebuff() : 1;
       const currentAttackerLoss =
         within(defender.troops() / attackTroops, 0.6, 2) *
@@ -890,7 +894,10 @@ export class Config {
   }
 
   maxTroops(player: EconomyPlayer): number {
-    if (player.type() === PlayerType.Human && this.hasInfiniteTroopsFor(player)) {
+    if (
+      player.type() === PlayerType.Human &&
+      this.hasInfiniteTroopsFor(player)
+    ) {
       return 1_000_000_000;
     }
     if (player.hasFoodEconomy()) {

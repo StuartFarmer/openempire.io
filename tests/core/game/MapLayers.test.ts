@@ -32,9 +32,7 @@ describe("MapLayers", () => {
     for (const name of LAYER_NAMES) {
       const offset = layerPlaneOffset(name, W, H);
       for (let i = 0; i < PLANE; i++) {
-        expect(bytes[offset + i]).toBe(
-          Math.round(source[name][i] * 255),
-        );
+        expect(bytes[offset + i]).toBe(Math.round(source[name][i] * 255));
       }
     }
   });

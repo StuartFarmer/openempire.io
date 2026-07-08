@@ -17,9 +17,7 @@ describe("FetchGameMapLoader", () => {
     );
     const mapData = loader.getMapData(GameMapType.World);
 
-    expect(mapData.webpPath).toBe(
-      "/_assets/maps/world/thumbnail.webp.hashed",
-    );
+    expect(mapData.webpPath).toBe("/_assets/maps/world/thumbnail.webp.hashed");
     expect(mapData.terrainColorsPath).toBe(
       "/_assets/maps/world/terrain-colors.png.hashed",
     );

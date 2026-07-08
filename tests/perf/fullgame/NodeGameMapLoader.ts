@@ -30,6 +30,8 @@ export class NodeGameMapLoader implements GameMapLoader {
           fs.readFileSync(path.join(dir, "manifest.json"), "utf8"),
         ) as MapManifest,
       webpPath: path.join(dir, "thumbnail.webp"),
+      // Only fetched when the manifest opts in (layers: true).
+      layersBin: readBin("layers.bin"),
     };
   }
 }

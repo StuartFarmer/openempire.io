@@ -22,6 +22,7 @@ const FREQUENCY_EXEMPTIONS: Set<GameMapName> = new Set([
   "MajorMenor",
   "Pangea001",
   "Pangea002",
+  "Verdantia",
 ]);
 
 // Keys in the en.json "map" section that are UI strings, not map names.

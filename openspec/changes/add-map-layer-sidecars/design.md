@@ -7,10 +7,12 @@ The world engine (`src/games/alternative/world/WorldEngineElevation.ts`) already
 ## Goals / Non-Goals
 
 **Goals**
+
 - Five Uint8 planes (crop, metal, oil, temperature, humidity) readable per-tile inside the sim via a stable accessor executions can rely on for the Tribal/Middle/Modern age mechanics.
 - Zero behavior change for existing maps and for compact map size.
 
 **Non-Goals**
+
 - No runtime world generation (future change; the accessor API is designed so it can slot in later without touching consumers).
 - No derived-layer fallback for hand-drawn maps.
 - No gameplay consumption of layers (that's `add-tribal-food-economy`).

@@ -193,7 +193,9 @@ export class GameMapImpl implements GameMap {
         `layer("${name}") read on a map without a layers sidecar — gate on hasLayers()`,
       );
     }
-    return this.layers_[layerPlaneOffset(name, this.width_, this.height_) + ref];
+    return this.layers_[
+      layerPlaneOffset(name, this.width_, this.height_) + ref
+    ];
   }
 
   ref(x: number, y: number): TileRef {

@@ -1,0 +1,8 @@
+{
+  "id": "Verdantia",
+  "name": "verdantia",
+  "translation_key": "map.verdantia",
+  "categories": ["new", "fictional"],
+  "multiplayer_frequency": 0,
+  "nations": []
+}

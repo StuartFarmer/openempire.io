@@ -10,13 +10,13 @@ import {
   UnitType,
 } from "../../core/game/Game";
 import { GameMap, TileRef } from "../../core/game/GameMap";
-import { LayerName } from "../../core/game/MapLayers";
 import {
   GameUpdateType,
   GameUpdateViewData,
   SpawnPhaseEndUpdate,
 } from "../../core/game/GameUpdates";
 import { ATTACK_DELTA_OUTGOING } from "../../core/game/GameUpdateUtils";
+import { LayerName } from "../../core/game/MapLayers";
 import {
   MotionPlanRecord,
   unpackMotionPlans,

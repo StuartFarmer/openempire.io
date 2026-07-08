@@ -642,10 +642,7 @@ export class NationStructureBehavior {
   }
 
   /** Sample owned tiles near the border; optionally maximize crop fertility. */
-  private spawnTribalStructure(
-    type: UnitType,
-    maximizeCrop: boolean,
-  ): boolean {
+  private spawnTribalStructure(type: UnitType, maximizeCrop: boolean): boolean {
     const game = this.game;
     const player = this.player;
     const border = player.borderTiles();

@@ -6,6 +6,7 @@ export enum GameMapType {
   MajorMenor = "Majora y Menora", // map-generator/assets/maps/majormenor/info.json
   Pangea001 = "Pangea I", // map-generator/assets/maps/pangea001/info.json
   Pangea002 = "Pangea II", // map-generator/assets/maps/pangea002/info.json
+  Verdantia = "verdantia", // map-generator/assets/maps/verdantia/info.json
   World = "World", // map-generator/assets/maps/world/info.json
 }
 
@@ -85,6 +86,13 @@ export const maps: readonly MapInfo[] = [
     id: "Pangea002",
     type: GameMapType.Pangea002,
     translationKey: "map.pangea002",
+    categories: ["new", "fictional"],
+    multiplayerFrequency: 0,
+  },
+  {
+    id: "Verdantia",
+    type: GameMapType.Verdantia,
+    translationKey: "map.verdantia",
     categories: ["new", "fictional"],
     multiplayerFrequency: 0,
   },

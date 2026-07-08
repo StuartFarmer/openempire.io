@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { AttackExecution } from "../src/core/execution/AttackExecution";
 import { NationStructureBehavior } from "../src/core/execution/nation/NationStructureBehavior";
 import { PlayerExecution } from "../src/core/execution/PlayerExecution";
-import { PseudoRandom } from "../src/core/PseudoRandom";
 import {
   Game,
   Player,
@@ -10,6 +9,7 @@ import {
   PlayerType,
   UnitType,
 } from "../src/core/game/Game";
+import { PseudoRandom } from "../src/core/PseudoRandom";
 import { setup } from "./util/Setup";
 
 /**
@@ -280,7 +280,11 @@ describe("Tribal buildings", () => {
   test("Settlement raises the population cap; losing it lowers it", () => {
     const f = game.config().food();
     const base = game.config().maxTroops(player);
-    const settlement = player.buildUnit(UnitType.Settlement, game.ref(1, 1), {});
+    const settlement = player.buildUnit(
+      UnitType.Settlement,
+      game.ref(1, 1),
+      {},
+    );
     expect(game.config().maxTroops(player)).toBe(
       base + f.populationPerSettlement,
     );
@@ -336,9 +340,29 @@ describe("Tribal buildings", () => {
   });
 });
 
+describe("Baked layered fixture", () => {
+  test("tribalsmall loads its layers.bin through setup()", async () => {
+    const game = await setup("tribalsmall", {}, [humanInfo]);
+    expect(game.hasLayers()).toBe(true);
+    // A generated world has varied fertility, not a flat plane.
+    const crops = new Set<number>();
+    for (let y = 0; y < 64; y += 4) {
+      for (let x = 0; x < 64; x += 4) {
+        crops.add(game.layer("crop", game.ref(x, y)));
+      }
+    }
+    expect(crops.size).toBeGreaterThan(1);
+  });
+});
+
 describe("Tribal bot economy", () => {
   test("nation bot builds all three structures and survives at default knobs", async () => {
-    const botInfo = new PlayerInfo("botland", PlayerType.Nation, null, "bot_id");
+    const botInfo = new PlayerInfo(
+      "botland",
+      PlayerType.Nation,
+      null,
+      "bot_id",
+    );
     // Scarce world: a small fertile patch, near-barren elsewhere — so the
     // Farmland trigger (production trailing consumption) actually fires.
     const game = await setup(

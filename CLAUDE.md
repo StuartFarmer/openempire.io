@@ -7,20 +7,20 @@ This is a **lean fork of OpenFront.io**: vanilla game rules, singleplayer-only, 
 ## Commands
 
 ```bash
-npm run inst        # Install deps (npm ci --ignore-scripts — do NOT use npm install)
-npm run dev         # Single vite process, hot reload (no game server exists)
-npm test            # Run all tests (Vitest)
-npm run lint        # ESLint
-npm run format      # Prettier
-npm run gen-maps    # Bake maps: map-generator/assets/maps/* → resources/maps/* + Maps.gen.ts (needs Go)
-npm run build-prod  # Production build (static site)
+npm run inst       # Install deps (npm ci --ignore-scripts — do NOT use npm install)
+npm run dev        # Single vite process, hot reload (no game server exists)
+npm test           # Run all tests (Vitest)
+npm run lint       # ESLint
+npm run format     # Prettier
+npm run gen-maps   # Bake maps: map-generator/assets/maps/* → resources/maps/* + Maps.gen.ts (needs Go)
+npm run build-prod # Production build (static site)
 ```
 
 **Run a single test file:**
 
 ```bash
 npx vitest tests/YourTest.test.ts --run
-npx vitest TerrainMapLoader --run   # match by name pattern
+npx vitest TerrainMapLoader --run # match by name pattern
 ```
 
 **Known-failing baseline** (pre-existing WIP breakage, not regressions — do not "fix" incidentally, but don't add to it): `tests/InputHandler.test.ts`, `tests/UserSettings.test.ts`, `tests/client/sound/SoundManager.test.ts`, `tests/client/view/GameView.test.ts`, `tests/client/view/PlayerView.test.ts`. Everything else must pass.
@@ -58,26 +58,26 @@ GeneratorPage (#generator route, in-browser, seeded WorldEngine)
 
 ## Boundaries — read before making changes
 
-- **Game rules stay vanilla.** Do not remove or alter core sim features (nukes, trains, warships, alliances, teams, bots, win conditions…). This fork changes *terrain*, not *rules*. Gameplay experiments live in git history (branch `analysis-game-board-library-componentization`), not here.
+- **Game rules stay vanilla.** Do not remove or alter core sim features (nukes, trains, warships, alliances, teams, bots, win conditions…). This fork changes _terrain_, not _rules_. Gameplay experiments live in git history (branch `analysis-game-board-library-componentization`), not here.
 - **Do not re-add stripped subsystems** (server, auth/JWT, cosmetics/patterns/store, clans, ads, analytics, matchmaking, chat UI, moderation, CI/deploy scripts) unless explicitly asked.
 - `src/games/alternative/index.ts` re-exports only the world generator. Don't grow it back into a gameplay module without an explicit request.
 
 ## Key files
 
-| File                                           | Purpose                                    |
-| ---------------------------------------------- | ------------------------------------------ |
-| `src/core/Schemas.ts`                          | Intent/message types (zod)                 |
-| `src/core/GameRunner.ts`                       | Sim orchestrator (tick loop)               |
-| `src/core/game/GameImpl.ts`                    | Game state implementation                  |
-| `src/core/game/GameMap.ts`                     | Tile storage + bit format decoder          |
-| `src/core/game/Maps.gen.ts`                    | Generated map registry — never hand-edit   |
-| `src/client/LocalServer.ts`                    | In-browser "server" (turn loop)            |
-| `src/client/ClientGameRunner.ts`               | Client game loop (joinLobby entry)         |
-| `src/client/board/GameBoard.ts`                | Embeddable board library                   |
-| `src/client/GeneratorPage.ts`                  | World-generator UI (#generator)            |
-| `src/games/alternative/world/`                 | Procedural world engine                    |
-| `map-generator/map_generator.go`               | Map baker (terrain encoding)               |
-| `tests/util/Setup.ts`                          | Test helper — creates test games           |
+| File                             | Purpose                                  |
+| -------------------------------- | ---------------------------------------- |
+| `src/core/Schemas.ts`            | Intent/message types (zod)               |
+| `src/core/GameRunner.ts`         | Sim orchestrator (tick loop)             |
+| `src/core/game/GameImpl.ts`      | Game state implementation                |
+| `src/core/game/GameMap.ts`       | Tile storage + bit format decoder        |
+| `src/core/game/Maps.gen.ts`      | Generated map registry — never hand-edit |
+| `src/client/LocalServer.ts`      | In-browser "server" (turn loop)          |
+| `src/client/ClientGameRunner.ts` | Client game loop (joinLobby entry)       |
+| `src/client/board/GameBoard.ts`  | Embeddable board library                 |
+| `src/client/GeneratorPage.ts`    | World-generator UI (#generator)          |
+| `src/games/alternative/world/`   | Procedural world engine                  |
+| `map-generator/map_generator.go` | Map baker (terrain encoding)             |
+| `tests/util/Setup.ts`            | Test helper — creates test games         |
 
 ## UI text / i18n
 

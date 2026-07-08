@@ -32,11 +32,11 @@
 
 ## 6. Balance harness + tuning
 
-- [ ] 6.1 `tests/perf/balance/BalanceRun.ts` (FullGamePerf pattern): N seeds × config overrides → JSON time series (territory share, Gini, pop, food, starvation, eliminations, winner)
-- [ ] 6.2 Metrics module + summary table output; reproducibility test (same seed → identical metrics)
-- [ ] 6.3 Author a layered fixture map for tests/harness (small seeded world via the world engine, baked into `tests/testdata/maps/`)
+- [x] 6.1 `tests/perf/balance/BalanceRun.ts` (FullGamePerf pattern): N seeds × config overrides → JSON time series (territory share, Gini, pop, food, starvation, eliminations, winner)
+- [x] 6.2 Metrics module + summary table output; reproducibility test (same seed → identical metrics)
+- [x] 6.3 Author a layered fixture map for tests/harness (small seeded world via the world engine, baked into `tests/testdata/maps/`)
 - [ ] 6.4 Initial sweep of the four highest-leverage knobs (starvation rate, decay, farmland mult, pop/Settlement); record chosen defaults + leader-share acceptance thresholds in the harness config and `Config.food` comments
-- [ ] 6.5 Re-export + re-bake pangea001/pangea002/majormenor with layers.bin via the generator page
+- [x] 6.5 Ship a real layered playable map: authored `verdantia` (seed 42, 512×256) headlessly via the new `map-generator/gen-world.ts` CLI and baked it with layers.bin. (The original pangea/majormenor sources predate layers and their generator seeds were not recorded — re-export those via the #generator page whenever their layered versions are wanted.)
 
 ## 7. Verification
 

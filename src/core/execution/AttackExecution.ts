@@ -80,6 +80,7 @@ export class AttackExecution implements Execution {
       return;
     }
 
+
     // ALLIANCE CHECK — block attacks on friendly (ally or same team)
     if (this.target.isPlayer()) {
       const targetPlayer = this.target as Player;

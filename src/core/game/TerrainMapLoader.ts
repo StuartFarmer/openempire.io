@@ -75,7 +75,11 @@ export async function loadTerrainMap(
 
   const gameMap =
     mapSize === GameMapSize.Normal
-      ? await genTerrainFromBin(manifest.map, await mapFiles.mapBin(), layersData)
+      ? await genTerrainFromBin(
+          manifest.map,
+          await mapFiles.mapBin(),
+          layersData,
+        )
       : await genTerrainFromBin(manifest.map4x, await mapFiles.map4xBin());
 
   const miniMap =

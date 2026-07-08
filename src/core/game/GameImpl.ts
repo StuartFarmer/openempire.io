@@ -39,8 +39,8 @@ import {
   UnitType,
 } from "./Game";
 import { GameMap, TileRef } from "./GameMap";
-import { LayerName } from "./MapLayers";
 import { GameUpdate, GameUpdateType } from "./GameUpdates";
+import { LayerName } from "./MapLayers";
 import { MotionPlanRecord, packMotionPlans } from "./MotionPlans";
 import { PlayerImpl } from "./PlayerImpl";
 import { RailNetwork } from "./RailNetwork";

@@ -69,7 +69,6 @@ export class MainRadialMenu extends LitElement implements Controller {
       this.eventBus,
       this.uiState,
     );
-
   }
 
   init() {

@@ -489,7 +489,6 @@ export class SettingsModal extends LitElement implements Controller {
                 ${translateText("user_setting.development_only")}
               </div>
 
-
               <button
                 class="flex gap-3 items-center w-full text-left p-3 hover:bg-slate-700 rounded-sm text-white transition-colors"
                 @click="${this.onRenderDebugGuiButtonClick}"

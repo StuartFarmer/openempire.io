@@ -64,6 +64,15 @@ export async function setup(
   ) satisfies MapManifest;
 
   let layersData: Uint8Array | null = null;
+  // Baked fixture maps carry a real layers.bin (manifest.layers); synthetic
+  // layers via layersFill take precedence when both are given.
+  if (layersFill === undefined && manifest.layers === true) {
+    const layersPath = path.join(
+      currentDir,
+      `../testdata/maps/${mapName}/layers.bin`,
+    );
+    layersData = new Uint8Array(fs.readFileSync(layersPath));
+  }
   if (layersFill !== undefined) {
     const { width, height } = manifest.map;
     layersData = new Uint8Array(expectedLayersByteLength(width, height));
@@ -77,7 +86,11 @@ export async function setup(
     }
   }
 
-  const gameMap = await genTerrainFromBin(manifest.map, mapBinBuffer, layersData);
+  const gameMap = await genTerrainFromBin(
+    manifest.map,
+    mapBinBuffer,
+    layersData,
+  );
   const miniGameMap = await genTerrainFromBin(manifest.map4x, miniMapBinBuffer);
 
   const gameConfig: GameConfig = {
