@@ -424,10 +424,12 @@ export class NationStructureBehavior {
     this.reachableStationsCache = null;
     const config = this.game.config();
 
-    // Tribal-age economy: on layered maps, food buildings take priority over
-    // gold structures — a starving nation has no use for a port.
-    if (this.player.hasFoodEconomy() && this.tryBuildTribalStructures()) {
-      return true;
+    // Tribal-age economy: on layered maps, nations build ONLY food
+    // buildings (Settlement/Farmland/Barn) — no ports/factories/cities.
+    // Gold structures rejoin the bot build order with the Metal-age spec.
+    // (Defense posts are handled separately in handleStructures and stay.)
+    if (this.player.hasFoodEconomy()) {
+      return this.tryBuildTribalStructures();
     }
     const citiesDisabled = config.isUnitDisabled(UnitType.City);
     const cityCount = citiesDisabled
@@ -625,14 +627,20 @@ export class NationStructureBehavior {
       return true;
     }
 
-    const barnLevels = player
-      .units(UnitType.Barn)
-      .filter((b) => !b.isUnderConstruction())
-      .reduce((sum, b) => sum + b.level(), 0);
+    // Barn when the stock sits near the ceiling — but bounded by settlement
+    // count (storage scales with towns), else a saturated economy barn-spams
+    // forever: every new barn refills to cap and re-fires the trigger.
+    const levels = (type: UnitType) =>
+      player
+        .units(type)
+        .filter((u) => !u.isUnderConstruction())
+        .reduce((sum, u) => sum + u.level(), 0);
+    const barnLevels = levels(UnitType.Barn);
     const storageCap = f.baseStorage + barnLevels * f.storagePerBarn;
     if (
       food >= 0.9 * storageCap &&
       food >= f.barnCost &&
+      barnLevels < levels(UnitType.Settlement) &&
       this.spawnTribalStructure(UnitType.Barn, false)
     ) {
       return true;

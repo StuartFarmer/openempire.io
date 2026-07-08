@@ -55,9 +55,14 @@ Each Barn SHALL raise the storage cap by a configured amount; base storage witho
 
 ### Requirement: Bots build Tribal structures
 
-On layered maps, nation bots SHALL build Settlements, Farmland, and Barns with a simple heuristic (favoring fertile tiles for Farmland) so bot economies exercise the same rules as players.
+On layered maps, nation bots SHALL build Settlements, Farmland, and Barns with a simple heuristic (favoring fertile tiles for Farmland) so bot economies exercise the same rules as players. Nation bots SHALL NOT build gold structures (Port, Factory, City, missile/SAM sites) on layered maps — the Tribal age is food-focused; gold structures rejoin the bot build order in the Metal-age change. Defense posts (reactive defense) are unaffected, and human players remain free to build anything.
 
 #### Scenario: Bot economy participates
 
 - **WHEN** a seeded singleplayer game runs on a layered map with nation bots
 - **THEN** bots construct Tribal buildings and their populations obey the same food rules
+
+#### Scenario: No Tribal-age port spam
+
+- **WHEN** a seeded game runs on a layered map with nation bots
+- **THEN** nations build zero Ports/Factories/Cities while Settlements, Farmland, and Barns appear

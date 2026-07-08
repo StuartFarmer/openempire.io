@@ -119,6 +119,8 @@ interface RunResult {
   firstElimTick: number | null;
   finalLeaderShare: number;
   finalAlive: number;
+  /** Structure counts across alive players at the end of the run. */
+  structures: Record<string, number>;
   stateHash: number | null;
 }
 
@@ -286,6 +288,13 @@ async function runOne(
   }
 
   const last = series[series.length - 1];
+  const structures: Record<string, number> = {};
+  for (const p of game.players()) {
+    if (!p.isAlive()) continue;
+    for (const u of p.units()) {
+      structures[u.type()] = (structures[u.type()] ?? 0) + 1;
+    }
+  }
   return {
     seed,
     spawnTurns,
@@ -293,6 +302,7 @@ async function runOne(
     firstElimTick,
     finalLeaderShare: last.leaderShare,
     finalAlive: last.alive,
+    structures,
     stateHash: lastHash?.hash ?? null,
   };
 }
@@ -323,7 +333,8 @@ async function main(): Promise<void> {
     );
     consoleLog(
       `run ${seed}: alive ${results[i].finalAlive}, leader ${(results[i].finalLeaderShare * 100).toFixed(1)}%, ` +
-        `gini ${results[i].series[results[i].series.length - 1].gini.toFixed(3)}, firstElim ${results[i].firstElimTick ?? "—"}, hash ${results[i].stateHash}`,
+        `gini ${results[i].series[results[i].series.length - 1].gini.toFixed(3)}, firstElim ${results[i].firstElimTick ?? "—"}, hash ${results[i].stateHash}\n` +
+        `  structures: ${JSON.stringify(results[i].structures)}`,
     );
   }
 
