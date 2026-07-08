@@ -55,7 +55,6 @@ export const USER_SETTINGS_CHANGED_EVENT = "event:user-settings-changed";
 export const PATTERN_KEY = "territoryPattern";
 export const FLAG_KEY = "flag";
 export const COLOR_KEY = "settings.territoryColor";
-export const PERFORMANCE_OVERLAY_KEY = "settings.performanceOverlay";
 export const KEYBINDS_KEY = "settings.keybinds";
 export const GRAPHICS_KEY = "settings.graphics";
 export const EFFECTS_KEY = "settings.effects";
@@ -139,10 +138,6 @@ export class UserSettings {
     return this.getBool("settings.emojis", true);
   }
 
-  performanceOverlay() {
-    return this.getBool(PERFORMANCE_OVERLAY_KEY, false);
-  }
-
   alertFrame() {
     return this.getBool("settings.alertFrame", true);
   }
@@ -189,15 +184,6 @@ export class UserSettings {
 
   toggleEmojis() {
     this.setBool("settings.emojis", !this.emojis());
-  }
-
-  // Performance overlay specifically needs a direct setter for Shift-D
-  setPerformanceOverlay(value: boolean) {
-    this.setBool(PERFORMANCE_OVERLAY_KEY, value);
-  }
-
-  togglePerformanceOverlay() {
-    this.setBool(PERFORMANCE_OVERLAY_KEY, !this.performanceOverlay());
   }
 
   toggleAlertFrame() {

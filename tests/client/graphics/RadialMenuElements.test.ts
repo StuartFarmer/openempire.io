@@ -145,10 +145,8 @@ describe("RadialMenuElements", () => {
       playerActions: mockPlayerActions,
       game: mockGame,
       buildMenu: mockBuildMenu,
-      emojiTable: {} as any,
       playerActionHandler: {} as any,
       playerPanel: {} as any,
-      chatIntegration: {} as any,
       eventBus: {} as any,
       closeMenu: vi.fn(),
     };

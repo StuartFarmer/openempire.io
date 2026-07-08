@@ -86,7 +86,6 @@ export class RefreshGraphicsEvent implements GameEvent {}
 
 export class ToggleRenderDebugGuiEvent implements GameEvent {}
 
-export class TogglePerformanceOverlayEvent implements GameEvent {}
 
 export class ToggleStructureEvent implements GameEvent {
   constructor(
@@ -299,9 +298,6 @@ export class InputHandler {
     this.addKeybindAndEvent(this.keybinds.swapDirection, () => {
       const nextDirection = !this.uiState.rocketDirectionUp;
       this.eventBus.emit(new SwapRocketDirectionEvent(nextDirection));
-    });
-    this.addKeybindAndEvent("Shift+KeyD", () => {
-      this.eventBus.emit(new TogglePerformanceOverlayEvent());
     });
     this.addKeybindAndEvent(this.keybinds.toggleView, () => {
       this.alternateView = false;

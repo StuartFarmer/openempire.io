@@ -14,15 +14,11 @@ import { MapRenderer } from "../render/gl";
 import { TransformHandler } from "../TransformHandler";
 import { UIState } from "../UIState";
 import { GameView } from "../view";
-import { FrameProfiler } from "./FrameProfiler";
 import { ActionableEvents } from "./layers/ActionableEvents";
 import { AlertFrame } from "./layers/AlertFrame";
 import { AttacksDisplay } from "./layers/AttacksDisplay";
 import { BuildMenu } from "./layers/BuildMenu";
-import { ChatDisplay } from "./layers/ChatDisplay";
-import { ChatModal } from "./layers/ChatModal";
 import { ControlPanel } from "./layers/ControlPanel";
-import { EmojiTable } from "./layers/EmojiTable";
 import { EventsDisplay } from "./layers/EventsDisplay";
 import { GameLeftSidebar } from "./layers/GameLeftSidebar";
 import { GameRightSidebar } from "./layers/GameRightSidebar";
@@ -31,8 +27,6 @@ import { HeadsUpMessage } from "./layers/HeadsUpMessage";
 import { ImmunityTimer } from "./layers/ImmunityTimer";
 import { Leaderboard } from "./layers/Leaderboard";
 import { MainRadialMenu } from "./layers/MainRadialMenu";
-import { MultiTabModal } from "./layers/MultiTabModal";
-import { PerformanceOverlay } from "./layers/PerformanceOverlay";
 import { PlayerInfoOverlay } from "./layers/PlayerInfoOverlay";
 import { PlayerPanel } from "./layers/PlayerPanel";
 import { ReplayPanel } from "./layers/ReplayPanel";
@@ -64,15 +58,6 @@ export function createRenderer(
     "game-starting-modal",
   ) as GameStartingModal;
   startingModal.hide();
-
-  // TODO maybe append this to document instead of querying for them?
-  const emojiTable = document.querySelector("emoji-table") as EmojiTable;
-  if (!emojiTable || !(emojiTable instanceof EmojiTable)) {
-    console.error("EmojiTable element not found in the DOM");
-  }
-  emojiTable.transformHandler = transformHandler;
-  emojiTable.game = game;
-  emojiTable.initEventBus(eventBus);
 
   const buildMenu = document.querySelector("build-menu") as BuildMenu;
   if (!buildMenu || !(buildMenu instanceof BuildMenu)) {
@@ -144,13 +129,6 @@ export function createRenderer(
   attacksDisplay.game = game;
   attacksDisplay.uiState = uiState;
 
-  const chatDisplay = document.querySelector("chat-display") as ChatDisplay;
-  if (!(chatDisplay instanceof ChatDisplay)) {
-    console.error("chat display not found");
-  }
-  chatDisplay.eventBus = eventBus;
-  chatDisplay.game = game;
-
   const playerInfo = document.querySelector(
     "player-info-overlay",
   ) as PlayerInfoOverlay;
@@ -216,25 +194,9 @@ export function createRenderer(
   }
   playerPanel.g = game;
   playerPanel.initEventBus(eventBus);
-  playerPanel.emojiTable = emojiTable;
   playerPanel.uiState = uiState;
 
   playerPanel.setRole(playerRole);
-
-  const chatModal = document.querySelector("chat-modal") as ChatModal;
-  if (!(chatModal instanceof ChatModal)) {
-    console.error("chat modal not found");
-  }
-  chatModal.g = game;
-  chatModal.initEventBus(eventBus);
-
-  const multiTabModal = document.querySelector(
-    "multi-tab-modal",
-  ) as MultiTabModal;
-  if (!(multiTabModal instanceof MultiTabModal)) {
-    console.error("multi-tab modal not found");
-  }
-  multiTabModal.game = game;
 
   const headsUpMessage = document.querySelector(
     "heads-up-message",
@@ -243,15 +205,6 @@ export function createRenderer(
     console.error("heads-up message not found");
   }
   headsUpMessage.game = game;
-
-  const performanceOverlay = document.querySelector(
-    "performance-overlay",
-  ) as PerformanceOverlay;
-  if (!(performanceOverlay instanceof PerformanceOverlay)) {
-    console.error("performance overlay not found");
-  }
-  performanceOverlay.eventBus = eventBus;
-  performanceOverlay.userSettings = userSettings;
 
   const alertFrame = document.querySelector("alert-frame") as AlertFrame;
   if (!(alertFrame instanceof AlertFrame)) {
@@ -295,13 +248,11 @@ export function createRenderer(
     eventsDisplay,
     actionableEvents,
     attacksDisplay,
-    chatDisplay,
     buildMenu,
     new MainRadialMenu(
       eventBus,
       game,
       transformHandler,
-      emojiTable as EmojiTable,
       buildMenu,
       uiState,
       playerPanel,
@@ -321,17 +272,10 @@ export function createRenderer(
     teamStats,
     playerPanel,
     headsUpMessage,
-    multiTabModal,
     alertFrame,
-    performanceOverlay,
   ];
 
-  return new GameRenderer(
-    transformHandler,
-    uiState,
-    layers,
-    performanceOverlay,
-  );
+  return new GameRenderer(transformHandler, uiState, layers);
 }
 
 export class GameRenderer {
@@ -341,7 +285,6 @@ export class GameRenderer {
     public transformHandler: TransformHandler,
     public uiState: UIState,
     private layers: Controller[],
-    private performanceOverlay: PerformanceOverlay,
   ) {}
 
   initialize() {
@@ -361,9 +304,6 @@ export class GameRenderer {
 
   tick() {
     const nowMs = performance.now();
-    const shouldProfileTick = FrameProfiler.isEnabled();
-
-    const tickLayerDurations: Record<string, number> = {};
 
     for (const layer of this.layers) {
       if (!layer.tick) {
@@ -383,17 +323,7 @@ export class GameRenderer {
       state.lastTickAtMs = nowMs;
       this.layerTickState.set(layer, state);
 
-      const tickStart = shouldProfileTick ? performance.now() : 0;
       layer.tick();
-      if (shouldProfileTick && tickStart !== 0) {
-        const duration = performance.now() - tickStart;
-        const label = layer.constructor?.name ?? "UnknownLayer";
-        tickLayerDurations[label] = (tickLayerDurations[label] ?? 0) + duration;
-      }
-    }
-
-    if (shouldProfileTick) {
-      this.performanceOverlay.updateTickLayerMetrics(tickLayerDurations);
     }
   }
 }

@@ -3,20 +3,17 @@ import { customElement, state } from "lit/decorators.js";
 import { assetUrl } from "../../../core/AssetUrls";
 import { EventBus } from "../../../core/EventBus";
 import {
-  AllPlayers,
   PlayerActions,
   PlayerProfile,
   PlayerType,
   Relation,
 } from "../../../core/game/Game";
 import { TileRef } from "../../../core/game/GameMap";
-import { Emoji, flattenedEmojiTable } from "../../../core/Util";
 import {
   SendAllianceRequestIntentEvent,
   SendBreakAllianceIntentEvent,
   SendEmbargoAllIntentEvent,
   SendEmbargoIntentEvent,
-  SendEmojiIntentEvent,
   SendTargetPlayerIntentEvent,
 } from "../../board/BoardEvents";
 import { actionButton } from "../../components/ui/ActionButton";
@@ -35,16 +32,10 @@ import {
   translateText,
 } from "../../Utils";
 import { GameView, PlayerView } from "../../view";
-import { ChatModal } from "./ChatModal";
-import { EmojiTable } from "./EmojiTable";
-import "./PlayerModerationModal";
 import "./SendResourceModal";
 const allianceIcon = assetUrl("images/AllianceIconWhite.svg");
-const chatIcon = assetUrl("images/ChatIconWhite.svg");
 const donateGoldIcon = assetUrl("images/DonateGoldIconWhite.svg");
 const donateTroopIcon = assetUrl("images/DonateTroopIconWhite.svg");
-const emojiIcon = assetUrl("images/EmojiIconWhite.svg");
-const shieldIcon = assetUrl("images/ShieldIconWhite.svg");
 const stopTradingIcon = assetUrl("images/StopIconWhite.png");
 const targetIcon = assetUrl("images/TargetIconWhite.svg");
 const startTradingIcon = assetUrl("images/TradingIconWhite.png");
@@ -55,13 +46,11 @@ const breakAllianceIcon = assetUrl("images/TraitorIconWhite.svg");
 export class PlayerPanel extends LitElement implements Controller {
   public g: GameView;
   public eventBus: EventBus;
-  public emojiTable: EmojiTable;
   public uiState: UIState;
 
   private actions: PlayerActions | null = null;
   private tile: TileRef | null = null;
   private _profileForPlayerId: number | null = null;
-  private kickedPlayerIDs = new Set<string>();
 
   @state() private sendTarget: PlayerView | null = null;
   @state() private sendMode: "troops" | "gold" | "none" = "none";
@@ -70,18 +59,11 @@ export class PlayerPanel extends LitElement implements Controller {
   @state() private allianceExpirySeconds: number | null = null;
   @state() private otherProfile: PlayerProfile | null = null;
   @state() private suppressNextHide: boolean = false;
-  @state() private moderationTarget: PlayerView | null = null;
   @state() private playerRole: string | null = null;
 
   setRole(role: string | null): void {
     this.playerRole = role;
   }
-
-  private get isAdminRole(): boolean {
-    return this.playerRole === "admin" || this.playerRole === "root";
-  }
-
-  private ctModal: ChatModal;
 
   createRenderRoot() {
     return this;
@@ -107,11 +89,6 @@ export class PlayerPanel extends LitElement implements Controller {
       }
       this.hide();
     });
-
-    this.ctModal = document.querySelector("chat-modal") as ChatModal;
-    if (!this.ctModal) {
-      console.warn("ChatModal element not found in DOM");
-    }
   }
 
   async tick() {
@@ -155,7 +132,6 @@ export class PlayerPanel extends LitElement implements Controller {
   public show(actions: PlayerActions, tile: TileRef) {
     this.actions = actions;
     this.tile = tile;
-    this.moderationTarget = null;
     this.isVisible = true;
     this.requestUpdate();
   }
@@ -170,7 +146,6 @@ export class PlayerPanel extends LitElement implements Controller {
     this.tile = tile;
     this.sendTarget = target;
     this.sendMode = "gold";
-    this.moderationTarget = null;
     this.isVisible = true;
     this.requestUpdate();
   }
@@ -179,7 +154,6 @@ export class PlayerPanel extends LitElement implements Controller {
     this.isVisible = false;
     this.sendMode = "none";
     this.sendTarget = null;
-    this.moderationTarget = null;
     this.requestUpdate();
   }
 
@@ -280,63 +254,11 @@ export class PlayerPanel extends LitElement implements Controller {
     this.eventBus.emit(new SendEmbargoAllIntentEvent("stop"));
   }
 
-  private handleEmojiClick(e: Event, myPlayer: PlayerView, other: PlayerView) {
-    e.stopPropagation();
-    this.emojiTable.showTable((emoji: string) => {
-      if (myPlayer === other) {
-        this.eventBus.emit(
-          new SendEmojiIntentEvent(
-            AllPlayers,
-            flattenedEmojiTable.indexOf(emoji as Emoji),
-          ),
-        );
-      } else {
-        this.eventBus.emit(
-          new SendEmojiIntentEvent(
-            other,
-            flattenedEmojiTable.indexOf(emoji as Emoji),
-          ),
-        );
-      }
-      this.emojiTable.hideTable();
-      this.hide();
-    });
-  }
-
-  private handleChat(e: Event, sender: PlayerView, other: PlayerView) {
-    e.stopPropagation();
-
-    if (!this.ctModal) {
-      console.warn("ChatModal element not found in DOM");
-      return;
-    }
-
-    this.ctModal.open(sender, other);
-    this.hide();
-  }
-
   private handleTargetClick(e: Event, other: PlayerView) {
     e.stopPropagation();
     this.eventBus.emit(new SendTargetPlayerIntentEvent(other.id()));
     this.hide();
   }
-
-  private openModeration(e: MouseEvent, other: PlayerView) {
-    e.stopPropagation();
-    this.suppressNextHide = true;
-    this.moderationTarget = other;
-  }
-
-  private closeModeration = () => {
-    this.moderationTarget = null;
-  };
-
-  private handleModerationKicked = (e: CustomEvent<{ playerId?: string }>) => {
-    const playerId = e.detail?.playerId;
-    if (playerId) this.kickedPlayerIDs.add(String(playerId));
-    this.closeModeration();
-    this.hide();
-  };
 
   private handleToggleRocketDirection(e: Event) {
     e.stopPropagation();
@@ -445,29 +367,6 @@ export class PlayerPanel extends LitElement implements Controller {
                 </span>`
             : ""}
         </span>
-      </div>
-    `;
-  }
-
-  private renderModeration(
-    my: PlayerView,
-    other: PlayerView,
-    isAdmin: boolean,
-  ) {
-    if (!my.isLobbyCreator() && !isAdmin) return html``;
-    const moderationTitle = translateText("player_panel.moderation");
-
-    return html`
-      <ui-divider></ui-divider>
-      <div class="grid auto-cols-fr grid-flow-col gap-1">
-        ${actionButton({
-          onClick: (e: MouseEvent) => this.openModeration(e, other),
-          icon: shieldIcon,
-          iconAlt: "Moderation",
-          title: moderationTitle,
-          label: moderationTitle,
-          type: "red",
-        })}
       </div>
     `;
   }
@@ -696,15 +595,10 @@ export class PlayerPanel extends LitElement implements Controller {
   }
 
   private renderActions(my: PlayerView, other: PlayerView) {
-    const myPlayer = this.g.myPlayer();
     const canDonateGold = this.actions?.interaction?.canDonateGold;
     const canDonateTroops = this.actions?.interaction?.canDonateTroops;
     const canSendAllianceRequest =
       this.actions?.interaction?.canSendAllianceRequest;
-    const canSendEmoji =
-      other === myPlayer
-        ? this.actions?.canSendEmojiAllPlayers
-        : this.actions?.interaction?.canSendEmoji;
     const canBreakAlliance = this.actions?.interaction?.canBreakAlliance;
     const canTarget = this.actions?.interaction?.canTarget;
     const canEmbargo = this.actions?.interaction?.canEmbargo;
@@ -712,23 +606,6 @@ export class PlayerPanel extends LitElement implements Controller {
     return html`
       <div class="flex flex-col gap-2.5">
         <div class="grid auto-cols-fr grid-flow-col gap-1">
-          ${actionButton({
-            onClick: (e: MouseEvent) => this.handleChat(e, my, other),
-            icon: chatIcon,
-            iconAlt: "Chat",
-            title: translateText("player_panel.chat"),
-            label: translateText("player_panel.chat"),
-          })}
-          ${canSendEmoji
-            ? actionButton({
-                onClick: (e: MouseEvent) => this.handleEmojiClick(e, my, other),
-                icon: emojiIcon,
-                iconAlt: "Emoji",
-                title: translateText("player_panel.emotes"),
-                label: translateText("player_panel.emotes"),
-                type: "normal",
-              })
-            : ""}
           ${canTarget
             ? actionButton({
                 onClick: (e: MouseEvent) => this.handleTargetClick(e, other),
@@ -840,7 +717,6 @@ export class PlayerPanel extends LitElement implements Controller {
               })}
             </div>`
           : ""}
-        ${this.renderModeration(my, other, this.isAdminRole)}
       </div>
     `;
   }
@@ -951,23 +827,6 @@ export class PlayerPanel extends LitElement implements Controller {
                           ></send-resource-modal>
                         `
                       : ""}
-                    ${this.moderationTarget
-                      ? html`
-                          <player-moderation-modal
-                            .open=${true}
-                            .myPlayer=${my}
-                            .target=${this.moderationTarget}
-                            .eventBus=${this.eventBus}
-                            .isAdmin=${this.isAdminRole}
-                            .alreadyKicked=${this.kickedPlayerIDs.has(
-                              String(this.moderationTarget.id()),
-                            )}
-                            @close=${this.closeModeration}
-                            @kicked=${this.handleModerationKicked}
-                          ></player-moderation-modal>
-                        `
-                      : ""}
-
                     <ui-divider></ui-divider>
 
                     <!-- Resources -->

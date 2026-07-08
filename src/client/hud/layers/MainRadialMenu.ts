@@ -9,8 +9,6 @@ import { TransformHandler } from "../../TransformHandler";
 import { UIState } from "../../UIState";
 import { GameView, PlayerView } from "../../view";
 import { BuildMenu } from "./BuildMenu";
-import { ChatIntegration } from "./ChatIntegration";
-import { EmojiTable } from "./EmojiTable";
 import { PlayerActionHandler } from "./PlayerActionHandler";
 import { PlayerPanel } from "./PlayerPanel";
 import { RadialMenu, RadialMenuConfig } from "./RadialMenu";
@@ -30,7 +28,6 @@ export class MainRadialMenu extends LitElement implements Controller {
   private radialMenu: RadialMenu;
 
   private playerActionHandler: PlayerActionHandler;
-  private chatIntegration: ChatIntegration;
 
   private clickedTile: TileRef | null = null;
 
@@ -42,7 +39,6 @@ export class MainRadialMenu extends LitElement implements Controller {
     private eventBus: EventBus,
     private game: GameView,
     private transformHandler: TransformHandler,
-    private emojiTable: EmojiTable,
     private buildMenu: BuildMenu,
     private uiState: UIState,
     private playerPanel: PlayerPanel,
@@ -74,7 +70,6 @@ export class MainRadialMenu extends LitElement implements Controller {
       this.uiState,
     );
 
-    this.chatIntegration = new ChatIntegration(this.game, this.eventBus);
   }
 
   init() {
@@ -118,10 +113,6 @@ export class MainRadialMenu extends LitElement implements Controller {
     const tileOwner = this.game.owner(tile);
     const recipient = tileOwner.isPlayer() ? (tileOwner as PlayerView) : null;
 
-    if (myPlayer && recipient) {
-      this.chatIntegration.setupChatModal(myPlayer, recipient);
-    }
-
     const params: MenuElementParams = {
       myPlayer,
       selected: recipient,
@@ -129,10 +120,8 @@ export class MainRadialMenu extends LitElement implements Controller {
       playerActions: actions,
       game: this.game,
       buildMenu: this.buildMenu,
-      emojiTable: this.emojiTable,
       playerActionHandler: this.playerActionHandler,
       playerPanel: this.playerPanel,
-      chatIntegration: this.chatIntegration,
       uiState: this.uiState,
       closeMenu: () => this.closeMenu(),
       eventBus: this.eventBus,
@@ -180,10 +169,6 @@ export class MainRadialMenu extends LitElement implements Controller {
 
     if (this.buildMenu.isVisible) {
       this.buildMenu.hideMenu();
-    }
-
-    if (this.emojiTable.isVisible) {
-      this.emojiTable.hideTable();
     }
 
     if (this.playerPanel.isVisible) {

@@ -153,11 +153,6 @@ export class SettingsModal extends LitElement implements Controller {
     this.requestUpdate();
   }
 
-  private onTogglePerformanceOverlayButtonClick() {
-    this.userSettings.togglePerformanceOverlay();
-    this.requestUpdate();
-  }
-
   private onRenderDebugGuiButtonClick() {
     this.eventBus.emit(new ToggleRenderDebugGuiEvent());
     this.closeModal();
@@ -494,30 +489,6 @@ export class SettingsModal extends LitElement implements Controller {
                 ${translateText("user_setting.development_only")}
               </div>
 
-              <button
-                class="flex gap-3 items-center w-full text-left p-3 hover:bg-slate-700 rounded-sm text-white transition-colors"
-                @click="${this.onTogglePerformanceOverlayButtonClick}"
-              >
-                <img
-                  src=${settingsIcon}
-                  alt="performanceIcon"
-                  width="20"
-                  height="20"
-                />
-                <div class="flex-1">
-                  <div class="font-medium">
-                    ${translateText("user_setting.performance_overlay_label")}
-                  </div>
-                  <div class="text-sm text-slate-400">
-                    ${translateText("user_setting.performance_overlay_desc")}
-                  </div>
-                </div>
-                <div class="text-sm text-slate-400">
-                  ${this.userSettings.performanceOverlay()
-                    ? translateText("user_setting.on")
-                    : translateText("user_setting.off")}
-                </div>
-              </button>
 
               <button
                 class="flex gap-3 items-center w-full text-left p-3 hover:bg-slate-700 rounded-sm text-white transition-colors"

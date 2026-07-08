@@ -1,7 +1,6 @@
 import { assetUrl } from "../../../core/AssetUrls";
 import { Config } from "../../../core/configuration/Config";
 import {
-  AllPlayers,
   BuildableAttacks,
   PlayerActions,
   PlayerBuildableUnitType,
@@ -9,13 +8,11 @@ import {
   UnitType,
 } from "../../../core/game/Game";
 import { TileRef } from "../../../core/game/GameMap";
-import { Emoji, findClosestBy, flattenedEmojiTable } from "../../../core/Util";
+import { findClosestBy } from "../../../core/Util";
 import { UIState } from "../../UIState";
 import { renderNumber, translateText } from "../../Utils";
 import { GameView, PlayerView } from "../../view";
 import { BuildItemDisplay, BuildMenu, flattenedBuildTable } from "./BuildMenu";
-import { ChatIntegration } from "./ChatIntegration";
-import { EmojiTable } from "./EmojiTable";
 import { PlayerActionHandler } from "./PlayerActionHandler";
 import { PlayerPanel } from "./PlayerPanel";
 import { TooltipItem } from "./RadialMenu";
@@ -24,10 +21,8 @@ import { EventBus } from "../../../core/EventBus";
 const allianceIcon = assetUrl("images/AllianceIconWhite.svg");
 const boatIcon = assetUrl("images/BoatIconWhite.svg");
 const buildIcon = assetUrl("images/BuildIconWhite.svg");
-const chatIcon = assetUrl("images/ChatIconWhite.svg");
 const donateGoldIcon = assetUrl("images/DonateGoldIconWhite.svg");
 const donateTroopIcon = assetUrl("images/DonateTroopIconWhite.svg");
-const emojiIcon = assetUrl("images/EmojiIconWhite.svg");
 const infoIcon = assetUrl("images/InfoIcon.svg");
 const swordIcon = assetUrl("images/SwordIconWhite.svg");
 const targetIcon = assetUrl("images/TargetIconWhite.svg");
@@ -41,10 +36,8 @@ export interface MenuElementParams {
   playerActions: PlayerActions;
   game: GameView;
   buildMenu: BuildMenu;
-  emojiTable: EmojiTable;
   playerActionHandler: PlayerActionHandler;
   playerPanel: PlayerPanel;
-  chatIntegration: ChatIntegration;
   eventBus: EventBus;
   uiState?: UIState;
   closeMenu: () => void;
@@ -137,24 +130,6 @@ function isDisconnectedTarget(params: MenuElementParams): boolean {
   if (typeof isDisconnected !== "function") return false;
   return isDisconnected.call(selectedPlayer);
 }
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const infoChatElement: MenuElement = {
-  id: "info_chat",
-  name: "chat",
-  disabled: () => false,
-  color: COLORS.chat.default,
-  icon: chatIcon,
-  subMenu: (params: MenuElementParams) =>
-    params.chatIntegration
-      .createQuickChatMenu(params.selected!)
-      .map((item) => ({
-        ...item,
-        action: item.action
-          ? (_params: MenuElementParams) => item.action!(params)
-          : undefined,
-      })),
-};
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const allyTargetElement: MenuElement = {
@@ -310,60 +285,6 @@ const infoPlayerElement: MenuElement = {
   icon: infoIcon,
   action: (params: MenuElementParams) => {
     params.playerPanel.show(params.playerActions, params.tile);
-  },
-};
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const infoEmojiElement: MenuElement = {
-  id: "info_emoji",
-  name: "emoji",
-  disabled: () => false,
-  color: COLORS.infoEmoji,
-  icon: emojiIcon,
-  subMenu: (params: MenuElementParams) => {
-    const emojiElements: MenuElement[] = [
-      {
-        id: "emoji_more",
-        name: "more",
-        disabled: () => false,
-        color: COLORS.infoEmoji,
-        icon: emojiIcon,
-        action: (params: MenuElementParams) => {
-          params.emojiTable.showTable((emoji) => {
-            const targetPlayer =
-              params.selected === params.game.myPlayer()
-                ? AllPlayers
-                : params.selected;
-            params.playerActionHandler.handleEmoji(
-              targetPlayer!,
-              flattenedEmojiTable.indexOf(emoji as Emoji),
-            );
-            params.emojiTable.hideTable();
-          });
-        },
-      },
-    ];
-
-    const emojiCount = 8;
-    for (let i = 0; i < emojiCount; i++) {
-      emojiElements.push({
-        id: `emoji_${i}`,
-        name: flattenedEmojiTable[i],
-        text: flattenedEmojiTable[i],
-        disabled: () => false,
-        fontSize: "25px",
-        action: (params: MenuElementParams) => {
-          const targetPlayer =
-            params.selected === params.game.myPlayer()
-              ? AllPlayers
-              : params.selected;
-          params.playerActionHandler.handleEmoji(targetPlayer!, i);
-          params.closeMenu();
-        },
-      });
-    }
-
-    return emojiElements;
   },
 };
 
