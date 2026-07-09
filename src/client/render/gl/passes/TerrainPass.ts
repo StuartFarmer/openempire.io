@@ -72,6 +72,15 @@ export class TerrainPass {
   }
 
   /**
+   * The base terrain color texture (RGBA8, one texel per tile). Shared with
+   * PlotPass, which derives farmland's tilled-earth colors from the tile's
+   * own terrain color so districts blend with the local biome.
+   */
+  texture(): WebGLTexture {
+    return this.tex;
+  }
+
+  /**
    * Replace the base terrain colors and re-upload the whole terrain texture.
    * Called when the user changes the terrain colors in graphics settings.
    */

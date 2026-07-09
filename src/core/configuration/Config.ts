@@ -563,7 +563,10 @@ export class Config {
             UnitType.Settlement,
           ),
           costResource: "food",
-          upgradable: true,
+          // NOT upgradable: plots multiply, they don't level. An upgradable
+          // tribal plot lets buildableUnits hijack a nearby build click into
+          // an instant, invisible level-up — the "built but nothing
+          // rendered, stats jumped" bug.
         };
         break;
       case UnitType.Farmland:
@@ -579,7 +582,7 @@ export class Config {
         info = {
           cost: this.foodCostWrapper(() => this.food().barnCost, UnitType.Barn),
           costResource: "food",
-          upgradable: true,
+          // NOT upgradable — see Settlement.
         };
         break;
       default:

@@ -1,20 +1,19 @@
 /**
  * PlotCache — per-tile tribal plot buffer (add-tile-painted-structures).
  *
- * Tribal structures (Settlement/Farmland/Barn) are 2×2 tile plots painted
- * into the terrain rather than drawn as sprite icons. This cache maintains
- * a map-sized Uint8Array consumed by PlotPass as an R8UI texture.
+ * Tribal structures (Settlement/Farmland/Barn) occupy a single tile and are
+ * painted into the terrain rather than drawn as sprite icons. This cache
+ * maintains a map-sized Uint8Array consumed by PlotPass as an R8UI texture.
  *
- * Encoding per tile: 0 = no plot, otherwise
- *   value = 1 + typeIdx * 4 + (localY * 2 + localX)
- * where typeIdx is 0 Settlement / 1 Farmland / 2 Barn and (localX, localY)
- * is the tile's position within its plot's 2×2 footprint. Encoding the
- * local parity here lets the fragment shader pick the pattern pixel without
- * any anchor lookups (farmland's light/dark "tilled" rows fall out of
- * localY).
+ * Encoding per tile: 0 = no plot, 1 = Settlement, 2 = Farmland, 3 = Barn
+ * (TRIBAL_PLOT_TYPE_INDEX + 1). The 2×2 "sprite" look (e.g. farmland's
+ * tilled rows) is produced inside the fragment shader from the sub-tile UV,
+ * so the buffer carries only the type.
  *
- * Ownership changes (capture) do not touch the buffer — the pattern is the
- * structure, not the owner.
+ * Plots build instantly and never change tiles; painting happens
+ * unconditionally on unit add and clears on removal. Ownership changes
+ * (capture) do not touch the buffer — the pattern is the structure, not
+ * the owner.
  */
 import { TRIBAL_PLOT_TYPE_INDEX } from "../types";
 
@@ -25,42 +24,21 @@ export class PlotCache {
   /** True if plotState changed this tick; cleared by clearDirty(). */
   plotDirty = false;
 
-  constructor(
-    private readonly mapW: number,
-    private readonly mapH: number,
-  ) {
+  constructor(mapW: number, mapH: number) {
     this.plotState = new Uint8Array(mapW * mapH);
   }
 
-  /** Paint a plot's 2×2 footprint (anchor = top-left tile ref). */
-  addPlot(anchorRef: number, unitType: string): void {
+  /** Paint a plot's tile. */
+  addPlot(ref: number, unitType: string): void {
     const typeIdx = PLOT_TYPE_INDEX.get(unitType);
     if (typeIdx === undefined) return;
-    const ax = anchorRef % this.mapW;
-    const ay = (anchorRef - ax) / this.mapW;
-    for (let ly = 0; ly < 2; ly++) {
-      for (let lx = 0; lx < 2; lx++) {
-        const x = ax + lx;
-        const y = ay + ly;
-        if (x >= this.mapW || y >= this.mapH) continue;
-        this.plotState[y * this.mapW + x] = 1 + typeIdx * 4 + (ly * 2 + lx);
-      }
-    }
+    this.plotState[ref] = 1 + typeIdx;
     this.plotDirty = true;
   }
 
-  /** Clear a plot's footprint (on unit deletion). */
-  removePlot(anchorRef: number): void {
-    const ax = anchorRef % this.mapW;
-    const ay = (anchorRef - ax) / this.mapW;
-    for (let ly = 0; ly < 2; ly++) {
-      for (let lx = 0; lx < 2; lx++) {
-        const x = ax + lx;
-        const y = ay + ly;
-        if (x >= this.mapW || y >= this.mapH) continue;
-        this.plotState[y * this.mapW + x] = 0;
-      }
-    }
+  /** Clear a plot's tile (on unit deletion). */
+  removePlot(ref: number): void {
+    this.plotState[ref] = 0;
     this.plotDirty = true;
   }
 

@@ -505,18 +505,21 @@ export class BuildPreviewController implements Controller {
     }
   }
 
-  /** Anchors attempted during the current paint drag (cleared on pointer down). */
+  /** Tiles attempted during the current paint stroke (cleared on pointer down). */
   private readonly paintedAnchors: Set<number> = new Set();
 
   /**
-   * Paint-mode drag placement: one build intent per new valid plot anchor the
-   * cursor crosses. Cheap client-side prechecks only — the sim re-validates
+   * Stroke painting (ported from the reference foundation
+   * ConstructionController): one build intent per new valid tile the cursor
+   * crosses while the pointer is held. Plain per-stroke tile dedupe — plots
+   * are single tiles. Cheap client-side prechecks only; the sim re-validates
    * authoritatively (cost, exact ownership, occupancy).
    */
   private paintAt(screenX: number, screenY: number): void {
     if (!this.ghostUnit) return;
     const type = this.ghostUnit.buildableUnit.type;
-    if (!TribalStructures.has(type)) return;
+    // Only Farmland stroke-paints; Settlement/Barn are single placements.
+    if (type !== UnitType.Farmland) return;
     this.mousePos.x = screenX;
     this.mousePos.y = screenY;
 
@@ -526,36 +529,17 @@ export class BuildPreviewController implements Controller {
     );
     if (!this.game.isValidCoord(tile.x, tile.y)) return;
     const anchor = this.game.ref(tile.x, tile.y);
+    if (this.paintedAnchors.has(anchor)) return;
 
-    // Dedupe: skip anchors whose 2×2 footprint would overlap any anchor
-    // already attempted this drag (Chebyshev distance < 2).
-    const w = this.game.width();
-    for (const prev of this.paintedAnchors) {
-      const px = prev % w;
-      const py = (prev - px) / w;
-      if (Math.abs(tile.x - px) < 2 && Math.abs(tile.y - py) < 2) {
-        return;
-      }
-    }
-
-    // Cheap validity: all four footprint tiles on-map, mine, land, unplotted.
+    // Cheap validity: on-map (above), mine, land, unplotted.
     const me = this.game.myPlayer();
     if (me === null) return;
-    const mySmallID = me.smallID();
-    for (let ly = 0; ly < 2; ly++) {
-      for (let lx = 0; lx < 2; lx++) {
-        const x = tile.x + lx;
-        const y = tile.y + ly;
-        if (!this.game.isValidCoord(x, y)) return;
-        const ref = this.game.ref(x, y);
-        if (
-          !this.game.isLand(ref) ||
-          this.game.ownerID(ref) !== mySmallID ||
-          this.game.plotStateAt(ref) !== 0
-        ) {
-          return;
-        }
-      }
+    if (
+      !this.game.isLand(anchor) ||
+      this.game.ownerID(anchor) !== me.smallID() ||
+      this.game.plotStateAt(anchor) !== 0
+    ) {
+      return;
     }
 
     this.paintedAnchors.add(anchor);

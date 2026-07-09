@@ -510,8 +510,8 @@ export class GPURenderer {
       this.settings,
     );
 
-    // --- Tribal plot patterns (2×2 painted structures) ---
-    this.plotPass = new PlotPass(gl, mapW, mapH);
+    // --- Tribal plot patterns (painted single-tile structures) ---
+    this.plotPass = new PlotPass(gl, mapW, mapH, this.terrainPass.texture());
 
     // --- Range circle (ghost preview radius) ---
     this.rangeCirclePass = new RangeCirclePass(gl);
@@ -958,7 +958,7 @@ export class GPURenderer {
   }
 
   updateGhostPreview(data: GhostPreviewData | null): void {
-    // Tribal plots preview as painted 2×2 patterns (PlotPass); the sprite
+    // Tribal plots preview as painted tiles (PlotPass); the sprite
     // ghost and its satellites only see vanilla structures.
     const plotTypeIdx =
       data === null ? undefined : TRIBAL_PLOT_TYPE_INDEX.get(data.ghostType);

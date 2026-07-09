@@ -1,12 +1,15 @@
 /**
- * PlotPass — tribal 2×2 plot patterns (add-tile-painted-structures).
+ * PlotPass — tribal single-tile plots (add-tile-painted-structures).
  *
- * Settlement/Farmland/Barn are painted into the terrain as per-tile color
- * patterns instead of sprite icons. Reads the PlotCache buffer as an R8UI
- * texture (value = 1 + typeIdx*4 + parity; 0 = none) and draws a fullscreen
- * map quad that replaces the territory color wherever a plot exists. Also
- * renders the paint-mode ghost: the hovered plot's 2×2 pattern tinted by
- * placement validity.
+ * Settlement/Farmland/Barn are painted into the terrain as per-tile colors
+ * instead of sprite icons. Reads the PlotCache buffer as an R8UI texture
+ * (value = type index + 1; 0 = none) and draws a fullscreen map quad that
+ * replaces the territory color wherever a plot exists. The 2×2 "sprite"
+ * inside each tile is generated in the fragment shader from the sub-tile
+ * UV; farmland derives its tilled-row colors from the tile's own base
+ * terrain color (uTerrainTex — shared with TerrainPass) so districts blend
+ * with the local biome. Also renders the paint-mode ghost: the hovered
+ * tile's pattern tinted by placement validity.
  *
  * Drawn after TerritoryPass and before border stamps, so districts read as
  * part of the land while borders stay legible on top.
@@ -44,6 +47,7 @@ export class PlotPass {
     private gl: WebGL2RenderingContext,
     private mapW: number,
     private mapH: number,
+    private terrainTex: WebGLTexture,
   ) {
     this.cpuPlotState = new Uint8Array(mapW * mapH);
     this.program = createProgram(gl, overlayVertSrc, plotFragSrc);
@@ -53,6 +57,7 @@ export class PlotPass {
 
     gl.useProgram(this.program);
     gl.uniform1i(gl.getUniformLocation(this.program, "uPlotTex"), 0);
+    gl.uniform1i(gl.getUniformLocation(this.program, "uTerrainTex"), 1);
     gl.uniform2f(this.uMapSize, mapW, mapH);
     gl.uniform4f(this.uGhost, 0, 0, -1, 0);
 
@@ -117,11 +122,14 @@ export class PlotPass {
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.plotTex);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.terrainTex);
     gl.bindVertexArray(this.vao);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     gl.bindVertexArray(null);
+    gl.activeTexture(gl.TEXTURE0);
   }
 
   dispose(): void {

@@ -132,3 +132,16 @@ adjacent same-type neighbor). Standard protocol (3 seeds × 3000 ticks ×
 14.2% max, Gini 0.35. Territory is now the binding constraint on
 building; districts (belts/clusters) confirmed in bot placement and in
 the belt-vs-scattered production test.
+
+## v3.1 — single-tile plots, no build time, upgrade-hijack fix
+
+Playtest corrections: the 2×2 was the sprite INSIDE a tile, not the
+footprint. Plots are now one tile each (distance-1 adjacency), build
+instantly, and — the root of "settlement built but invisible" — tribal
+plots are no longer upgradable: buildableUnits was hijacking any build
+click within 15 tiles of an existing Settlement/Barn into an instant,
+invisible level-up. Farmland stroke-paints (reference foundation UX);
+Settlement/Barn are sticky single placements; farmland's tilled rows
+derive from each tile's own terrain color. Harness (2×2500 ticks):
+~580 farms / ~100 barns / ~70 settlements, leader 8.5%, Gini 0.30,
+23–28 of 35 alive — denser economies, flatter games.

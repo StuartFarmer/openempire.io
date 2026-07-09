@@ -1,40 +1,41 @@
 #version 300 es
-// PlotPass — tribal 2×2 plot patterns painted over territory.
+// PlotPass — tribal single-tile plots painted over territory.
 //
-// uPlotTex value per tile: 0 = none, else 1 + typeIdx*4 + (localY*2 + localX)
-// where typeIdx is 0 Settlement / 1 Farmland / 2 Barn and local* is the
-// tile's parity inside its plot (encoded CPU-side; no anchor lookups here).
+// uPlotTex value per tile: 0 = none, 1 = Settlement, 2 = Farmland, 3 = Barn.
+// The 2×2 "sprite" is generated inside the tile from the sub-tile UV
+// (fract of world position): farmland renders the tile's own base terrain
+// color on the top row over a darkened copy below (tilled earth that blends
+// with the local biome — reference: the foundation FarmlandBuilding);
+// settlement and barn are flat reference-palette tiles.
 //
-// uGhost = (anchorX, anchorY, typeIdx or -1 when off, valid 1/0) — the
-// paint-mode preview: the pattern tinted green (placeable) or red (not).
+// uGhost = (tileX, tileY, typeIdx or -1 when off, valid 1/0) — the
+// paint-mode preview tinted green (placeable) or red (not).
 precision highp float;
 precision highp usampler2D;
 
 uniform usampler2D uPlotTex;
+uniform sampler2D uTerrainTex;
 uniform vec2 uMapSize;
 uniform vec4 uGhost;
 
 in vec2 vWorldPos;
 out vec4 fragColor;
 
-// 3 types × 4 pattern pixels (parity order: TL, TR, BL, BR).
-const vec3 PLOT_COLORS[12] = vec3[12](
-  // Settlement — plaster + terracotta roofs (parked-branch palette)
-  vec3(0.957, 0.886, 0.502),
-  vec3(0.933, 0.769, 0.322),
-  vec3(0.675, 0.463, 0.180),
-  vec3(0.376, 0.243, 0.133),
-  // Farmland — two rows of brown, the lower darker (tilled earth)
-  vec3(0.545, 0.420, 0.250),
-  vec3(0.565, 0.435, 0.262),
-  vec3(0.360, 0.260, 0.145),
-  vec3(0.380, 0.276, 0.155),
-  // Barn — weathered wood, darkening toward the eaves
-  vec3(0.520, 0.320, 0.220),
-  vec3(0.470, 0.280, 0.190),
-  vec3(0.400, 0.235, 0.155),
-  vec3(0.350, 0.200, 0.130)
-);
+// Flat colors (reference palette): settlement plaster-blue, barn silo-gold.
+const vec3 SETTLEMENT_COLOR = vec3(0.459, 0.612, 0.737); // rgb(117 156 188)
+const vec3 BARN_COLOR = vec3(0.839, 0.635, 0.227); // rgb(214 162 58)
+
+vec3 plotColor(int type, ivec2 tile, vec2 subUV) {
+  if (type == 1) {
+    return SETTLEMENT_COLOR;
+  }
+  if (type == 3) {
+    return BARN_COLOR;
+  }
+  // Farmland: tilled rows from the tile's own terrain color.
+  vec3 base = texelFetch(uTerrainTex, tile, 0).rgb;
+  return subUV.y < 0.5 ? base : base * 0.72;
+}
 
 void main() {
   ivec2 tile = ivec2(floor(vWorldPos));
@@ -42,25 +43,23 @@ void main() {
       tile.x >= int(uMapSize.x) || tile.y >= int(uMapSize.y)) {
     discard;
   }
+  vec2 subUV = fract(vWorldPos);
 
   vec3 color = vec3(0.0);
   float alpha = 0.0;
 
   uint v = texelFetch(uPlotTex, tile, 0).r;
   if (v > 0u) {
-    color = PLOT_COLORS[int(v) - 1];
+    color = plotColor(int(v), tile, subUV);
     alpha = 1.0;
   }
 
-  // Paint-mode ghost: 2×2 pattern at the hovered anchor, validity-tinted.
-  if (uGhost.z >= 0.0) {
-    ivec2 d = tile - ivec2(uGhost.xy);
-    if (d.x >= 0 && d.x < 2 && d.y >= 0 && d.y < 2) {
-      vec3 pattern = PLOT_COLORS[int(uGhost.z) * 4 + d.y * 2 + d.x];
-      vec3 tint = uGhost.w > 0.5 ? vec3(0.35, 1.0, 0.35) : vec3(1.0, 0.3, 0.3);
-      color = mix(pattern, tint, 0.45);
-      alpha = 0.85;
-    }
+  // Paint-mode ghost: the hovered tile's pattern, validity-tinted.
+  if (uGhost.z >= 0.0 && tile.x == int(uGhost.x) && tile.y == int(uGhost.y)) {
+    vec3 pattern = plotColor(int(uGhost.z) + 1, tile, subUV);
+    vec3 tint = uGhost.w > 0.5 ? vec3(0.35, 1.0, 0.35) : vec3(1.0, 0.3, 0.3);
+    color = mix(pattern, tint, 0.45);
+    alpha = 0.85;
   }
 
   if (alpha == 0.0) {
