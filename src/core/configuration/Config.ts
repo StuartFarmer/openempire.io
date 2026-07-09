@@ -147,9 +147,19 @@ export interface FoodConfig {
   baseStorage: number;
   /** Extra storage (display food) per Barn level. */
   storagePerBarn: number;
-  /** Stored food decays by numer/denom per tick (integer floor). */
+  /**
+   * Stored food decays by numer/denom per tick (integer floor). Tuned to
+   * ~25%/minute: grain rots, so war chests are built close to when they
+   * are spent and sustained campaigns need farm income.
+   */
   decayNumer: number;
   decayDenom: number;
+  /**
+   * Chance a tribal plot on conquered territory is razed (destroyed with
+   * fire) instead of captured — conquest yields land plus the surviving
+   * fraction of a district, never a turnkey economy.
+   */
+  capturedPlotRazeChance: number;
   /**
    * Growth reaches full speed when production exceeds consumption by this
    * fraction (e.g. 0.25 → a 25% surplus grows at the vanilla rate). Between
@@ -199,7 +209,8 @@ const FOOD_DEFAULTS: FoodConfig = {
   baseStorage: 5_000,
   storagePerBarn: 1_500,
   decayNumer: 1,
-  decayDenom: 5000,
+  decayDenom: 2000,
+  capturedPlotRazeChance: 0.5,
   surplusForFullGrowth: 0.25,
   starvationDeathFraction: 0.02,
   settlementCost: 150,

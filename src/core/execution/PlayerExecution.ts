@@ -5,6 +5,7 @@ import {
   Game,
   Player,
   Structures,
+  TribalStructures,
   UnitType,
 } from "../game/Game";
 import { GameMap, TileRef } from "../game/GameMap";
@@ -64,6 +65,17 @@ export class PlayerExecution implements Execution {
       const captor = this.mg!.player(owner.id());
       if (u.type() === UnitType.DefensePost) {
         u.delete(true, captor);
+      } else if (TribalStructures.has(u.type())) {
+        // War razes part of the district: a deterministic per-unit roll
+        // burns the plot instead of handing it to the conqueror — conquest
+        // yields land plus the surviving fraction, never a free economy.
+        const razeChance = this.config.food().capturedPlotRazeChance;
+        const roll = simpleHash(`raze:${u.id()}`) % 1000;
+        if (roll < razeChance * 1000) {
+          u.delete(true, captor);
+        } else {
+          captor.captureUnit(u);
+        }
       } else {
         captor.captureUnit(u);
       }

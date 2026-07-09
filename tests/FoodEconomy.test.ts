@@ -12,6 +12,7 @@ import {
 import { SpawnExecution } from "../src/core/execution/SpawnExecution";
 import { PseudoRandom } from "../src/core/PseudoRandom";
 import { setup } from "./util/Setup";
+import { TestConfig } from "./util/TestConfig";
 
 /**
  * PlayerExecution (which runs the food tick) is normally added by
@@ -326,7 +327,25 @@ describe("Tribal buildings", () => {
     expect(flow(player).production).toBeGreaterThan(productionBefore);
   });
 
-  test("capturing a Settlement transfers its cap to the conqueror", () => {
+  test("capturing a Settlement transfers its cap to the conqueror", async () => {
+    // Raze rolls off: this test pins the pure capture-transfer path.
+    class NoRazeConfig extends TestConfig {
+      override food() {
+        return { ...super.food(), capturedPlotRazeChance: 0 };
+      }
+    }
+    const game = await setup(
+      "plains",
+      { infiniteGold: false, instantBuild: true },
+      [humanInfo, rivalInfo],
+      undefined,
+      NoRazeConfig,
+      true,
+      flatLayers,
+    );
+    const player = game.player(humanInfo.id);
+    conquerBlock(game, player, 0, 0, 6);
+    player.addFood(50_000n);
     const rival = game.player(rivalInfo.id);
     conquerBlock(game, rival, 10, 10, 3);
     rival.addFood(50_000n);
@@ -567,6 +586,55 @@ describe("Ghost start + starvation parity", () => {
     expect(player.troops()).toBeLessThan(20_000);
     expect(rivalTotal).toBeLessThan(20_000);
     expect(rivalTotal).toBeLessThanOrEqual(player.troops() * 2);
+  });
+});
+
+describe("War razing (add-war-razing-and-spoilage)", () => {
+  async function conquerDistrict(): Promise<{
+    captured: number;
+    total: number;
+  }> {
+    const game = await layeredGame();
+    const player = game.player(humanInfo.id);
+    const rival = game.player(rivalInfo.id);
+    conquerBlock(game, rival, 10, 10, 8);
+    rival.addFood(50_000n);
+    // A 20-plot farm district.
+    let built = 0;
+    for (let y = 10; y < 18 && built < 20; y++) {
+      for (let x = 10; x < 18 && built < 20; x++) {
+        if ((x + y) % 2 === 0) continue; // leave gaps so all are placeable
+        rival.buildUnit(UnitType.Farmland, game.ref(x, y), {});
+        built++;
+      }
+    }
+    expect(built).toBe(20);
+
+    // Player conquers the whole district; the capture sweep rolls raze.
+    conquerBlock(game, player, 10, 10, 8);
+    activate(game, player, rival);
+    game.executeNextTick();
+    return {
+      captured: player.units(UnitType.Farmland).length,
+      total:
+        player.units(UnitType.Farmland).length +
+        rival.units(UnitType.Farmland).length,
+    };
+  }
+
+  test("about half of a conquered district burns; the rest transfers", async () => {
+    const { captured, total } = await conquerDistrict();
+    // Some plots razed (total < 20), some captured — roughly half each.
+    expect(total).toBeLessThan(20);
+    expect(captured).toBeGreaterThanOrEqual(4);
+    expect(captured).toBeLessThanOrEqual(16);
+    expect(total).toBe(captured); // rival keeps none — captured or burned
+  });
+
+  test("razing is deterministic across identical runs", async () => {
+    const a = await conquerDistrict();
+    const b = await conquerDistrict();
+    expect(a).toEqual(b);
   });
 });
 
