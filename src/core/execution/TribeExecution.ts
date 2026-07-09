@@ -4,6 +4,7 @@ import { simpleHash } from "../Util";
 import { AllianceExtensionExecution } from "./alliance/AllianceExtensionExecution";
 import { DeleteUnitExecution } from "./DeleteUnitExecution";
 import { AiAttackBehavior } from "./utils/AiAttackBehavior";
+import { TribalEconomy, tribalEconomyActive } from "./utils/TribalEconomy";
 
 export class TribeExecution implements Execution {
   private active = true;
@@ -12,6 +13,7 @@ export class TribeExecution implements Execution {
   private neighborsTerraNullius = true;
 
   private attackBehavior: AiAttackBehavior | null = null;
+  private economy: TribalEconomy | null = null;
   private attackRate: number;
   private attackTick: number;
   private triggerRatio: number;
@@ -36,6 +38,15 @@ export class TribeExecution implements Execution {
   }
 
   tick(ticks: number) {
+    // Tribes farm too (add-economy-insights): a modest economy pulse so
+    // plain bots grow beyond their starter kit instead of stagnating.
+    if (
+      ticks % 25 === this.attackTick % 25 &&
+      tribalEconomyActive(this.mg, this.tribe)
+    ) {
+      this.economy ??= new TribalEconomy(this.random, this.mg, this.tribe);
+      this.economy.tryBuild(1);
+    }
     if (ticks % this.attackRate !== this.attackTick) return;
 
     if (!this.tribe.isAlive()) {

@@ -17,6 +17,7 @@ import { assertNever } from "../../Util";
 import { ConstructionExecution } from "../ConstructionExecution";
 import { UpgradeStructureExecution } from "../UpgradeStructureExecution";
 import { closestTile, closestTwoTiles } from "../Util";
+import { TribalEconomy } from "../utils/TribalEconomy";
 import { randTerritoryTileArray } from "./NationUtils";
 
 /**
@@ -85,9 +86,6 @@ const UPGRADE_DENSITY_THRESHOLD = 1 / 1500;
  */
 const MIN_PORT_WATER_COMPONENT_SIZE = 3000;
 
-/** Minimum crop score (fertility × adjacency) for a bot to bother farming a tile */
-const BOT_MIN_FARM_CROP = 30;
-
 /** Estimated number of tiles per city equivalent, used when cities are disabled */
 const TILES_PER_CITY_EQUIVALENT = 2000;
 
@@ -143,6 +141,7 @@ export class NationStructureBehavior {
   private placementsCount = 0;
   private _hasHighStartingGold: boolean | null = null;
   private _postSaveUpStartTick: number | null = null;
+  private tribalEconomy: TribalEconomy | null = null;
 
   constructor(
     private random: PseudoRandom,
@@ -432,7 +431,12 @@ export class NationStructureBehavior {
     // Gold structures rejoin the bot build order with the Metal-age spec.
     // (Defense posts are handled separately in handleStructures and stay.)
     if (this.player.hasFoodEconomy()) {
-      return this.tryBuildTribalStructures();
+      this.tribalEconomy ??= new TribalEconomy(
+        this.random,
+        this.game,
+        this.player,
+      );
+      return this.tribalEconomy.tryBuild(3) > 0;
     }
     const citiesDisabled = config.isUnitDisabled(UnitType.City);
     const cityCount = citiesDisabled
@@ -598,132 +602,6 @@ export class NationStructureBehavior {
 
   private cost(type: UnitType): Gold {
     return this.game.unitInfo(type).cost(this.game, this.player);
-  }
-
-  /**
-   * Tribal-age build heuristic (add-tribal-food-economy §4.1): Settlement
-   * when population presses on the cap, Farmland (on the most fertile
-   * reachable tile) while production trails consumption, Barn when the stock
-   * sits near the storage ceiling. Deliberately simple — the balance harness
-   * tunes the knobs against this behavior.
-   */
-  private tryBuildTribalStructures(): boolean {
-    const config = this.game.config();
-    const f = config.food();
-    const player = this.player;
-    const food = Number(player.food());
-    // Escalation-aware: cost = base × (owned + 1), from the unit info.
-    const cost = (type: UnitType) =>
-      Number(config.unitInfo(type).cost(this.game, player));
-
-    // Farmland first in the scarce economy — production is survival. Fires
-    // while production trails growth-sustaining surplus.
-    const flow = player.foodFlow();
-    if (
-      flow.production < flow.consumption * 1.5 &&
-      food >= cost(UnitType.Farmland) &&
-      this.spawnTribalStructure(UnitType.Farmland, true)
-    ) {
-      return true;
-    }
-
-    if (
-      player.troops() >= 0.8 * config.maxTroops(player) &&
-      food >= cost(UnitType.Settlement) &&
-      this.spawnTribalStructure(UnitType.Settlement, false)
-    ) {
-      return true;
-    }
-
-    // Barn when the stock sits near the ceiling — but bounded by settlement
-    // count (storage scales with towns), else a saturated economy barn-spams
-    // forever: every new barn refills to cap and re-fires the trigger.
-    const levels = (type: UnitType) =>
-      player
-        .units(type)
-        .filter((u) => !u.isUnderConstruction())
-        .reduce((sum, u) => sum + u.level(), 0);
-    const barnLevels = levels(UnitType.Barn);
-    const storageCap = f.baseStorage + barnLevels * f.storagePerBarn;
-    if (
-      food >= 0.9 * storageCap &&
-      food >= cost(UnitType.Barn) &&
-      barnLevels < levels(UnitType.Settlement) + 1 &&
-      this.spawnTribalStructure(UnitType.Barn, false)
-    ) {
-      return true;
-    }
-
-    return false;
-  }
-
-  /**
-   * Sample candidate anchors near the border and around existing same-type
-   * plots; score by fertility (farms) × district adjacency so bots paint
-   * contiguous belts and clusters instead of scattering plots.
-   */
-  private spawnTribalStructure(type: UnitType, maximizeCrop: boolean): boolean {
-    const game = this.game;
-    const player = this.player;
-    const border = player.borderTiles();
-    if (border.size === 0) return false;
-    const anchors = Array.from(border);
-    const ownPlots = player.units(type);
-    const bonus = game.config().food().adjacencyBonus;
-
-    const adjacency = (t: TileRef): number => {
-      let count = 0;
-      const x = game.x(t);
-      const y = game.y(t);
-      for (const [dx, dy] of [
-        [-1, 0],
-        [1, 0],
-        [0, -1],
-        [0, 1],
-      ]) {
-        if (!game.isValidCoord(x + dx, y + dy)) continue;
-        const p = game.plotAt(game.ref(x + dx, y + dy));
-        if (p !== undefined && p.type() === type && p.owner() === player) {
-          count++;
-        }
-      }
-      return count;
-    };
-
-    let best: TileRef | null = null;
-    let bestScore = -1;
-    for (let attempt = 0; attempt < 40; attempt++) {
-      // Half the samples hug existing plots (district growth), half explore.
-      const nearPlot = ownPlots.length > 0 && attempt % 2 === 0;
-      const around = nearPlot
-        ? this.random.randElement(ownPlots).tile()
-        : this.random.randElement(anchors);
-      const spread = nearPlot ? 4 : 6;
-      const x = this.random.nextInt(
-        game.x(around) - spread,
-        game.x(around) + spread + 1,
-      );
-      const y = this.random.nextInt(
-        game.y(around) - spread,
-        game.y(around) + spread + 1,
-      );
-      if (!game.isValidCoord(x, y)) continue;
-      const t = game.ref(x, y);
-      if (game.owner(t) !== player) continue;
-      if (player.canBuild(type, t) === false) continue;
-      const fertility = maximizeCrop ? game.layer("crop", t) : 100;
-      const score = fertility * (1 + adjacency(t) * bonus);
-      if (score > bestScore) {
-        bestScore = score;
-        best = t;
-      }
-    }
-    // Farms on near-barren soil are wasted food — leave the budget for
-    // settlements/barns instead of farm-spamming wasteland.
-    if (maximizeCrop && bestScore < BOT_MIN_FARM_CROP) return false;
-    if (best === null) return false;
-    this.game.addExecution(new ConstructionExecution(player, type, best));
-    return true;
   }
 
   private maybeSpawnStructure(type: UnitType): boolean {

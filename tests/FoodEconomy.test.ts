@@ -570,6 +570,35 @@ describe("Ghost start + starvation parity", () => {
   });
 });
 
+describe("Tribe bot economy", () => {
+  test("plain tribe bots farm beyond their starter kit", async () => {
+    const tribeInfo = new PlayerInfo("tribe", PlayerType.Bot, null, "tribe_id");
+    const game = await setup(
+      "plains",
+      { instantBuild: true },
+      [tribeInfo],
+      undefined,
+      undefined,
+      false,
+      flatLayers,
+    );
+    const tribe = game.player(tribeInfo.id);
+    // Real spawn: kit + PlayerExecution + TribeExecution (Bot type).
+    game.addExecution(
+      new SpawnExecution("tribe_game", tribe.info(), game.ref(20, 20)),
+    );
+    game.executeNextTick();
+    game.executeNextTick();
+    game.endSpawnPhase();
+    expect(tribe.units(UnitType.Farmland).length).toBe(3); // the kit
+
+    for (let i = 0; i < 500; i++) game.executeNextTick();
+    // The economy pulse grew the district beyond the kit.
+    expect(tribe.units(UnitType.Farmland).length).toBeGreaterThan(3);
+    expect(tribe.isAlive()).toBe(true);
+  });
+});
+
 describe("Baked layered fixture", () => {
   test("tribalsmall loads its layers.bin through setup()", async () => {
     const game = await setup("tribalsmall", {}, [humanInfo]);
