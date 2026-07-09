@@ -23,7 +23,14 @@ Settlement, Farmland, and Barn SHALL occupy exactly one tile — placeable on an
 
 ### Requirement: Paint-mode build UX (per the foundation reference)
 
-Farmland SHALL use stroke painting exactly as the reference implementation (~/Developer/games/OpenFrontIO, foundation module): pointer-down starts a stroke, every new tile the pointer crosses while held places a plot (deduped per stroke), pointer-up ends the stroke, and the mode stays armed for the next stroke until cancelled (right-click or Escape). Settlement and Barn SHALL use sticky single placement (click per plot, mode persists). Placement failures (invalid tile, insufficient food) fail silently without exiting the mode. The ghost preview shows the pattern at the cursor with validity coloring.
+On layered maps a **persistent build bar** SHALL be the build entry point: always visible in the bottom HUD, to the right of the troop/food control panel, with the combined row centered on screen. It lists Settlement, Farmland, and Barn with icons, live (escalation-aware) food costs, and affordability states. Clicking an entry arms placement (clicking it again, Escape, or right-click disarms). The radial menu SHALL NOT offer a build entry on layered maps (classic maps keep the vanilla wrench/build-menu flow unchanged).
+
+Farmland SHALL use stroke painting exactly as the reference implementation (~/Developer/games/OpenFrontIO, foundation module): pointer-down starts a stroke, every new tile the pointer crosses while held places a plot (deduped per stroke), pointer-up ends the stroke, and the mode stays armed for the next stroke until disarmed. Settlement and Barn SHALL use sticky single placement (click per plot, mode persists). Placement failures (invalid tile, insufficient food) fail silently without exiting the mode. The ghost preview shows the pattern at the cursor with validity coloring.
+
+#### Scenario: Build bar is the entry point
+
+- **WHEN** a layered game is running
+- **THEN** the build bar is visible without opening any menu, and selecting Farmland then dragging on owned land paints plots — no radial-menu round trip
 
 #### Scenario: Painting a farm belt
 
