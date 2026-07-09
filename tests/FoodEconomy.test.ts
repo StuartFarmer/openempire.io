@@ -9,6 +9,7 @@ import {
   PlayerType,
   UnitType,
 } from "../src/core/game/Game";
+import { SpawnExecution } from "../src/core/execution/SpawnExecution";
 import { PseudoRandom } from "../src/core/PseudoRandom";
 import { setup } from "./util/Setup";
 
@@ -102,7 +103,12 @@ describe("Food economy (layered maps)", () => {
   });
 
   test("abundance grows population, and the Settlement cap binds", () => {
-    conquerBlock(game, player, 0, 0, 8); // 64 tiles → plenty of production
+    conquerBlock(game, player, 0, 0, 8);
+    player.addFood(10_000n);
+    // Plenty of production: a farm belt (land alone produces nothing now).
+    for (const x of [1, 2, 3, 4, 5, 6]) {
+      player.buildUnit(UnitType.Farmland, game.ref(x, 1), {});
+    }
     player.setTroops(1000);
     activate(game, player);
 
@@ -160,12 +166,9 @@ describe("Food economy (layered maps)", () => {
     p.addFood(3_000n); // under the base storage cap
     barren.executeNextTick();
     const f = barren.config().food();
-    // Even a barren world has the ghost farm's production; with zero
-    // consumption the tick is: +ghost, clamp, then one decay step.
-    const ghostMilli = BigInt(f.baseFarmFertility * f.farmProductionMilli);
-    const afterFlow = 3_000_000n + ghostMilli;
+    // No farms → zero production; the only movement is one decay step.
     const expectedMilli =
-      afterFlow - (afterFlow * BigInt(f.decayNumer)) / BigInt(f.decayDenom);
+      3_000_000n - (3_000_000n * BigInt(f.decayNumer)) / BigInt(f.decayDenom);
     expect(p.food()).toBe(expectedMilli / 1000n);
   });
 
@@ -183,6 +186,7 @@ describe("Food economy (layered maps)", () => {
     conquerBlock(game, player, 0, 0, 4);
     player.setTroops(500);
     player.addFood(777n);
+    player.buildUnit(UnitType.Farmland, game.ref(1, 1), {});
     activate(game, player);
     game.executeNextTick();
 
@@ -375,38 +379,33 @@ describe("Tribal scarcity (rework-tribal-scarcity)", () => {
     expect(cp.gold()).toBeGreaterThan(goldBefore);
   });
 
-  test("land harvest has extreme diminishing returns (4× land → ≤2× food)", () => {
+  test("conquest grants no food production by itself", () => {
     conquerBlock(game, player, 0, 0, 16); // 256 tiles
-    conquerBlock(game, rival, 40, 40, 8); // 64 tiles (4× fewer)
+    conquerBlock(game, rival, 40, 40, 2); // 4 tiles
     player.setTroops(0);
     rival.setTroops(0);
     activate(game, player, rival);
     game.executeNextTick();
 
-    const big = flow(player).production;
-    const small = flow(rival).production;
-    expect(big).toBeGreaterThan(small);
-    expect(big).toBeLessThanOrEqual(2 * small + 1);
+    // 64× the territory, identical (zero) production without farms.
+    expect(flow(player).production).toBe(0);
+    expect(flow(rival).production).toBe(0);
   });
 
-  test("a small farm district out-produces a large territory's land harvest", () => {
-    conquerBlock(game, player, 0, 0, 10); // 100 tiles of land harvest
+  test("unfarmed land produces nothing; farms are the only food source", () => {
+    conquerBlock(game, player, 0, 0, 10); // 100 fertile tiles, zero farms
     player.addFood(10_000n);
+    player.setTroops(0);
     activate(game, player);
     game.executeNextTick();
-    const f = game.config().food();
-    const ghost = Math.floor(
-      (f.baseFarmFertility * f.farmProductionMilli) / 1000,
-    );
-    const landOnly = flow(player).production - ghost;
+    expect(flow(player).production).toBe(0);
 
     // Paint a 4-plot farm belt (consecutive tiles).
     for (const x of [2, 3, 4, 5]) {
       player.buildUnit(UnitType.Farmland, game.ref(x, 2), {});
     }
     game.executeNextTick();
-    const beltDelta = flow(player).production - ghost - landOnly;
-    expect(beltDelta).toBeGreaterThan(2 * landOnly);
+    expect(flow(player).production).toBeGreaterThan(0);
   });
 
   test("adjacency: a farm belt out-produces scattered farms", async () => {
@@ -512,36 +511,37 @@ describe("Ghost start + starvation parity", () => {
     player = game.player(humanInfo.id);
   });
 
-  test("idling at spawn does not starve — ghost infra feeds the start population", () => {
-    const f = game.config().food();
-    // Default start population (no setTroops): the layered-map override.
-    expect(player.troops()).toBe(f.startPopulation);
-
-    conquerBlock(game, player, 0, 0, 7); // a modest spawn blob
-    activate(game, player);
-    for (let i = 0; i < 200; i++) game.executeNextTick();
-
-    // No famine while doing nothing: population holds, the stake survives.
-    expect(flow(player).starvedTroops).toBe(0);
-    expect(player.troops()).toBeGreaterThanOrEqual(f.startPopulation * 0.98);
-    expect(player.food()).toBeGreaterThan(BigInt(f.startingFood / 2));
-  });
-
-  test("every player starts with a ghost settlement and ghost farmland", () => {
-    const f = game.config().food();
-    // Ghost settlement district: the base cap stands in for a starting town
-    // (several plots' worth now that settlements are painted 2×2 plots).
-    expect(game.config().maxTroops(player)).toBe(f.basePopulation);
-
-    // Ghost farmland: production with zero buildings includes one farm-worth.
-    player.conquer(game.ref(0, 0));
-    player.setTroops(0);
-    activate(game, player);
-    game.executeNextTick();
-    const ghost = Math.floor(
-      (f.baseFarmFertility * f.farmProductionMilli) / 1000,
+  test("settling paints the starter kit: 1 Settlement + 3 Farmland, free", async () => {
+    // Real spawn flow (SpawnExecution), not manual conquest.
+    const g = await setup(
+      "plains",
+      { instantBuild: true },
+      [humanInfo],
+      undefined,
+      undefined,
+      false, // keep the spawn phase — SpawnExecution drives it
+      flatLayers,
     );
-    expect(flow(player).production).toBeGreaterThanOrEqual(ghost);
+    const p = g.player(humanInfo.id);
+    const f = g.config().food();
+    g.addExecution(new SpawnExecution("kit_game", p.info(), g.ref(20, 20)));
+    g.executeNextTick();
+    g.executeNextTick();
+
+    expect(p.units(UnitType.Settlement).length).toBe(1);
+    expect(p.units(UnitType.Farmland).length).toBe(3);
+    // The kit is free: the opening stake is intact.
+    expect(p.food()).toBe(BigInt(f.startingFood));
+    expect(p.troops()).toBe(f.startPopulation);
+    // Cap = floor + the starter Settlement.
+    expect(g.config().maxTroops(p)).toBe(
+      f.basePopulation + f.populationPerSettlement,
+    );
+
+    // Idle from here: the kit's farms feed the start population.
+    for (let i = 0; i < 200; i++) g.executeNextTick();
+    expect(p.foodFlow().starvedTroops).toBe(0);
+    expect(p.troops()).toBeGreaterThanOrEqual(f.startPopulation);
   });
 
   test("troops deployed in attacks starve too — no famine shelter", () => {
@@ -593,25 +593,33 @@ describe("Tribal bot economy", () => {
       null,
       "bot_id",
     );
-    // Scarce world: a small fertile patch, near-barren elsewhere — so the
-    // Farmland trigger (production trailing consumption) actually fires.
+    // Scarce world: a small fertile patch, near-barren elsewhere — the bot
+    // must grow its farm district from the starter kit, not wasteland-spam.
     const game = await setup(
       "plains",
       { instantBuild: true },
       [botInfo],
       undefined,
       undefined,
-      true,
-      (name, x, y) => (name === "crop" ? (x < 3 && y < 3 ? 200 : 5) : 0),
+      false, // spawn phase on — the real SpawnExecution places the kit
+      (name, x, y) => (name === "crop" ? (x < 6 && y < 6 ? 200 : 5) : 0),
     );
     const bot = game.player(botInfo.id);
-    // 35×35: room for several structures at the 15-tile spacing (farm slots
-    // deliberately scale with territory — expansion pressure).
+    // Real spawn on the fertile patch → starter kit (Settlement + 3 farms).
+    game.addExecution(
+      new SpawnExecution("bot_game", bot.info(), game.ref(2, 2)),
+    );
+    game.executeNextTick();
+    game.executeNextTick();
+    game.endSpawnPhase();
+    expect(bot.units(UnitType.Farmland).length).toBe(3);
     conquerBlock(game, bot, 0, 0, 35);
-    // Presses on the (ghost-settlement) base cap → Settlement trigger.
-    bot.setTroops(Math.ceil(0.85 * game.config().food().basePopulation));
+    // Presses on the starting cap → Settlement trigger.
+    const f = game.config().food();
+    bot.setTroops(
+      Math.ceil(0.85 * (f.basePopulation + f.populationPerSettlement)),
+    );
     bot.addFood(20_000n); // seed stock: buffers the early deficit
-    activate(game, bot);
 
     const behavior = new NationStructureBehavior(
       new PseudoRandom(42),
@@ -623,10 +631,10 @@ describe("Tribal bot economy", () => {
       game.executeNextTick();
     }
 
-    // Scarcity phase: the bot houses its population and farms fertile land,
-    // and never starves out.
-    expect(bot.units(UnitType.Settlement).length).toBeGreaterThan(0);
-    expect(bot.units(UnitType.Farmland).length).toBeGreaterThan(0);
+    // Scarcity phase: the bot houses its population and grows its farm
+    // district beyond the starter kit, and never starves out.
+    expect(bot.units(UnitType.Settlement).length).toBeGreaterThan(1);
+    expect(bot.units(UnitType.Farmland).length).toBeGreaterThan(3);
     expect(bot.troops()).toBeGreaterThan(0);
     expect(bot.isAlive()).toBe(true);
 

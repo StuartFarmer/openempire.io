@@ -6,6 +6,8 @@ import {
   PlayerInfo,
   PlayerType,
   SpawnArea,
+  TribalStructures,
+  UnitType,
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { PseudoRandom } from "../PseudoRandom";
@@ -75,6 +77,10 @@ export class SpawnExecution implements Execution {
 
     player.setSpawnTile(spawn.center);
 
+    if (this.mg.hasLayers()) {
+      this.placeStarterKit(player, spawn.center);
+    }
+
     if (
       this.mg.config().gameConfig().gameType === GameType.Singleplayer &&
       this.playerInfo.playerType === PlayerType.Human
@@ -91,6 +97,65 @@ export class SpawnExecution implements Execution {
 
   activeDuringSpawnPhase(): boolean {
     return true;
+  }
+
+  /**
+   * Tribal starter kit (add-tile-painted-structures): settling paints a 2×2
+   * homestead — one Settlement and three Farmland plots — centered on the
+   * spawn. Free: the food stake is reset afterward, so the kit never eats
+   * the opening budget. Re-spawns (spawn-phase re-clicks) rebuild the kit
+   * at the new location.
+   */
+  private placeStarterKit(player: Player, center: TileRef): void {
+    // Re-spawn: clear any previous kit before painting the new one.
+    for (const u of player.units(...TribalStructures.types)) {
+      u.delete(false);
+    }
+
+    const mg = this.mg;
+    const cx = mg.x(center);
+    const cy = mg.y(center);
+    const valid = (t: TileRef) =>
+      mg.isLand(t) &&
+      !mg.isImpassable(t) &&
+      mg.owner(t) === player &&
+      mg.plotAt(t) === undefined;
+
+    // Preferred: the 2×2 block at the spawn center; fallback: nearest owned
+    // tiles (spawn blobs are contiguous, so this rarely triggers).
+    const slots: TileRef[] = [];
+    for (const [x, y] of [
+      [cx, cy],
+      [cx + 1, cy],
+      [cx, cy + 1],
+      [cx + 1, cy + 1],
+    ]) {
+      if (slots.length >= 4) break;
+      if (mg.isValidCoord(x, y)) {
+        const t = mg.ref(x, y);
+        if (valid(t)) slots.push(t);
+      }
+    }
+    if (slots.length < 4) {
+      const byDist = [...player.tiles()]
+        .filter((t) => valid(t) && !slots.includes(t))
+        .sort((a, b) => mg.manhattanDist(a, center) - mg.manhattanDist(b, center));
+      slots.push(...byDist.slice(0, 4 - slots.length));
+    }
+
+    const kit: UnitType[] = [
+      UnitType.Settlement,
+      UnitType.Farmland,
+      UnitType.Farmland,
+      UnitType.Farmland,
+    ];
+    for (let i = 0; i < slots.length && i < kit.length; i++) {
+      player.buildUnit(kit[i], slots[i], {});
+    }
+
+    // The kit is free: restore the opening stake buildUnit just charged.
+    player.removeFood(player.food());
+    player.addFood(BigInt(mg.config().food().startingFood));
   }
 
   private getSpawn(center?: TileRef): Spawn | undefined {

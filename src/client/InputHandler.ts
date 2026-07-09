@@ -1,6 +1,7 @@
 import { EventBus, GameEvent } from "../core/EventBus";
 import {
   PlayerBuildableUnitType,
+  TribalStructures,
   UnitType,
 } from "../core/game/Game";
 import { UserSettings } from "../core/game/UserSettings";
@@ -884,11 +885,13 @@ export class InputHandler {
         }
       }
 
-      // Stroke painting (reference foundation UX): dragging with a Farmland
-      // ghost paints every tile the cursor crosses instead of panning.
-      // Settlement/Barn use sticky single placement — dragging pans as
-      // usual. (Exit paint mode to pan while farming; zoom still works.)
-      if (this.uiState.ghostStructure === UnitType.Farmland) {
+      // Stroke painting: dragging with any tribal-plot ghost paints every
+      // tile the cursor crosses instead of panning. (Exit paint mode to
+      // pan; zoom still works.)
+      if (
+        this.uiState.ghostStructure !== null &&
+        TribalStructures.has(this.uiState.ghostStructure)
+      ) {
         this.eventBus.emit(new PaintDragEvent(event.clientX, event.clientY));
         this.lastPointerX = event.clientX;
         this.lastPointerY = event.clientY;

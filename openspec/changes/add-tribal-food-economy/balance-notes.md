@@ -145,3 +145,21 @@ Settlement/Barn are sticky single placements; farmland's tilled rows
 derive from each tile's own terrain color. Harness (2×2500 ticks):
 ~580 farms / ~100 barns / ~70 settlements, leader 8.5%, Gini 0.30,
 23–28 of 35 alive — denser economies, flatter games.
+
+## v3.2 — farms-only production + spawn starter kit
+
+Playtest: late-game land harvest (√fertility, unbounded) eventually beat
+farming — conquest replaced agriculture. Per Stuart: no food from
+unfarmed land at all. landHarvestMilli → 0 (knob kept), ghost
+infrastructure replaced by a REAL painted starter kit at spawn
+(1 Settlement + 3 Farmland, free, re-settles re-kit), startPopulation
+4000 ≈ what the kit feeds, basePopulation 3000 floor. All tribal plots
+now stroke-paint (not just farmland). Bots gained a fertility floor
+(no farm-spamming wasteland; kit farms anchor their districts).
+
+Harness (farms-only): leader 7.3% mean, ~760 farms / ~167 settlements /
+~142 barns per game, 27–30 of 35 nations alive — the flattest economy
+yet; production is 100% built infrastructure. Note: spawn-fertility
+now sets the opening pressure (a mediocre spawn runs a small deficit
+until you paint more farms) — intended, revisit startPopulation if
+playtests say the dip is too sharp.

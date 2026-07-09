@@ -518,8 +518,8 @@ export class BuildPreviewController implements Controller {
   private paintAt(screenX: number, screenY: number): void {
     if (!this.ghostUnit) return;
     const type = this.ghostUnit.buildableUnit.type;
-    // Only Farmland stroke-paints; Settlement/Barn are single placements.
-    if (type !== UnitType.Farmland) return;
+    // All tribal plots stroke-paint (playtest: click-drag everywhere).
+    if (!TribalStructures.has(type)) return;
     this.mousePos.x = screenX;
     this.mousePos.y = screenY;
 

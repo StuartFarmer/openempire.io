@@ -85,6 +85,9 @@ const UPGRADE_DENSITY_THRESHOLD = 1 / 1500;
  */
 const MIN_PORT_WATER_COMPONENT_SIZE = 3000;
 
+/** Minimum crop score (fertility × adjacency) for a bot to bother farming a tile */
+const BOT_MIN_FARM_CROP = 30;
+
 /** Estimated number of tiles per city equivalent, used when cities are disabled */
 const TILES_PER_CITY_EQUIVALENT = 2000;
 
@@ -715,6 +718,9 @@ export class NationStructureBehavior {
         best = t;
       }
     }
+    // Farms on near-barren soil are wasted food — leave the budget for
+    // settlements/barns instead of farm-spamming wasteland.
+    if (maximizeCrop && bestScore < BOT_MIN_FARM_CROP) return false;
     if (best === null) return false;
     this.game.addExecution(new ConstructionExecution(player, type, best));
     return true;

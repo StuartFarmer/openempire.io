@@ -122,27 +122,23 @@ export interface FoodConfig {
   fightConsumptionMilli: number;
   /**
    * Natural land harvest: production = floor(fertilitySum^exponent × milli).
-   * Sublinear by design — expansion has extreme diminishing food returns;
-   * Farmland is the production engine.
+   * DEFAULT 0 — unfarmed land produces nothing; food comes from Farmland
+   * only. The knob survives for experiments.
    */
   landHarvestMilli: number;
   landHarvestExponent: number;
   /** Milli-food per tick per (tile crop byte × level) of each Farmland. */
   farmProductionMilli: number;
   /**
-   * Ghost farmland: fertility points every player works from the start,
-   * without a building on the map. Sized like one decent built farm.
-   */
-  baseFarmFertility: number;
-  /**
-   * Population cap with zero Settlements — the "ghost settlement" every
-   * player starts with. Sized like one built Settlement.
+   * Population-cap floor with zero Settlements (the camp before the first
+   * town). Real capacity comes from Settlement plots — starting with the
+   * one in the spawn starter kit.
    */
   basePopulation: number;
   /**
    * Starting population for every player type (replaces vanilla
-   * startManpower on layered maps). Sized to what the ghost farmland +
-   * a modest spawn's land harvest can feed — idling must not starve.
+   * startManpower on layered maps). Sized to what the spawn starter kit's
+   * three farms feed — idling at spawn must not starve.
    */
   startPopulation: number;
   /** Extra population cap per Settlement level. */
@@ -194,12 +190,11 @@ const FOOD_DEFAULTS: FoodConfig = {
   idleConsumptionMilli: 10,
   moveConsumptionMilli: 20,
   fightConsumptionMilli: 40,
-  landHarvestMilli: 200,
+  landHarvestMilli: 0,
   landHarvestExponent: 0.5,
   farmProductionMilli: 80,
-  baseFarmFertility: 450, // ghost farm stays 36 food/tick (450 × 80 milli)
-  basePopulation: 15_000,
-  startPopulation: 5_000,
+  basePopulation: 3_000,
+  startPopulation: 4_000,
   populationPerSettlement: 3_000,
   baseStorage: 5_000,
   storagePerBarn: 1_500,

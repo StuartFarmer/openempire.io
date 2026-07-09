@@ -41,11 +41,10 @@ export function sameTypeNeighborPlots(mg: Game, plot: Unit): number {
 export function foodTick(mg: Game, player: Player): void {
   const f = mg.config().food();
 
-  // ── Production: farms are the engine; raw land is a marginal, sublinear
-  // harvest (fertilitySum^exponent) so expansion alone cannot feed a nation.
-  // Every player also works one "ghost" farmland (baseFarmFertility) — the
-  // starting infrastructure that exists without a building on the map.
-  let farmFertility = f.baseFarmFertility;
+  // ── Production: farms are the ONLY food source (landHarvestMilli
+  // defaults to 0 — unfarmed land produces nothing; conquest wins tiles to
+  // farm, not free food). The spawn starter kit provides the first farms.
+  let farmFertility = 0;
   for (const farm of player.units(UnitType.Farmland)) {
     if (farm.isUnderConstruction()) continue;
     // District bonus: contiguous farm belts out-produce scattered plots.
