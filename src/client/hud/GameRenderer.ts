@@ -17,8 +17,10 @@ import { GameView } from "../view";
 import { ActionableEvents } from "./layers/ActionableEvents";
 import { AlertFrame } from "./layers/AlertFrame";
 import { AttacksDisplay } from "./layers/AttacksDisplay";
+import { BuildBar } from "./layers/BuildBar";
 import { BuildMenu } from "./layers/BuildMenu";
 import { ControlPanel } from "./layers/ControlPanel";
+import { EconPanel } from "./layers/EconPanel";
 import { EventsDisplay } from "./layers/EventsDisplay";
 import { GameLeftSidebar } from "./layers/GameLeftSidebar";
 import { GameRightSidebar } from "./layers/GameRightSidebar";
@@ -33,7 +35,6 @@ import { ReplayPanel } from "./layers/ReplayPanel";
 import { SettingsModal } from "./layers/SettingsModal";
 import { SpawnTimer } from "./layers/SpawnTimer";
 import { TeamStats } from "./layers/TeamStats";
-import { BuildBar } from "./layers/BuildBar";
 import { UnitDisplay } from "./layers/UnitDisplay";
 import { WinModal } from "./layers/WinModal";
 import { loadAllSprites } from "./SpriteLoader";
@@ -84,6 +85,13 @@ export function createRenderer(
   }
   gameLeftSidebar.game = game;
   gameLeftSidebar.eventBus = eventBus;
+
+  const econPanel = document.querySelector("econ-panel") as EconPanel;
+  if (!(econPanel instanceof EconPanel)) {
+    console.error("EconPanel element not found in the DOM");
+  }
+  econPanel.eventBus = eventBus;
+  econPanel.game = game;
 
   const teamStats = document.querySelector("team-stats") as TeamStats;
   if (!teamStats || !(teamStats instanceof TeamStats)) {
@@ -266,6 +274,7 @@ export function createRenderer(
       uiState,
       playerPanel,
     ),
+    econPanel,
     spawnTimer,
     immunityTimer,
     leaderboard,

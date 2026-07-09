@@ -167,6 +167,10 @@
     "slow": "Slow",
     "veryfast": "Very Fast"
   },
+  "econ_panel": {
+    "food_title": "Food economy",
+    "toggle_tooltip": "Economy panel"
+  },
   "error_modal": {
     "connection_error": "Connection error!",
     "copied": "Copied!",

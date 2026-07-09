@@ -8,9 +8,9 @@
 
 ## 2. Econ panel (client)
 
-- [ ] 2.1 `ResourceChart` component (canvas, ring buffer, dynamic y-max = leader capacity, own-capacity line, rank badge) + food EconPanel instance with HUD toggle
-- [ ] 2.2 In-game verify on verdantia: panel toggles, line moves, y-scale tracks leader capacity, rank shown; screenshot
+- [x] 2.1 `ResourceChart` component (canvas, ring buffer, dynamic y-max = leader capacity, own-capacity line, rank badge) + food EconPanel instance with HUD toggle
+- [x] 2.2 In-game verify on verdantia: panel toggles, line moves, y-scale tracks leader capacity, rank shown; screenshot
 
 ## 3. Gates
 
-- [ ] 3.1 tsc/lint/full vitest baseline; balance-notes entry with new census
+- [x] 3.1 tsc/lint/full vitest baseline; balance-notes entry with new census
