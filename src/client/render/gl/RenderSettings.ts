@@ -295,6 +295,8 @@ export interface RenderSettings {
     conquestLifetimeMs: number;
     conquestFadeIn: number;
     conquestFadeOut: number;
+    plotFireDurationMs: number; // razed-plot burn animation length
+    plotFireMaxActive: number; // burn cap — oldest dropped beyond this
   };
   nukeTrajectory: {
     lineWidth: number; // px — main line stroke width

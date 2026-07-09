@@ -6,13 +6,13 @@ Same harness setup as v1 (verdantia, 25 nations + 10 bots, 3000 ticks,
 3 seeds). After removing gold, nerfing land harvest to √fertility, making
 farms the production engine, and escalating costs:
 
-| Config                     | mean leader | max leader | Gini | starved |
-| -------------------------- | ----------- | ---------- | ---- | ------- |
-| **v2 defaults**            | 12.5%       | 15.3%      | 0.37 | 7.5k    |
-| landHarvestMilli 400 (2×)  | 12.6%       | 14.0%      | 0.38 | 12k     |
-| farmProductionMilli 100 (½)| 11.7%       | 13.8%      | 0.42 | 7.1k    |
-| startingFood 2000 (½)      | 13.6%       | 17.2%      | 0.36 | 9.2k    |
-| populationPerSettlement 25k| 13.2%       | 14.6%      | 0.42 | 10k     |
+| Config                      | mean leader | max leader | Gini | starved |
+| --------------------------- | ----------- | ---------- | ---- | ------- |
+| **v2 defaults**             | 12.5%       | 15.3%      | 0.37 | 7.5k    |
+| landHarvestMilli 400 (2×)   | 12.6%       | 14.0%      | 0.38 | 12k     |
+| farmProductionMilli 100 (½) | 11.7%       | 13.8%      | 0.42 | 7.1k    |
+| startingFood 2000 (½)       | 13.6%       | 17.2%      | 0.36 | 9.2k    |
+| populationPerSettlement 25k | 13.2%       | 14.6%      | 0.42 | 10k     |
 
 Structure census at defaults: ~180 Farmland, ~40 Barns, ~35 Settlements,
 zero gold structures — farms are the economy's engine as designed (v1 was
@@ -29,17 +29,17 @@ seed 42), 25 procedural nations + 10 bots, 3000 ticks (~5 min of game),
 leader territory share (of owned tiles) / territory Gini across alive
 players / total starvation deaths.
 
-| Config                      | mean leader | max leader | Gini | starved |
-| --------------------------- | ----------- | ---------- | ---- | ------- |
-| **defaults**                | 28.3%       | 44.7%      | 0.55 | 61k     |
-| starvationDeathFraction .005| 27.9%       | 31.7%      | 0.40 | 16k     |
-| starvationDeathFraction .05 | 17.7%       | 19.9%      | 0.42 | 151k    |
-| farmlandFertilityMult 100   | 28.2%       | 35.1%      | 0.55 | 61k     |
-| farmlandFertilityMult 800   | 25.4%       | 35.3%      | 0.50 | 61k     |
-| populationPerSettlement 5k  | 12.0%       | 15.3%      | 0.32 | 61k     |
-| populationPerSettlement 50k | 44.1%       | 53.2%      | 0.51 | 61k     |
-| decayDenom 500 (fast decay) | 24.9%       | 26.6%      | 0.43 | 61k     |
-| decayDenom 20000 (slow)     | 26.5%       | 40.1%      | 0.47 | 61k     |
+| Config                       | mean leader | max leader | Gini | starved |
+| ---------------------------- | ----------- | ---------- | ---- | ------- |
+| **defaults**                 | 28.3%       | 44.7%      | 0.55 | 61k     |
+| starvationDeathFraction .005 | 27.9%       | 31.7%      | 0.40 | 16k     |
+| starvationDeathFraction .05  | 17.7%       | 19.9%      | 0.42 | 151k    |
+| farmlandFertilityMult 100    | 28.2%       | 35.1%      | 0.55 | 61k     |
+| farmlandFertilityMult 800    | 25.4%       | 35.3%      | 0.50 | 61k     |
+| populationPerSettlement 5k   | 12.0%       | 15.3%      | 0.32 | 61k     |
+| populationPerSettlement 50k  | 44.1%       | 53.2%      | 0.51 | 61k     |
+| decayDenom 500 (fast decay)  | 24.9%       | 26.6%      | 0.43 | 61k     |
+| decayDenom 20000 (slow)      | 26.5%       | 40.1%      | 0.47 | 61k     |
 
 ## Findings
 
@@ -62,7 +62,7 @@ players / total starvation deaths.
 
 ```bash
 npx tsx tests/perf/balance/BalanceRun.ts --map verdantia --runs 3 \
-    --ticks 3000 --bots 10 --nations 25 [--override key=value]
+  --ticks 3000 --bots 10 --nations 25 [--override key=value]
 ```
 
 Same seed + config ⇒ identical output (`--check-repro`).
@@ -78,7 +78,7 @@ always attack; cautious humans didn't. Fixes:
 
 1. Starvation now hits idle + attack + boat troops proportionally
    (probe after: attacker ends at 3.3k total vs idle 4.6k — territory
-   now *costs* population).
+   now _costs_ population).
 2. Ghost start: basePopulation = one Settlement (15k) and a ghost
    Farmland (baseFarmFertility 150 ≈ 30 food/tick) soften the opening
    for everyone. (Humans still start with more mouths: startManpower
@@ -97,8 +97,7 @@ with 25k people (nations 18.75k, bots 10k) against ghost infrastructure
 that feeds ~5k, so the human's stake burned in ~2s and stock pinned to 0
 through the starve-down while nations (fewer mouths + instant farm
 builds) banked to cap. Fix: on layered maps every player type starts at
-`startPopulation` (5k) and the ghost farm was sized up (baseFarmFertility
-180) so a modest spawn is at production/consumption breakeven. In-game:
+`startPopulation` (5k) and the ghost farm was sized up (baseFarmFertility 180) so a modest spawn is at production/consumption breakeven. In-game:
 idle player holds 5,033 population indefinitely; food drifts down only
 via storage decay (~0.6/tick) — the intended "invest your stake" nudge.
 Harness unchanged in shape: leader 13.6%/15.4%, ~213 farms.
@@ -163,3 +162,31 @@ yet; production is 100% built infrastructure. Note: spawn-fertility
 now sets the opening pressure (a mediocre spawn runs a small deficit
 until you paint more farms) — intended, revisit startPopulation if
 playtests say the dip is too sharp.
+
+## v4 — war razing + real spoilage (add-war-razing-and-spoilage)
+
+Playtest meta: barn-hoard + serial blitz beat farming, because captured
+districts transferred intact (free income) and decay (~12%/10min) never
+taxed the war chest. Changes: 50% of tribal plots on conquered territory
+are razed instead of captured (deterministic hash roll, burn-down fire
+animation client-side), and storage decay was raised to ~25%/min
+(decayDenom 5000 → 2000).
+
+Harness, same protocol both sides (2 × 2500 ticks, 25 nations + 10 bots):
+
+| Census (per game) | before | after                  |
+| ----------------- | ------ | ---------------------- |
+| Farmland          | ~1325  | 1180–1256              |
+| Settlements       | ~358   | 332–353                |
+| Barns             | ~410   | 341–368                |
+| leader share      | 14.8%  | 15.4% mean / 16.2% max |
+
+Barns dropped the most (−14%, barn:farm ratio 0.31 → 0.29) — hoarding
+is taxed twice now (spoilage on the stock, razing on the barns when
+they change hands) — while farms fell only ~8%. Leader share, Gini
+(0.40) and survivors (18–19) stay in the established band, so the
+changes tax the _strategy_ without destabilizing bot-vs-bot games. The
+honest caveat: bots never executed the barn-blitz meta this targets, so
+the real test is human playtesting; the harness's job here is showing
+no regression, and it does. Determinism spot-check: repeat runs hash
+identical (3694367454504329).

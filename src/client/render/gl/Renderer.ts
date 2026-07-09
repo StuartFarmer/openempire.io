@@ -45,6 +45,7 @@ import { NamePass } from "./passes/name-pass";
 import { NightCompositePass } from "./passes/NightCompositePass";
 import { NukeTelegraphPass } from "./passes/NukeTelegraphPass";
 import { NukeTrajectoryPass } from "./passes/NukeTrajectoryPass";
+import { PlotFirePass } from "./passes/PlotFirePass";
 import { PlotPass } from "./passes/PlotPass";
 import { PointLightPass } from "./passes/PointLightPass";
 import { RailroadPass } from "./passes/RailroadPass";
@@ -135,6 +136,7 @@ export class GPURenderer {
   private crosshairPass: CrosshairPass;
   private railroadPass: RailroadPass;
   private plotPass: PlotPass;
+  private plotFirePass: PlotFirePass;
   private barPass: BarPass;
   private worldTextPass: WorldTextPass;
   private selectionBoxPass: SelectionBoxPass;
@@ -512,6 +514,7 @@ export class GPURenderer {
 
     // --- Tribal plot patterns (painted single-tile structures) ---
     this.plotPass = new PlotPass(gl, mapW, mapH, this.terrainPass.texture());
+    this.plotFirePass = new PlotFirePass(gl, this.settings);
 
     // --- Range circle (ghost preview radius) ---
     this.rangeCirclePass = new RangeCirclePass(gl);
@@ -896,7 +899,16 @@ export class GPURenderer {
   }
 
   applyDeadUnits(deadUnits: DeadUnitFx[]): void {
-    if (deadUnits.length > 0) this.fxPass.applyDeadUnits(deadUnits);
+    if (deadUnits.length === 0) return;
+    this.fxPass.applyDeadUnits(deadUnits);
+    // Razed tribal plots burn down in place (FxSpritePass skips them, so the
+    // fire replaces the generic building explosion).
+    for (const du of deadUnits) {
+      if (TRIBAL_PLOT_TYPE_INDEX.has(du.unitType)) {
+        const x = du.pos % this.mapW;
+        this.plotFirePass.addBurn(x, (du.pos - x) / this.mapW);
+      }
+    }
   }
 
   applyRailroadDust(tileRefs: number[]): void {
@@ -1292,6 +1304,8 @@ export class GPURenderer {
     if (pe.unit) this.unitPass.drawMissiles(cam);
 
     if (pe.fx) {
+      this.plotFirePass.tick();
+      this.plotFirePass.draw(cam);
       this.fxPass.tick();
       this.fxPass.draw(cam, zoom);
     }
@@ -1333,6 +1347,7 @@ export class GPURenderer {
     this.spawnOverlayPass.dispose();
     this.railroadPass.dispose();
     this.plotPass.dispose();
+    this.plotFirePass.dispose();
     this.rangeCirclePass.dispose();
     this.samRadiusPass.dispose();
     this.crosshairPass.dispose();
