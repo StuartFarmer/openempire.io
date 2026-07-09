@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { AttackExecution } from "../src/core/execution/AttackExecution";
 import { NationStructureBehavior } from "../src/core/execution/nation/NationStructureBehavior";
 import { PlayerExecution } from "../src/core/execution/PlayerExecution";
+import { SpawnExecution } from "../src/core/execution/SpawnExecution";
 import {
   Game,
   Player,
@@ -9,7 +10,6 @@ import {
   PlayerType,
   UnitType,
 } from "../src/core/game/Game";
-import { SpawnExecution } from "../src/core/execution/SpawnExecution";
 import { PseudoRandom } from "../src/core/PseudoRandom";
 import { setup } from "./util/Setup";
 import { TestConfig } from "./util/TestConfig";
@@ -107,6 +107,8 @@ describe("Food economy (layered maps)", () => {
     conquerBlock(game, player, 0, 0, 8);
     player.addFood(10_000n);
     // Plenty of production: a farm belt (land alone produces nothing now).
+    // The Barn is the supply node — farms need one in reach to produce.
+    player.buildUnit(UnitType.Barn, game.ref(3, 2), {});
     for (const x of [1, 2, 3, 4, 5, 6]) {
       player.buildUnit(UnitType.Farmland, game.ref(x, 1), {});
     }
@@ -187,6 +189,7 @@ describe("Food economy (layered maps)", () => {
     conquerBlock(game, player, 0, 0, 4);
     player.setTroops(500);
     player.addFood(777n);
+    player.buildUnit(UnitType.Barn, game.ref(1, 2), {}); // supply node
     player.buildUnit(UnitType.Farmland, game.ref(1, 1), {});
     activate(game, player);
     game.executeNextTick();
@@ -419,7 +422,8 @@ describe("Tribal scarcity (rework-tribal-scarcity)", () => {
     game.executeNextTick();
     expect(flow(player).production).toBe(0);
 
-    // Paint a 4-plot farm belt (consecutive tiles).
+    // Paint a 4-plot farm belt (consecutive tiles) plus a supply node.
+    player.buildUnit(UnitType.Barn, game.ref(3, 3), {});
     for (const x of [2, 3, 4, 5]) {
       player.buildUnit(UnitType.Farmland, game.ref(x, 2), {});
     }
@@ -439,7 +443,10 @@ describe("Tribal scarcity (rework-tribal-scarcity)", () => {
     player.setTroops(0);
     sp.setTroops(0);
 
-    // Belt: 4 consecutive plots; scattered: 4 isolated plots.
+    // Belt: 4 consecutive plots; scattered: 4 isolated plots. Each side
+    // gets the same supply node so only adjacency differs.
+    player.buildUnit(UnitType.Barn, game.ref(3, 3), {});
+    sp.buildUnit(UnitType.Barn, scatteredGame.ref(3, 3), {});
     for (const x of [2, 3, 4, 5]) {
       player.buildUnit(UnitType.Farmland, game.ref(x, 2), {});
     }
@@ -511,8 +518,10 @@ describe("Tribal scarcity (rework-tribal-scarcity)", () => {
     expect(starvedTo).toBeLessThan(15_000);
     expect(flow(player).starvedTroops).toBeGreaterThan(0);
 
-    // Invest: two farms lift production; starvation stops shortly after.
+    // Invest: two farms (plus their supply barn) lift production;
+    // starvation stops shortly after.
     player.addFood(5_000n);
+    player.buildUnit(UnitType.Barn, game.ref(2, 5), {});
     player.buildUnit(UnitType.Farmland, game.ref(2, 2), {});
     player.buildUnit(UnitType.Farmland, game.ref(2, 8), {});
     for (let i = 0; i < 100; i++) game.executeNextTick();

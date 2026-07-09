@@ -80,7 +80,6 @@ export class AttackExecution implements Execution {
       return;
     }
 
-
     // ALLIANCE CHECK — block attacks on friendly (ally or same team)
     if (this.target.isPlayer()) {
       const targetPlayer = this.target as Player;
@@ -320,6 +319,7 @@ export class AttackExecution implements Execution {
         targetPlayer.removeTroops(defenderTroopLoss);
       }
       this._owner.conquer(tileToConquer);
+      this.attack.setFrontTile(tileToConquer);
       this.handleDeadDefender();
     }
   }
