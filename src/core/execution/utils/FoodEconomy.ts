@@ -1,39 +1,30 @@
 import { Game, Player, Unit, UnitType } from "../../game/Game";
 
 /**
- * Count distinct same-type, same-owner plots edge-adjacent to this plot's
- * 2×2 footprint (max 4 — one per side). The district bonus multiplier is
- * 1 + count × Config.food().adjacencyBonus.
+ * Count same-type, same-owner plots on the 4 edge-adjacent tiles. The
+ * district bonus multiplier is 1 + count × Config.food().adjacencyBonus.
  */
 export function sameTypeNeighborPlots(mg: Game, plot: Unit): number {
   const x = mg.x(plot.tile());
   const y = mg.y(plot.tile());
-  // The 8 tiles hugging the four edges of a 2×2 footprint at (x, y).
-  const edges: Array<[number, number]> = [
+  let count = 0;
+  for (const [ex, ey] of [
     [x - 1, y],
-    [x - 1, y + 1],
-    [x + 2, y],
-    [x + 2, y + 1],
+    [x + 1, y],
     [x, y - 1],
-    [x + 1, y - 1],
-    [x, y + 2],
-    [x + 1, y + 2],
-  ];
-  const seen = new Set<Unit>();
-  for (const [ex, ey] of edges) {
+    [x, y + 1],
+  ]) {
     if (!mg.isValidCoord(ex, ey)) continue;
     const neighbor = mg.plotAt(mg.ref(ex, ey));
     if (
       neighbor !== undefined &&
-      neighbor !== plot &&
       neighbor.type() === plot.type() &&
-      neighbor.owner() === plot.owner() &&
-      !neighbor.isUnderConstruction()
+      neighbor.owner() === plot.owner()
     ) {
-      seen.add(neighbor);
+      count++;
     }
   }
-  return Math.min(4, seen.size);
+  return count;
 }
 
 /**

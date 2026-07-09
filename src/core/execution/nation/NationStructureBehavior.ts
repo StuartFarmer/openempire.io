@@ -673,10 +673,10 @@ export class NationStructureBehavior {
       const x = game.x(t);
       const y = game.y(t);
       for (const [dx, dy] of [
-        [-2, 0],
-        [2, 0],
-        [0, -2],
-        [0, 2],
+        [-1, 0],
+        [1, 0],
+        [0, -1],
+        [0, 1],
       ]) {
         if (!game.isValidCoord(x + dx, y + dy)) continue;
         const p = game.plotAt(game.ref(x + dx, y + dy));

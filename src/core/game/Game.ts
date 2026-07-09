@@ -850,8 +850,8 @@ export interface Game extends GameMap {
   numTilesWithFallout(): number;
   stats(): Stats;
 
-  // Tribal 2×2 plots (add-tile-painted-structures)
-  /** The up-to-4 tiles of a plot anchored at `anchor` (map-edge clipped). */
+  // Tribal single-tile plots (add-tile-painted-structures)
+  /** The footprint tiles of a plot at `anchor` (currently just [anchor]). */
   plotTiles(anchor: TileRef): TileRef[];
   /** The tribal plot (if any) covering this tile. */
   plotAt(tile: TileRef): Unit | undefined;

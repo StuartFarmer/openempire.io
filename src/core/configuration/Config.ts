@@ -563,7 +563,6 @@ export class Config {
             UnitType.Settlement,
           ),
           costResource: "food",
-          constructionDuration: this.instantBuild() ? 0 : 5 * 10,
           upgradable: true,
         };
         break;
@@ -574,14 +573,12 @@ export class Config {
             UnitType.Farmland,
           ),
           costResource: "food",
-          constructionDuration: this.instantBuild() ? 0 : 3 * 10,
         };
         break;
       case UnitType.Barn:
         info = {
           cost: this.foodCostWrapper(() => this.food().barnCost, UnitType.Barn),
           costResource: "food",
-          constructionDuration: this.instantBuild() ? 0 : 3 * 10,
           upgradable: true,
         };
         break;

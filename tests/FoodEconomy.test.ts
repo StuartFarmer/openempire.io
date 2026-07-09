@@ -400,8 +400,8 @@ describe("Tribal scarcity (rework-tribal-scarcity)", () => {
     );
     const landOnly = flow(player).production - ghost;
 
-    // Paint a 4-plot farm belt (2×2 plots packed edge to edge).
-    for (const x of [2, 4, 6, 8]) {
+    // Paint a 4-plot farm belt (consecutive tiles).
+    for (const x of [2, 3, 4, 5]) {
       player.buildUnit(UnitType.Farmland, game.ref(x, 2), {});
     }
     game.executeNextTick();
@@ -421,8 +421,8 @@ describe("Tribal scarcity (rework-tribal-scarcity)", () => {
     player.setTroops(0);
     sp.setTroops(0);
 
-    // Belt: 4 plots edge to edge; scattered: 4 isolated plots.
-    for (const x of [2, 4, 6, 8]) {
+    // Belt: 4 consecutive plots; scattered: 4 isolated plots.
+    for (const x of [2, 3, 4, 5]) {
       player.buildUnit(UnitType.Farmland, game.ref(x, 2), {});
     }
     for (const [x, y] of [
@@ -438,17 +438,29 @@ describe("Tribal scarcity (rework-tribal-scarcity)", () => {
     expect(flow(player).production).toBeGreaterThan(flow(sp).production);
   });
 
-  test("plots pack edge to edge but cannot overlap", () => {
+  test("one plot per tile: neighbors fine, same tile rejected", () => {
     conquerBlock(game, player, 0, 0, 6);
     player.addFood(10_000n);
     expect(player.canBuild(UnitType.Farmland, game.ref(0, 0))).not.toBe(false);
     player.buildUnit(UnitType.Farmland, game.ref(0, 0), {});
-    // Edge-to-edge packing is allowed…
-    expect(player.canBuild(UnitType.Farmland, game.ref(2, 0))).not.toBe(false);
-    // …but overlapping an existing footprint is rejected.
-    expect(player.canBuild(UnitType.Farmland, game.ref(1, 0))).toBe(false);
-    // Anchors whose footprint leaves owned land are rejected.
-    expect(player.canBuild(UnitType.Farmland, game.ref(5, 5))).toBe(false);
+    // Tile-by-tile packing is allowed…
+    expect(player.canBuild(UnitType.Farmland, game.ref(1, 0))).not.toBe(false);
+    expect(player.canBuild(UnitType.Barn, game.ref(0, 1))).not.toBe(false);
+    // …but an occupied tile is rejected, for any structure type.
+    expect(player.canBuild(UnitType.Farmland, game.ref(0, 0))).toBe(false);
+    expect(player.canBuild(UnitType.Settlement, game.ref(0, 0))).toBe(false);
+    // Unowned tiles are rejected.
+    expect(player.canBuild(UnitType.Farmland, game.ref(10, 10))).toBe(false);
+  });
+
+  test("tribal plots build instantly — no construction time", () => {
+    // instantBuild is OFF here; tribal plots still have no build duration.
+    const info = game.config().unitInfo(UnitType.Settlement);
+    expect(info.constructionDuration ?? 0).toBe(0);
+    expect(
+      (game.config().unitInfo(UnitType.Farmland).constructionDuration ?? 0) +
+        (game.config().unitInfo(UnitType.Barn).constructionDuration ?? 0),
+    ).toBe(0);
   });
 
   test("costs escalate per owned building", () => {

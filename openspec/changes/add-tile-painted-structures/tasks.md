@@ -21,3 +21,9 @@
 
 - [x] 4.1 Harness re-sweep; balance-notes entry; verify plots-per-game census (dozens per nation) and sane leader share
 - [x] 4.2 tsc/lint/full vitest at baseline
+
+## 5. Revision — single-tile plots (playtest feedback)
+
+- [x] 5.1 Core: footprint = one tile (occupancy 1:1, distance-1 adjacency, single-tile placement); tribal construction time removed entirely
+- [ ] 5.2 Client: 2×2 pattern INSIDE the tile (shader quadrant from sub-tile UV; farmland colors derived from the tile's own terrain color per the reference FarmlandBuilding), settlement/barn as reference palette tiles; stroke painting for Farmland + sticky single for Settlement/Barn ported from the reference FoundationConstructionController; fix the invisible-structure bug (paint on unit add, no construction state)
+- [ ] 5.3 Re-verify in-game + harness; balance-notes entry

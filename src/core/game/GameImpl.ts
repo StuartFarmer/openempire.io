@@ -104,7 +104,7 @@ export class GameImpl implements Game {
   private planDrivenUnitIds = new Set<number>();
   private unitGrid: UnitGrid;
   private _unitMap = new Map<number, Unit>();
-  /** Tribal plot occupancy: every tile of every 2×2 plot footprint. */
+  /** Tribal plot occupancy: one structure per tile. */
   private _plotOccupancy = new Map<TileRef, Unit>();
 
   private playerTeams: Team[] = [];
@@ -1029,17 +1029,12 @@ export class GameImpl implements Game {
   }
 
   /**
-   * The 2×2 footprint of a tribal plot anchored at `anchor` — the anchor
-   * plus right/down/diagonal neighbors that exist on the map.
+   * The footprint of a tribal plot: a single tile. (The 2×2 look is the
+   * SPRITE inside the tile, not the footprint — see add-tile-painted-
+   * structures revision.) Kept as an array for call-site symmetry.
    */
   plotTiles(anchor: TileRef): TileRef[] {
-    const x = this.x(anchor);
-    const y = this.y(anchor);
-    const tiles: TileRef[] = [anchor];
-    if (this.isValidCoord(x + 1, y)) tiles.push(this.ref(x + 1, y));
-    if (this.isValidCoord(x, y + 1)) tiles.push(this.ref(x, y + 1));
-    if (this.isValidCoord(x + 1, y + 1)) tiles.push(this.ref(x + 1, y + 1));
-    return tiles;
+    return [anchor];
   }
 
   /** The tribal plot (if any) covering this tile. */

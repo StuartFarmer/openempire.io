@@ -1500,24 +1500,18 @@ export class PlayerImpl implements Player {
   }
 
   /**
-   * Tribal plot placement (add-tile-painted-structures): a 2×2 footprint of
-   * owned, passable land with no overlapping plot. Deliberately no
-   * structureMinDist — districts pack edge-to-edge.
+   * Tribal plot placement (add-tile-painted-structures): one structure per
+   * tile of owned, passable land. Deliberately no structureMinDist —
+   * districts pack tile-by-tile.
    */
   private plotSpawn(anchor: TileRef): TileRef | false {
-    const tiles = this.mg.plotTiles(anchor);
-    if (tiles.length !== 4) {
-      return false; // clipped by the map edge
-    }
-    for (const t of tiles) {
-      if (
-        !this.mg.isLand(t) ||
-        this.mg.isImpassable(t) ||
-        this.mg.owner(t) !== this ||
-        this.mg.plotAt(t) !== undefined
-      ) {
-        return false;
-      }
+    if (
+      !this.mg.isLand(anchor) ||
+      this.mg.isImpassable(anchor) ||
+      this.mg.owner(anchor) !== this ||
+      this.mg.plotAt(anchor) !== undefined
+    ) {
+      return false;
     }
     return anchor;
   }

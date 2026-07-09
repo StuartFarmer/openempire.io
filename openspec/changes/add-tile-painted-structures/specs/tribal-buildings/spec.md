@@ -2,33 +2,33 @@
 
 ## MODIFIED Requirements
 
-### Requirement: Structures are painted 2×2 plots
+### Requirement: Structures are painted single-tile plots
 
-Settlement, Farmland, and Barn SHALL occupy a 2×2 tile footprint anchored at the clicked tile. A plot is placeable when all four tiles are land, owned by the builder, and not part of any existing structure's footprint — with no other spacing constraint. On the map each plot SHALL render as a per-type 2×2 color pattern painted into the terrain (farmland: alternating light/dark tilled rows) rather than a sprite icon.
+Settlement, Farmland, and Barn SHALL occupy exactly one tile — placeable on any owned, passable land tile without an existing structure, with no spacing constraint. On the map each plot SHALL render as a per-type **2×2 sub-tile pixel pattern inside its single tile** (farmland: the tile's own terrain topsoil color on the top row over a darkened copy below — tilled rows that blend with the local biome, per the reference implementation) rather than a sprite icon. Plots SHALL build instantly — tribal structures have no construction time.
 
 #### Scenario: Dense districts are allowed
 
-- **WHEN** a player owns a 4×4 area of land
-- **THEN** four farmland plots can be packed edge-to-edge into it
+- **WHEN** a player owns a 2×2 area of land
+- **THEN** four farmland plots can be packed tile-by-tile into it
 
-#### Scenario: Footprints cannot overlap
+#### Scenario: One structure per tile
 
-- **WHEN** a plot placement would overlap any tile of an existing structure
+- **WHEN** a plot placement targets a tile already holding a structure
 - **THEN** the placement is rejected
 
-#### Scenario: Painted appearance
+#### Scenario: Painted appearance, instant
 
-- **WHEN** a farmland plot completes
-- **THEN** its four tiles render the farmland pattern in place of base terrain shading
+- **WHEN** a farmland plot is placed
+- **THEN** its tile immediately renders the tilled 2×2 sub-tile pattern (no construction phase, no invisible state) and its production effect starts the same tick
 
-### Requirement: Paint-mode build UX
+### Requirement: Paint-mode build UX (per the foundation reference)
 
-Selecting a tribal building SHALL enter a sticky paint mode: each click (and each new valid plot swept during a click-drag) places a plot and charges its cost; the mode persists until cancelled (right-click or Escape). The ghost preview SHALL show the 2×2 pattern at the cursor with validity coloring, and placement SHALL fail silently (no mode exit) on invalid plots or insufficient food.
+Farmland SHALL use stroke painting exactly as the reference implementation (~/Developer/games/OpenFrontIO, foundation module): pointer-down starts a stroke, every new tile the pointer crosses while held places a plot (deduped per stroke), pointer-up ends the stroke, and the mode stays armed for the next stroke until cancelled (right-click or Escape). Settlement and Barn SHALL use sticky single placement (click per plot, mode persists). Placement failures (invalid tile, insufficient food) fail silently without exiting the mode. The ghost preview shows the pattern at the cursor with validity coloring.
 
 #### Scenario: Painting a farm belt
 
 - **WHEN** the player selects Farmland and drags across owned land
-- **THEN** consecutive non-overlapping plots are placed along the path, each charged individually, until food runs out or the drag ends
+- **THEN** every tile crossed by the stroke gains a farm plot, each charged individually, until food runs out or the drag ends
 
 ### Requirement: Plot economics — cheap, many, gently escalating
 
