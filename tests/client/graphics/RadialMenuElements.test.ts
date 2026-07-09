@@ -100,6 +100,7 @@ describe("RadialMenuElements", () => {
       inSpawnPhase: vi.fn(() => false),
       owner: vi.fn(() => mockPlayer),
       isLand: vi.fn(() => true),
+      hasLayers: vi.fn(() => false),
       config: vi.fn(() => ({
         theme: () => ({
           territoryColor: () => ({
@@ -307,6 +308,16 @@ describe("RadialMenuElements", () => {
 
       expect(buildMenu).toBeDefined();
       expect(attackMenu).toBeUndefined();
+      expect(deleteMenu).toBeDefined();
+    });
+
+    it("should NOT show the build menu on layered maps (build bar replaces it)", () => {
+      (mockGame.hasLayers as ReturnType<typeof vi.fn>).mockReturnValue(true);
+      const subMenu = rootMenuElement.subMenu!(mockParams);
+      const buildMenu = subMenu.find((item) => item.id === Slot.Build);
+      const deleteMenu = subMenu.find((item) => item.id === Slot.Delete);
+
+      expect(buildMenu).toBeUndefined();
       expect(deleteMenu).toBeDefined();
     });
 

@@ -33,6 +33,7 @@ import { ReplayPanel } from "./layers/ReplayPanel";
 import { SettingsModal } from "./layers/SettingsModal";
 import { SpawnTimer } from "./layers/SpawnTimer";
 import { TeamStats } from "./layers/TeamStats";
+import { BuildBar } from "./layers/BuildBar";
 import { UnitDisplay } from "./layers/UnitDisplay";
 import { WinModal } from "./layers/WinModal";
 import { loadAllSprites } from "./SpriteLoader";
@@ -188,6 +189,14 @@ export function createRenderer(
   unitDisplay.eventBus = eventBus;
   unitDisplay.uiState = uiState;
 
+  const buildBar = document.querySelector("build-bar") as BuildBar;
+  if (!(buildBar instanceof BuildBar)) {
+    console.error("build bar not found");
+  }
+  buildBar.game = game;
+  buildBar.eventBus = eventBus;
+  buildBar.uiState = uiState;
+
   const playerPanel = document.querySelector("player-panel") as PlayerPanel;
   if (!(playerPanel instanceof PlayerPanel)) {
     console.error("player panel not found");
@@ -262,6 +271,7 @@ export function createRenderer(
     leaderboard,
     gameLeftSidebar,
     unitDisplay,
+    buildBar,
     gameRightSidebar,
     controlPanel,
     playerInfo,

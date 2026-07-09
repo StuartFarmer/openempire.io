@@ -108,6 +108,8 @@ export class UnitDisplay extends LitElement implements Controller {
     const myPlayer = this.game?.myPlayer();
     if (
       !this.game ||
+      // Layered maps have no gold — the tribal build bar replaces this strip.
+      this.game.hasLayers() ||
       !myPlayer ||
       this.game.inSpawnPhase() ||
       !myPlayer.isAlive()

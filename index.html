@@ -177,18 +177,25 @@
         padding-right: env(safe-area-inset-right);
       "
     >
-      <!-- HUD: <sm contents (children join outer flex), sm+ flex-col 460px, lg+ col-2 -->
+      <!-- HUD: <sm contents (children join outer flex), sm+ flex-col 460px, lg+ col-2
+           (w-max + justify-self-center lets the panel+build-bar ensemble center
+           over the 500px grid track when the build bar is present) -->
       <div
-        class="contents sm:flex sm:flex-col sm:pointer-events-none w-full sm:w-[500px] lg:col-start-2 sm:z-10"
+        class="contents sm:flex sm:flex-col sm:pointer-events-none w-full sm:w-[500px] lg:w-max lg:justify-self-center lg:col-start-2 sm:z-10"
       >
         <attacks-display
-          class="w-full pointer-events-auto order-1 sm:order-none"
+          class="w-full sm:w-[500px] pointer-events-auto order-1 sm:order-none"
         ></attacks-display>
-        <div
-          class="pointer-events-auto bg-gray-800/92 backdrop-blur-sm sm:rounded-tr-lg lg:rounded-t-lg min-[1200px]:rounded-lg shadow-lg order-3 sm:order-none"
-        >
-          <control-panel class="w-full"></control-panel>
-          <unit-display class="hidden lg:block w-full"></unit-display>
+        <div class="flex items-end gap-1.5 order-3 sm:order-none w-full">
+          <div
+            class="pointer-events-auto bg-gray-800/92 backdrop-blur-sm sm:rounded-tr-lg lg:rounded-t-lg min-[1200px]:rounded-lg shadow-lg w-full sm:w-[500px]"
+          >
+            <control-panel class="w-full"></control-panel>
+            <unit-display class="hidden lg:block w-full"></unit-display>
+          </div>
+          <build-bar
+            class="hidden lg:block pointer-events-auto shrink-0"
+          ></build-bar>
         </div>
       </div>
 

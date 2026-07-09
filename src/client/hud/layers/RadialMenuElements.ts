@@ -591,7 +591,13 @@ export const rootMenuElement: MenuElement = {
     const menuItems: (MenuElement | null)[] = [
       infoMenuElement,
       ...(isOwnTerritory
-        ? [deleteUnitElement, allyRequestElement, buildMenuElement]
+        ? [
+            deleteUnitElement,
+            allyRequestElement,
+            // Layered maps: the persistent build bar is the build entry
+            // point — the radial has no wrench there.
+            ...(params.game.hasLayers() ? [] : [buildMenuElement]),
+          ]
         : [
             isAllied && !isDisconnected ? allyBreakElement : boatMenuElement,
             inExtensionWindow ? allyExtendElement : allyRequestElement,
