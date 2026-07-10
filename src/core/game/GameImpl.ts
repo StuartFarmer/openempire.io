@@ -33,9 +33,9 @@ import {
   TeamGameSpawnAreas,
   TerrainType,
   TerraNullius,
+  TribalStructures,
   Trios,
   Unit,
-  TribalStructures,
   UnitInfo,
   UnitType,
 } from "./Game";

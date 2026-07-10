@@ -2,7 +2,7 @@
 
 ## Context
 
-Ports two concepts from the dead-end repo (per the investigation): the deterministic owned-tile distance field (its FoundationLogistics, minus the O(V²) sort-queue) and the smooth `1/(1+(d/r)^p)` carrying-capacity decay (its TroopFood sandbox, minus the non-deterministic fluid sim). Food stays a global per-player stock; supply is a *quality multiplier* where things happen.
+Ports two concepts from the dead-end repo (per the investigation): the deterministic owned-tile distance field (its FoundationLogistics, minus the O(V²) sort-queue) and the smooth `1/(1+(d/r)^p)` carrying-capacity decay (its TroopFood sandbox, minus the non-deterministic fluid sim). Food stays a global per-player stock; supply is a _quality multiplier_ where things happen.
 
 ## Decisions
 

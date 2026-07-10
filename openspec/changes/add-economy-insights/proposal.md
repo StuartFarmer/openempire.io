@@ -6,7 +6,7 @@ Playtest: AIs "make a few farmland plots but nothing substantial" — plain bots
 
 ## What Changes
 
-- **Shared tribal economy brain**: extract the plot-building policy into one module used by nations *and* tribe bots. Policy shifts from survival-reactive to **maximizing**: farm toward feeding the population *cap* (not the current population), settle ahead of demand, barn when the stock nears the ceiling. Multiple plots per AI pulse.
+- **Shared tribal economy brain**: extract the plot-building policy into one module used by nations _and_ tribe bots. Policy shifts from survival-reactive to **maximizing**: farm toward feeding the population _cap_ (not the current population), settle ahead of demand, barn when the stock nears the ceiling. Multiple plots per AI pulse.
 - **Econ panel (client)**: a toggleable HUD box charting the player's food over time — stock line against a y-axis scaled to the **current maximum food capacity among all players** (dynamic competitive scale), production/consumption context, and the player's live food **rank** for competitive pressure. Built as a reusable resource-chart component so metal/oil panels later are configuration, not new code.
 
 ## Capabilities

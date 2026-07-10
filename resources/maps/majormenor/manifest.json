@@ -1,6 +1,7 @@
 {
   "categories": ["new", "fictional"],
   "id": "MajorMenor",
+  "layers": true,
   "map": {
     "height": 1024,
     "num_land_tiles": 389395,

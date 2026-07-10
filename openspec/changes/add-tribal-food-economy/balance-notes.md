@@ -201,13 +201,13 @@ so a fully unsupplied front eats at 8× idle instead of 4×.
 Harness, same protocol + same seeds, supply neutralized (penalty 0,
 radius 10000) vs on (3 × 3000 ticks, 8 nations + 40 bots):
 
-| metric              | neutralized | supply on   |
-| ------------------- | ----------- | ----------- |
-| leader share (mean) | 15.3%       | 13.8%       |
-| gini                | 0.62        | 0.58        |
-| alive @3000         | 30–33       | 39–40       |
-| first elimination   | 1853–2253   | 2003–2403   |
-| troops starved      | 3.2k        | 18.4k       |
+| metric              | neutralized | supply on |
+| ------------------- | ----------- | --------- |
+| leader share (mean) | 15.3%       | 13.8%     |
+| gini                | 0.62        | 0.58      |
+| alive @3000         | 30–33       | 39–40     |
+| first elimination   | 1853–2253   | 2003–2403 |
+| troops starved      | 3.2k        | 18.4k     |
 
 Exactly the intended signature: blitz conquest is taxed (starvation ×5.7
 — that's overextended fronts paying the doubled war rate), eliminations

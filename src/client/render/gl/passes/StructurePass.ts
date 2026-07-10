@@ -16,6 +16,7 @@
 
 import type { GhostPreviewData, RendererConfig, UnitState } from "../../types";
 import {
+  TRIBAL_PLOT_TYPE_INDEX,
   UT_BARN,
   UT_CITY,
   UT_DEFENSE_POST,
@@ -25,7 +26,6 @@ import {
   UT_PORT,
   UT_SAM_LAUNCHER,
   UT_SETTLEMENT,
-  TRIBAL_PLOT_TYPE_INDEX,
 } from "../../types";
 import { DynamicInstanceBuffer } from "../DynamicBuffer";
 import type { RenderSettings } from "../RenderSettings";

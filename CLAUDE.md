@@ -62,7 +62,7 @@ GeneratorPage (#generator route, in-browser, seeded WorldEngine)
 - **terrain-colors.png sidecar:** optional full-res RGBA baked by the generator. `manifest.terrain_colors: true` → `TerrainColorSidecar.ts` attaches it as `BoardMap.colorizer` → `TerrainPass` renders it instead of procedural terrain shading. Full-res only (rejected for compact/4x map size).
 - **layers.bin sidecar:** 5 Uint8 planes (crop, metal, oil, temperature, humidity) — format owned by `src/core/game/MapLayers.ts` (exporter and sim both import it). `manifest.layers: true` → loaded at Normal size → `game.hasLayers()` / `game.layer("crop", tile) → 0..255` in the sim. **All new-game mechanics gate on `hasLayers()`** — classic maps play byte-identical vanilla.
 - The Go tool regenerates `Maps.gen.ts` and the en.json map section from whatever folders exist — adding/removing a map is adding/removing a folder and re-running `gen-maps`.
-- Maps kept: `world` (classic), `pangea001`, `pangea002`, `majormenor` (generated, unlayered), `verdantia` (generated, **layered** — the food-economy playtest map), `tribalsmall` (layered test fixture in `tests/testdata/maps/`).
+- Maps kept: `world` (classic — the only unlayered map), `verdantia` (the food-economy playtest map), `pangea001`, `pangea002`, `majormenor` (all generated + **layered**), `tribalsmall` (layered test fixture in `tests/testdata/maps/`). Maps whose engine state is gone (only the baked image.png survives) get layers retrofitted via `npx tsx map-generator/derive-layers.ts --map <name>` — it inverts the baked elevation and runs the world engine's real climate/resource pipeline with a name-derived seed.
 
 ### Food economy (Tribal age, layered maps only)
 

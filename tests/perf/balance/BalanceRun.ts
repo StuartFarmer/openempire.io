@@ -37,8 +37,8 @@ import { createGame } from "../../../src/core/game/GameImpl";
 import { GameUpdateType, HashUpdate } from "../../../src/core/game/GameUpdates";
 import { decodeLayers } from "../../../src/core/game/MapLayers";
 import { createNationsForGame } from "../../../src/core/game/NationCreation";
-import { UserSettings } from "../../../src/core/game/UserSettings";
 import { genTerrainFromBin } from "../../../src/core/game/TerrainMapLoader";
+import { UserSettings } from "../../../src/core/game/UserSettings";
 import { GameRunner } from "../../../src/core/GameRunner";
 import { PseudoRandom } from "../../../src/core/PseudoRandom";
 import { GameConfig, GameStartInfo } from "../../../src/core/Schemas";
@@ -362,7 +362,8 @@ async function main(): Promise<void> {
     meanFinalLeaderShare: finals.reduce((a, b) => a + b, 0) / finals.length,
     maxFinalLeaderShare: Math.max(...finals),
     meanFinalGini:
-      results.reduce((a, r) => a + r.series[r.series.length - 1].gini, 0) / results.length,
+      results.reduce((a, r) => a + r.series[r.series.length - 1].gini, 0) /
+      results.length,
     totalStarved: results.reduce(
       (a, r) => a + r.series.reduce((x, s) => x + s.starved, 0),
       0,

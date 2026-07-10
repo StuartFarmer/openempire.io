@@ -2,7 +2,7 @@
 
 ## Why
 
-Distance currently costs nothing: a farm on the far frontier yields like one beside the capital, and an army campaigning a continent away eats at the same rate as one defending home. The dead-end repo's investigation identified two portable nuggets — a deterministic owned-tile distance field (its "logistics" module) and a smooth distance-decay supply formula (its troop-food sandbox) — that make *where* you build and fight matter without making food spatial.
+Distance currently costs nothing: a farm on the far frontier yields like one beside the capital, and an army campaigning a continent away eats at the same rate as one defending home. The dead-end repo's investigation identified two portable nuggets — a deterministic owned-tile distance field (its "logistics" module) and a smooth distance-decay supply formula (its troop-food sandbox) — that make _where_ you build and fight matter without making food spatial.
 
 ## What Changes
 

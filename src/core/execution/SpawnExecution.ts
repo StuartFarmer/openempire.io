@@ -139,7 +139,9 @@ export class SpawnExecution implements Execution {
     if (slots.length < 4) {
       const byDist = [...player.tiles()]
         .filter((t) => valid(t) && !slots.includes(t))
-        .sort((a, b) => mg.manhattanDist(a, center) - mg.manhattanDist(b, center));
+        .sort(
+          (a, b) => mg.manhattanDist(a, center) - mg.manhattanDist(b, center),
+        );
       slots.push(...byDist.slice(0, 4 - slots.length));
     }
 
