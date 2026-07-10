@@ -338,14 +338,14 @@
     "recolorStructures": true
   },
   "supplyOverlay": {
-    "alphaLow": 0.6,
-    "alphaHigh": 0.25,
-    "lowR": 0.85,
-    "lowG": 0.12,
-    "lowB": 0.08,
-    "highR": 0.2,
-    "highG": 0.9,
-    "highB": 0.4
+    "alphaLow": 0.8,
+    "alphaHigh": 0.0,
+    "lowR": 0.0,
+    "lowG": 0.0,
+    "lowB": 0.0,
+    "highR": 0.0,
+    "highG": 0.0,
+    "highB": 0.0
   },
   "tileDrip": {
     "bucketCount": 9

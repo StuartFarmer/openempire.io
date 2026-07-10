@@ -156,8 +156,8 @@ export interface FoodConfig {
   decayDenom: number;
   /**
    * Chance a tribal plot on conquered territory is razed (destroyed with
-   * fire) instead of captured — conquest yields land plus the surviving
-   * fraction of a district, never a turnkey economy.
+   * fire) instead of captured. Default 1.0 — invasion destroys everything;
+   * conquest yields scorched land, never a turnkey economy.
    */
   capturedPlotRazeChance: number;
   /**
@@ -207,11 +207,13 @@ export interface FoodConfig {
   /** Field refresh cadence in ticks (staleness bound between recomputes). */
   supplyRefreshTicks: number;
   /**
-   * War logistics: an attack's fighting consumption is multiplied by
-   * 1 + (1 − frontQuality) × warSupplyPenalty. 1.0 → a fully unsupplied
-   * front eats at twice the war rate.
+   * War logistics: an out-of-supply attack LOSES TROOPS each tick —
+   * floor(troops × (1 − frontQuality) × warSupplyAttrition) die before the
+   * army eats. 0.005 → a fully unsupplied army loses 0.5%/tick (halves in
+   * ~14s); a supplied one loses nothing. Food consumption stays at the
+   * base war rate — supply failures kill men, not budgets.
    */
-  warSupplyPenalty: number;
+  warSupplyAttrition: number;
 }
 
 // Scarcity-first defaults (rework-tribal-scarcity): raw land sustains only
@@ -235,7 +237,7 @@ const FOOD_DEFAULTS: FoodConfig = {
   storagePerBarn: 1_500,
   decayNumer: 1,
   decayDenom: 2000,
-  capturedPlotRazeChance: 0.5,
+  capturedPlotRazeChance: 1.0,
   surplusForFullGrowth: 0.25,
   starvationDeathFraction: 0.02,
   settlementCost: 150,
@@ -248,7 +250,7 @@ const FOOD_DEFAULTS: FoodConfig = {
   supplyRadius: 30,
   supplyDecayPower: 3,
   supplyRefreshTicks: 10,
-  warSupplyPenalty: 1.0,
+  warSupplyAttrition: 0.005,
 };
 
 export class Config {

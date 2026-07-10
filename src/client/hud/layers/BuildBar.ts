@@ -146,7 +146,7 @@ export class BuildBar extends LitElement implements Controller {
         >
           <span
             class="size-6 rounded-sm shrink-0"
-            style="background: linear-gradient(135deg, #34d399 0%, #fbbf24 55%, #ef4444 100%)"
+            style="background: linear-gradient(135deg, #e7e5e4 0%, #78716c 45%, #0a0a0a 100%)"
           ></span>
           <span class="text-[10px] font-bold">Supply</span>
         </button>

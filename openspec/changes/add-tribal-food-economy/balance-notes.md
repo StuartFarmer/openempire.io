@@ -234,3 +234,21 @@ starved 9.4k (halved vs supply-lines' 18.4k — populations stop growing
 into deficits sooner), census in the established band (~1,200–1,500
 farms, ~300 settlements, ~200 barns). Bots keep the default share —
 adaptive bot allocation is a watch item, not a regression.
+
+## v7 — total razing + supply attrition + darkness mask (playtest feedback)
+
+Three changes: capturedPlotRazeChance 0.5 → 1.0 (invasion destroys every
+plot — conquest yields scorched land, never infrastructure);
+warSupplyPenalty (food multiplier) replaced by warSupplyAttrition 0.005
+(an out-of-supply attack loses floor(troops × (1−quality) × 0.005) men
+per tick — a fully unsupplied army halves in ~14s; supply failures kill
+men, not budgets); supply overlay restyled from a green→red tint to a
+darkness mask (supplied land untouched, unsupplied fades to black at
+alpha 0.8).
+
+Harness (3 × 3000 ticks, 8 nations + 40 bots, verdantia): leader 12.4%
+mean / 13.0% max, gini 0.55, alive 38–42, starved 2.7k (war-food
+starvation became attrition deaths, which count as combat losses).
+Standing settlements/barns drop noticeably (up to −60% in the most
+warred run) — total razing means contested regions stay ruins until
+rebuilt. Leader share and survivors hold the established band.

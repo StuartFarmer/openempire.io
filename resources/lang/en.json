@@ -139,7 +139,7 @@
     "food_allocation": "Food allocation: how much of each harvest feeds your population (growth) versus going into storage (spending money). Storage still feeds people in a famine.",
     "food_starving": "Starving! Food consumption exceeds production and storage is empty",
     "low_troops_warning": "You are very low on troops - You should always keep some troops for defense.",
-    "supply_overlay": "Toggle the supply-lines overlay: your territory shaded by supply quality (green = well supplied, red = out of reach of your settlements and barns)",
+    "supply_overlay": "Toggle the supply-lines overlay: territory out of reach of your settlements and barns darkens (well-supplied land stays untouched)",
     "teammate_afk_neighbor_info": "You can attack disconnected teammates.",
     "traitor_neighbor_info": "You can betray traitors without becoming a traitor yourself."
   },

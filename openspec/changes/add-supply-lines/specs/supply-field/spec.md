@@ -23,4 +23,4 @@ The client SHALL offer a toggleable overlay shading the player's territory by su
 #### Scenario: Reading the envelope
 
 - **WHEN** the player toggles the supply overlay
-- **THEN** well-supplied districts read bright and the under-supplied frontier reads dark, updating as barns/settlements are painted
+- **THEN** well-supplied districts stay untouched (fully transparent) while the under-supplied frontier darkens toward black (alpha 0.8 at quality 0), updating as barns/settlements are painted

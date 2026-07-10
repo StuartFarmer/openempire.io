@@ -1,10 +1,10 @@
 /**
  * SupplyOverlayPass — the supply-lines heatmap (openspec add-supply-lines).
  *
- * Shades the LOCAL player's territory by supply quality: well-supplied
- * districts get a faint green wash, the under-supplied frontier a strong
- * red one, so the logistics envelope is readable before committing to an
- * expansion or a push.
+ * Shades the LOCAL player's territory by supply quality as a darkness
+ * mask: well-supplied districts stay untouched (fully transparent) while
+ * the under-supplied frontier fades toward black, so the logistics
+ * envelope reads like a fog of famine before committing to a push.
  *
  * The quality field is computed on the CPU each tick (the same owned-land
  * BFS the sim runs — see render/frame/derive/SupplyOverlay.ts) because

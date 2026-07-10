@@ -171,43 +171,48 @@ describe("Supply-gated farming", () => {
   });
 });
 
-describe("Supply-gated war consumption", () => {
-  test("an overextended front eats up to (1 + penalty)× the war rate", async () => {
+describe("Supply attrition in war", () => {
+  test("an overextended front bleeds troops; a supplied one does not", async () => {
     const game = await layeredGame();
     const player = game.player(humanInfo.id);
     const f = game.config().food();
     conquerBlock(game, player, 0, 0, 95, 4);
-    player.addFood(50_000n);
     player.buildUnit(UnitType.Settlement, game.ref(1, 1), {});
     player.setTroops(0);
     // A standing attack whose front we position by hand (no execution — the
-    // conquer loop would move it every tick).
+    // conquer loop would move it every tick). Sized so the starting stake
+    // feeds it for the whole test — food must not confound the attrition.
     const attack = player.createAttack(
       game.terraNullius(),
-      10_000,
+      1_000,
       null,
       new Set<number>(),
     );
     activate(game, player);
 
     attack.setFrontTile(game.ref(2, 1)); // beside the settlement
-    game.executeNextTick();
-    const supplied = flow(player).consumption;
+    for (let i = 0; i < 20; i++) game.executeNextTick();
+    // Fully supplied: no attrition, and the army eats the plain war rate.
+    expect(attack.troops()).toBe(1_000);
+    const warBase = (1_000 * f.fightConsumptionMilli) / 1000;
+    expect(flow(player).consumption).toBeGreaterThanOrEqual(warBase * 0.95);
+    expect(flow(player).consumption).toBeLessThanOrEqual(warBase * 1.05);
 
     attack.setFrontTile(game.ref(94, 1)); // ~3× radius down the corridor
+    const before = attack.troops();
     game.executeNextTick();
-    const overextended = flow(player).consumption;
-
-    const warBase = (10_000 * f.fightConsumptionMilli) / 1000;
-    expect(supplied).toBeGreaterThanOrEqual(warBase * 0.95);
-    expect(supplied).toBeLessThan(warBase * 1.1);
-    expect(overextended).toBeGreaterThan(warBase * 1.8);
-    expect(overextended).toBeLessThanOrEqual(
-      warBase * (1 + f.warSupplyPenalty) * 1.01,
-    );
+    // Quality ~0.04 out there → ≈ troops × attrition die this tick.
+    const expected = Math.floor(before * 0.96 * f.warSupplyAttrition);
+    expect(before - attack.troops()).toBeGreaterThanOrEqual(expected - 1);
+    expect(before - attack.troops()).toBeLessThanOrEqual(expected + 1);
+    // Sustained: the army keeps shrinking even though food never ran out.
+    for (let i = 0; i < 50; i++) game.executeNextTick();
+    expect(attack.troops()).toBeLessThan(before * 0.85);
+    expect(player.foodFlow().starvedTroops).toBe(0);
+    expect(player.food()).toBeGreaterThan(0n);
   });
 
-  test("no front yet (or a cut-off beachhead) pays the full penalty", async () => {
+  test("no front yet (or a cut-off beachhead) pays full attrition", async () => {
     const game = await layeredGame();
     const player = game.player(humanInfo.id);
     const f = game.config().food();
@@ -215,13 +220,18 @@ describe("Supply-gated war consumption", () => {
     player.addFood(50_000n);
     player.buildUnit(UnitType.Settlement, game.ref(5, 5), {});
     player.setTroops(0);
-    player.createAttack(game.terraNullius(), 1_000, null, new Set<number>());
+    const attack = player.createAttack(
+      game.terraNullius(),
+      10_000,
+      null,
+      new Set<number>(),
+    );
     activate(game, player);
     game.executeNextTick();
 
-    const warBase = (1_000 * f.fightConsumptionMilli) / 1000;
-    expect(flow(player).consumption).toBe(
-      Math.floor(warBase * (1 + f.warSupplyPenalty)),
+    // frontTile null → quality 0 → full attrition on the first tick.
+    expect(attack.troops()).toBe(
+      10_000 - Math.floor(10_000 * f.warSupplyAttrition),
     );
   });
 

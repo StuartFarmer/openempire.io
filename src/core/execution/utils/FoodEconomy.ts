@@ -74,21 +74,24 @@ export function foodTick(mg: Game, player: Player): void {
   // Attack and boat troops leave the player's troops() pool while deployed,
   // so the three groups are disjoint by construction.
   let fighting = 0;
-  let fightingMilli = 0;
   for (const attack of player.outgoingAttacks()) {
-    fighting += attack.troops();
-    // Supply-line penalty: a front that outruns its granaries pays up to
-    // (1 + warSupplyPenalty)× the war rate. The front tile may postdate the
-    // last field refresh, so probe back through owned land for a distance;
-    // no front yet (or a cut-off beachhead) reads Infinity → full penalty.
+    // Supply-line attrition: a front that outruns its granaries LOSES
+    // TROOPS — floor(troops × (1 − quality) × warSupplyAttrition) die this
+    // tick, before the survivors eat at the base war rate. The front tile
+    // may postdate the last field refresh, so probe back through owned
+    // land for a distance; no front yet (or a cut-off beachhead) reads
+    // Infinity → full attrition.
     const front = attack.frontTile();
     const frontDist =
       front === null ? Infinity : probeDistance(mg, player, supply, front);
     const quality = supplyQualityFromDistance(frontDist, f);
-    fightingMilli +=
-      attack.troops() *
-      f.fightConsumptionMilli *
-      (1 + (1 - quality) * f.warSupplyPenalty);
+    const losses = Math.floor(
+      attack.troops() * (1 - quality) * f.warSupplyAttrition,
+    );
+    if (losses > 0) {
+      attack.setTroops(attack.troops() - losses);
+    }
+    fighting += attack.troops();
   }
   let moving = 0;
   for (const boat of player.units(UnitType.TransportShip)) {
@@ -98,7 +101,7 @@ export function foodTick(mg: Game, player: Player): void {
   const consumptionMilli = Math.floor(
     idle * f.idleConsumptionMilli +
       moving * f.moveConsumptionMilli +
-      fightingMilli,
+      fighting * f.fightConsumptionMilli,
   );
 
   // ── Allocation split (add-food-allocation): the slider decides how much

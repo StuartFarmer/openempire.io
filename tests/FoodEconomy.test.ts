@@ -631,13 +631,11 @@ describe("War razing (add-war-razing-and-spoilage)", () => {
     };
   }
 
-  test("about half of a conquered district burns; the rest transfers", async () => {
+  test("the whole conquered district burns — invasion destroys everything", async () => {
     const { captured, total } = await conquerDistrict();
-    // Some plots razed (total < 20), some captured — roughly half each.
-    expect(total).toBeLessThan(20);
-    expect(captured).toBeGreaterThanOrEqual(4);
-    expect(captured).toBeLessThanOrEqual(16);
-    expect(total).toBe(captured); // rival keeps none — captured or burned
+    // Raze chance 1.0: every plot burns; nothing transfers to either side.
+    expect(captured).toBe(0);
+    expect(total).toBe(0);
   });
 
   test("razing is deterministic across identical runs", async () => {

@@ -11,11 +11,11 @@ Farmland SHALL remain the only food source, now supply-gated: each farm plot's p
 - **WHEN** two identical farm plots differ only in distance to the nearest Settlement/Barn
 - **THEN** the distant one produces less, per the supply-quality curve
 
-### Requirement: Consumption scales with activity
+### Requirement: Supply failures kill troops
 
-Fighting troops SHALL additionally pay a supply-line penalty: a land attack's effective fighting rate is multiplied by `1 + (1 − frontQuality) × warSupplyPenalty`, where frontQuality tracks the supply quality at the attack's recently conquered tiles. A fully supplied push pays the base war rate; an overextended one pays up to the knob-capped multiple — and starves in the field, since starvation already reaches deployed troops.
+Fighting troops SHALL pay for broken supply lines in men, not food: each tick an attack loses `floor(troops × (1 − frontQuality) × warSupplyAttrition)` troops before the survivors eat at the base war rate, where frontQuality tracks the supply quality at the attack's recently conquered tiles. A fully supplied push loses nothing; a fully unsupplied one bleeds warSupplyAttrition of its strength per tick.
 
-#### Scenario: Overextended armies starve
+#### Scenario: Overextended armies bleed out
 
 - **WHEN** two equal armies fight equally hard, one beside its granaries and one deep in unsupplied territory
-- **THEN** the distant army consumes meaningfully more food per tick and shrinks first when the stock runs dry
+- **THEN** the distant army loses troops to attrition every tick and shrinks even while the food stock is full, while the supplied army does not

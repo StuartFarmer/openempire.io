@@ -6,7 +6,7 @@ Playtest meta: deep granaries + minimal farming + serial blitzes dominate, becau
 
 ## What Changes
 
-- **War razes infrastructure**: each tribal plot on conquered territory has a configured chance (default 50%) to be destroyed instead of captured — farms trampled, barns torched. Conquest yields land and the surviving fraction of a district, not a turnkey economy. Deterministic (hash-based roll, identical on every client).
+- **War razes infrastructure**: each tribal plot on conquered territory has a configured chance (default 100%) to be destroyed instead of captured — farms trampled, barns torched. Conquest yields scorched land, never a turnkey economy. Deterministic (hash-based roll, identical on every client).
 - **Fire animation**: a razed plot burns — a short 2×2 in-tile flame animation over the tile as it's destroyed (any violent plot removal shows fire).
 - **Real spoilage**: storage decay raised to ~25%/minute (decayDenom 5000 → 2000) — war chests are built close to when they're spent; sustained campaigns need farm income.
 

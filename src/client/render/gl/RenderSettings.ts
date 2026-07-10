@@ -387,12 +387,12 @@ export interface RenderSettings {
     recolorStructures: boolean;
   };
   supplyOverlay: {
-    alphaLow: number; // wash opacity at quality 0 (frontier pops)
-    alphaHigh: number; // wash opacity at quality 1 (subtle)
-    lowR: number; // quality-0 tint (red)
+    alphaLow: number; // mask opacity at quality 0 (unsupplied → dark)
+    alphaHigh: number; // mask opacity at quality 1 (0 = untouched)
+    lowR: number; // quality-0 tint (black)
     lowG: number;
     lowB: number;
-    highR: number; // quality-1 tint (green)
+    highR: number; // quality-1 tint (irrelevant at alpha 0)
     highG: number;
     highB: number;
   };
