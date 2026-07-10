@@ -1,4 +1,10 @@
 import { Game, Player, Unit, UnitType } from "../../game/Game";
+import {
+  probeDistance,
+  supplyField,
+  supplyQuality,
+  supplyQualityFromDistance,
+} from "./SupplyField";
 
 /**
  * Count same-type, same-owner plots on the 4 edge-adjacent tiles. The
@@ -40,6 +46,7 @@ export function sameTypeNeighborPlots(mg: Game, plot: Unit): number {
  */
 export function foodTick(mg: Game, player: Player): void {
   const f = mg.config().food();
+  const supply = supplyField(mg, player);
 
   // ── Production: farms are the ONLY food source (landHarvestMilli
   // defaults to 0 — unfarmed land produces nothing; conquest wins tiles to
@@ -49,11 +56,14 @@ export function foodTick(mg: Game, player: Player): void {
     if (farm.isUnderConstruction()) continue;
     // District bonus: contiguous farm belts out-produce scattered plots.
     const district = 1 + sameTypeNeighborPlots(mg, farm) * f.adjacencyBonus;
-    farmFertility += mg.layer("crop", farm.tile()) * farm.level() * district;
+    // Supply-line term: frontier farms far from any Settlement/Barn
+    // underperform until the district's logistics catch up.
+    const quality = supplyQuality(mg, supply, farm.tile());
+    farmFertility +=
+      mg.layer("crop", farm.tile()) * farm.level() * district * quality;
   }
   const landMilli = Math.floor(
-    Math.pow(player.fertilitySum(), f.landHarvestExponent) *
-      f.landHarvestMilli,
+    Math.pow(player.fertilitySum(), f.landHarvestExponent) * f.landHarvestMilli,
   );
   // farmFertility carries fractional district multipliers — floor before
   // the value flows into bigint stock math.
@@ -64,8 +74,21 @@ export function foodTick(mg: Game, player: Player): void {
   // Attack and boat troops leave the player's troops() pool while deployed,
   // so the three groups are disjoint by construction.
   let fighting = 0;
+  let fightingMilli = 0;
   for (const attack of player.outgoingAttacks()) {
     fighting += attack.troops();
+    // Supply-line penalty: a front that outruns its granaries pays up to
+    // (1 + warSupplyPenalty)× the war rate. The front tile may postdate the
+    // last field refresh, so probe back through owned land for a distance;
+    // no front yet (or a cut-off beachhead) reads Infinity → full penalty.
+    const front = attack.frontTile();
+    const frontDist =
+      front === null ? Infinity : probeDistance(mg, player, supply, front);
+    const quality = supplyQualityFromDistance(frontDist, f);
+    fightingMilli +=
+      attack.troops() *
+      f.fightConsumptionMilli *
+      (1 + (1 - quality) * f.warSupplyPenalty);
   }
   let moving = 0;
   for (const boat of player.units(UnitType.TransportShip)) {
@@ -75,7 +98,7 @@ export function foodTick(mg: Game, player: Player): void {
   const consumptionMilli = Math.floor(
     idle * f.idleConsumptionMilli +
       moving * f.moveConsumptionMilli +
-      fighting * f.fightConsumptionMilli,
+      fightingMilli,
   );
 
   // ── Apply net flow to the stock; deficit beyond storage starves ─────────
@@ -155,8 +178,7 @@ function barnCapacity(mg: Game, player: Player): number {
   let capacity = 0;
   for (const barn of player.units(UnitType.Barn)) {
     if (barn.isUnderConstruction()) continue;
-    capacity +=
-      barn.level() * (1 + sameTypeNeighborPlots(mg, barn) * bonus);
+    capacity += barn.level() * (1 + sameTypeNeighborPlots(mg, barn) * bonus);
   }
   return capacity;
 }

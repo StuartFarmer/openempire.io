@@ -12,8 +12,9 @@ import {
   TRAIL_EFFECT_TYPES,
   type TrailEffectAttributes,
 } from "../core/CosmeticSchemas";
-import { decodePatternData } from "../core/PatternDecoder";
 import { PlayerType } from "../core/game/Game";
+import { decodePatternData } from "../core/PatternDecoder";
+import { SupplyOverlayComputer } from "./render/frame/derive/SupplyOverlay";
 import { uploadFrameData } from "./render/frame/Upload";
 // Type-only: a value import would pull GPURenderer and its `.glsl?raw` shader
 // imports into any non-Vite consumer (e.g. the Node perf harness).
@@ -142,6 +143,8 @@ export class WebGLFrameBuilder {
   private localPlayerSmallID = 0;
   // Scratch buffer for terrain-delta uploads (parallel to the refs list).
   private terrainDeltaBytes: Uint8Array = new Uint8Array(0);
+  // Supply-lines heatmap recompute (layered maps, only while toggled on).
+  private readonly supplyOverlay = new SupplyOverlayComputer();
 
   constructor(private readonly view: MapRenderer) {
     this.palette = new Float32Array(PALETTE_SIZE * 2 * 4);
@@ -194,8 +197,20 @@ export class WebGLFrameBuilder {
     this.syncLocalPlayer(gameView);
     this.syncSpawnOverlay(gameView);
     this.syncTerrainDeltas(gameView);
+    this.syncSupplyOverlay(gameView);
     this.resolveDeadUnitExplosions(gameView);
     uploadFrameData(this.view, gameView.frameData());
+  }
+
+  /**
+   * Recompute + push the supply heatmap while the overlay is toggled on.
+   * Costs one owned-land BFS per tick (see SupplyOverlayComputer), so it
+   * runs only on layered maps with the toggle active.
+   */
+  private syncSupplyOverlay(gameView: GameView): void {
+    if (!this.view.supplyOverlayOn() || !gameView.hasLayers()) return;
+    const quality = this.supplyOverlay.compute(gameView);
+    if (quality !== null) this.view.updateSupplyOverlay(quality);
   }
 
   /**

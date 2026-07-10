@@ -271,6 +271,17 @@ export class MapRenderer {
   setAltView(active: boolean): void {
     this.renderer?.setAltView(active);
   }
+  /** Toggle the supply-lines heatmap (layered maps). */
+  setSupplyOverlay(active: boolean): void {
+    this.renderer?.setSupplyOverlay(active);
+  }
+  supplyOverlayOn(): boolean {
+    return this.renderer?.supplyOverlayOn() ?? false;
+  }
+  /** Push a fresh supply-quality field (map-sized R8 bytes). */
+  updateSupplyOverlay(quality: Uint8Array): void {
+    this.renderer?.updateSupplyOverlay(quality);
+  }
   setGridView(active: boolean): void {
     this.renderer?.setGridView(active);
   }

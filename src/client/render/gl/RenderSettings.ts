@@ -386,6 +386,16 @@ export interface RenderSettings {
     gridFontSize: number;
     recolorStructures: boolean;
   };
+  supplyOverlay: {
+    alphaLow: number; // wash opacity at quality 0 (frontier pops)
+    alphaHigh: number; // wash opacity at quality 1 (subtle)
+    lowR: number; // quality-0 tint (red)
+    lowG: number;
+    lowB: number;
+    highR: number; // quality-1 tint (green)
+    highG: number;
+    highB: number;
+  };
   tileDrip: {
     /**
      * Round-robin bucket count for staggering territory tile uploads across

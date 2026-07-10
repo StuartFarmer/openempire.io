@@ -138,6 +138,7 @@
     "food": "Food stored and net production per second",
     "food_starving": "Starving! Food consumption exceeds production and storage is empty",
     "low_troops_warning": "You are very low on troops - You should always keep some troops for defense.",
+    "supply_overlay": "Toggle the supply-lines overlay: your territory shaded by supply quality (green = well supplied, red = out of reach of your settlements and barns)",
     "teammate_afk_neighbor_info": "You can attack disconnected teammates.",
     "traitor_neighbor_info": "You can betray traitors without becoming a traitor yourself."
   },

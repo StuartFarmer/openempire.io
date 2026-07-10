@@ -337,6 +337,16 @@
     "gridFontSize": 24,
     "recolorStructures": true
   },
+  "supplyOverlay": {
+    "alphaLow": 0.6,
+    "alphaHigh": 0.25,
+    "lowR": 0.85,
+    "lowG": 0.12,
+    "lowB": 0.08,
+    "highR": 0.2,
+    "highG": 0.9,
+    "highB": 0.4
+  },
   "tileDrip": {
     "bucketCount": 9
   },

@@ -57,6 +57,7 @@ import type { SpawnCenter } from "./passes/SpawnOverlayPass";
 import { SpawnOverlayPass } from "./passes/SpawnOverlayPass";
 import { StructureLevelPass } from "./passes/StructureLevelPass";
 import { StructurePass } from "./passes/StructurePass";
+import { SupplyOverlayPass } from "./passes/SupplyOverlayPass";
 import { TerrainPass } from "./passes/TerrainPass";
 import { TerritoryPass } from "./passes/TerritoryPass";
 import { TrailPass } from "./passes/TrailPass";
@@ -147,6 +148,7 @@ export class GPURenderer {
   private affiliationPalette: AffiliationPalette;
   private coordinateGridPass: CoordinateGridPass;
   private spawnOverlayPass: SpawnOverlayPass;
+  private supplyOverlayPass: SupplyOverlayPass;
   private inSpawnPhase = false;
 
   private paletteTex: WebGLTexture;
@@ -515,6 +517,14 @@ export class GPURenderer {
     // --- Tribal plot patterns (painted single-tile structures) ---
     this.plotPass = new PlotPass(gl, mapW, mapH, this.terrainPass.texture());
     this.plotFirePass = new PlotFirePass(gl, this.settings);
+
+    // --- Supply-lines heatmap (local player's supply quality) ---
+    this.supplyOverlayPass = new SupplyOverlayPass(
+      gl,
+      mapW,
+      mapH,
+      this.settings.supplyOverlay,
+    );
 
     // --- Range circle (ghost preview radius) ---
     this.rangeCirclePass = new RangeCirclePass(gl);
@@ -1079,6 +1089,18 @@ export class GPURenderer {
     this.samRadiusPass.setAllianceClusters(clusters);
   }
 
+  setSupplyOverlay(active: boolean): void {
+    this.supplyOverlayPass.setEnabled(active);
+  }
+
+  supplyOverlayOn(): boolean {
+    return this.supplyOverlayPass.isEnabled();
+  }
+
+  updateSupplyOverlay(quality: Uint8Array): void {
+    this.supplyOverlayPass.update(quality);
+  }
+
   setAltView(active: boolean): void {
     this.altView = active;
     this.territoryPass.setAltView(active);
@@ -1285,6 +1307,8 @@ export class GPURenderer {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     this.spawnOverlayPass.draw(cam);
+    // Supply heatmap sits under borders/structures so plots stay readable.
+    this.supplyOverlayPass.draw(cam);
     if (pe.borderStamp) this.borderStampPass.draw(cam);
     if (pe.railroad) this.railroadPass.draw(cam, zoom);
     if (pe.unit) this.unitPass.drawGround(cam);
@@ -1345,6 +1369,7 @@ export class GPURenderer {
     this.affiliationPalette.dispose();
     this.coordinateGridPass.dispose();
     this.spawnOverlayPass.dispose();
+    this.supplyOverlayPass.dispose();
     this.railroadPass.dispose();
     this.plotPass.dispose();
     this.plotFirePass.dispose();

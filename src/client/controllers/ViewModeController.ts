@@ -9,7 +9,11 @@
 
 import { EventBus } from "../../core/EventBus";
 import { Controller } from "../Controller";
-import { AlternateViewEvent, ToggleCoordinateGridEvent } from "../InputHandler";
+import {
+  AlternateViewEvent,
+  ToggleCoordinateGridEvent,
+  ToggleSupplyOverlayEvent,
+} from "../InputHandler";
 import { MapRenderer } from "../render/gl";
 
 export class ViewModeController implements Controller {
@@ -24,6 +28,10 @@ export class ViewModeController implements Controller {
     );
     this.eventBus.on(ToggleCoordinateGridEvent, (e) =>
       this.view.setGridView(e.enabled),
+    );
+    // Supply-lines heatmap (layered maps; toggled from the BuildBar).
+    this.eventBus.on(ToggleSupplyOverlayEvent, (e) =>
+      this.view.setSupplyOverlay(e.enabled),
     );
   }
 }

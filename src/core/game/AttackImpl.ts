@@ -6,6 +6,7 @@ import { PlayerImpl } from "./PlayerImpl";
 export class AttackImpl implements Attack {
   private _isActive = true;
   private _borderSize = 0;
+  private _frontTile: TileRef | null = null;
   public _retreating = false;
   public _retreated = false;
 
@@ -21,6 +22,13 @@ export class AttackImpl implements Attack {
 
   sourceTile(): TileRef | null {
     return this._sourceTile;
+  }
+
+  frontTile(): TileRef | null {
+    return this._frontTile;
+  }
+  setFrontTile(tile: TileRef): void {
+    this._frontTile = tile;
   }
 
   target(): Player | TerraNullius {

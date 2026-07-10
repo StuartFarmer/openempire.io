@@ -392,6 +392,10 @@ export interface Attack {
   delete(): void;
   // The tile the attack originated from, mostly used for boat attacks.
   sourceTile(): TileRef | null;
+  // Most recently conquered tile — the attack's supply-line anchor
+  // (add-supply-lines). Null until the first conquest.
+  frontTile(): TileRef | null;
+  setFrontTile(tile: TileRef): void;
   addBorderTile(tile: TileRef): void;
   removeBorderTile(tile: TileRef): void;
   clearBorder(): void;

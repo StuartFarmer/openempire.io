@@ -187,6 +187,23 @@ export interface FoodConfig {
   adjacencyBonus: number;
   /** Starting stock: buys the first farms, not comfort (fits baseStorage). */
   startingFood: number;
+  /**
+   * Supply lines (add-supply-lines): every owned tile has a supply quality
+   * 1/(1 + (d/supplyRadius)^supplyDecayPower), where d is the owned-land
+   * step distance to the nearest completed Settlement or Barn. Quality is
+   * 0.5 exactly at supplyRadius; the flood is cut off at 3× the radius
+   * (quality < ~0.04) so field cost stays bounded.
+   */
+  supplyRadius: number;
+  supplyDecayPower: number;
+  /** Field refresh cadence in ticks (staleness bound between recomputes). */
+  supplyRefreshTicks: number;
+  /**
+   * War logistics: an attack's fighting consumption is multiplied by
+   * 1 + (1 − frontQuality) × warSupplyPenalty. 1.0 → a fully unsupplied
+   * front eats at twice the war rate.
+   */
+  warSupplyPenalty: number;
 }
 
 // Scarcity-first defaults (rework-tribal-scarcity): raw land sustains only
@@ -219,6 +236,10 @@ const FOOD_DEFAULTS: FoodConfig = {
   costGrowthPerOwned: 0.03,
   adjacencyBonus: 0.1,
   startingFood: 4_000,
+  supplyRadius: 30,
+  supplyDecayPower: 3,
+  supplyRefreshTicks: 10,
+  warSupplyPenalty: 1.0,
 };
 
 export class Config {
