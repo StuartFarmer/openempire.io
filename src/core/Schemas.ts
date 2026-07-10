@@ -41,6 +41,7 @@ export type Intent =
   | EmojiIntent
   | DonateGoldIntent
   | DonateTroopsIntent
+  | FoodAllocationIntent
   | BuildUnitIntent
   | EmbargoIntent
   | QuickChatIntent
@@ -56,6 +57,7 @@ export type Intent =
 
 export type AttackIntent = z.infer<typeof AttackIntentSchema>;
 export type CancelAttackIntent = z.infer<typeof CancelAttackIntentSchema>;
+export type FoodAllocationIntent = z.infer<typeof FoodAllocationIntentSchema>;
 export type SpawnIntent = z.infer<typeof SpawnIntentSchema>;
 export type BoatAttackIntent = z.infer<typeof BoatAttackIntentSchema>;
 export type EmbargoAllIntent = z.infer<typeof EmbargoAllIntentSchema>;
@@ -472,6 +474,13 @@ export const CancelAttackIntentSchema = z.object({
   attackID: z.string(),
 });
 
+// Food allocation slider (add-food-allocation, layered maps): fraction of
+// each tick's production offered to the population; the rest banks.
+export const FoodAllocationIntentSchema = z.object({
+  type: z.literal("food_allocation"),
+  populationShare: z.number().min(0).max(1),
+});
+
 export const CancelBoatIntentSchema = z.object({
   type: z.literal("cancel_boat"),
   unitID: z.number(),
@@ -543,6 +552,7 @@ export const IntentSchema = z.discriminatedUnion("type", [
   EmbargoIntentSchema,
   EmbargoAllIntentSchema,
   MoveWarshipIntentSchema,
+  FoodAllocationIntentSchema,
   QuickChatIntentSchema,
   AllianceExtensionIntentSchema,
   DeleteUnitIntentSchema,

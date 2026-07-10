@@ -188,6 +188,14 @@ export interface FoodConfig {
   /** Starting stock: buys the first farms, not comfort (fits baseStorage). */
   startingFood: number;
   /**
+   * Default food allocation (add-food-allocation): the fraction of each
+   * tick's production offered to the population; the rest banks into
+   * storage. Players adjust it with the allocation slider (food_allocation
+   * intent); bots keep the default. At 1.0 a growing population consumes
+   * everything and nothing ever banks.
+   */
+  defaultPopulationShare: number;
+  /**
    * Supply lines (add-supply-lines): every owned tile has a supply quality
    * 1/(1 + (d/supplyRadius)^supplyDecayPower), where d is the owned-land
    * step distance to the nearest completed Settlement or Barn. Quality is
@@ -236,6 +244,7 @@ const FOOD_DEFAULTS: FoodConfig = {
   costGrowthPerOwned: 0.03,
   adjacencyBonus: 0.1,
   startingFood: 4_000,
+  defaultPopulationShare: 0.7,
   supplyRadius: 30,
   supplyDecayPower: 3,
   supplyRefreshTicks: 10,

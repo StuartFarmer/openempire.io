@@ -216,3 +216,21 @@ little (they don't plan barn placement around supply — recorded watch
 item). Knobs: supplyRadius 30, supplyDecayPower 3, warSupplyPenalty 1.0,
 supplyRefreshTicks 10. If human playtests find aggression too punished,
 lower warSupplyPenalty first.
+
+## v6 — food allocation slider (add-food-allocation)
+
+The growth homeostat's last stand: a growing population always consumed
+every unit of production, so the stock could never climb while growing.
+New per-player allocation share (slider, food_allocation intent, default
+0.7): population is offered share×production (surplus drives growth and
+is NOT banked), the rest banks; storage overflow above the cap is
+rebated to the population; famine still draws from storage before
+starving. Share 1.0 = grow-max/bank-nothing; share 0 = austerity
+(pass-through feeding, zero growth, max banking).
+
+Harness at default 0.7 (3 × 3000 ticks, 8 nations + 40 bots,
+verdantia): leader 12.5% mean / 13.6% max, gini 0.59, alive 35–41,
+starved 9.4k (halved vs supply-lines' 18.4k — populations stop growing
+into deficits sooner), census in the established band (~1,200–1,500
+farms, ~300 settlements, ~200 barns). Bots keep the default share —
+adaptive bot allocation is a watch item, not a regression.

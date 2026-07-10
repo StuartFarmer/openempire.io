@@ -625,6 +625,9 @@ export interface Player {
     consumption: number;
     starvedTroops: number;
   };
+  /** Allocation slider: production fraction fed to the population (0..1). */
+  foodPopulationShare(): number;
+  setFoodPopulationShare(share: number): void;
 
   // Units
   units(...types: UnitType[]): Unit[];

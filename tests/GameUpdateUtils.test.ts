@@ -25,6 +25,7 @@ function makePlayerState(overrides: Partial<PlayerState> = {}): PlayerState {
     foodProduction: 0,
     foodConsumption: 0,
     foodStarved: 0,
+    foodPopulationShare: 1,
     isTraitor: false,
     traitorRemainingTicks: 0,
     inDoomsdayClock: false,

@@ -126,6 +126,11 @@ export class CancelAttackIntentEvent implements GameEvent {
   constructor(public readonly attackID: string) {}
 }
 
+/** Food allocation slider (layered maps): population share of production. */
+export class SendFoodAllocationIntentEvent implements GameEvent {
+  constructor(public readonly populationShare: number) {}
+}
+
 export class CancelBoatIntentEvent implements GameEvent {
   constructor(public readonly unitID: number) {}
 }

@@ -62,6 +62,10 @@ export function diffPlayerUpdate(
     prev.foodConsumption === next.foodConsumption,
   );
   setIfDifferent("foodStarved", prev.foodStarved === next.foodStarved);
+  setIfDifferent(
+    "foodPopulationShare",
+    prev.foodPopulationShare === next.foodPopulationShare,
+  );
   setIfDifferent("isTraitor", prev.isTraitor === next.isTraitor);
   setIfDifferent(
     "traitorRemainingTicks",
@@ -138,6 +142,8 @@ export function applyStateUpdate(target: PlayerState, pu: PlayerUpdate): void {
   if (pu.foodConsumption !== undefined)
     target.foodConsumption = pu.foodConsumption;
   if (pu.foodStarved !== undefined) target.foodStarved = pu.foodStarved;
+  if (pu.foodPopulationShare !== undefined)
+    target.foodPopulationShare = pu.foodPopulationShare;
   if (pu.isTraitor !== undefined) target.isTraitor = pu.isTraitor;
   if (pu.traitorRemainingTicks !== undefined) {
     target.traitorRemainingTicks = Math.max(0, pu.traitorRemainingTicks);

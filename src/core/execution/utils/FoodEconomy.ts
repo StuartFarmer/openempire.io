@@ -101,30 +101,46 @@ export function foodTick(mg: Game, player: Player): void {
       fightingMilli,
   );
 
-  // ── Apply net flow to the stock; deficit beyond storage starves ─────────
-  const impl = player as Player & { _foodMilli: bigint };
-  let stock = impl._foodMilli + BigInt(productionMilli - consumptionMilli);
-  let deficitMilli = 0;
-  if (stock < 0n) {
-    deficitMilli = Number(-stock);
-    stock = 0n;
-  }
+  // ── Allocation split (add-food-allocation): the slider decides how much
+  // of this tick's production is offered to the population; the rest banks.
+  // At share 1.0 a growing population consumes everything and nothing ever
+  // banks — banking is what the storage share is for.
+  const share = player.foodPopulationShare();
+  let popMilli = Math.floor(productionMilli * share);
+  const storeMilli = productionMilli - popMilli;
 
-  // ── Storage: overflow is lost, then the remainder decays ────────────────
+  // ── Storage first: bank the storage share; overflow beyond the cap is
+  // rebated to the population instead of rotting on the ground.
+  const impl = player as Player & { _foodMilli: bigint };
+  let stock = impl._foodMilli + BigInt(storeMilli);
   const capMilli =
     BigInt(
       f.baseStorage + Math.floor(barnCapacity(mg, player) * f.storagePerBarn),
     ) * 1000n;
   if (stock > capMilli) {
+    popMilli += Number(stock - capMilli);
     stock = capMilli;
   }
+
+  // ── Feed the population from its share; storage buffers any shortfall ───
+  const netMilli = popMilli - consumptionMilli;
+  let deficitMilli = 0;
+  if (netMilli < 0) {
+    const need = BigInt(-netMilli);
+    const draw = stock < need ? stock : need;
+    stock -= draw;
+    deficitMilli = Number(need - draw);
+  }
+
+  // ── The banked remainder decays (grain rots) ────────────────────────────
   stock -= (stock * BigInt(f.decayNumer)) / BigInt(f.decayDenom);
   impl._foodMilli = stock;
 
-  // ── Growth throttled by surplus, or starvation on deficit ───────────────
+  // ── Growth throttled by the population share's surplus, or starvation ───
   // Three regimes: surplus → grow (scaled up to full at surplusForFullGrowth
-  // above break-even); covered deficit → stagnate (reserves feed people, they
-  // don't multiply); uncovered deficit → starve.
+  // above break-even) — the surplus is eaten by growth, never banked;
+  // covered deficit → stagnate (reserves feed people, they don't multiply);
+  // uncovered deficit → starve.
   let starved = 0;
   if (deficitMilli > 0) {
     // Starvation hits the WHOLE population proportionally — idle pool,
@@ -145,9 +161,8 @@ export function foodTick(mg: Game, player: Player): void {
         boat.setTroops(Math.max(0, boat.troops() - share));
       }
     }
-  } else if (productionMilli > consumptionMilli) {
-    const surplusRatio =
-      (productionMilli - consumptionMilli) / Math.max(1, consumptionMilli);
+  } else if (netMilli > 0) {
+    const surplusRatio = netMilli / Math.max(1, consumptionMilli);
     const surplusFactor = Math.min(1, surplusRatio / f.surplusForFullGrowth);
     // Settlement districts: clustered towns grow population faster.
     const growth =

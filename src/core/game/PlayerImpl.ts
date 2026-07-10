@@ -106,6 +106,12 @@ export class PlayerImpl implements Player {
   public _fertilitySum: number = 0;
   /** Last tick's food flow breakdown (display units), for UI/stats. */
   public _foodFlow = { production: 0, consumption: 0, starvedTroops: 0 };
+  /**
+   * Allocation slider (add-food-allocation): fraction of each tick's
+   * production offered to the population; the rest banks into storage.
+   * Set via the food_allocation intent; initialized from Config.food().
+   */
+  private _foodPopulationShare: number = 1;
 
   markedTraitorTick = -1;
   markedDoomsdayClockTick = -1;
@@ -162,6 +168,7 @@ export class PlayerImpl implements Player {
       // (enough for the first farms, not for comfort).
       this._gold = 0n;
       this._foodMilli = BigInt(mg.config().food().startingFood) * 1000n;
+      this._foodPopulationShare = mg.config().food().defaultPopulationShare;
     } else {
       this._gold = mg.config().startingGold(playerInfo);
     }
@@ -323,6 +330,7 @@ export class PlayerImpl implements Player {
           foodProduction: this._foodFlow.production,
           foodConsumption: this._foodFlow.consumption,
           foodStarved: this._foodFlow.starvedTroops,
+          foodPopulationShare: this._foodPopulationShare,
         }
       : undefined;
 
@@ -1206,6 +1214,14 @@ export class PlayerImpl implements Player {
     starvedTroops: number;
   } {
     return this._foodFlow;
+  }
+
+  foodPopulationShare(): number {
+    return this._foodPopulationShare;
+  }
+
+  setFoodPopulationShare(share: number): void {
+    this._foodPopulationShare = Math.max(0, Math.min(1, share));
   }
 
   addGold(toAdd: Gold, tile?: TileRef): void {
