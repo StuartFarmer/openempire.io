@@ -190,3 +190,29 @@ honest caveat: bots never executed the barn-blitz meta this targets, so
 the real test is human playtesting; the harness's job here is showing
 no regression, and it does. Determinism spot-check: repeat runs hash
 identical (3694367454504329).
+
+## v5 — supply lines (add-supply-lines, on the `supply-lines` branch)
+
+Distance now costs: farm production × supply quality at the farm tile
+(quality = 1/(1+(d/30)^3), d = owned-land steps to nearest completed
+Settlement/Barn), and an attack's fighting rate ×(1 + (1−frontQuality)),
+so a fully unsupplied front eats at 8× idle instead of 4×.
+
+Harness, same protocol + same seeds, supply neutralized (penalty 0,
+radius 10000) vs on (3 × 3000 ticks, 8 nations + 40 bots):
+
+| metric              | neutralized | supply on   |
+| ------------------- | ----------- | ----------- |
+| leader share (mean) | 15.3%       | 13.8%       |
+| gini                | 0.62        | 0.58        |
+| alive @3000         | 30–33       | 39–40       |
+| first elimination   | 1853–2253   | 2003–2403   |
+| troops starved      | 3.2k        | 18.4k       |
+
+Exactly the intended signature: blitz conquest is taxed (starvation ×5.7
+— that's overextended fronts paying the doubled war rate), eliminations
+come later, and games stay multipolar longer. Bot economies shrink a
+little (they don't plan barn placement around supply — recorded watch
+item). Knobs: supplyRadius 30, supplyDecayPower 3, warSupplyPenalty 1.0,
+supplyRefreshTicks 10. If human playtests find aggression too punished,
+lower warSupplyPenalty first.

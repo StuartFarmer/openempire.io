@@ -10,7 +10,10 @@ import {
   UnitType,
 } from "../../../core/game/Game";
 import { Controller } from "../../Controller";
-import { ToggleStructureEvent } from "../../InputHandler";
+import {
+  ToggleStructureEvent,
+  ToggleSupplyOverlayEvent,
+} from "../../InputHandler";
 import { UIState } from "../../UIState";
 import { renderNumber, translateText } from "../../Utils";
 import { GameView } from "../../view";
@@ -46,6 +49,8 @@ export class BuildBar extends LitElement implements Controller {
   private playerBuildables: BuildableUnit[] | null = null;
   private _hovered: UnitType | null = null;
   private _lastGhost: UnitType | null = null;
+  private _supplyOverlayOn = false;
+  private _supplyHovered = false;
 
   createRenderRoot() {
     return this;
@@ -100,6 +105,51 @@ export class BuildBar extends LitElement implements Controller {
         @contextmenu=${(e: MouseEvent) => e.preventDefault()}
       >
         ${BAR_ENTRIES.map((entry) => this.renderEntry(entry))}
+        ${this.renderSupplyToggle()}
+      </div>
+    `;
+  }
+
+  /** Supply-lines heatmap toggle — a view mode, not a buildable. */
+  private renderSupplyToggle() {
+    return html`
+      <div class="relative border-t border-slate-600 pt-1">
+        ${this._supplyHovered
+          ? html`
+              <div
+                class="absolute bottom-0 right-full mr-2 text-gray-200 text-center w-max max-w-[220px] text-xs bg-gray-800/90 backdrop-blur-xs rounded-sm p-2 z-[100] shadow-lg pointer-events-none"
+              >
+                ${translateText("control_panel.supply_overlay")}
+              </div>
+            `
+          : null}
+        <button
+          class="w-full flex items-center gap-1.5 px-1.5 py-1 rounded-md border text-white transition-colors cursor-pointer
+            ${this._supplyOverlayOn
+            ? "border-emerald-400 bg-emerald-400/20"
+            : "border-slate-500 hover:bg-gray-700"}"
+          @click=${() => {
+            this._supplyOverlayOn = !this._supplyOverlayOn;
+            this.eventBus?.emit(
+              new ToggleSupplyOverlayEvent(this._supplyOverlayOn),
+            );
+            this.requestUpdate();
+          }}
+          @mouseenter=${() => {
+            this._supplyHovered = true;
+            this.requestUpdate();
+          }}
+          @mouseleave=${() => {
+            this._supplyHovered = false;
+            this.requestUpdate();
+          }}
+        >
+          <span
+            class="size-6 rounded-sm shrink-0"
+            style="background: linear-gradient(135deg, #34d399 0%, #fbbf24 55%, #ef4444 100%)"
+          ></span>
+          <span class="text-[10px] font-bold">Supply</span>
+        </button>
       </div>
     `;
   }

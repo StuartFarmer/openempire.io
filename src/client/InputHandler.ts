@@ -92,6 +92,11 @@ export class AlternateViewEvent implements GameEvent {
   constructor(public readonly alternateView: boolean) {}
 }
 
+/** Persistent supply-lines heatmap toggle (layered maps — BuildBar button). */
+export class ToggleSupplyOverlayEvent implements GameEvent {
+  constructor(public readonly enabled: boolean) {}
+}
+
 export class CloseViewEvent implements GameEvent {}
 
 export class RefreshGraphicsEvent implements GameEvent {}
