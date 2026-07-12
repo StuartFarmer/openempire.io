@@ -170,13 +170,14 @@ func processMap(ctx context.Context, name string, isTest bool) error {
 		delete(manifest, "terrain_colors")
 	}
 
-	// layers.bin sidecar: 5 Uint8 planes (crop, metal, oil, temperature,
-	// humidity) at full resolution — see src/core/game/MapLayers.ts for the
-	// format. The baker only copies and size-checks; it never parses planes.
+	// layers.bin sidecar: 6 Uint8 planes (crop, metal, oil, temperature,
+	// humidity, water) at full resolution — see src/core/game/MapLayers.ts
+	// (LAYER_NAMES) for the format. Keep this count in sync with LAYER_NAMES.
+	// The baker only copies and size-checks; it never parses planes.
 	copiedLayers, err := copyOptionalSizedFile(
 		filepath.Join(inputMapDir, name, "layers.bin"),
 		filepath.Join(mapDir, "layers.bin"),
-		5*result.Map.Width*result.Map.Height,
+		6*result.Map.Width*result.Map.Height,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to copy layers sidecar for %s: %w", name, err)

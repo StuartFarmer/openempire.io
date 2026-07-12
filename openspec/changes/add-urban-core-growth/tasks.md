@@ -4,10 +4,10 @@ Whole feature, one change. Order is build-order, not phases.
 
 ## 1. Data: hydrology layer
 
-- [ ] 1.1 Append `water` to `LAYER_NAMES` (MapLayers.ts); bump `expectedLayersByteLength` consumers
-- [ ] 1.2 Generator: bake the `water` plane from normalizedWatermap + irrigation + lake/river masks (GeneratorMapExport.ts, gen-world.ts, derive-layers.ts)
-- [ ] 1.3 Re-bake every layered map (verdantia, pangea001/002, majormenor, tribalsmall fixture) + the new `estuaria` demo map; MapConsistency green
-- [ ] 1.4 `game.layer("water", tile)` accessor + test
+- [x] 1.1 Append `water` to `LAYER_NAMES` (MapLayers.ts); Go baker size check 5→6 planes (main.go)
+- [x] 1.2 `buildFreshwaterPlane` (0.6·irrigation + 0.5·river + lakes) in GeneratorMapExport.ts; wired into gen-world.ts + derive-layers.ts
+- [x] 1.3 Re-baked every layered map (verdantia, pangea001/002, majormenor, tribalsmall fixture, estuaria) to 6 planes; MapConsistency green
+- [x] 1.4 `game.layer("water", tile)` works generically; covered by GameMapLayers/MapLayers/GeneratorMapExport tests + real-baked variety check in FoodEconomy
 
 ## 2. Core sim: density field + growth engine
 

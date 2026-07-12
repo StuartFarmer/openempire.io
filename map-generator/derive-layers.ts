@@ -22,6 +22,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { encodeLayers, LAYER_NAMES } from "../src/core/game/MapLayers";
 import { simpleHash } from "../src/core/Util";
+import { buildFreshwaterPlane } from "../src/games/alternative/world/GeneratorMapExport";
 import {
   deriveFoundationWorldEngineResourceConfig,
   deriveWorldEngineOcean,
@@ -145,7 +146,7 @@ const precipitation = generateWorldEnginePrecipitation(
   cfg,
 );
 const seaDepth = deriveWorldEngineSeaDepth(elevation, ocean, cfg);
-const { watermap } = generateWorldEngineWatermap(
+const { watermap, lakes } = generateWorldEngineWatermap(
   elevation,
   ocean,
   precipitation,
@@ -178,6 +179,11 @@ const blob = encodeLayers(
     oil: resources.oil,
     temperature,
     humidity,
+    water: buildFreshwaterPlane(
+      { irrigation, normalizedWatermap, lakes },
+      width,
+      height,
+    ),
   },
   width,
   height,

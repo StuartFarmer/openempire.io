@@ -14,6 +14,10 @@ export const LAYER_NAMES = [
   "oil",
   "temperature",
   "humidity",
+  // Freshwater proximity (add-urban-core-growth): rivers + lakes + irrigation
+  // diffusion, 0..255. Drives the water term of the urban-growth suitability
+  // field. Shoreline/ocean-shore are read from the terrain bitmask, not here.
+  "water",
 ] as const;
 
 export type LayerName = (typeof LAYER_NAMES)[number];

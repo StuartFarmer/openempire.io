@@ -108,7 +108,10 @@ export function buildGeneratorTerrainColorImage(
  * owned by core so the exporter and the sim cannot drift.
  */
 export function buildGeneratorLayersBlob(
-  layers: Pick<FoundationWorldEngineLayers, "temperature" | "humidity"> & {
+  layers: Pick<
+    FoundationWorldEngineLayers,
+    "temperature" | "humidity" | "irrigation" | "normalizedWatermap" | "lakes"
+  > & {
     resources: Pick<
       FoundationWorldEngineLayers["resources"],
       "crop" | "metal" | "oil"
@@ -123,8 +126,34 @@ export function buildGeneratorLayersBlob(
     oil: layers.resources.oil,
     temperature: layers.temperature,
     humidity: layers.humidity,
+    water: buildFreshwaterPlane(layers, width, height),
   };
   return encodeLayers(planes, width, height);
+}
+
+/**
+ * Freshwater proximity in 0..1 (add-urban-core-growth): irrigation carries the
+ * diffused distance-to-water field, normalizedWatermap the river channels, and
+ * lakes a hard bonus on standing water. encodeLayers quantizes to 0..255.
+ */
+export function buildFreshwaterPlane(
+  layers: Pick<
+    FoundationWorldEngineLayers,
+    "irrigation" | "normalizedWatermap" | "lakes"
+  >,
+  width: number,
+  height: number,
+): Float32Array {
+  const { irrigation, normalizedWatermap, lakes } = layers;
+  const out = new Float32Array(width * height);
+  for (let i = 0; i < out.length; i++) {
+    const river = normalizedWatermap[i];
+    const diffuse = irrigation[i];
+    const lake = lakes[i] ? 1 : 0;
+    const v = 0.6 * diffuse + 0.5 * river + lake;
+    out[i] = v <= 0 ? 0 : v >= 1 ? 1 : v;
+  }
+  return out;
 }
 
 function capitalize(value: string): string {

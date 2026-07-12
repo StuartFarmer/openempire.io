@@ -680,12 +680,21 @@ describe("Baked layered fixture", () => {
     expect(game.hasLayers()).toBe(true);
     // A generated world has varied fertility, not a flat plane.
     const crops = new Set<number>();
+    const water = new Set<number>();
+    let maxWater = 0;
     for (let y = 0; y < 64; y += 4) {
       for (let x = 0; x < 64; x += 4) {
         crops.add(game.layer("crop", game.ref(x, y)));
+        const w = game.layer("water", game.ref(x, y));
+        water.add(w);
+        maxWater = Math.max(maxWater, w);
       }
     }
     expect(crops.size).toBeGreaterThan(1);
+    // The freshwater plane (add-urban-core-growth) is baked and varied:
+    // rivers/lakes read high, dry interior low.
+    expect(water.size).toBeGreaterThan(1);
+    expect(maxWater).toBeGreaterThan(0);
   });
 });
 
