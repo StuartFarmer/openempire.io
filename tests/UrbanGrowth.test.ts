@@ -188,7 +188,8 @@ describe("Urban growth engine (add-urban-core-growth)", () => {
     expect(peak).toBeGreaterThan(5);
 
     player.removeFood(player.food());
-    player.setTroops(50_000); // huge population, nothing feeds it
+    // A population far beyond what the city can feed → sustained deficit.
+    player.setTroops(Math.ceil(peak * 2000));
     for (let t = 0; t < 120; t++) urbanTick(game, player);
     expect(player.urbanArea()).toBeLessThan(peak);
   });

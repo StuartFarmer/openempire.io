@@ -10,7 +10,7 @@ import {
 } from "../game/Game";
 import { GameMap, TileRef } from "../game/GameMap";
 import { calculateBoundingBox, getMode, inscribed, simpleHash } from "../Util";
-import { foodTick } from "./utils/FoodEconomy";
+import { urbanTick } from "./utils/UrbanGrowth";
 
 interface ClusterTraversalState {
   visited: Uint32Array;
@@ -89,10 +89,11 @@ export class PlayerExecution implements Execution {
     }
 
     if (this.mg.hasLayers()) {
-      // Layered maps: the food economy owns population growth/starvation
-      // (Config.food knobs; see execution/utils/FoodEconomy.ts), and there
-      // is no gold in the Tribal age.
-      foodTick(this.mg, this.player);
+      // Layered maps: the urban-core growth tick owns the density field,
+      // production/consumption, population growth/starvation, and area
+      // growth (Config.food knobs; see execution/utils/UrbanGrowth.ts).
+      // No gold in this age.
+      urbanTick(this.mg, this.player);
     } else {
       const troopInc = this.config.troopIncreaseRate(this.player);
       this.player.addTroops(troopInc);

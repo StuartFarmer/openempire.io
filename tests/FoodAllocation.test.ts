@@ -1,13 +1,7 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { FoodAllocationExecution } from "../src/core/execution/FoodAllocationExecution";
 import { PlayerExecution } from "../src/core/execution/PlayerExecution";
-import {
-  Game,
-  Player,
-  PlayerInfo,
-  PlayerType,
-  UnitType,
-} from "../src/core/game/Game";
+import { Game, Player, PlayerInfo, PlayerType } from "../src/core/game/Game";
 import { setup } from "./util/Setup";
 
 /** See tests/FoodEconomy.test.ts — same activation dance. */
@@ -43,13 +37,20 @@ function conquerBlock(game: Game, player: Player, size: number): void {
   }
 }
 
-/** A supplied farm belt producing far more than 1000 idle troops eat. */
+/**
+ * Found a dense Core district producing far more than 1000 idle troops eat
+ * (add-urban-core-growth): own a 12×12 block, seed the Core, and fill it with
+ * built density so production is high and supplied.
+ */
 function buildEconomy(game: Game, player: Player): void {
-  player.addFood(10_000n);
-  player.buildUnit(UnitType.Barn, game.ref(3, 2), {});
-  for (const x of [1, 2, 3, 4, 5, 6]) {
-    player.buildUnit(UnitType.Farmland, game.ref(x, 1), {});
+  for (let y = 0; y < 12; y++) {
+    for (let x = 0; x < 12; x++) player.conquer(game.ref(x, y));
   }
+  player.setCore(game.ref(6, 6));
+  for (let y = 0; y < 12; y++) {
+    for (let x = 0; x < 12; x++) player.setDensity(game.ref(x, y), 1000);
+  }
+  player.addFood(10_000n);
 }
 
 describe("Food allocation (add-food-allocation)", () => {
@@ -112,19 +113,20 @@ describe("Food allocation (add-food-allocation)", () => {
     expect(allPop.troops).toBeGreaterThanOrEqual(banked.troops);
   });
 
-  test("share 0 is austerity: fed via pass-through, zero growth, max banking", () => {
+  test("share 0 is austerity: fed via pass-through, storage banks to the cap", () => {
     buildEconomy(game, player);
     player.removeFood(player.food());
     player.setTroops(1000);
     player.setFoodPopulationShare(0);
+    const f = game.config().food();
     activate(game, player);
     for (let i = 0; i < 50; i++) game.executeNextTick();
 
-    // Fed from the storage draw — nobody starves, nobody is born.
+    // Fed from the storage draw — nobody starves — and storage banks to the
+    // cap (max banking). Beyond the cap the overflow rebates to the
+    // population, so growth is not strictly zero, but banking is maximal.
     expect(player.foodFlow().starvedTroops).toBe(0);
-    expect(player.troops()).toBe(1000);
-    // Everything above consumption banks.
-    expect(player.food()).toBeGreaterThan(2_000n);
+    expect(player.food()).toBeGreaterThanOrEqual(BigInt(f.baseStorage - 500));
   });
 
   test("storage overflow is rebated to the population, not wasted", () => {

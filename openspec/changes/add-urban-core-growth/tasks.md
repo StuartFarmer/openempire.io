@@ -13,10 +13,10 @@ Whole feature, one change. Order is build-order, not phases.
 
 - [ ] 2.1 Remove plots: delete Settlement/Farmland/Barn unit types, plot occupancy, one-per-tile placement, stroke-paint gating (core + client)
 - [x] 2.2 PlayerImpl: `core`, `density` field (milliunit ints), `setDensity`/`densityEntries`/`urbanArea`; Player interface accessors. (player-update fields land with the flip)
-- [ ] 2.3 `found_capital` intent + FoundCapitalExecution + Executor case; SpawnExecution places the Core, not the kit
+- [x] 2.3 SpawnExecution founds the Core (seeds density, resets stake) instead of the plot kit. (Explicit found_capital intent/UI deferred to task 5.)
 - [x] 2.4 `UrbanGrowth.urbanTick`: K from suitability over supply-reachable land; logistic ΔA scaled by surplus; suitability-CA deposit with congestion + satellites/coalescence; deurbanization. SupplyField now sources from the Core. FoodConfig knobs added. 6 engine tests green (S-curve, gradient, water pull, supply gating, deurbanization, determinism)
-- [ ] 2.5 Flip: PlayerExecution → urbanTick; density-based maxTroops; rewrite FoodEconomy/SupplyLines/FoodAllocation tests onto density
-- [ ] 2.6 Razing → clears captured-tile density (regrowth via logistic)
+- [x] 2.5 Flip: PlayerExecution → urbanTick; maxTroops = basePopulation + urbanArea·popPerDensity; urbanArea plumbed through player updates; rebalanced pop/yield knobs (village→metropolis); rewrote FoodEconomy/SupplyLines/FoodAllocation onto density. Full suite at the 5-file baseline.
+- [x] 2.6 Razing → conquer/relinquish clear the loser's density (captor gets raw land, regrows via logistic); covered by the war-razing test
 
 ## 3. Player agency: infrastructure
 

@@ -34,6 +34,7 @@ export interface PlayerState {
   foodConsumption: number;
   foodStarved: number;
   foodPopulationShare: number;
+  urbanArea: number;
   isTraitor: boolean;
   traitorRemainingTicks: number;
   inDoomsdayClock: boolean;

@@ -33,6 +33,8 @@ interface EconomyPlayer {
   }>;
   /** True when the game map has layer data — the food economy is active. */
   hasFoodEconomy(): boolean;
+  /** Built urban area (Σ density) — the carrying capacity on layered maps. */
+  urbanArea(): number;
 }
 
 declare global {
@@ -256,9 +258,12 @@ const FOOD_DEFAULTS: FoodConfig = {
   landHarvestMilli: 0,
   landHarvestExponent: 0.5,
   farmProductionMilli: 80,
-  basePopulation: 3_000,
-  startPopulation: 4_000,
-  populationPerSettlement: 3_000,
+  // Urban model (add-urban-core-growth): the city IS the population source,
+  // so the floor and founding size are a village that grows — not a camp of
+  // thousands the seed city cannot feed. popPerDensity supplies the rest.
+  basePopulation: 100,
+  startPopulation: 100,
+  populationPerSettlement: 3_000, // legacy plot knob (unused by urban maxTroops)
   baseStorage: 5_000,
   storagePerBarn: 1_500,
   decayNumer: 1,
@@ -278,8 +283,11 @@ const FOOD_DEFAULTS: FoodConfig = {
   supplyRefreshTicks: 10,
   warSupplyAttrition: 0.005,
   urbanGrowthRate: 0.15,
-  popPerDensity: 5_000,
-  urbanYieldMilli: 220,
+  // Balanced so a fully-built tile (density 1) feeds its own population: it
+  // houses popPerDensity people eating popPerDensity·idleConsumption milli,
+  // and produces ~cropN·urbanYieldMilli — cropN·urbanYield·share ≳ pop·idle.
+  popPerDensity: 300,
+  urbanYieldMilli: 6_000,
   wFood: 1.0,
   wWater: 0.8,
   wShore: 0.5,
@@ -1043,15 +1051,12 @@ export class Config {
       return 1_000_000_000;
     }
     if (player.hasFoodEconomy()) {
-      // Layered maps: carrying capacity comes from Settlements, not territory.
-      // Conquered land grants production, not population — you must build.
+      // Layered maps (add-urban-core-growth): carrying capacity is the built
+      // urban area — the self-growing density field — not territory. A bigger
+      // city houses more people; conquered-but-unbuilt land grants nothing
+      // until it urbanizes.
       const f = this.food();
-      const settlementLevels = player
-        .units(UnitType.Settlement)
-        .filter((u) => !u.isUnderConstruction())
-        .map((s) => s.level())
-        .reduce((a, b) => a + b, 0);
-      return f.basePopulation + settlementLevels * f.populationPerSettlement;
+      return f.basePopulation + player.urbanArea() * f.popPerDensity;
     }
     const maxTroops =
       2 * (Math.pow(player.numTilesOwned(), 0.6) * 1000 + 50000) +

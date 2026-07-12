@@ -35,6 +35,7 @@ function ps(overrides: Partial<PlayerState> = {}): PlayerState {
     foodConsumption: 0,
     foodStarved: 0,
     foodPopulationShare: 1,
+    urbanArea: 0,
     isTraitor: false,
     traitorRemainingTicks: 0,
     inDoomsdayClock: false,

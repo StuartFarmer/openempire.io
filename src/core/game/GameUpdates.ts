@@ -236,6 +236,7 @@ export interface PlayerUpdate {
   foodConsumption?: number;
   foodStarved?: number;
   foodPopulationShare?: number;
+  urbanArea?: number;
   allies?: number[];
   embargoes?: Set<PlayerID>;
   isTraitor?: boolean;

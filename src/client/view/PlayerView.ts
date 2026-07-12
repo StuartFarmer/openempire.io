@@ -85,6 +85,7 @@ function stateFromUpdate(pu: PlayerUpdate): PlayerState {
     foodConsumption: pu.foodConsumption ?? 0,
     foodStarved: pu.foodStarved ?? 0,
     foodPopulationShare: pu.foodPopulationShare ?? 1,
+    urbanArea: pu.urbanArea ?? 0,
     isTraitor: pu.isTraitor!,
     traitorRemainingTicks: Math.max(0, pu.traitorRemainingTicks ?? 0),
     inDoomsdayClock: pu.inDoomsdayClock ?? false,
@@ -507,6 +508,10 @@ export class PlayerView {
 
   foodPopulationShare(): number {
     return this.state.foodPopulationShare;
+  }
+
+  urbanArea(): number {
+    return this.state.urbanArea;
   }
 
   totalUnitLevels(type: UnitType): number {

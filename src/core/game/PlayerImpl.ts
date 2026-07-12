@@ -339,6 +339,7 @@ export class PlayerImpl implements Player {
           foodConsumption: this._foodFlow.consumption,
           foodStarved: this._foodFlow.starvedTroops,
           foodPopulationShare: this._foodPopulationShare,
+          urbanArea: this.urbanArea(),
         }
       : undefined;
 

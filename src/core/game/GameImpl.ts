@@ -718,6 +718,9 @@ export class GameImpl implements Game {
       previousOwner._tiles.delete(tile);
       previousOwner._borderTiles.delete(tile);
       previousOwner._fertilitySum -= crop;
+      // War razing (add-urban-core-growth): a captured tile loses its urban
+      // density — conquest yields scorched land the captor must regrow.
+      if (this._hasLayers) previousOwner.setDensity(tile, 0);
     }
     this._map.setOwnerID(tile, owner.smallID());
     owner._tiles.add(tile);
@@ -742,6 +745,7 @@ export class GameImpl implements Game {
     previousOwner._borderTiles.delete(tile);
     if (this._hasLayers) {
       previousOwner._fertilitySum -= this._map.layer("crop", tile);
+      previousOwner.setDensity(tile, 0);
     }
 
     this._map.setOwnerID(tile, 0);
