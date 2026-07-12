@@ -261,16 +261,34 @@ logistic area growth ΔA = r·A·(1−A/K) placed by a suitability-CA
 in the real game loop (estuaria 384², 2×2000 ticks, 6 nations + 30 bots),
 census now urban area not plots:
 
-| metric            | value              |
-| ----------------- | ------------------ |
-| alive @2000       | 28–29 of 36        |
-| cities (with core)| = alive (all grew) |
-| leader share mean | 22.4%              |
-| max city area     | 2042–3349 tiles    |
-| total urban area  | 14k–18k tiles      |
+| metric             | value              |
+| ------------------ | ------------------ |
+| alive @2000        | 28–29 of 36        |
+| cities (with core) | = alive (all grew) |
+| leader share mean  | 22.4%              |
+| max city area      | 2042–3349 tiles    |
+| total urban area   | 14k–18k tiles      |
 
 Validates end-to-end: bots found cores and grow cities from a single seed,
 deterministically (hashes stable). Leader share (22%) is hotter than the
 plot model's ~13% band — the model is more snowbally before tuning. Knobs
 to sweep in task 6: wCong (congestion → more sprawl, less runaway), wLogi
 and supplyRadius (bound reachable K), urbanGrowthRate. Not yet tuned.
+
+## v9 — urban-core growth tuned (add-urban-core-growth)
+
+Client render landed (density field transmitted + DensityPass) — cities
+are visible as a built-up wash. First live run snowballed (leader 22%);
+tuned to tame single-city dominance: supplyRadius 30→18 (smaller
+reachable K bounds a city's max size), wCong 1.2→1.8 (thinner sprawl),
+popPerDensity 300→220 (less military snowball per city).
+
+| metric            | v8 (untuned) | v9 (tuned) |
+| ----------------- | ------------ | ---------- |
+| leader share mean | 22.4%        | 15.7%      |
+| gini              | 0.59         | 0.49       |
+| max city area     | ~3349        | ~1392      |
+| alive @2000       | 28–29        | 28–29      |
+
+Back in the established 13–16% band with the runaway removed, still all
+players growing cities. Determinism holds (stable hashes).

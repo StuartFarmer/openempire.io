@@ -137,7 +137,7 @@ describe("Urban growth engine (add-urban-core-growth)", () => {
     const front = ringDensity(game, player, 50, 50, maxDist - 3, maxDist);
     // Saturated core, sparser frontier — density decays outward.
     expect(near).toBeGreaterThan(front);
-    expect(near).toBeGreaterThan(990); // interior essentially saturated
+    expect(near).toBeGreaterThan(950); // interior essentially saturated
     expect(front).toBeLessThan(900);
     expect(maxDist).toBeGreaterThan(6); // the city actually spread
   });

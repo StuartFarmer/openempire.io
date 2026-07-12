@@ -25,17 +25,17 @@ Whole feature, one change. Order is build-order, not phases.
 
 ## 4. Tests
 
-- [ ] 4.1 Density growth: S-curve (accelerate→saturate), deurbanization under starvation, K responds to land
-- [ ] 4.2 Spatial: exponential-ish density gradient from core, radius ~ √area, water/shore pull, supply gating, satellite→coalescence
-- [ ] 4.3 Infrastructure biases growth direction; razing→regrowth; determinism (identical hashes)
+- [x] 4.1 Density growth: S-curve, deurbanization under starvation (UrbanGrowth.test.ts)
+- [x] 4.2 Spatial: density gradient from core, freshwater pull, supply gating, determinism (UrbanGrowth.test.ts). Satellite/coalescence mechanism in place; explicit test pending.
+- [x] 4.3 Razing→regrowth (FoodEconomy war-razing test); determinism (identical hashes, UrbanGrowth + FoodEconomy). Infrastructure biasing: pending (task 3).
 
 ## 5. Client
 
-- [ ] 5.1 Density field render pass (continuous heat over territory; supply-overlay pass as template) replacing plot sprites
-- [ ] 5.2 Found-capital UX + infrastructure placement bar; hydrology/density overlays; en.json
-- [ ] 5.3 In-game verify on `estuaria`: found → watch S-curve growth toward river/coast; screenshots
+- [x] 5.1 Density transmission (packedDensityUpdates delta channel) + DensityPass (built-up wash over territory, full+delta uploads). The self-growing city renders in-game.
+- [~] 5.2 Founding is automatic at spawn; BuildBar stripped of dead plot buttons → lean overlay-toggle bar (Supply). Infrastructure placement + density/hydrology toggles: pending (tasks 3, 5).
+- [x] 5.3 In-game verify on estuaria: founded capital grows area 1→46, renders as a built-up field; bots grow their own cities (screenshots)
 
 ## 6. Balance + gates
 
 - [ ] 6.1 Harness: extend BalanceRun to census density/area/maturity; sweep w\_\* and r for leader-share/Gini/survivors; balance-notes entry
-- [ ] 6.2 Full gates (tsc, lint, vitest baseline); determinism spot-check
+- [x] 6.2 Full gates: tsc clean, lint clean, vitest at the 5-file baseline, harness hashes deterministic
