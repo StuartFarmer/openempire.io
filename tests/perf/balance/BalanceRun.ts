@@ -288,13 +288,21 @@ async function runOne(
   }
 
   const last = series[series.length - 1];
+  // Urban-core-growth census: built area is the density field, not plots.
   const structures: Record<string, number> = {};
+  let urbanAreaTotal = 0;
+  let urbanAreaMax = 0;
+  let cities = 0;
   for (const p of game.players()) {
     if (!p.isAlive()) continue;
-    for (const u of p.units()) {
-      structures[u.type()] = (structures[u.type()] ?? 0) + 1;
-    }
+    const a = p.urbanArea();
+    urbanAreaTotal += a;
+    urbanAreaMax = Math.max(urbanAreaMax, a);
+    if (p.core() !== null) cities++;
   }
+  structures.UrbanAreaTotal = Math.round(urbanAreaTotal);
+  structures.UrbanAreaMax = Math.round(urbanAreaMax);
+  structures.Cities = cities;
   return {
     seed,
     spawnTurns,

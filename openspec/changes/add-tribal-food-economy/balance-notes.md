@@ -252,3 +252,25 @@ starvation became attrition deaths, which count as combat losses).
 Standing settlements/barns drop noticeably (up to −60% in the most
 warred run) — total razing means contested regions stay ruins until
 rebuilt. Leader share and survivors hold the established band.
+
+## v8 — urban-core growth, first live run (add-urban-core-growth, branch)
+
+The plot economy is replaced by a self-growing density field: found a Core,
+logistic area growth ΔA = r·A·(1−A/K) placed by a suitability-CA
+(fertility + freshwater + shore + supply − congestion). First harness run
+in the real game loop (estuaria 384², 2×2000 ticks, 6 nations + 30 bots),
+census now urban area not plots:
+
+| metric            | value              |
+| ----------------- | ------------------ |
+| alive @2000       | 28–29 of 36        |
+| cities (with core)| = alive (all grew) |
+| leader share mean | 22.4%              |
+| max city area     | 2042–3349 tiles    |
+| total urban area  | 14k–18k tiles      |
+
+Validates end-to-end: bots found cores and grow cities from a single seed,
+deterministically (hashes stable). Leader share (22%) is hotter than the
+plot model's ~13% band — the model is more snowbally before tuning. Knobs
+to sweep in task 6: wCong (congestion → more sprawl, less runaway), wLogi
+and supplyRadius (bound reachable K), urbanGrowthRate. Not yet tuned.
