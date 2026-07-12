@@ -629,6 +629,17 @@ export interface Player {
   foodPopulationShare(): number;
   setFoodPopulationShare(share: number): void;
 
+  // Urban core growth (add-urban-core-growth): the city is a self-growing
+  // density field founded from a Core, replacing painted plots.
+  core(): TileRef | null;
+  setCore(tile: TileRef): void;
+  /** Urban density on a tile in milliunits (0..1000); absent = 0. */
+  density(tile: TileRef): number;
+  setDensity(tile: TileRef, milli: number): void;
+  densityEntries(): IterableIterator<[TileRef, number]>;
+  /** Urban area in tile-equivalents (Σ density). */
+  urbanArea(): number;
+
   // Units
   units(...types: UnitType[]): Unit[];
   unitCount(type: UnitType): number;

@@ -214,6 +214,32 @@ export interface FoodConfig {
    * base war rate — supply failures kill men, not budgets.
    */
   warSupplyAttrition: number;
+
+  // ── Urban core growth (add-urban-core-growth) ─────────────────────────
+  /**
+   * Logistic growth rate: per tick, built area advances
+   * ΔA = urbanGrowthRate · A · (1 − A/K) · surplusFactor, where K is the
+   * summed suitability of reachable owned land. Slow founding →
+   * acceleration → saturation (the empirical S-curve).
+   */
+  urbanGrowthRate: number;
+  /** Population cap added per unit of urban area (Σ density). */
+  popPerDensity: number;
+  /** Food produced per (cropByte/255 · density · supplyQuality), milliunits. */
+  urbanYieldMilli: number;
+  /** Suitability weights: fertility, freshwater, shoreline-within-water,
+   *  logistics (supply quality to core), congestion (local density). */
+  wFood: number;
+  wWater: number;
+  wShore: number;
+  wLogi: number;
+  wCong: number;
+  /** Fraction of the growth budget that seeds satellites beyond the frontier. */
+  dispersalRate: number;
+  /** Max density (milliunits) deposited on one tile per deposit chunk. */
+  densityStepMilli: number;
+  /** Density a founded Core seeds on its tile (milliunits). */
+  coreSeedMilli: number;
 }
 
 // Scarcity-first defaults (rework-tribal-scarcity): raw land sustains only
@@ -251,6 +277,17 @@ const FOOD_DEFAULTS: FoodConfig = {
   supplyDecayPower: 3,
   supplyRefreshTicks: 10,
   warSupplyAttrition: 0.005,
+  urbanGrowthRate: 0.15,
+  popPerDensity: 5_000,
+  urbanYieldMilli: 220,
+  wFood: 1.0,
+  wWater: 0.8,
+  wShore: 0.5,
+  wLogi: 1.0,
+  wCong: 1.2,
+  dispersalRate: 0.05,
+  densityStepMilli: 250,
+  coreSeedMilli: 1000,
 };
 
 export class Config {

@@ -138,15 +138,22 @@ function recompute(mg: Game, player: Player, s: PlayerSupply): void {
   // BFS with uniform step cost: a plain head-indexed queue is exact — no
   // heap needed (the dead-end repo's sort()-queue mistake stays there).
   const queue: TileRef[] = [];
+  const addSource = (t: TileRef): void => {
+    if (map.ownerID(t) !== smallID) return;
+    if (!s.dist.has(t)) {
+      s.dist.set(t, 0);
+      queue.push(t);
+    }
+  };
+  // Urban model (add-urban-core-growth): the founded Core (and, later, Road
+  // infrastructure) anchor logistics. On classic tribal maps the sources are
+  // Settlements and Barns; core is null there, so this is additive.
+  const core = player.core();
+  if (core !== null) addSource(core);
   for (const type of [UnitType.Settlement, UnitType.Barn]) {
     for (const node of player.units(type)) {
       if (node.isUnderConstruction()) continue;
-      const t = node.tile();
-      if (map.ownerID(t) !== smallID) continue;
-      if (!s.dist.has(t)) {
-        s.dist.set(t, 0);
-        queue.push(t);
-      }
+      addSource(node.tile());
     }
   }
 

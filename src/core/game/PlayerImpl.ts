@@ -113,6 +113,14 @@ export class PlayerImpl implements Player {
    */
   private _foodPopulationShare: number = 1;
 
+  // ── Urban core growth (add-urban-core-growth) ───────────────────────────
+  /** Founded capital tile, or null before founding. */
+  private _core: TileRef | null = null;
+  /** Per-tile urban density in milliunits (0..1000). Absent = 0 (unbuilt). */
+  public _density = new Map<TileRef, number>();
+  /** Cached Σ density in milliunits, kept in sync by setDensity(). */
+  private _urbanAreaMilli = 0;
+
   markedTraitorTick = -1;
   markedDoomsdayClockTick = -1;
   private _betrayalCount: number = 0;
@@ -1222,6 +1230,41 @@ export class PlayerImpl implements Player {
 
   setFoodPopulationShare(share: number): void {
     this._foodPopulationShare = Math.max(0, Math.min(1, share));
+  }
+
+  // ── Urban core growth (add-urban-core-growth) ───────────────────────────
+  core(): TileRef | null {
+    return this._core;
+  }
+
+  setCore(tile: TileRef): void {
+    this._core = tile;
+  }
+
+  density(tile: TileRef): number {
+    return this._density.get(tile) ?? 0;
+  }
+
+  /** Set urban density (milliunits 0..1000) on a tile, maintaining the sum. */
+  setDensity(tile: TileRef, milli: number): void {
+    const v = milli <= 0 ? 0 : milli >= 1000 ? 1000 : Math.round(milli);
+    const prev = this._density.get(tile) ?? 0;
+    if (v === prev) return;
+    this._urbanAreaMilli += v - prev;
+    if (v === 0) {
+      this._density.delete(tile);
+    } else {
+      this._density.set(tile, v);
+    }
+  }
+
+  densityEntries(): IterableIterator<[TileRef, number]> {
+    return this._density.entries();
+  }
+
+  /** Urban area in tile-equivalents (Σ density / 1000). */
+  urbanArea(): number {
+    return this._urbanAreaMilli / 1000;
   }
 
   addGold(toAdd: Gold, tile?: TileRef): void {
