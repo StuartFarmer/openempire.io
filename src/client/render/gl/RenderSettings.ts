@@ -396,6 +396,16 @@ export interface RenderSettings {
     highG: number;
     highB: number;
   };
+  densityOverlay: {
+    alphaLow: number; // wash opacity at faint density
+    alphaHigh: number; // wash opacity at a dense urban core
+    lowR: number; // faint-settlement tint
+    lowG: number;
+    lowB: number;
+    highR: number; // dense-core tint
+    highG: number;
+    highB: number;
+  };
   tileDrip: {
     /**
      * Round-robin bucket count for staggering territory tile uploads across

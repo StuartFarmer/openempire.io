@@ -1257,6 +1257,10 @@ export class PlayerImpl implements Player {
     } else {
       this._density.set(tile, v);
     }
+    // Emit a render delta when the displayed byte changes.
+    const byte = Math.round((v * 255) / 1000);
+    const prevByte = Math.round((prev * 255) / 1000);
+    if (byte !== prevByte) this.mg.recordDensityUpdate(tile, byte);
   }
 
   densityEntries(): IterableIterator<[TileRef, number]> {

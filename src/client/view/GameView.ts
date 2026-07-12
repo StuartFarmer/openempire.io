@@ -87,6 +87,9 @@ export class GameView implements GameMap {
   private trailManager!: TrailManager;
   private railroadCache!: RailroadCache;
   private plotCache!: PlotCache;
+  // Urban density field (add-urban-core-growth).
+  private densityState!: Uint8Array;
+  private densityChanged: TileRef[] = [];
   /** Long-lived NameEntry map for the renderer's NamePass. */
   private _names = new Map<string, NameEntry>();
   /** Reusable scratch buffers for per-tick deltas. */
@@ -165,6 +168,9 @@ export class GameView implements GameMap {
     this.trailManager = new TrailManager(mapW, mapH);
     this.railroadCache = new RailroadCache(mapW, mapH);
     this.plotCache = new PlotCache(mapW, mapH);
+    // Urban density field (add-urban-core-growth): per-tile built-up density
+    // (0..255), applied from packedDensityUpdates and rendered by DensityPass.
+    this.densityState = new Uint8Array(mapW * mapH);
 
     // Long-lived FrameData. Most fields are mutable references to long-lived
     // buffers (tileState, trailState, etc.); some (_changedTilesScratch,
@@ -287,6 +293,18 @@ export class GameView implements GameMap {
     if (gu.packedMotionPlans) {
       const records = unpackMotionPlans(gu.packedMotionPlans);
       this.applyMotionPlanRecords(records);
+    }
+
+    // Urban density deltas: word = `tile | (byte<<24)`.
+    this.densityChanged = [];
+    if (gu.packedDensityUpdates) {
+      const dens = gu.packedDensityUpdates;
+      for (let i = 0; i < dens.length; i++) {
+        const word = dens[i];
+        const tile = word & 0xffffff;
+        this.densityState[tile] = word >>> 24;
+        this.densityChanged.push(tile);
+      }
     }
 
     if (gu.updates === null) {
@@ -906,6 +924,16 @@ export class GameView implements GameMap {
 
   recentlyUpdatedTiles(): TileRef[] {
     return this.updatedTiles;
+  }
+
+  /** Urban density buffer (0..255 per tile) — add-urban-core-growth. */
+  densityStateBuffer(): Uint8Array {
+    return this.densityState;
+  }
+
+  /** Tiles whose density changed this tick (for delta uploads). */
+  recentlyUpdatedDensityTiles(): TileRef[] {
+    return this.densityChanged;
   }
 
   recentlyUpdatedTerrainTiles(): TileRef[] {

@@ -802,6 +802,10 @@ export interface Game extends GameMap {
   drainPackedMotionPlans(): Uint32Array | null;
   drainPackedPlayerUpdates(): Float64Array | null;
   drainPackedAttackUpdates(): Float64Array | null;
+  // Urban density render deltas (add-urban-core-growth): packed
+  // `tile | (byte<<24)`, byte = round(density/1000·255).
+  recordDensityUpdate(tile: TileRef, byte: number): void;
+  drainPackedDensityUpdates(): Uint32Array | null;
   setWinner(winner: Player | Team, allPlayersStats: AllPlayersStats): void;
   getWinner(): Player | Team | null;
   config(): Config;

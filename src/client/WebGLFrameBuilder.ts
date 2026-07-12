@@ -197,9 +197,30 @@ export class WebGLFrameBuilder {
     this.syncLocalPlayer(gameView);
     this.syncSpawnOverlay(gameView);
     this.syncTerrainDeltas(gameView);
+    this.syncDensityField(gameView);
     this.syncSupplyOverlay(gameView);
     this.resolveDeadUnitExplosions(gameView);
     uploadFrameData(this.view, gameView.frameData());
+  }
+
+  private densityUploaded = false;
+
+  /**
+   * Push the urban density field (add-urban-core-growth): a full upload on the
+   * first layered tick, then per-tile deltas for the handful of tiles that
+   * change as the city grows.
+   */
+  private syncDensityField(gameView: GameView): void {
+    if (!gameView.hasLayers()) return;
+    if (!this.densityUploaded) {
+      this.view.updateDensityField(gameView.densityStateBuffer());
+      this.densityUploaded = true;
+      return;
+    }
+    const changed = gameView.recentlyUpdatedDensityTiles();
+    if (changed.length > 0) {
+      this.view.applyDensityDelta(changed, gameView.densityStateBuffer());
+    }
   }
 
   /**

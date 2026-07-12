@@ -96,6 +96,9 @@ export class GameImpl implements Game {
 
   private updates: GameUpdates = createGameUpdatesMap();
   private tileUpdatePairs: number[] = [];
+  // Urban density deltas (add-urban-core-growth): packed `tile | (byte<<24)`,
+  // byte = round(density/1000·255). Drained to packedDensityUpdates each tick.
+  private densityUpdatePairs: number[] = [];
   /** [smallID, tilesOwned, gold, troops] quads — see PlayerImpl.toUpdate. */
   private playerStatsQuads: number[] = [];
   /** [smallID, direction, index, troops] quads — see packAttackTroopDeltas. */
@@ -498,6 +501,19 @@ export class GameImpl implements Game {
     for (let i = 0; i < pairs.length; i++) {
       packed[i] = pairs[i];
     }
+    pairs.length = 0;
+    return packed;
+  }
+
+  /** Record a per-tile urban-density change for the renderer (byte 0..255). */
+  recordDensityUpdate(tile: TileRef, byte: number): void {
+    this.densityUpdatePairs.push(tile | (byte << 24));
+  }
+
+  drainPackedDensityUpdates(): Uint32Array | null {
+    const pairs = this.densityUpdatePairs;
+    if (pairs.length === 0) return null;
+    const packed = new Uint32Array(pairs);
     pairs.length = 0;
     return packed;
   }

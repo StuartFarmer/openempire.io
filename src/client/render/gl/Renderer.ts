@@ -36,6 +36,7 @@ import { BorderStampPass } from "./passes/BorderStampPass";
 import { CoordinateGridPass } from "./passes/CoordinateGridPass";
 import { CrosshairPass } from "./passes/CrosshairPass";
 import { DefenseCoveragePass } from "./passes/DefenseCoveragePass";
+import { DensityPass } from "./passes/DensityPass";
 import { FalloutBloomPass } from "./passes/FalloutBloomPass";
 import { FalloutLightPass } from "./passes/FalloutLightPass";
 import { FxPass } from "./passes/fx-pass";
@@ -149,6 +150,7 @@ export class GPURenderer {
   private coordinateGridPass: CoordinateGridPass;
   private spawnOverlayPass: SpawnOverlayPass;
   private supplyOverlayPass: SupplyOverlayPass;
+  private densityPass: DensityPass;
   private inSpawnPhase = false;
 
   private paletteTex: WebGLTexture;
@@ -524,6 +526,14 @@ export class GPURenderer {
       mapW,
       mapH,
       this.settings.supplyOverlay,
+    );
+
+    // --- Urban density field (the self-growing city) ---
+    this.densityPass = new DensityPass(
+      gl,
+      mapW,
+      mapH,
+      this.settings.densityOverlay,
     );
 
     // --- Range circle (ghost preview radius) ---
@@ -1089,6 +1099,14 @@ export class GPURenderer {
     this.samRadiusPass.setAllianceClusters(clusters);
   }
 
+  updateDensityField(density: Uint8Array): void {
+    this.densityPass.update(density);
+  }
+
+  applyDensityDelta(refs: readonly number[], density: Uint8Array): void {
+    this.densityPass.applyDelta(refs, density);
+  }
+
   setSupplyOverlay(active: boolean): void {
     this.supplyOverlayPass.setEnabled(active);
   }
@@ -1307,6 +1325,8 @@ export class GPURenderer {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     this.spawnOverlayPass.draw(cam);
+    // The urban density field (the growing city) draws over territory.
+    this.densityPass.draw(cam);
     // Supply heatmap sits under borders/structures so plots stay readable.
     this.supplyOverlayPass.draw(cam);
     if (pe.borderStamp) this.borderStampPass.draw(cam);
@@ -1370,6 +1390,7 @@ export class GPURenderer {
     this.coordinateGridPass.dispose();
     this.spawnOverlayPass.dispose();
     this.supplyOverlayPass.dispose();
+    this.densityPass.dispose();
     this.railroadPass.dispose();
     this.plotPass.dispose();
     this.plotFirePass.dispose();

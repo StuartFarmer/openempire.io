@@ -55,6 +55,12 @@ export interface GameUpdateViewData {
    */
   packedAttackUpdates?: Float64Array;
   /**
+   * Packed urban-density deltas as `tile | (byte<<24)` uint32 words
+   * (add-urban-core-growth), byte = round(density/1000·255) of the tile's
+   * owner. Absent when no tile's density changed.
+   */
+  packedDensityUpdates?: Uint32Array;
+  /**
    * Name placement per player. Only present on ticks where the worker
    * recomputed placements (spawn ticks, the first ticks, every 30th tick,
    * spawn end) — between those the values wouldn't change, so the record is

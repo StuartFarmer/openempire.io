@@ -271,6 +271,14 @@ export class MapRenderer {
   setAltView(active: boolean): void {
     this.renderer?.setAltView(active);
   }
+  /** Full upload of the urban density field (add-urban-core-growth). */
+  updateDensityField(density: Uint8Array): void {
+    this.renderer?.updateDensityField(density);
+  }
+  /** Sub-upload the tiles whose density changed this tick. */
+  applyDensityDelta(refs: readonly number[], density: Uint8Array): void {
+    this.renderer?.applyDensityDelta(refs, density);
+  }
   /** Toggle the supply-lines heatmap (layered maps). */
   setSupplyOverlay(active: boolean): void {
     this.renderer?.setSupplyOverlay(active);
