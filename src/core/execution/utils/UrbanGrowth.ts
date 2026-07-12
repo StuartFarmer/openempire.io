@@ -61,7 +61,6 @@ export function urbanSuitability(
 export function urbanTick(mg: Game, player: Player): void {
   const f = mg.config().food();
   const supply = supplyField(mg, player);
-  const map = mg.map();
   const impl = player as Player & {
     _foodMilli: bigint;
     _foodFlow: {
