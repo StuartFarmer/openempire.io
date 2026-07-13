@@ -14,8 +14,8 @@ This fork already has the pieces to build that field: the supply field is the lo
 ## What Changes
 
 - **Found a capital, don't paint a city.** Spawn places a single urban **Core** (replacing the starter-kit plots). From there the city grows on its own.
-- **Per-tile urban density field** replaces discrete plots. Each owned land tile has a density `0..1`; food production, consumption, and population cap derive from the density field × fertility instead of from plot counts.
-- **Logistic area dynamics.** Per player per tick, the built area advances `ΔA = r · A · (1 − A/K)`, where `K` is the summed suitability of reachable land and the growth rate `r` is fed by food surplus (the allocation slider splits production between growth `r` and storage, unchanged in spirit).
+- **Per-tile urban sprawl (density field)** — the residential city. Each owned land tile has a density `0..1`; the summed sprawl sets the **population cap**. The player still paints **Farmland** (food) and **Barn** (storage); only the **Settlement** is replaced by the auto-sprawling Core.
+- **Logistic sprawl dynamics.** Per player per tick, the sprawl advances `ΔA = r · A · (1 − A/K)` on the **food surplus from the player's farms** — a well-fed city sprawls, a starving one recedes. `K` is the summed suitability of reachable land.
 - **Suitability-CA spatial step.** New density is deposited on frontier tiles with probability ∝ `s(x) = w_food·crop + w_water·(freshwater+shore) + w_logi·supplyQuality(x→core) − w_cong·localDensity`. Congestion makes the interior saturate and pushes expansion to the edge, which reproduces the empirical exponential density gradient `ρ(r) ∝ e^(−r/r₀)`, `radius ∝ √P` scaling, and rough (Eden/KPZ) city edges — all emergent, none hand-authored.
 - **Satellites and coalescence.** A small fraction of growth jumps beyond the frontier, seeding secondary settlements that grow and merge back into the core — polycentric cities for free (the paper's headline mechanism).
 - **Structures become infrastructure that reshapes the field**, not the fabric itself: an Aqueduct raises the water term along a corridor, a Road raises logistics, a Granary raises local `K`. The player steers _where_ the self-organizing city grows without placing its tiles.
@@ -33,8 +33,8 @@ All of this is gated behind `game.hasLayers()`; classic maps stay byte-identical
 
 ### Modified Capabilities
 
-- `food-economy`: production/consumption/population derive from the density field and carrying capacity rather than plot counts; growth rate `r` is fed by food surplus.
-- `tribal-buildings`: painted plots are removed; the buildable set becomes field-shaping infrastructure (Core, Aqueduct, Road, Granary).
+- `food-economy`: unchanged production (Farmland) and storage (Barn), but the population cap now comes from the urban sprawl (density), not settlements; the food surplus drives sprawl growth.
+- `tribal-buildings`: Farmland and Barn stay painted (unchanged); only Settlement is removed — the city sprawls itself from the Core.
 
 ## Impact
 
