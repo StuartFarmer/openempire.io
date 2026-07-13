@@ -148,18 +148,18 @@ describe("Supply field (add-supply-lines)", () => {
   });
 });
 
-describe("Supply-gated production (add-urban-core-growth)", () => {
-  test("distant built density out-produces nothing — quality gates yield", async () => {
-    // Two identical strips; the only difference is how far the built tile
-    // sits from the Core. flatLayers → identical fertility.
-    const run = async (tileX: number) => {
+describe("Supply-gated farming (add-urban-core-growth)", () => {
+  test("a distant farm out-produces nothing — quality gates yield", async () => {
+    // Two identical strips; the only difference is how far the farm sits from
+    // the Core (the supply source). flatLayers → identical fertility.
+    const run = async (farmX: number) => {
       const g = await layeredGame();
       const p = g.player(humanInfo.id);
       conquerBlock(g, p, 0, 0, 95, 4);
       p.addFood(10_000n);
       p.setTroops(0);
       p.setCore(g.ref(1, 1));
-      p.setDensity(g.ref(tileX, 1), 1000);
+      p.buildUnit(UnitType.Farmland, g.ref(farmX, 1), {});
       activate(g, p);
       g.executeNextTick();
       return flow(p).production;

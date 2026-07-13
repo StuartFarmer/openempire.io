@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { FoodAllocationExecution } from "../src/core/execution/FoodAllocationExecution";
 import { PlayerExecution } from "../src/core/execution/PlayerExecution";
-import { Game, Player, PlayerInfo, PlayerType } from "../src/core/game/Game";
+import {
+  Game,
+  Player,
+  PlayerInfo,
+  PlayerType,
+  UnitType,
+} from "../src/core/game/Game";
 import { setup } from "./util/Setup";
 
 /** See tests/FoodEconomy.test.ts — same activation dance. */
@@ -38,19 +44,21 @@ function conquerBlock(game: Game, player: Player, size: number): void {
 }
 
 /**
- * Found a dense Core district producing far more than 1000 idle troops eat
- * (add-urban-core-growth): own a 12×12 block, seed the Core, and fill it with
- * built density so production is high and supplied.
+ * A farm-fed city producing far more than 1000 idle troops eat: own a block,
+ * found the Core (sets the population cap via sprawl), and paint a belt of
+ * Farmland for production. (add-urban-core-growth hybrid.)
  */
 function buildEconomy(game: Game, player: Player): void {
   for (let y = 0; y < 12; y++) {
     for (let x = 0; x < 12; x++) player.conquer(game.ref(x, y));
   }
   player.setCore(game.ref(6, 6));
-  for (let y = 0; y < 12; y++) {
-    for (let x = 0; x < 12; x++) player.setDensity(game.ref(x, y), 1000);
+  player.setDensity(game.ref(6, 6), 1000); // a little sprawl → population cap
+  player.addFood(100_000n); // budget for the farm kit
+  for (let x = 0; x < 12; x++) {
+    player.buildUnit(UnitType.Farmland, game.ref(x, 0), {});
+    player.buildUnit(UnitType.Farmland, game.ref(x, 11), {});
   }
-  player.addFood(10_000n);
 }
 
 describe("Food allocation (add-food-allocation)", () => {

@@ -44,7 +44,7 @@ export function sameTypeNeighborPlots(mg: Game, plot: Unit): number {
  * Numbers, applied to the player's bigint milli stock. Number math here is
  * safe: per-tick flows are far below 2^53.
  */
-export function foodTick(mg: Game, player: Player): void {
+export function foodTick(mg: Game, player: Player): number {
   const f = mg.config().food();
   const supply = supplyField(mg, player);
 
@@ -145,6 +145,7 @@ export function foodTick(mg: Game, player: Player): void {
   // covered deficit → stagnate (reserves feed people, they don't multiply);
   // uncovered deficit → starve.
   let starved = 0;
+  let surplusFactor = 0;
   if (deficitMilli > 0) {
     // Starvation hits the WHOLE population proportionally — idle pool,
     // troops deployed in attacks, and troops on boats. Deployed troops must
@@ -166,13 +167,9 @@ export function foodTick(mg: Game, player: Player): void {
     }
   } else if (netMilli > 0) {
     const surplusRatio = netMilli / Math.max(1, consumptionMilli);
-    const surplusFactor = Math.min(1, surplusRatio / f.surplusForFullGrowth);
-    // Settlement districts: clustered towns grow population faster.
-    const growth =
-      mg.config().troopIncreaseRate(player) *
-      surplusFactor *
-      (1 + settlementDistrictAvg(mg, player) * f.adjacencyBonus);
-    player.addTroops(growth);
+    surplusFactor = Math.min(1, surplusRatio / f.surplusForFullGrowth);
+    // Population fills toward the cap (set by the urban sprawl) on surplus.
+    player.addTroops(mg.config().troopIncreaseRate(player) * surplusFactor);
   }
 
   // Expose the breakdown (display units) for the client/stats.
@@ -188,6 +185,10 @@ export function foodTick(mg: Game, player: Player): void {
   flow.production = Math.floor(productionMilli / 1000);
   flow.consumption = Math.floor(consumptionMilli / 1000);
   flow.starvedTroops = starved;
+
+  // The food surplus fraction (0..1) drives urban-sprawl growth (see
+  // UrbanGrowth.urbanTick); 0 on break-even or deficit.
+  return surplusFactor;
 }
 
 /** Barn levels weighted by their district (adjacency) multiplier. */
@@ -199,16 +200,4 @@ function barnCapacity(mg: Game, player: Player): number {
     capacity += barn.level() * (1 + sameTypeNeighborPlots(mg, barn) * bonus);
   }
   return capacity;
-}
-
-/** Average settlement adjacency (0..4) — the town-cluster growth factor. */
-function settlementDistrictAvg(mg: Game, player: Player): number {
-  let sum = 0;
-  let count = 0;
-  for (const s of player.units(UnitType.Settlement)) {
-    if (s.isUnderConstruction()) continue;
-    sum += sameTypeNeighborPlots(mg, s);
-    count++;
-  }
-  return count === 0 ? 0 : sum / count;
 }

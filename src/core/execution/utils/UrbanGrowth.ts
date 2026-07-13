@@ -1,32 +1,28 @@
-import { Game, Player, UnitType } from "../../game/Game";
+import { Game, Player } from "../../game/Game";
 import { GameMap, TileRef } from "../../game/GameMap";
 import { PseudoRandom } from "../../PseudoRandom";
 import { simpleHash } from "../../Util";
-import {
-  PlayerSupply,
-  probeDistance,
-  supplyField,
-  supplyQuality,
-  supplyQualityFromDistance,
-} from "./SupplyField";
+import { foodTick } from "./FoodEconomy";
+import { PlayerSupply, supplyField, supplyQuality } from "./SupplyField";
 
 /**
- * The urban-core growth tick (openspec add-urban-core-growth). Replaces the
- * plot-based food tick on layered maps: the city is a per-tile density field
- * that grows itself from a founded Core. Two coupled dynamics, straight from
- * the urban-growth literature:
+ * The urban tick (openspec add-urban-core-growth). A hybrid on layered maps:
+ * the player STILL paints Farmland (food) and Barns (storage) — that food
+ * economy runs unchanged via FoodEconomy.foodTick — but the CITY is no longer
+ * painted. It sprawls on its own as a per-tile density field grown from a
+ * founded Core, and that sprawl (not settlements) sets the population cap.
  *
- *   - HOW MUCH (Wang et al.): total built area advances on a logistic S-curve
- *     ΔA = r·A·(1 − A/K)·surplus, capped by a land-derived carrying capacity K.
+ * The sprawl follows the urban-growth literature:
+ *   - HOW MUCH (Wang et al.): built area advances on a logistic S-curve
+ *     ΔA = r·A·(1 − A/K)·surplus, where the surplus is the food surplus from
+ *     the player's farms — a well-fed city sprawls, a starving one recedes.
  *   - WHERE (Marquis & Barthelemy): the area budget is deposited on the
- *     frontier weighted by a suitability field with a congestion term that
- *     pushes growth outward — producing the exponential density gradient,
- *     √P radius scaling, and rough edges emergently.
+ *     frontier weighted by a suitability field (fertility, freshwater, shore,
+ *     supply logistics − congestion), reproducing the exponential density
+ *     gradient, √P radius scaling, and rough edges emergently.
  *
- * Food (production from density×fertility×supply, consumption, storage, decay,
- * starvation, allocation) runs in the same tick. Deterministic: the suitability
- * field is a pure function of layers+supply+density; deposit order uses a
- * per-tick seeded PRNG.
+ * Deterministic: the suitability field is a pure function of layers+supply+
+ * density; deposit order uses a per-tick seeded PRNG.
  */
 
 /** Hard cap on deposit iterations per player per tick (runaway backstop). */
@@ -59,107 +55,22 @@ export function urbanSuitability(
 }
 
 export function urbanTick(mg: Game, player: Player): void {
-  const f = mg.config().food();
-  const supply = supplyField(mg, player);
-  const impl = player as Player & {
-    _foodMilli: bigint;
-    _foodFlow: {
-      production: number;
-      consumption: number;
-      starvedTroops: number;
-    };
-  };
+  // Food economy (painted Farmland + Barn plots, unchanged): farms produce,
+  // barns store, the population — capped by the urban sprawl (density field)
+  // via Config.maxTroops — eats and grows or starves. Returns the surplus.
+  const surplusFactor = foodTick(mg, player);
 
-  // ── Production: density × fertility × supply quality ────────────────────
-  let prodUnits = 0;
-  for (const [tile, dMilli] of player.densityEntries()) {
-    const cropN = mg.layer("crop", tile) / 255;
-    const q = supplyQuality(mg, supply, tile);
-    prodUnits += cropN * (dMilli / 1000) * q;
-  }
-  const productionMilli = Math.floor(prodUnits * f.urbanYieldMilli);
-
-  // ── Consumption + war-supply attrition (unchanged from the food economy) ─
-  let fighting = 0;
-  for (const attack of player.outgoingAttacks()) {
-    const front = attack.frontTile();
-    const frontDist =
-      front === null ? Infinity : probeDistance(mg, player, supply, front);
-    const q = supplyQualityFromDistance(frontDist, f);
-    const losses = Math.floor(attack.troops() * (1 - q) * f.warSupplyAttrition);
-    if (losses > 0) attack.setTroops(attack.troops() - losses);
-    fighting += attack.troops();
-  }
-  let moving = 0;
-  for (const boat of player.units(UnitType.TransportShip)) {
-    moving += boat.troops();
-  }
-  const idle = player.troops();
-  const consumptionMilli = Math.floor(
-    idle * f.idleConsumptionMilli +
-      moving * f.moveConsumptionMilli +
-      fighting * f.fightConsumptionMilli,
-  );
-
-  // ── Food stock: allocation split → bank storage → overflow rebate →
-  //    feed population (draw storage on shortfall) → decay (see food economy).
-  const share = player.foodPopulationShare();
-  let popMilli = Math.floor(productionMilli * share);
-  const storeMilli = productionMilli - popMilli;
-  let stock = impl._foodMilli + BigInt(storeMilli);
-  const capMilli = BigInt(f.baseStorage + granaryCapacity(player)) * 1000n;
-  if (stock > capMilli) {
-    popMilli += Number(stock - capMilli);
-    stock = capMilli;
-  }
-  const netMilli = popMilli - consumptionMilli;
-  let deficitMilli = 0;
-  if (netMilli < 0) {
-    const need = BigInt(-netMilli);
-    const draw = stock < need ? stock : need;
-    stock -= draw;
-    deficitMilli = Number(need - draw);
-  }
-  stock -= (stock * BigInt(f.decayNumer)) / BigInt(f.decayDenom);
-  impl._foodMilli = stock;
-
-  // ── Population fills toward the cap on surplus; starves on deficit ───────
-  let starved = 0;
-  let surplusFactor = 0;
-  if (deficitMilli > 0) {
-    const total = idle + fighting + moving;
-    const unfed = deficitMilli / f.idleConsumptionMilli;
-    starved = Math.min(total, Math.ceil(unfed * f.starvationDeathFraction));
-    if (total > 0 && starved > 0) {
-      player.removeTroops(Math.round((starved * idle) / total));
-      for (const attack of player.outgoingAttacks()) {
-        const s = Math.round((starved * attack.troops()) / total);
-        attack.setTroops(Math.max(0, attack.troops() - s));
-      }
-      for (const boat of player.units(UnitType.TransportShip)) {
-        const s = Math.round((starved * boat.troops()) / total);
-        boat.setTroops(Math.max(0, boat.troops() - s));
-      }
-    }
-    // Deurbanization: a starving city recedes (density decays back to land).
-    recedeDensity(player, f.starvationDeathFraction);
-  } else if (netMilli > 0) {
-    surplusFactor = Math.min(
-      1,
-      netMilli / Math.max(1, consumptionMilli) / f.surplusForFullGrowth,
-    );
-    player.addTroops(mg.config().troopIncreaseRate(player) * surplusFactor);
-  }
-
-  // ── Logistic area growth, spatially placed by suitability ───────────────
-  if (surplusFactor > 0 && player.core() !== null) {
+  // Urban sprawl growth (the new mechanic): a fed city sprawls. On a food
+  // surplus, the built area advances on the logistic curve, spatially placed
+  // by the suitability field; on a deficit, foodTick starves and the sprawl
+  // recedes here.
+  if (player.core() === null) return;
+  if (surplusFactor > 0) {
+    const supply = supplyField(mg, player);
     growUrbanArea(mg, player, supply, surplusFactor);
+  } else if (player.foodFlow().starvedTroops > 0) {
+    recedeDensity(player, mg.config().food().starvationDeathFraction);
   }
-
-  // ── Expose flow for UI/stats (display units) ────────────────────────────
-  impl._foodFlow.production = Math.floor(productionMilli / 1000);
-  impl._foodFlow.consumption = Math.floor(consumptionMilli / 1000);
-  impl._foodFlow.starvedTroops = starved;
 }
 
 /**
@@ -167,7 +78,7 @@ export function urbanTick(mg: Game, player: Player): void {
  * suitability. Congestion (in the suitability field) saturates the interior
  * and pushes deposition outward; a fraction seeds satellites beyond the front.
  */
-function growUrbanArea(
+export function growUrbanArea(
   mg: Game,
   player: Player,
   supply: PlayerSupply,
@@ -316,13 +227,4 @@ function recedeDensity(player: Player, frac: number): void {
   for (const [tile, dMilli] of entries) {
     player.setDensity(tile, dMilli * (1 - frac));
   }
-}
-
-/**
- * Storage from Granary infrastructure (add-urban-core-growth). Granary is
- * added in task 3 (field-shaping infrastructure); until then this is 0 and
- * storage is `baseStorage` alone.
- */
-function granaryCapacity(_player: Player): number {
-  return 0;
 }

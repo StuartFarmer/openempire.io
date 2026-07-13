@@ -6,6 +6,8 @@ import {
   PlayerInfo,
   PlayerType,
   SpawnArea,
+  TribalStructures,
+  UnitType,
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { PseudoRandom } from "../PseudoRandom";
@@ -98,22 +100,27 @@ export class SpawnExecution implements Execution {
   }
 
   /**
-   * Found the urban Core (add-urban-core-growth): settling places a single
-   * Core at the spawn center and seeds the density field there. The city
-   * grows itself from here (see UrbanGrowth). Re-spawns (spawn-phase
-   * re-clicks) re-found at the new location, clearing the old field.
+   * Settle (add-urban-core-growth): found the urban Core (seeds the density
+   * field — the city sprawls itself from here, see UrbanGrowth) AND paint a
+   * few starter Farmland plots so the young city has food. The player keeps
+   * painting Farmland/Barns; only the city sprawl grows on its own.
+   * Re-spawns re-found at the new location, clearing the old field + kit.
    */
   private foundCore(player: Player, center: TileRef): void {
     const mg = this.mg;
 
-    // Re-spawn: clear any previous density field.
+    // Re-spawn: clear any previous density field and starter plots.
     for (const [tile] of Array.from(player.densityEntries())) {
       player.setDensity(tile, 0);
     }
+    for (const u of player.units(...TribalStructures.types)) {
+      u.delete(false);
+    }
 
-    // Seed the Core on the best owned land at the spawn (prefer the center).
     const valid = (t: TileRef) =>
       mg.isLand(t) && !mg.isImpassable(t) && mg.owner(t) === player;
+
+    // Seed the Core on the best owned land at the spawn (prefer the center).
     let coreTile = center;
     if (!valid(coreTile)) {
       const nearest = [...player.tiles()]
@@ -126,7 +133,27 @@ export class SpawnExecution implements Execution {
     player.setCore(coreTile);
     player.setDensity(coreTile, mg.config().food().coreSeedMilli);
 
-    // Reset the opening food stake.
+    // Paint the starter Farmland kit (free) around the core so the opening
+    // city has food to grow on. Nearest owned tiles that aren't the core.
+    const cx = mg.x(coreTile);
+    const cy = mg.y(coreTile);
+    const kitSlots: TileRef[] = [];
+    for (const [dx, dy] of [
+      [1, 0],
+      [0, 1],
+      [-1, 0],
+      [0, -1],
+      [1, 1],
+    ]) {
+      if (kitSlots.length >= 3) break;
+      if (mg.isValidCoord(cx + dx, cy + dy)) {
+        const t = mg.ref(cx + dx, cy + dy);
+        if (valid(t) && mg.plotAt(t) === undefined) kitSlots.push(t);
+      }
+    }
+    for (const t of kitSlots) player.buildUnit(UnitType.Farmland, t, {});
+
+    // Reset the opening food stake (the kit is free).
     player.removeFood(player.food());
     player.addFood(BigInt(mg.config().food().startingFood));
   }

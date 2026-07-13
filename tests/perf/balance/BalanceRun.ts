@@ -302,6 +302,7 @@ async function runOne(
   }
   structures.UrbanAreaTotal = Math.round(urbanAreaTotal);
   structures.UrbanAreaMax = Math.round(urbanAreaMax);
+  structures.MaxCityKm2 = Math.round(game.config().urbanAreaKm2(urbanAreaMax));
   structures.Cities = cities;
   return {
     seed,

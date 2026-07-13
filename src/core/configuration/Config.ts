@@ -242,6 +242,13 @@ export interface FoodConfig {
   densityStepMilli: number;
   /** Density a founded Core seeds on its tile (milliunits). */
   coreSeedMilli: number;
+  /**
+   * Real-world size of one tile, in km per edge (add-urban-core-growth). A
+   * 20 km city sprawl is 20/tileKm ≈ 10 tiles across at the default 2. This
+   * is the scaling lever: raise it for a coarser (bigger-per-tile) world,
+   * lower it for finer. Used to report built areas in km² (tiles·tileKm²).
+   */
+  tileKm: number;
 }
 
 // Scarcity-first defaults (rework-tribal-scarcity): raw land sustains only
@@ -296,6 +303,7 @@ const FOOD_DEFAULTS: FoodConfig = {
   dispersalRate: 0.05,
   densityStepMilli: 250,
   coreSeedMilli: 1000,
+  tileKm: 2,
 };
 
 export class Config {
@@ -1041,6 +1049,12 @@ export class Config {
 
   food(): FoodConfig {
     return FOOD_DEFAULTS;
+  }
+
+  /** Convert a built area in tiles to km² using the tileKm scale. */
+  urbanAreaKm2(areaTiles: number): number {
+    const km = this.food().tileKm;
+    return areaTiles * km * km;
   }
 
   maxTroops(player: EconomyPlayer): number {
