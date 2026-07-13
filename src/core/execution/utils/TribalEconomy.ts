@@ -7,8 +7,6 @@ import { ConstructionExecution } from "../ConstructionExecution";
 const MIN_FARM_CROP = 30;
 /** Farm until production covers this multiple of what the population CAP eats. */
 const FARM_TARGET_FACTOR = 1.2;
-/** Settle when population reaches this fraction of the cap (grow ahead). */
-const SETTLE_AT_CAP_FRACTION = 0.75;
 /** Barn when the stock reaches this fraction of the storage ceiling. */
 const BARN_AT_STOCK_FRACTION = 0.85;
 
@@ -44,17 +42,12 @@ export class TribalEconomy {
       Number(config.unitInfo(type).cost(this.game, player));
     const cap = config.maxTroops(player);
 
-    // 1. Grow capacity ahead of demand.
-    if (
-      player.troops() >= SETTLE_AT_CAP_FRACTION * cap &&
-      food >= cost(UnitType.Settlement) &&
-      this.placePlot(UnitType.Settlement, false)
-    ) {
-      return true;
-    }
+    // The city sprawls itself from the founded Core (add-urban-core-growth);
+    // bots no longer build Settlements. They feed the sprawl with Farmland
+    // and bank its surplus with Barns.
 
-    // 2. Feed the cap, not just the current mouths: farm while production
-    // trails what a full population would eat (with growth margin).
+    // 1. Feed the cap, not just the current mouths: farm while production
+    // trails what a full population (set by the sprawl) would eat.
     const productionMilli = player.foodFlow().production * 1000;
     const capConsumptionMilli = cap * f.idleConsumptionMilli;
     if (
@@ -65,14 +58,15 @@ export class TribalEconomy {
       return true;
     }
 
-    // 3. Bank the surplus when the granary tops out — bounded by towns so a
-    // saturated economy doesn't barn-spam forever.
+    // 2. Bank the surplus when the granary tops out — bounded by farm count
+    // so a saturated economy doesn't barn-spam forever.
     const barnLevels = this.levels(UnitType.Barn);
+    const farmLevels = this.levels(UnitType.Farmland);
     const storageCap = f.baseStorage + barnLevels * f.storagePerBarn;
     if (
       food >= BARN_AT_STOCK_FRACTION * storageCap &&
       food >= cost(UnitType.Barn) &&
-      barnLevels < this.levels(UnitType.Settlement) + 2 &&
+      barnLevels < farmLevels / 4 + 1 &&
       this.placePlot(UnitType.Barn, false)
     ) {
       return true;
