@@ -361,6 +361,7 @@ export class Transport {
       type: "attack",
       targetID: event.targetID,
       troops: event.troops,
+      sourceTiles: event.sourceTiles ? [...event.sourceTiles] : null,
     });
   }
 

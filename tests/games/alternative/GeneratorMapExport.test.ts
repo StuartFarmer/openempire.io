@@ -3,6 +3,7 @@ import { GameMapImpl } from "../../../src/core/game/GameMap";
 import { LAYER_NAMES } from "../../../src/core/game/MapLayers";
 import { createAlternativeWorldEngineMap } from "../../../src/games/alternative/world";
 import {
+  buildFreshwaterPlane,
   buildGeneratedMapInfo,
   buildGeneratorLayersBlob,
   buildGeneratorSourceImage,
@@ -76,13 +77,13 @@ describe("generator map export", () => {
       blob,
     );
 
-    expect(gameMap.hasLayers()).toBe(true);
     const enginePlane = {
       crop: worldEngineLayers.resources.crop,
       metal: worldEngineLayers.resources.metal,
       oil: worldEngineLayers.resources.oil,
       temperature: worldEngineLayers.temperature,
       humidity: worldEngineLayers.humidity,
+      water: buildFreshwaterPlane(worldEngineLayers, map.width, map.height),
     };
     for (const name of LAYER_NAMES) {
       for (let i = 0; i < map.width * map.height; i++) {

@@ -2,21 +2,30 @@ import { Game, Player, TribalStructures, UnitType } from "../../game/Game";
 import { TileRef } from "../../game/GameMap";
 import { PseudoRandom } from "../../PseudoRandom";
 import { ConstructionExecution } from "../ConstructionExecution";
+import {
+  assessUrbanRoom,
+  BARN_INSURANCE_SCORE,
+  farmScore,
+  neighborPlotCount,
+  settlementScore,
+  wantsBarnInsurance,
+} from "./EconomyModel";
+import { supplyField } from "./SupplyField";
 
-/** Minimum crop score (fertility × adjacency) worth farming. */
-const MIN_FARM_CROP = 30;
-/** Farm until production covers this multiple of what the population CAP eats. */
-const FARM_TARGET_FACTOR = 1.2;
-/** Settle when population reaches this fraction of the cap (grow ahead). */
-const SETTLE_AT_CAP_FRACTION = 0.75;
-/** Barn when the stock reaches this fraction of the storage ceiling. */
-const BARN_AT_STOCK_FRACTION = 0.85;
+/** Sampling attempts per candidate pool — bounds per-pulse cost, as before. */
+const SAMPLE_ATTEMPTS = 40;
 
 /**
- * The shared AI economy for tribal plots (add-economy-insights): one brain
- * driven by nations (big per-pulse budget) and plain tribe bots (small).
- * Policy is MAXIMIZING, not subsistence: farm toward feeding the population
- * cap, settle ahead of demand, barn when the granary tops out.
+ * The shared AI economy for tribal plots (add-greedy-economy-planner): one
+ * brain driven by nations (big per-pulse budget) and plain tribe bots (small).
+ *
+ * The policy is a greedy marginal-utility planner: every pulse it samples
+ * candidate actions (Farmland sites, Settlement sites, a Barn), scores each
+ * with EconomyModel — pure math derived from the live Config.food() knobs and
+ * the map layers, in one currency of population-ticks — and executes the
+ * single best strictly-positive affordable action. No fixed quotas or floors:
+ * when no action can repay its cost, the pulse banks instead. Re-tuning a
+ * food knob re-tunes this policy with no code changes.
  */
 export class TribalEconomy {
   constructor(
@@ -37,131 +46,168 @@ export class TribalEconomy {
 
   private tryBuildOne(): boolean {
     const config = this.game.config();
-    const f = config.food();
     const player = this.player;
     const food = Number(player.food());
     const cost = (type: UnitType) =>
       Number(config.unitInfo(type).cost(this.game, player));
-    const cap = config.maxTroops(player);
 
-    // 1. Grow capacity ahead of demand.
-    if (
-      player.troops() >= SETTLE_AT_CAP_FRACTION * cap &&
-      food >= cost(UnitType.Settlement) &&
-      this.placePlot(UnitType.Settlement, false)
-    ) {
-      return true;
+    const candidates: { score: number; type: UnitType; tile: TileRef }[] = [];
+    const consider = (score: number, type: UnitType, tile: TileRef): void => {
+      if (score > 0) candidates.push({ score, type, tile });
+    };
+
+    // ── Farmland: people fed by the tile's steady yield over the horizon ──
+    const farmCost = cost(UnitType.Farmland);
+    if (food >= farmCost) {
+      for (const t of this.sampleSites(UnitType.Farmland)) {
+        consider(
+          farmScore(this.game, player, t, farmCost * 1000),
+          UnitType.Farmland,
+          t,
+        );
+      }
     }
 
-    // 2. Feed the cap, not just the current mouths: farm while production
-    // trails what a full population would eat (with growth margin).
-    const productionMilli = player.foodFlow().production * 1000;
-    const capConsumptionMilli = cap * f.idleConsumptionMilli;
-    if (
-      productionMilli < capConsumptionMilli * FARM_TARGET_FACTOR &&
-      food >= cost(UnitType.Farmland) &&
-      this.placePlot(UnitType.Farmland, true)
-    ) {
-      return true;
+    // ── Settlement: only when the food-supported city has outgrown the
+    // placeable room inside the supply field (the derived founding trigger).
+    const settlementCost = cost(UnitType.Settlement);
+    const supply = supplyField(this.game, player);
+    const room = assessUrbanRoom(this.game, player, supply);
+    if (food >= settlementCost && room.deficit > 0) {
+      for (const t of this.sampleSettlementSites(supply)) {
+        consider(
+          settlementScore(
+            this.game,
+            player,
+            supply,
+            t,
+            room.deficit,
+            settlementCost * 1000,
+          ),
+          UnitType.Settlement,
+          t,
+        );
+      }
     }
 
-    // 3. Bank the surplus when the granary tops out — bounded by towns so a
-    // saturated economy doesn't barn-spam forever.
-    const barnLevels = this.levels(UnitType.Barn);
-    const storageCap = f.baseStorage + barnLevels * f.storagePerBarn;
-    if (
-      food >= BARN_AT_STOCK_FRACTION * storageCap &&
-      food >= cost(UnitType.Barn) &&
-      barnLevels < this.levels(UnitType.Settlement) + 2 &&
-      this.placePlot(UnitType.Barn, false)
-    ) {
-      return true;
+    // ── Barn: insurance — wanted when storage is under one generation of
+    // consumption and the banked share is accruing. Its sentinel score is
+    // below any positive growth score, so the argmax never picks it over
+    // growth; it only wins when nothing else can repay its cost.
+    const barnCost = cost(UnitType.Barn);
+    if (food >= barnCost && wantsBarnInsurance(this.game, player)) {
+      const t = this.bestBarnSite();
+      if (t !== null) consider(BARN_INSURANCE_SCORE, UnitType.Barn, t);
     }
 
-    return false;
-  }
-
-  private levels(type: UnitType): number {
-    return this.player
-      .units(type)
-      .filter((u) => !u.isUnderConstruction())
-      .reduce((sum, u) => sum + u.level(), 0);
+    if (candidates.length === 0) return false;
+    // Precision is a difficulty lever (unify-layered-path): the AI picks
+    // uniformly (seeded PRNG — deterministic) among the top-k candidates
+    // instead of always the argmax. k = 1 on the highest difficulty.
+    const topK = config.aiDifficulty(player.type()).precisionTopK;
+    candidates.sort((a, b) => b.score - a.score);
+    const pool = candidates.slice(0, Math.max(1, topK));
+    const best = pool[this.random.nextInt(0, pool.length)];
+    this.game.addExecution(
+      new ConstructionExecution(player, best.type, best.tile),
+    );
+    return true;
   }
 
   /**
-   * Sample candidate tiles near the border and around existing same-type
-   * plots; score by fertility (farms) × district adjacency so districts
-   * grow contiguously. Farms below MIN_FARM_CROP are not worth the food.
+   * Sample buildable candidate tiles for a plot type: half the attempts hug
+   * existing same-type plots (district growth), half explore from the border.
+   * Same seeded-PRNG anchors as always — scoring, not sampling, changed.
    */
-  private placePlot(type: UnitType, maximizeCrop: boolean): boolean {
-    const game = this.game;
+  private sampleSites(type: UnitType): TileRef[] {
     const player = this.player;
     const border = player.borderTiles();
-    if (border.size === 0) return false;
+    if (border.size === 0) return [];
     const anchors = Array.from(border);
     const ownPlots = player.units(type);
-    const bonus = game.config().food().adjacencyBonus;
 
-    const adjacency = (t: TileRef): number => {
-      let count = 0;
-      const x = game.x(t);
-      const y = game.y(t);
-      for (const [dx, dy] of [
-        [-1, 0],
-        [1, 0],
-        [0, -1],
-        [0, 1],
-      ]) {
-        if (!game.isValidCoord(x + dx, y + dy)) continue;
-        const p = game.plotAt(game.ref(x + dx, y + dy));
-        if (p !== undefined && p.type() === type && p.owner() === player) {
-          count++;
-        }
-      }
-      return count;
-    };
-
-    let best: TileRef | null = null;
-    let bestScore = -1;
-    for (let attempt = 0; attempt < 40; attempt++) {
-      // Half the samples hug existing plots (district growth), half explore.
+    const sites = new Set<TileRef>();
+    for (let attempt = 0; attempt < SAMPLE_ATTEMPTS; attempt++) {
       const nearPlot = ownPlots.length > 0 && attempt % 2 === 0;
       const around = nearPlot
         ? this.random.randElement(ownPlots).tile()
         : this.random.randElement(anchors);
       const spread = nearPlot ? 4 : 6;
-      const x = this.random.nextInt(
-        game.x(around) - spread,
-        game.x(around) + spread + 1,
-      );
-      const y = this.random.nextInt(
-        game.y(around) - spread,
-        game.y(around) + spread + 1,
-      );
-      if (!game.isValidCoord(x, y)) continue;
-      const t = game.ref(x, y);
-      if (game.owner(t) !== player) continue;
+      const t = this.sampleAround(around, spread);
+      if (t === null) continue;
       if (player.canBuild(type, t) === false) continue;
-      const fertility = maximizeCrop ? game.layer("crop", t) : 100;
-      const score = fertility * (1 + adjacency(t) * bonus);
-      if (score > bestScore) {
-        bestScore = score;
+      sites.add(t);
+    }
+    return Array.from(sites);
+  }
+
+  /**
+   * Settlement candidates go where the room is: anchored on own farms OUTSIDE
+   * the current supply field (a farm belt no nucleus serves yet), falling back
+   * to the border when every farm is already covered.
+   */
+  private sampleSettlementSites(
+    supply: ReturnType<typeof supplyField>,
+  ): TileRef[] {
+    const player = this.player;
+    const uncovered = player
+      .units(UnitType.Farmland)
+      .map((u) => u.tile())
+      .filter((t) => !supply.dist.has(t));
+    const border = Array.from(player.borderTiles());
+    if (uncovered.length === 0 && border.length === 0) return [];
+
+    const sites = new Set<TileRef>();
+    for (let attempt = 0; attempt < SAMPLE_ATTEMPTS; attempt++) {
+      const anchorUncovered = uncovered.length > 0 && attempt % 2 === 0;
+      const around = anchorUncovered
+        ? this.random.randElement(uncovered)
+        : border.length > 0
+          ? this.random.randElement(border)
+          : this.random.randElement(uncovered);
+      const t = this.sampleAround(around, 4);
+      if (t === null) continue;
+      if (player.canBuild(UnitType.Settlement, t) === false) continue;
+      sites.add(t);
+    }
+    return Array.from(sites);
+  }
+
+  /** Best Barn site by district adjacency (storage capacity multiplier). */
+  private bestBarnSite(): TileRef | null {
+    let best: TileRef | null = null;
+    let bestAdjacency = -1;
+    for (const t of this.sampleSites(UnitType.Barn)) {
+      const adj = neighborPlotCount(this.game, this.player, t, UnitType.Barn);
+      if (adj > bestAdjacency) {
+        bestAdjacency = adj;
         best = t;
       }
     }
-    // Farms on near-barren soil are wasted food — leave the budget for
-    // settlements/barns instead of farm-spamming wasteland.
-    if (maximizeCrop && bestScore < MIN_FARM_CROP) return false;
-    if (best === null) return false;
-    this.game.addExecution(new ConstructionExecution(player, type, best));
-    return true;
+    return best;
+  }
+
+  /** One PRNG draw of an owned tile within `spread` of `around`, else null. */
+  private sampleAround(around: TileRef, spread: number): TileRef | null {
+    const game = this.game;
+    const x = this.random.nextInt(
+      game.x(around) - spread,
+      game.x(around) + spread + 1,
+    );
+    const y = this.random.nextInt(
+      game.y(around) - spread,
+      game.y(around) + spread + 1,
+    );
+    if (!game.isValidCoord(x, y)) return null;
+    const t = game.ref(x, y);
+    if (game.owner(t) !== this.player) return null;
+    return t;
   }
 }
 
 /** True when this player should run the tribal economy at all. */
 export function tribalEconomyActive(game: Game, player: Player): boolean {
   return (
-    game.hasLayers() &&
     player.isAlive() &&
     TribalStructures.types.every((t) => !game.config().isUnitDisabled(t))
   );

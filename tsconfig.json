@@ -28,7 +28,7 @@
     "proprietary/**/*",
     "generated/**/*",
     "tests/**/*",
-    "map-generator/*.ts",
+    "map-generator/**/*.ts",
     "src/scripts",
     "vite.config.ts"
   ],

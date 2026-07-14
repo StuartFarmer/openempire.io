@@ -43,12 +43,25 @@ function conquerBlock(game: Game, player: Player, size: number): void {
   }
 }
 
-/** A supplied farm belt producing far more than 1000 idle troops eat. */
+/**
+ * A farm-fed city producing far more than 1000 idle troops eat: own a block,
+ * found the Core (sets the population cap via sprawl), and paint a belt of
+ * Farmland for production. (add-urban-core-growth hybrid.)
+ */
 function buildEconomy(game: Game, player: Player): void {
-  player.addFood(10_000n);
-  player.buildUnit(UnitType.Barn, game.ref(3, 2), {});
-  for (const x of [1, 2, 3, 4, 5, 6]) {
-    player.buildUnit(UnitType.Farmland, game.ref(x, 1), {});
+  for (let y = 0; y < 12; y++) {
+    for (let x = 0; x < 12; x++) player.conquer(game.ref(x, y));
+  }
+  player.setCore(game.ref(6, 6));
+  player.setDensity(game.ref(6, 6), 1000); // a little sprawl → population cap
+  player.addFood(100_000n); // budget for the farm kit
+  for (let x = 0; x < 12; x++) {
+    player.buildUnit(UnitType.Farmland, game.ref(x, 0), {});
+    player.buildUnit(UnitType.Farmland, game.ref(x, 11), {});
+    // Ripen the farms — these tests are about allocation, not maturation
+    // (which FarmGrowth.test.ts covers); mature farms give steady production.
+    player.setFarmMaturity(game.ref(x, 0), 1000);
+    player.setFarmMaturity(game.ref(x, 11), 1000);
   }
 }
 
@@ -104,27 +117,29 @@ describe("Food allocation (add-food-allocation)", () => {
 
     // share 1.0: a growing population consumes everything — nothing banks.
     expect(allPop.stocks[49]).toBe(0n);
-    // share 0.7: the stock climbs tick over tick while the population grows.
-    expect(banked.stocks[49]).toBeGreaterThan(banked.stocks[9]);
+    // share 0.7: the stock climbs (banking a reserve) while the population
+    // grows — compared against an early tick, since it soon fills the cap.
+    expect(banked.stocks[49]).toBeGreaterThan(banked.stocks[1]);
     expect(banked.stocks[49]).toBeGreaterThan(1_000n);
     expect(banked.troops).toBeGreaterThan(1000);
     // …and the population share still grows people, just slower.
     expect(allPop.troops).toBeGreaterThanOrEqual(banked.troops);
   });
 
-  test("share 0 is austerity: fed via pass-through, zero growth, max banking", () => {
+  test("share 0 is austerity: fed via pass-through, storage banks to the cap", () => {
     buildEconomy(game, player);
     player.removeFood(player.food());
     player.setTroops(1000);
     player.setFoodPopulationShare(0);
+    const f = game.config().food();
     activate(game, player);
     for (let i = 0; i < 50; i++) game.executeNextTick();
 
-    // Fed from the storage draw — nobody starves, nobody is born.
+    // Fed from the storage draw — nobody starves — and storage banks to the
+    // cap (max banking). Beyond the cap the overflow rebates to the
+    // population, so growth is not strictly zero, but banking is maximal.
     expect(player.foodFlow().starvedTroops).toBe(0);
-    expect(player.troops()).toBe(1000);
-    // Everything above consumption banks.
-    expect(player.food()).toBeGreaterThan(2_000n);
+    expect(player.food()).toBeGreaterThanOrEqual(BigInt(f.baseStorage - 500));
   });
 
   test("storage overflow is rebated to the population, not wasted", () => {

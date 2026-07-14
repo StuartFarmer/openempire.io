@@ -1,12 +1,10 @@
 import { LitElement, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import { keyed } from "lit/directives/keyed.js";
 import { assetUrl } from "../../../core/AssetUrls";
 import { Config } from "../../../core/configuration/Config";
 import { EventBus } from "../../../core/EventBus";
 import { GameMode, GameType, Gold } from "../../../core/game/Game";
 import { TileRef } from "../../../core/game/GameMap";
-import { GameUpdateType } from "../../../core/game/GameUpdates";
 import { UserSettings } from "../../../core/game/UserSettings";
 import { ClientID } from "../../../core/Schemas";
 import { SendFoodAllocationIntentEvent } from "../../board/BoardEvents";
@@ -23,7 +21,6 @@ import { GameView } from "../../view";
 import { PlayerView } from "../../view/PlayerView";
 const barnIcon = assetUrl("images/BarnIconWhite.svg");
 const foodIcon = assetUrl("images/FoodIcon.svg");
-const goldCoinIcon = assetUrl("images/GoldCoinIcon.svg");
 const soldierIcon = assetUrl("images/SoldierIcon.svg");
 const swordIcon = assetUrl("images/SwordIcon.svg");
 
@@ -53,9 +50,6 @@ export class ControlPanel extends LitElement implements Controller {
   private _notification: { type: "warning" | "info"; message: string } | null =
     null;
 
-  @state()
-  private _gold: Gold;
-
   // Food economy (layered games only)
   @state()
   private _food: Gold = 0n;
@@ -75,14 +69,11 @@ export class ControlPanel extends LitElement implements Controller {
   private _attackingTroops: number = 0;
 
   @state()
-  private _goldGain: bigint | null = null;
   @state()
-  private _goldGainPulseId: number = 0;
-  private _goldGainTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   private _troopRateIsIncreasing: boolean = true;
+  private _lastTroopSample: { tick: number; troops: number } | null = null;
 
-  private _lastTroopIncreaseRate: number;
 
   // Border detection cache
   private _nearbyPlayerIDs: Set<number> = new Set();
@@ -132,19 +123,15 @@ export class ControlPanel extends LitElement implements Controller {
 
     const config = this.game.config();
     this._maxTroops = config.maxTroops(player);
-    this._gold = player.gold();
     this._troops = player.troops();
-    if (this.game.hasLayers()) {
-      this._food = player.food();
-      this._foodAllocation ??= player.foodPopulationShare();
-      this._foodNetPerTick = player.foodProduction() - player.foodConsumption();
-      this._foodStarving = player.foodStarved() > 0;
-    }
+    this._food = player.food();
+    this._foodAllocation ??= player.foodPopulationShare();
+    this._foodNetPerTick = player.foodProduction() - player.foodConsumption();
+    this._foodStarving = player.foodStarved() > 0;
     this._attackingTroops = player
       .outgoingAttacks()
       .map((a) => a.troops)
       .reduce((a, b) => a + b, 0);
-    this.troopRate = config.troopIncreaseRate(player) * 10;
 
     const helpEnabled = new UserSettings().helpMessages();
 
@@ -160,55 +147,7 @@ export class ControlPanel extends LitElement implements Controller {
       this._notification = this.computeNotification(player, config);
     }
 
-    const updates = this.game.updatesSinceLastTick();
-    if (updates) {
-      const myID = player.id();
-      const bonusEvents = updates[GameUpdateType.BonusEvent];
-      if (bonusEvents) {
-        for (const ev of bonusEvents) {
-          if (ev.player === myID && ev.gold > 0) {
-            this.addGoldGain(BigInt(ev.gold));
-          }
-        }
-      }
-      const conquestEvents = updates[GameUpdateType.ConquestEvent];
-      if (conquestEvents) {
-        for (const ev of conquestEvents) {
-          if (ev.conquerorId === myID && ev.gold > 0n) {
-            this.addGoldGain(ev.gold);
-          }
-        }
-      }
-      const donateEvents = updates[GameUpdateType.DonateEvent];
-      if (donateEvents) {
-        for (const ev of donateEvents) {
-          if (
-            ev.donationType === "gold" &&
-            ev.recipientId === myID &&
-            ev.amount > 0n
-          ) {
-            this.addGoldGain(ev.amount);
-          }
-        }
-      }
-    }
-
     this.requestUpdate();
-  }
-
-  // Last-wins: when multiple gold events arrive in one tick, the pip shows
-  // only the most recent amount (not a sum) — each gain restarts the pulse.
-  private addGoldGain(amount: bigint) {
-    this._goldGain = amount;
-    this._goldGainPulseId++;
-    if (this._goldGainTimeoutId !== null) {
-      clearTimeout(this._goldGainTimeoutId);
-    }
-    this._goldGainTimeoutId = setTimeout(() => {
-      this._goldGain = null;
-      this._goldGainTimeoutId = null;
-      this.requestUpdate();
-    }, 2000);
   }
 
   private trackOutgoingAttacks(player: PlayerView) {
@@ -314,21 +253,22 @@ export class ControlPanel extends LitElement implements Controller {
     return null;
   }
 
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    if (this._goldGainTimeoutId !== null) {
-      clearTimeout(this._goldGainTimeoutId);
-      this._goldGainTimeoutId = null;
-    }
-  }
-
   private updateTroopIncrease() {
     const player = this.game?.myPlayer();
     if (player === null) return;
-    const troopIncreaseRate = this.game.config().troopIncreaseRate(player);
-    this._troopRateIsIncreasing =
-      troopIncreaseRate >= this._lastTroopIncreaseRate;
-    this._lastTroopIncreaseRate = troopIncreaseRate;
+    // The urban-core tick owns population growth, so the displayed rate is
+    // the observed troop delta (per second: 10 ticks/s), not a formula.
+    const tick = this.game.ticks();
+    const troops = player.troops();
+    const last = this._lastTroopSample;
+    if (last !== null && tick > last.tick) {
+      const perTick = (troops - last.troops) / (tick - last.tick);
+      this.troopRate = perTick * 10;
+      this._troopRateIsIncreasing = perTick >= 0;
+    }
+    if (last === null || tick !== last.tick) {
+      this._lastTroopSample = { tick, troops };
+    }
   }
 
   onAttackRatioChange(newRatio: number) {
@@ -357,9 +297,9 @@ export class ControlPanel extends LitElement implements Controller {
     this.eventBus.emit(new SendFoodAllocationIntentEvent(this._foodAllocation));
   }
 
-  /** Allocation slider (layered maps): population share ↔ storage share. */
+  /** Allocation slider: population share ↔ storage share. */
   private renderFoodAllocationRow(compact: boolean) {
-    if (!this.game?.hasLayers() || this._foodAllocation === null) {
+    if (this._foodAllocation === null) {
       return html``;
     }
     const popPct = Math.round(this._foodAllocation * 100);
@@ -573,30 +513,6 @@ export class ControlPanel extends LitElement implements Controller {
         </div>
         <!-- Troop bar -->
         <div class="flex-1">${this.renderDesktopTroopBar()}</div>
-        <!-- Gold (classic maps only — the Tribal age has no gold) -->
-        ${this.game?.hasLayers()
-          ? ""
-          : html`<div
-              class="flex items-center gap-1 shrink-0 border rounded-md border-yellow-400 font-bold text-yellow-400 text-sm py-0.5 px-1 w-[4.5rem] relative"
-              translate="no"
-            >
-              ${this._goldGain !== null
-                ? keyed(
-                    this._goldGainPulseId,
-                    html`<span
-                      class="gold-gain-pop absolute -top-5 right-[5px] min-[1015px]:right-[9px] text-green-400 text-sm font-extrabold tabular-nums whitespace-nowrap pointer-events-none drop-shadow-[0_2px_3px_rgba(0,0,0,0.9)]"
-                      >+${renderNumber(this._goldGain)}</span
-                    >`,
-                  )
-                : ""}
-              <img
-                src=${goldCoinIcon}
-                width="13"
-                height="13"
-                class="shrink-0"
-              />
-              <span class="tabular-nums">${renderNumber(this._gold)}</span>
-            </div>`}
         ${this.renderFoodChip("text-sm")}
       </div>
       <!-- Row 2: attack ratio | slider -->
@@ -635,13 +551,10 @@ export class ControlPanel extends LitElement implements Controller {
   }
 
   /**
-   * Food stock + net flow chip — layered games only. Red border + red net
-   * while starving; green/red net sign otherwise.
+   * Food stock + net flow chip. Red border + red net while starving;
+   * green/red net sign otherwise.
    */
   private renderFoodChip(textSize: string) {
-    if (!this.game?.hasLayers()) {
-      return html``;
-    }
     const netPerSec = this._foodNetPerTick * 10;
     const gaining = this._foodNetPerTick >= 0;
     return html`
@@ -675,25 +588,6 @@ export class ControlPanel extends LitElement implements Controller {
     return html`
       ${this.renderNotification()}
       <div class="flex gap-2 items-center">
-        <!-- Gold (classic maps only — the Tribal age has no gold) -->
-        ${this.game?.hasLayers()
-          ? ""
-          : html`<div
-              class="flex items-center justify-center p-1 gap-0.5 border rounded-md border-yellow-400 font-bold text-yellow-400 text-xs w-1/5 shrink-0 relative"
-              translate="no"
-            >
-              ${this._goldGain !== null
-                ? keyed(
-                    this._goldGainPulseId,
-                    html`<span
-                      class="gold-gain-pop absolute -top-5 right-[5px] min-[1015px]:right-[9px] text-green-400 text-xs font-extrabold tabular-nums whitespace-nowrap pointer-events-none drop-shadow-[0_2px_3px_rgba(0,0,0,0.9)]"
-                      >+${renderNumber(this._goldGain)}</span
-                    >`,
-                  )
-                : ""}
-              <img src=${goldCoinIcon} width="13" height="13" />
-              <span class="px-0.5">${renderNumber(this._gold)}</span>
-            </div>`}
         ${this.renderFoodChip("text-xs")}
         <!-- Troop bar -->
         <div class="w-[40%] shrink-0 flex items-center">
@@ -735,21 +629,6 @@ export class ControlPanel extends LitElement implements Controller {
 
   render() {
     return html`
-      <style>
-        @keyframes gold-gain-pop {
-          0% {
-            transform: translateY(4px);
-            opacity: 0;
-          }
-          100% {
-            transform: translateY(0);
-            opacity: 1;
-          }
-        }
-        .gold-gain-pop {
-          animation: gold-gain-pop 0.25s ease-out;
-        }
-      </style>
       <div
         class="relative pointer-events-auto ${this._isVisible
           ? "relative w-full text-sm px-2 py-1"

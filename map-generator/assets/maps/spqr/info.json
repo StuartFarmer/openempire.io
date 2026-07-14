@@ -1,0 +1,284 @@
+{
+  "id": "SPQR",
+  "name": "SPQR",
+  "translation_key": "map.spqr",
+  "categories": ["new", "world"],
+  "multiplayer_frequency": 0,
+  "nations": [
+    {
+      "coordinates": [890, 498],
+      "name": "Vatican",
+      "flag": "va"
+    },
+    {
+      "coordinates": [889, 426],
+      "name": "San Marino",
+      "flag": "sm"
+    },
+    {
+      "coordinates": [812, 313],
+      "name": "Liechtenstein",
+      "flag": "li"
+    },
+    {
+      "coordinates": [722, 226],
+      "name": "Luxembourg",
+      "flag": "lu"
+    },
+    {
+      "coordinates": [756, 433],
+      "name": "Monaco",
+      "flag": "mc"
+    },
+    {
+      "coordinates": [599, 477],
+      "name": "Andorra",
+      "flag": "ad"
+    },
+    {
+      "coordinates": [672, 138],
+      "name": "Netherlands",
+      "flag": "nl"
+    },
+    {
+      "coordinates": [945, 351],
+      "name": "Slovenia",
+      "flag": "si"
+    },
+    {
+      "coordinates": [1014, 277],
+      "name": "Slovakia",
+      "flag": "sk"
+    },
+    {
+      "coordinates": [1071, 478],
+      "name": "Montenegro",
+      "flag": "me"
+    },
+    {
+      "coordinates": [757, 321],
+      "name": "Switzerland",
+      "flag": "ch"
+    },
+    {
+      "coordinates": [207, 1019],
+      "name": "Morocco",
+      "flag": "ma"
+    },
+    {
+      "coordinates": [1129, 494],
+      "name": "North Macedonia",
+      "flag": "mk"
+    },
+    {
+      "coordinates": [829, 678],
+      "name": "Tunisia",
+      "flag": "tn"
+    },
+    {
+      "coordinates": [1326, 318],
+      "name": "Moldova",
+      "flag": "md"
+    },
+    {
+      "coordinates": [1514, 849],
+      "name": "Jordan",
+      "flag": "jo"
+    },
+    {
+      "coordinates": [1232, 46],
+      "name": "Lithuania",
+      "flag": "lt"
+    },
+    {
+      "coordinates": [984, 360],
+      "name": "Croatia",
+      "flag": "hr"
+    },
+    {
+      "coordinates": [1503, 781],
+      "name": "Lebanon",
+      "flag": "lb"
+    },
+    {
+      "coordinates": [1750, 504],
+      "name": "Georgia",
+      "flag": "ge"
+    },
+    {
+      "coordinates": [1103, 395],
+      "name": "Serbia",
+      "flag": "rs"
+    },
+    {
+      "coordinates": [1086, 518],
+      "name": "Albania",
+      "flag": "al"
+    },
+    {
+      "coordinates": [1742, 559],
+      "name": "Armenia",
+      "flag": "am"
+    },
+    {
+      "coordinates": [1885, 551],
+      "name": "Azerbaijan",
+      "flag": "az"
+    },
+    {
+      "coordinates": [1179, 470],
+      "name": "Bulgaria",
+      "flag": "bg"
+    },
+    {
+      "coordinates": [1292, 74],
+      "name": "Belarus",
+      "flag": "by"
+    },
+    {
+      "coordinates": [1047, 429],
+      "name": "Bosnia and Herzegovina",
+      "flag": "ba"
+    },
+    {
+      "coordinates": [945, 710],
+      "name": "Malta",
+      "flag": "mt"
+    },
+    {
+      "coordinates": [1495, 855],
+      "name": "Israel",
+      "flag": "il"
+    },
+    {
+      "coordinates": [1446, 736],
+      "name": "Cyprus",
+      "flag": "cy"
+    },
+    {
+      "coordinates": [1433, 567],
+      "name": "Turkey",
+      "flag": "tr"
+    },
+    {
+      "coordinates": [1066, 300],
+      "name": "Hungary",
+      "flag": "hu"
+    },
+    {
+      "coordinates": [1253, 408],
+      "name": "Romania",
+      "flag": "ro"
+    },
+    {
+      "coordinates": [1524, 794],
+      "name": "Syria",
+      "flag": "sy"
+    },
+    {
+      "coordinates": [315, 610],
+      "name": "Portugal",
+      "flag": "pt"
+    },
+    {
+      "coordinates": [1117, 132],
+      "name": "Poland",
+      "flag": "pl"
+    },
+    {
+      "coordinates": [392, 94],
+      "name": "Ireland",
+      "flag": "ie"
+    },
+    {
+      "coordinates": [943, 209],
+      "name": "Czechia",
+      "flag": "cz"
+    },
+    {
+      "coordinates": [1835, 940],
+      "name": "Kuwait",
+      "flag": "kw"
+    },
+    {
+      "coordinates": [909, 816],
+      "name": "Libya",
+      "flag": "ly"
+    },
+    {
+      "coordinates": [893, 11],
+      "name": "Denmark",
+      "flag": "dk"
+    },
+    {
+      "coordinates": [674, 182],
+      "name": "Belgium",
+      "flag": "be"
+    },
+    {
+      "coordinates": [640, 679],
+      "name": "Algeria",
+      "flag": "dz"
+    },
+    {
+      "coordinates": [1370, 196],
+      "name": "Ukraine",
+      "flag": "ua"
+    },
+    {
+      "coordinates": [461, 551],
+      "name": "Spain",
+      "flag": "es"
+    },
+    {
+      "coordinates": [915, 123],
+      "name": "Germany",
+      "flag": "de"
+    },
+    {
+      "coordinates": [1190, 636],
+      "name": "Greece",
+      "flag": "gr"
+    },
+    {
+      "coordinates": [1739, 800],
+      "name": "Iraq",
+      "flag": "iq"
+    },
+    {
+      "coordinates": [1926, 718],
+      "name": "Iran",
+      "flag": "ir"
+    },
+    {
+      "coordinates": [994, 275],
+      "name": "Austria",
+      "flag": "at"
+    },
+    {
+      "coordinates": [555, 159],
+      "name": "United Kingdom",
+      "flag": "gb"
+    },
+    {
+      "coordinates": [1559, 9],
+      "name": "Russia",
+      "flag": "ru"
+    },
+    {
+      "coordinates": [891, 498],
+      "name": "Italy",
+      "flag": "it"
+    },
+    {
+      "coordinates": [1390, 916],
+      "name": "Egypt",
+      "flag": "eg"
+    },
+    {
+      "coordinates": [621, 252],
+      "name": "French Republic",
+      "flag": "fr"
+    }
+  ]
+}

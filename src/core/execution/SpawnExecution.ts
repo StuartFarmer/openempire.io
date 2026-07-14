@@ -77,9 +77,7 @@ export class SpawnExecution implements Execution {
 
     player.setSpawnTile(spawn.center);
 
-    if (this.mg.hasLayers()) {
-      this.placeStarterKit(player, spawn.center);
-    }
+    this.foundCore(player, spawn.center);
 
     if (
       this.mg.config().gameConfig().gameType === GameType.Singleplayer &&
@@ -100,62 +98,67 @@ export class SpawnExecution implements Execution {
   }
 
   /**
-   * Tribal starter kit (add-tile-painted-structures): settling paints a 2×2
-   * homestead — one Settlement and three Farmland plots — centered on the
-   * spawn. Free: the food stake is reset afterward, so the kit never eats
-   * the opening budget. Re-spawns (spawn-phase re-clicks) rebuild the kit
-   * at the new location.
+   * Settle (add-urban-core-growth): found the urban Core (seeds the density
+   * field — the city sprawls itself from here, see UrbanGrowth) AND paint a
+   * few starter Farmland plots so the young city has food. The player keeps
+   * painting Farmland/Barns; only the city sprawl grows on its own.
+   * Re-spawns re-found at the new location, clearing the old field + kit.
    */
-  private placeStarterKit(player: Player, center: TileRef): void {
-    // Re-spawn: clear any previous kit before painting the new one.
+  private foundCore(player: Player, center: TileRef): void {
+    const mg = this.mg;
+
+    // Re-spawn: clear any previous density field and starter plots.
+    for (const [tile] of Array.from(player.densityEntries())) {
+      player.setDensity(tile, 0);
+    }
     for (const u of player.units(...TribalStructures.types)) {
       u.delete(false);
     }
 
-    const mg = this.mg;
-    const cx = mg.x(center);
-    const cy = mg.y(center);
     const valid = (t: TileRef) =>
-      mg.isLand(t) &&
-      !mg.isImpassable(t) &&
-      mg.owner(t) === player &&
-      mg.plotAt(t) === undefined;
+      mg.isLand(t) && !mg.isImpassable(t) && mg.owner(t) === player;
 
-    // Preferred: the 2×2 block at the spawn center; fallback: nearest owned
-    // tiles (spawn blobs are contiguous, so this rarely triggers).
-    const slots: TileRef[] = [];
-    for (const [x, y] of [
-      [cx, cy],
-      [cx + 1, cy],
-      [cx, cy + 1],
-      [cx + 1, cy + 1],
-    ]) {
-      if (slots.length >= 4) break;
-      if (mg.isValidCoord(x, y)) {
-        const t = mg.ref(x, y);
-        if (valid(t)) slots.push(t);
-      }
-    }
-    if (slots.length < 4) {
-      const byDist = [...player.tiles()]
-        .filter((t) => valid(t) && !slots.includes(t))
+    // Seed the Core on the best owned land at the spawn (prefer the center).
+    let coreTile = center;
+    if (!valid(coreTile)) {
+      const nearest = [...player.tiles()]
+        .filter(valid)
         .sort(
           (a, b) => mg.manhattanDist(a, center) - mg.manhattanDist(b, center),
-        );
-      slots.push(...byDist.slice(0, 4 - slots.length));
+        )[0];
+      if (nearest !== undefined) coreTile = nearest;
+    }
+    player.setCore(coreTile);
+    // Seed the capital as one full city tile (popPerDensity people); the
+    // demographic model grows or shrinks the footprint from there.
+    player.setDensity(coreTile, mg.config().food().popPerDensity);
+
+    // Paint the starter Farmland kit (free) around the core so the opening
+    // city has food to grow on. Nearest owned tiles that aren't the core.
+    const cx = mg.x(coreTile);
+    const cy = mg.y(coreTile);
+    const kitSlots: TileRef[] = [];
+    for (const [dx, dy] of [
+      [1, 0],
+      [0, 1],
+      [-1, 0],
+      [0, -1],
+      [1, 1],
+    ]) {
+      if (kitSlots.length >= 3) break;
+      if (mg.isValidCoord(cx + dx, cy + dy)) {
+        const t = mg.ref(cx + dx, cy + dy);
+        if (valid(t) && mg.plotAt(t) === undefined) kitSlots.push(t);
+      }
+    }
+    // Starter farms begin already ripe, so a young nation is fed from tick one
+    // (its population grows) instead of starving while its first crop matures.
+    for (const t of kitSlots) {
+      player.buildUnit(UnitType.Farmland, t, {});
+      player.setFarmMaturity(t, 1000);
     }
 
-    const kit: UnitType[] = [
-      UnitType.Settlement,
-      UnitType.Farmland,
-      UnitType.Farmland,
-      UnitType.Farmland,
-    ];
-    for (let i = 0; i < slots.length && i < kit.length; i++) {
-      player.buildUnit(kit[i], slots[i], {});
-    }
-
-    // The kit is free: restore the opening stake buildUnit just charged.
+    // Reset the opening food stake (the kit is free).
     player.removeFood(player.food());
     player.addFood(BigInt(mg.config().food().startingFood));
   }

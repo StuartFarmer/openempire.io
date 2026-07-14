@@ -2,7 +2,6 @@ import { PseudoRandom } from "../PseudoRandom";
 import { GameStartInfo } from "../Schemas";
 import {
   Cell,
-  GameMapSize,
   GameMode,
   GameType,
   HumansVsNations,
@@ -40,8 +39,6 @@ export function createNationsForGame(
       new PlayerInfo(n.name, PlayerType.Nation, null, random.nextID()),
     );
 
-  const isCompactMap = gameStart.config.gameMapSize === GameMapSize.Compact;
-
   const isHumansVsNations =
     gameStart.config.gameMode === GameMode.Team &&
     gameStart.config.playerTeams === HumansVsNations;
@@ -71,17 +68,6 @@ export function createNationsForGame(
         toNation,
         random,
       );
-    }
-
-    // For compact maps, use only 25% of nations (minimum 1)
-    if (isCompactMap) {
-      const targetCount = getCompactMapNationCount(
-        manifestNations.length,
-        true,
-      );
-      const shuffled = random.shuffleArray(manifestNations);
-      const slicedNations = shuffled.slice(0, targetCount);
-      return slicedNations.map(toNation);
     }
   }
 
@@ -140,20 +126,6 @@ function createRandomNations(
     );
   }
   return nations;
-}
-
-// For compact maps, only 25% of nations are used (minimum 1).
-export function getCompactMapNationCount(
-  manifestNationCount: number,
-  isCompactMap: boolean,
-): number {
-  if (manifestNationCount === 0) {
-    return 0;
-  }
-  if (isCompactMap) {
-    return Math.max(1, Math.floor(manifestNationCount * 0.25));
-  }
-  return manifestNationCount;
 }
 
 function generateUniqueNationName(

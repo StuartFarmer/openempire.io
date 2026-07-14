@@ -38,7 +38,7 @@ export class EconPanel extends LitElement implements Controller {
 
   tick() {
     const game = this.game;
-    if (game === null || !game.hasLayers()) return;
+    if (game === null) return;
     const tick = game.ticks();
     if (tick - this.lastSampledTick < SAMPLE_EVERY_TICKS) return;
     const me = game.myPlayer();
@@ -88,7 +88,7 @@ export class EconPanel extends LitElement implements Controller {
   }
 
   render() {
-    if (this.game === null || !this.game.hasLayers()) {
+    if (this.game === null) {
       return html``;
     }
     // Keep the chart mounted while hidden: the ring buffer lives in the

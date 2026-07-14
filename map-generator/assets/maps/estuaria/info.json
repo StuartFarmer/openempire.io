@@ -1,0 +1,8 @@
+{
+  "id": "Estuaria",
+  "name": "Estuaria",
+  "translation_key": "map.estuaria",
+  "categories": ["new", "fictional"],
+  "multiplayer_frequency": 0,
+  "nations": []
+}

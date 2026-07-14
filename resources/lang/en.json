@@ -12,12 +12,11 @@
       "missile_silo": "Used to launch nukes",
       "port": "Sends trade ships to generate gold",
       "sam_launcher": "Defends against incoming nukes",
-      "settlement": "Raises your population cap",
+      "settlement": "A city seed that grows where farms feed it",
       "warship": "Captures trade ships, destroys ships and boats"
     },
     "not_enough_food": "Not enough food",
-    "not_enough_money": "Not enough money",
-    "warship_shift_hint": "Hold Shift and drag to select multiple warships at once"
+    "not_enough_money": "Not enough money"
   },
   "chat": {
     "attack": {
@@ -477,6 +476,10 @@
   },
   "map": {
     "all": "All",
+    "earth": "Earth",
+    "earthmini": "Earth Mini",
+    "earthxl": "Earth XL",
+    "estuaria": "Estuaria",
     "favorites": "Favourites",
     "featured": "Featured",
     "majormenor": "Majora y Menora",
@@ -484,7 +487,8 @@
     "pangea001": "Pangea I",
     "pangea002": "Pangea II",
     "random": "Random",
-    "verdantia": "verdantia",
+    "spqr": "SPQR",
+    "verdantia": "Verdantia",
     "world": "World"
   },
   "map_categories": {
@@ -637,7 +641,6 @@
   "single_modal": {
     "bots": "Tribes: ",
     "bots_disabled": "Disabled",
-    "compact_map": "Compact Map",
     "disable_alliances": "Disable alliances",
     "doomsday_clock": "Doomsday Clock",
     "enables_title": "Disable Units",

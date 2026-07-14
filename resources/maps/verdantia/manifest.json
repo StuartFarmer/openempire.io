@@ -7,18 +7,13 @@
     "num_land_tiles": 66369,
     "width": 512
   },
-  "map16x": {
-    "height": 64,
-    "num_land_tiles": 3443,
-    "width": 128
-  },
   "map4x": {
     "height": 128,
     "num_land_tiles": 15548,
     "width": 256
   },
   "multiplayer_frequency": 0,
-  "name": "verdantia",
+  "name": "Verdantia",
   "nations": [],
   "terrain_colors": true,
   "translation_key": "map.verdantia"

@@ -1,4 +1,4 @@
-import { GameMapSize, GameMapType, TeamGameSpawnAreas } from "./Game";
+import { GameMapType, TeamGameSpawnAreas } from "./Game";
 import { GameMap, GameMapImpl } from "./GameMap";
 import { GameMapLoader } from "./GameMapLoader";
 import { decodeLayers } from "./MapLayers";
@@ -9,7 +9,7 @@ export type TerrainMapData = {
   gameMap: GameMap;
   miniGameMap: GameMap;
   teamGameSpawnAreas?: TeamGameSpawnAreas;
-  terrainColorsPath?: string;
+  terrainColorsPath: string;
 };
 
 const loadedMaps = new Map<string, TerrainMapData>();
@@ -23,8 +23,8 @@ export interface MapMetadata {
 export interface MapManifest {
   name: string;
   map: MapMetadata;
+  // The 4x-downscaled pathfinding minimap — not a playable size.
   map4x: MapMetadata;
-  map16x: MapMetadata;
   nations: Nation[];
   // Optional pool of fallback nation names used when a game requests more
   // nations than the manifest defines. Picked at random; if still not enough,
@@ -49,92 +49,60 @@ export interface AdditionalNation {
 
 export async function loadTerrainMap(
   map: GameMapType,
-  mapSize: GameMapSize,
   terrainMapFileLoader: GameMapLoader,
 ): Promise<TerrainMapData> {
-  const cacheKey = `${map}:${mapSize}`;
-  const cached = loadedMaps.get(cacheKey);
+  const cached = loadedMaps.get(map);
   if (cached !== undefined) return cached;
   const mapFiles = terrainMapFileLoader.getMapData(map);
   const manifest = await mapFiles.manifest();
 
-  // layers.bin sidecar: full resolution only — compact sizes load unlayered.
-  let layersData: Uint8Array | null = null;
-  if (
-    manifest.layers === true &&
-    mapSize === GameMapSize.Normal &&
-    mapFiles.layersBin !== undefined
-  ) {
-    const bytes = await mapFiles.layersBin();
-    try {
-      layersData = decodeLayers(bytes, manifest.map.width, manifest.map.height);
-    } catch (e) {
-      console.error(`[TerrainMapLoader] ignoring layers sidecar: ${e}`);
-    }
+  // Both sidecars are mandatory: there is exactly one game mode (layered)
+  // and one shading path (baked terrain colors). Fail loudly — a silent
+  // fallback here is a hidden second game.
+  if (manifest.layers !== true || mapFiles.layersBin === undefined) {
+    throw new Error(
+      `[TerrainMapLoader] map "${map}" has no layers.bin sidecar (required; retrofit with derive-layers.ts + gen-maps)`,
+    );
+  }
+  if (manifest.terrain_colors !== true || !mapFiles.terrainColorsPath) {
+    throw new Error(
+      `[TerrainMapLoader] map "${map}" has no terrain-colors.png sidecar (required; retrofit with derive-layers.ts + gen-maps)`,
+    );
+  }
+  let layersData: Uint8Array;
+  try {
+    layersData = decodeLayers(
+      await mapFiles.layersBin(),
+      manifest.map.width,
+      manifest.map.height,
+    );
+  } catch (e) {
+    // eslint-disable-next-line preserve-caught-error -- ES target lacks Error cause
+    throw new Error(
+      `[TerrainMapLoader] map "${map}" has an undecodable layers.bin: ${e}`,
+    );
   }
 
-  const gameMap =
-    mapSize === GameMapSize.Normal
-      ? await genTerrainFromBin(
-          manifest.map,
-          await mapFiles.mapBin(),
-          layersData,
-        )
-      : await genTerrainFromBin(manifest.map4x, await mapFiles.map4xBin());
-
-  const miniMap =
-    mapSize === GameMapSize.Normal
-      ? await genTerrainFromBin(
-          mapSize === GameMapSize.Normal ? manifest.map4x : manifest.map16x,
-          await mapFiles.map4xBin(),
-        )
-      : await genTerrainFromBin(manifest.map16x, await mapFiles.map16xBin());
-
-  if (mapSize === GameMapSize.Compact) {
-    manifest.nations.forEach((nation) => {
-      if (nation.coordinates !== undefined) {
-        nation.coordinates = [
-          Math.floor(nation.coordinates[0] / 2),
-          Math.floor(nation.coordinates[1] / 2),
-        ];
-      }
-    });
-    manifest.additionalNations?.forEach((nation) => {
-      if (nation.coordinates !== undefined) {
-        nation.coordinates = [
-          Math.floor(nation.coordinates[0] / 2),
-          Math.floor(nation.coordinates[1] / 2),
-        ];
-      }
-    });
-  }
-
-  // Scale spawn areas for compact maps
-  let teamGameSpawnAreas = manifest.teamGameSpawnAreas;
-  if (mapSize === GameMapSize.Compact && teamGameSpawnAreas) {
-    const scaled: TeamGameSpawnAreas = {};
-    for (const [key, areas] of Object.entries(teamGameSpawnAreas)) {
-      scaled[key] = areas.map((a) => ({
-        x: Math.floor(a.x / 2),
-        y: Math.floor(a.y / 2),
-        width: Math.max(1, Math.floor(a.width / 2)),
-        height: Math.max(1, Math.floor(a.height / 2)),
-      }));
-    }
-    teamGameSpawnAreas = scaled;
-  }
+  const gameMap = await genTerrainFromBin(
+    manifest.map,
+    await mapFiles.mapBin(),
+    layersData,
+  );
+  // The 4x map is the pathfinding minimap; it carries no layers.
+  const miniMap = await genTerrainFromBin(
+    manifest.map4x,
+    await mapFiles.map4xBin(),
+  );
 
   const result = {
     nations: manifest.nations,
     additionalNations: manifest.additionalNations ?? [],
     gameMap: gameMap,
     miniGameMap: miniMap,
-    teamGameSpawnAreas,
-    terrainColorsPath: manifest.terrain_colors
-      ? mapFiles.terrainColorsPath
-      : undefined,
+    teamGameSpawnAreas: manifest.teamGameSpawnAreas,
+    terrainColorsPath: mapFiles.terrainColorsPath,
   };
-  loadedMaps.set(cacheKey, result);
+  loadedMaps.set(map, result);
   return result;
 }
 

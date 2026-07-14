@@ -7,11 +7,6 @@
     "num_land_tiles": 389395,
     "width": 1024
   },
-  "map16x": {
-    "height": 256,
-    "num_land_tiles": 22404,
-    "width": 256
-  },
   "map4x": {
     "height": 512,
     "num_land_tiles": 94679,
@@ -20,5 +15,6 @@
   "multiplayer_frequency": 0,
   "name": "Majora y Menora",
   "nations": [],
+  "terrain_colors": true,
   "translation_key": "map.majormenor"
 }

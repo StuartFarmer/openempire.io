@@ -84,7 +84,9 @@ function stateFromUpdate(pu: PlayerUpdate): PlayerState {
     foodProduction: pu.foodProduction ?? 0,
     foodConsumption: pu.foodConsumption ?? 0,
     foodStarved: pu.foodStarved ?? 0,
+    foodCapacity: pu.foodCapacity ?? 0,
     foodPopulationShare: pu.foodPopulationShare ?? 1,
+    urbanArea: pu.urbanArea ?? 0,
     isTraitor: pu.isTraitor!,
     traitorRemainingTicks: Math.max(0, pu.traitorRemainingTicks ?? 0),
     inDoomsdayClock: pu.inDoomsdayClock ?? false,
@@ -484,11 +486,7 @@ export class PlayerView {
     return this.state.troops;
   }
 
-  hasFoodEconomy(): boolean {
-    return this.game.hasLayers();
-  }
-
-  /** Food stock in display units (layered games; 0n elsewhere). */
+  /** Food stock in display units. */
   food(): Gold {
     return BigInt(this.state.food);
   }
@@ -505,8 +503,28 @@ export class PlayerView {
     return this.state.foodStarved;
   }
 
+  /** Mirrors PlayerImpl.foodFlow() so Config.maxTroops/centerBudget accept a
+   *  PlayerView (client-side UI: population cap, center budget). */
+  foodFlow(): {
+    production: number;
+    consumption: number;
+    starvedTroops: number;
+    capacity: number;
+  } {
+    return {
+      production: this.state.foodProduction,
+      consumption: this.state.foodConsumption,
+      starvedTroops: this.state.foodStarved,
+      capacity: this.state.foodCapacity,
+    };
+  }
+
   foodPopulationShare(): number {
     return this.state.foodPopulationShare;
+  }
+
+  urbanArea(): number {
+    return this.state.urbanArea;
   }
 
   totalUnitLevels(type: UnitType): number {

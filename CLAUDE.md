@@ -18,7 +18,7 @@ npm run build-prod # Production build (static site)
 # Author a new world headlessly (CLI twin of the #generator page), then bake:
 npx tsx map-generator/gen-world.ts --name myworld --seed 7 --width 512 --height 256
 # Balance harness: seeded headless bot games with food-knob overrides
-npx tsx tests/perf/balance/BalanceRun.ts --map verdantia --runs 3 --nations 25
+npx tsx tests/perf/balance/BalanceRun.ts --map verdantia --runs 3 --nations 25 [--difficulty Easy|Medium|Hard|Impossible]
 ```
 
 Note: `gen-world.ts` and the run-openfront skill need the unsaved dev deps `canvas` and `playwright`; install them **together** (`npm install --no-save playwright canvas && npm rebuild canvas`) — installing one evicts the other.
@@ -50,27 +50,30 @@ Player action → **Intent** (`src/core/Schemas.ts`, zod) → `LocalServer` bund
 
 ```
 GeneratorPage (#generator route, in-browser, seeded WorldEngine)
-  └─ exports image.png + terrain-colors.png + info.json
+  └─ exports image.png + terrain-colors.png + layers.bin + info.json
        └─ drop into map-generator/assets/maps/<name>/
             └─ npm run gen-maps  (Go)
-                 └─ resources/maps/<name>/{map.bin,map4x.bin,map16x.bin,manifest.json,thumbnail.webp,terrain-colors.png}
+                 └─ resources/maps/<name>/{map.bin,map4x.bin,manifest.json,thumbnail.webp,terrain-colors.png,layers.bin}
                     + src/core/game/Maps.gen.ts (regenerated — never hand-edit)
                     + en.json map section
 ```
 
+**There is exactly one game mode and one map format** (unify-layered-path): every map ships BOTH sidecars (`terrain-colors.png` + `layers.bin`); the baker and `TerrainMapLoader` fail loudly when either is missing — there is no vanilla/classic fallback, no `hasLayers()` predicate, and no map-size option (`map4x.bin` survives only as the pathfinding minimap; it is not a playable resolution).
+
 - **Tile format (1 byte/tile, must stay in sync):** bit 7 land, bit 6 shoreline, bit 5 ocean, bits 0–4 magnitude (31 = impassable). Encoder: `map-generator/map_generator.go` (`packTerrain`). Decoder: `src/core/game/GameMap.ts`.
-- **terrain-colors.png sidecar:** optional full-res RGBA baked by the generator. `manifest.terrain_colors: true` → `TerrainColorSidecar.ts` attaches it as `BoardMap.colorizer` → `TerrainPass` renders it instead of procedural terrain shading. Full-res only (rejected for compact/4x map size).
-- **layers.bin sidecar:** 5 Uint8 planes (crop, metal, oil, temperature, humidity) — format owned by `src/core/game/MapLayers.ts` (exporter and sim both import it). `manifest.layers: true` → loaded at Normal size → `game.hasLayers()` / `game.layer("crop", tile) → 0..255` in the sim. **All new-game mechanics gate on `hasLayers()`** — classic maps play byte-identical vanilla.
+- **terrain-colors.png sidecar (required):** full-res RGBA baked by the generator. `TerrainColorSidecar.ts` attaches it as `BoardMap.colorizer` → `TerrainPass` uses it as the base terrain texture. `encodeTerrainTile` survives ONLY as the runtime mutation encoder (water nukes; future land modification) — there is no full-map procedural shading.
+- **layers.bin sidecar (required):** 6 Uint8 planes (crop, metal, oil, temperature, humidity, water) — format owned by `src/core/game/MapLayers.ts` (exporter and sim both import it). `game.layer("crop", tile) → 0..255` in the sim; layers are guaranteed at load, no gating needed. Only the pathfinding minimap is unlayered and must never be asked for layer data.
 - The Go tool regenerates `Maps.gen.ts` and the en.json map section from whatever folders exist — adding/removing a map is adding/removing a folder and re-running `gen-maps`.
-- Maps kept: `world` (classic — the only unlayered map), `verdantia` (the food-economy playtest map), `pangea001`, `pangea002`, `majormenor` (all generated + **layered**), `tribalsmall` (layered test fixture in `tests/testdata/maps/`). Maps whose engine state is gone (only the baked image.png survives) get layers retrofitted via `npx tsx map-generator/derive-layers.ts --map <name>` — it inverts the baked elevation and runs the world engine's real climate/resource pipeline with a name-derived seed.
+- Maps whose engine state is gone (only the baked image.png survives) get BOTH sidecars retrofitted via `npx tsx map-generator/derive-layers.ts --map <name>` — it inverts the baked elevation, runs the world engine's real climate/resource pipeline with a name-derived seed, and bakes terrain colors with the engine palette (`world` and `majormenor` were retrofitted this way). `tribalsmall` is the layered test fixture in `tests/testdata/maps/`; other test fixtures are unlayered on disk and get synthetic layers from `tests/util/Setup.ts`.
 
-### Food economy (Tribal age, layered maps only)
+### Food economy (Tribal age — the only economy)
 
-`Config.food()` holds every knob; the per-tick loop lives in `src/core/execution/utils/FoodEconomy.ts` (called from `PlayerExecution`): fertility+Farmland production → activity-scaled consumption (idle < boats < attacks) → Barn-capped storage with decay → surplus-scaled growth / starvation. Population cap comes from Settlements (`Config.maxTroops` branches on `player.hasFoodEconomy()`). Settlement/Farmland/Barn cost food via `UnitInfo.costResource` — later ages add metal/oil there, not new plumbing. Balance work happens in the harness (`tests/perf/balance/`, findings in `openspec/changes/add-tribal-food-economy/balance-notes.md`): `populationPerSettlement` is the anti-snowball lever. All food math is integer (bigint milliunits).
+`Config.food()` holds every knob; the per-tick loop lives in `src/core/execution/utils/FoodEconomy.ts` / `UrbanGrowth.ts` (called from `PlayerExecution.urbanTick`): fertility+Farmland production → activity-scaled consumption (idle < boats < attacks) → Barn-capped storage with decay → food-modulated births/deaths and urban-core growth. There is no gold income and no vanilla troop/gold tick; players start with `food().startPopulation` and zero gold. `Config.maxTroops` = `basePopulation + urbanArea·popPerDensity`, scaled per (playerType, difficulty) by `Config.aiDifficulty()` (humans always ×1; also carries AI cadence + precision levers). Gold-cost units (City, warships, nukes, …) stay DEFINED but dormant until later ages assign them a payable `costResource` — do not delete them. Settlement/Farmland/Barn cost food via `UnitInfo.costResource`. Balance work happens in the harness (`tests/perf/balance/BalanceRun.ts`, now with `--difficulty`). All food math is integer (bigint milliunits). In tests, games without explicit `layersFill` run an INERT food config (`TestConfig.setInertFood`) so legacy sim tests keep deterministic troop counts.
 
 ## Boundaries — read before making changes
 
-- **Rules change only through OpenSpec changes.** Do not remove or alter core sim features (nukes, trains, warships, alliances, teams, bots, win conditions…) or add mechanics ad hoc — every rule change is a scoped change in `openspec/changes/` with specs and tests. On unlayered (classic) maps, behavior must stay byte-identical vanilla; new mechanics activate only behind `game.hasLayers()`.
+- **Rules change only through OpenSpec changes.** Do not remove or alter core sim features (nukes, trains, warships, alliances, teams, bots, win conditions…) or add mechanics ad hoc — every rule change is a scoped change in `openspec/changes/` with specs and tests.
+- **One game mode, one map format.** Every map is layered (both sidecars mandatory, enforced by `tests/MapConsistency.test.ts` and the baker); there is no vanilla path, no `hasLayers()`/`hasFoodEconomy()` predicate, and no map-size option. Never reintroduce a mode predicate for new mechanics — new-age mechanics activate by their own explicit rules (e.g. `costResource`), not by map flags.
 - **Do not re-add stripped subsystems** (server, auth/JWT, cosmetics/patterns/store, clans, ads, analytics, matchmaking, chat UI, moderation, CI/deploy scripts) unless explicitly asked.
 - `src/games/alternative/index.ts` re-exports only the world generator. Don't grow it back into a gameplay module without an explicit request.
 

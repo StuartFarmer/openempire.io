@@ -6,7 +6,6 @@ import {
   BuildableUnit,
   Gold,
   PlayerBuildableUnitType,
-  TribalStructures,
   UnitType,
 } from "../../../core/game/Game";
 import { Controller } from "../../Controller";
@@ -23,6 +22,15 @@ const farmlandIcon = assetUrl("images/FarmlandIconWhite.svg");
 const barnIcon = assetUrl("images/BarnIconWhite.svg");
 const foodIcon = assetUrl("images/FoodIcon.svg");
 
+/**
+ * Persistent build bar for the urban age (add-urban-core-growth). The player
+ * places SEEDS: a Settlement is a city nucleus that grows outward on its own,
+ * gated by the food-shed around it; Farmland ripens in place and feeds nearby
+ * settlements; a Barn stores the surplus. Cities and farms are mutually
+ * exclusive per tile. Clicking an entry arms plot placement
+ * (uiState.ghostStructure the paint mode reads); clicking again / Escape /
+ * right-click disarms. The bar also carries map-overlay toggles (Supply).
+ */
 const BAR_ENTRIES: Array<{
   unitType: PlayerBuildableUnitType;
   icon: string;
@@ -33,13 +41,6 @@ const BAR_ENTRIES: Array<{
   { unitType: UnitType.Barn, icon: barnIcon, key: "barn" },
 ];
 
-/**
- * Persistent build entry point for the Tribal age (layered maps only): the
- * always-visible bar next to the bottom control panel. Clicking an entry
- * arms plot placement (the same uiState.ghostStructure the paint mode
- * reads); clicking again, Escape, or right-click disarms. The radial menu
- * intentionally has no build entry on layered maps.
- */
 @customElement("build-bar")
 export class BuildBar extends LitElement implements Controller {
   public game: GameView;
@@ -48,7 +49,6 @@ export class BuildBar extends LitElement implements Controller {
 
   private playerBuildables: BuildableUnit[] | null = null;
   private _hovered: UnitType | null = null;
-  private _lastGhost: UnitType | null = null;
   private _supplyOverlayOn = false;
   private _supplyHovered = false;
 
@@ -60,23 +60,22 @@ export class BuildBar extends LitElement implements Controller {
 
   tick() {
     const player = this.game?.myPlayer();
-    if (!this.game?.hasLayers() || !player) return;
-    player.buildables(undefined, TribalStructures.types).then((buildables) => {
-      this.playerBuildables = buildables;
-    });
-    // Track external disarms (Escape / right-click) so the highlight clears.
-    const ghost = this.uiState.ghostStructure as UnitType | null;
-    if (ghost !== this._lastGhost) {
-      this._lastGhost = ghost;
-    }
+    if (!player) return;
+    player
+      .buildables(undefined, [
+        UnitType.Settlement,
+        UnitType.Farmland,
+        UnitType.Barn,
+      ])
+      .then((buildables) => {
+        this.playerBuildables = buildables;
+      });
     this.requestUpdate();
   }
 
   private cost(unitType: UnitType): Gold {
     for (const bu of this.playerBuildables ?? []) {
-      if (bu.type === unitType) {
-        return bu.cost;
-      }
+      if (bu.type === unitType) return bu.cost;
     }
     return 0n;
   }
@@ -91,7 +90,6 @@ export class BuildBar extends LitElement implements Controller {
     const myPlayer = this.game?.myPlayer();
     if (
       !this.game ||
-      !this.game.hasLayers() ||
       !myPlayer ||
       this.game.inSpawnPhase() ||
       !myPlayer.isAlive()
@@ -110,50 +108,6 @@ export class BuildBar extends LitElement implements Controller {
     `;
   }
 
-  /** Supply-lines heatmap toggle — a view mode, not a buildable. */
-  private renderSupplyToggle() {
-    return html`
-      <div class="relative border-t border-slate-600 pt-1">
-        ${this._supplyHovered
-          ? html`
-              <div
-                class="absolute bottom-0 right-full mr-2 text-gray-200 text-center w-max max-w-[220px] text-xs bg-gray-800/90 backdrop-blur-xs rounded-sm p-2 z-[100] shadow-lg pointer-events-none"
-              >
-                ${translateText("control_panel.supply_overlay")}
-              </div>
-            `
-          : null}
-        <button
-          class="w-full flex items-center gap-1.5 px-1.5 py-1 rounded-md border text-white transition-colors cursor-pointer
-            ${this._supplyOverlayOn
-            ? "border-emerald-400 bg-emerald-400/20"
-            : "border-slate-500 hover:bg-gray-700"}"
-          @click=${() => {
-            this._supplyOverlayOn = !this._supplyOverlayOn;
-            this.eventBus?.emit(
-              new ToggleSupplyOverlayEvent(this._supplyOverlayOn),
-            );
-            this.requestUpdate();
-          }}
-          @mouseenter=${() => {
-            this._supplyHovered = true;
-            this.requestUpdate();
-          }}
-          @mouseleave=${() => {
-            this._supplyHovered = false;
-            this.requestUpdate();
-          }}
-        >
-          <span
-            class="size-6 rounded-sm shrink-0"
-            style="background: linear-gradient(135deg, #e7e5e4 0%, #78716c 45%, #0a0a0a 100%)"
-          ></span>
-          <span class="text-[10px] font-bold">Supply</span>
-        </button>
-      </div>
-    `;
-  }
-
   private renderEntry(entry: {
     unitType: PlayerBuildableUnitType;
     icon: string;
@@ -163,6 +117,7 @@ export class BuildBar extends LitElement implements Controller {
     const affordable = this.affordable(entry.unitType);
     const hovered = this._hovered === entry.unitType;
     const count = this.game.myPlayer()?.totalUnitLevels(entry.unitType) ?? 0;
+    const countLabel = renderNumber(count);
 
     return html`
       <div class="relative">
@@ -213,7 +168,7 @@ export class BuildBar extends LitElement implements Controller {
         >
           <img src=${entry.icon} alt=${entry.key} class="size-6" />
           <div class="flex flex-col items-start leading-none">
-            <span class="text-xs font-bold">${renderNumber(count)}</span>
+            <span class="text-xs font-bold">${countLabel}</span>
             <span
               class="text-[10px] ${affordable
                 ? "text-amber-300"
@@ -223,6 +178,50 @@ export class BuildBar extends LitElement implements Controller {
               ${renderNumber(this.cost(entry.unitType))}
             </span>
           </div>
+        </button>
+      </div>
+    `;
+  }
+
+  /** Supply-lines heatmap toggle — a view mode, not a buildable. */
+  private renderSupplyToggle() {
+    return html`
+      <div class="relative border-t border-slate-600 pt-1">
+        ${this._supplyHovered
+          ? html`
+              <div
+                class="absolute bottom-0 right-full mr-2 text-gray-200 text-center w-max max-w-[220px] text-xs bg-gray-800/90 backdrop-blur-xs rounded-sm p-2 z-[100] shadow-lg pointer-events-none"
+              >
+                ${translateText("control_panel.supply_overlay")}
+              </div>
+            `
+          : null}
+        <button
+          class="w-full flex items-center gap-1.5 px-1.5 py-1 rounded-md border text-white transition-colors cursor-pointer
+            ${this._supplyOverlayOn
+            ? "border-emerald-400 bg-emerald-400/20"
+            : "border-slate-500 hover:bg-gray-700"}"
+          @click=${() => {
+            this._supplyOverlayOn = !this._supplyOverlayOn;
+            this.eventBus?.emit(
+              new ToggleSupplyOverlayEvent(this._supplyOverlayOn),
+            );
+            this.requestUpdate();
+          }}
+          @mouseenter=${() => {
+            this._supplyHovered = true;
+            this.requestUpdate();
+          }}
+          @mouseleave=${() => {
+            this._supplyHovered = false;
+            this.requestUpdate();
+          }}
+        >
+          <span
+            class="size-6 rounded-sm shrink-0"
+            style="background: linear-gradient(135deg, #e7e5e4 0%, #78716c 45%, #0a0a0a 100%)"
+          ></span>
+          <span class="text-[10px] font-bold">Supply</span>
         </button>
       </div>
     `;

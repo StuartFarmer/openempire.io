@@ -1,9 +1,10 @@
 /**
  * TerrainPass — renders the terrain map as a textured quad.
  *
- * Initial upload happens once; per-tile updates flow through
- * applyTerrainDelta() so water-nuke conversions (land → water) are reflected
- * live. Vertex shader transforms the map quad by the camera mat3; fragment
+ * The base texture is the baked terrain-colors sidecar (via the board
+ * colorizer); per-tile updates flow through applyTerrainDelta() so
+ * water-nuke conversions (land → water) are reflected live via the
+ * procedural mutation encoder. Vertex shader transforms the map quad by the camera mat3; fragment
  * shader samples the RGBA8 terrain texture with nearest-neighbour filtering
  * so each terrain cell stays pixel-crisp at every zoom level.
  */
@@ -13,7 +14,6 @@ import terrainFragSrc from "../shaders/terrain/terrain.frag.glsl?raw";
 import terrainVertSrc from "../shaders/terrain/terrain.vert.glsl?raw";
 import {
   buildBoardMapTerrainRGBA,
-  buildTerrainRGBA,
   encodeTerrainTile,
   TerrainColorOverrides,
 } from "../utils/ColorUtils";
@@ -35,8 +35,13 @@ export class TerrainPass {
   private uCamera: WebGLUniformLocation;
   private mapW: number;
   private mapH: number;
-  // Base ocean (deep water) color; reused by applyTerrainDelta and rebuilds.
+  // Mutation palette: colors for tiles whose terrain CHANGES at runtime
+  // (water nukes; future land modification). The base texture always comes
+  // from the baked sidecar via the board colorizer.
   private terrainColors: TerrainColorOverrides | undefined;
+  // Tiles mutated since load (ref → new terrain byte), so palette changes
+  // can re-encode exactly these without touching the baked base.
+  private readonly mutatedTiles = new Map<number, number>();
   // Scratch buffer for 1×1 sub-uploads; reused across applyTerrainDelta calls.
   private readonly pixelScratch = new Uint8Array(4);
 
@@ -45,8 +50,8 @@ export class TerrainPass {
     private terrainBytes: Uint8Array,
     mapW: number,
     mapH: number,
-    terrainColors?: TerrainColorOverrides,
-    private boardMap?: BoardMap,
+    terrainColors: TerrainColorOverrides | undefined,
+    private boardMap: BoardMap,
   ) {
     this.mapW = mapW;
     this.mapH = mapH;
@@ -64,7 +69,7 @@ export class TerrainPass {
       internalFormat: gl.RGBA8,
       format: gl.RGBA,
       type: gl.UNSIGNED_BYTE,
-      data: this.buildTerrainPixels(terrainColors),
+      data: buildBoardMapTerrainRGBA(this.boardMap),
       filter: gl.NEAREST, // pixel-crisp at all zoom levels
     });
 
@@ -81,38 +86,34 @@ export class TerrainPass {
   }
 
   /**
-   * Replace the base terrain colors and re-upload the whole terrain texture.
-   * Called when the user changes the terrain colors in graphics settings.
+   * Replace the mutation palette. The baked base texture is untouched —
+   * only tiles whose terrain has changed at runtime are re-encoded.
    */
   setTerrainColors(terrainColors?: TerrainColorOverrides): void {
     this.terrainColors = terrainColors;
+    for (const [ref, byte] of this.mutatedTiles) {
+      this.encodeAndUploadTile(ref, byte);
+    }
+  }
+
+  private encodeAndUploadTile(ref: number, byte: number): void {
     const gl = this.gl;
+    const x = ref % this.mapW;
+    const y = (ref - x) / this.mapW;
+    encodeTerrainTile(byte, this.pixelScratch, 0, this.terrainColors);
     gl.bindTexture(gl.TEXTURE_2D, this.tex);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
     gl.texSubImage2D(
       gl.TEXTURE_2D,
       0,
-      0,
-      0,
-      this.mapW,
-      this.mapH,
+      x,
+      y,
+      1,
+      1,
       gl.RGBA,
       gl.UNSIGNED_BYTE,
-      this.buildTerrainPixels(terrainColors),
+      this.pixelScratch,
     );
-  }
-
-  private buildTerrainPixels(
-    terrainColors?: TerrainColorOverrides,
-  ): Uint8Array {
-    return this.boardMap
-      ? buildBoardMapTerrainRGBA(this.boardMap, terrainColors)
-      : buildTerrainRGBA(
-          this.terrainBytes,
-          this.mapW,
-          this.mapH,
-          terrainColors,
-        );
   }
 
   /**
@@ -126,26 +127,11 @@ export class TerrainPass {
    */
   applyTerrainDelta(refs: readonly number[], bytes: Uint8Array): void {
     if (refs.length === 0) return;
-    const gl = this.gl;
-    gl.bindTexture(gl.TEXTURE_2D, this.tex);
-    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
     for (let i = 0; i < refs.length; i++) {
       const ref = refs[i];
-      const x = ref % this.mapW;
-      const y = (ref - x) / this.mapW;
       this.terrainBytes[ref] = bytes[i];
-      encodeTerrainTile(bytes[i], this.pixelScratch, 0, this.terrainColors);
-      gl.texSubImage2D(
-        gl.TEXTURE_2D,
-        0,
-        x,
-        y,
-        1,
-        1,
-        gl.RGBA,
-        gl.UNSIGNED_BYTE,
-        this.pixelScratch,
-      );
+      this.mutatedTiles.set(ref, bytes[i]);
+      this.encodeAndUploadTile(ref, bytes[i]);
     }
   }
 

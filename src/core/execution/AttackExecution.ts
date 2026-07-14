@@ -10,6 +10,7 @@ import {
   PlayerType,
   TerrainType,
   TerraNullius,
+  TribalStructures,
 } from "../game/Game";
 import { GameMap, TileRef } from "../game/GameMap";
 import { PseudoRandom } from "../PseudoRandom";
@@ -17,6 +18,10 @@ import { assertNever } from "../Util";
 import { FlatBinaryHeap } from "./utils/FlatBinaryHeap"; // adjust path if needed
 
 const malusForRetreat = 25;
+/** Priority pull toward enemy resource tiles (farms/settlements) — large enough
+ *  to jump them to the front of the conquest queue whenever the attack reaches
+ *  them, so an army bites the enemy's economy first. */
+const RESOURCE_ATTACK_PRIORITY = 1_000_000;
 export class AttackExecution implements Execution {
   private active: boolean = true;
   private toConquer = new FlatBinaryHeap();
@@ -44,6 +49,11 @@ export class AttackExecution implements Execution {
     private _targetID: PlayerID | null,
     private sourceTile: TileRef | null = null,
     private removeTroops: boolean = true,
+    // A CONCENTRATED PUSH: seed the advance from only this stretch of the
+    // attacker's border (the "drag along the border" segment) instead of the
+    // whole front, so the committed troops punch deep and local. Null → the
+    // classic whole-border advance (bots).
+    private sourceTiles: TileRef[] | null = null,
   ) {}
 
   public targetID(): PlayerID | null {
@@ -123,7 +133,13 @@ export class AttackExecution implements Execution {
       new Set<TileRef>(),
     );
 
-    if (this.sourceTile !== null) {
+    if (this.sourceTiles !== null && this.sourceTiles.length > 0) {
+      // Concentrated segment push: seed the front only from the chosen stretch
+      // of our border (its enemy-adjacent neighbours), so troops focus there.
+      for (const t of this.sourceTiles) {
+        if (this.map.ownerID(t) === this.ownerSmallID) this.addNeighbors(t);
+      }
+    } else if (this.sourceTile !== null) {
       this.addNeighbors(this.sourceTile);
     } else {
       this.refreshToConquer();
@@ -146,12 +162,17 @@ export class AttackExecution implements Execution {
         }
       }
     }
+    const isSegmentPush =
+      this.sourceTiles !== null && this.sourceTiles.length > 0;
     for (const outgoing of this._owner.outgoingAttacks()) {
       if (
         outgoing !== this.attack &&
         outgoing.target() === this.attack.target() &&
-        // Boat attacks (sourceTile is not null) are not combined with other attacks
-        this.attack.sourceTile() === null
+        // Boat attacks (sourceTile is not null) and concentrated segment
+        // pushes are kept separate — a segment push stays focused, and you can
+        // run several along different stretches of your front.
+        this.attack.sourceTile() === null &&
+        !isSegmentPush
       ) {
         this.attack.setTroops(this.attack.troops() + outgoing.troops());
         outgoing.delete();
@@ -375,9 +396,25 @@ export class AttackExecution implements Execution {
           break;
       }
 
-      const priority =
+      let priority =
         (this.random.nextInt(0, 7) + 10) * (1 - numOwnedByMe * 0.5 + mag / 2) +
         tickNow;
+
+      // Push toward the enemy's ECONOMY: grab their Farmland/Settlements first.
+      // With the raze roll a captured resource tile is either taken or burned —
+      // both far more damaging than swallowing open land, so an attack that can
+      // reach an enemy's farms should go for them (add-urban-core-growth).
+      {
+        const plot = this.mg.plotAt(neighbor);
+        if (plot !== undefined && TribalStructures.has(plot.type())) {
+          // How sharply the AI hunts economy tiles scales with difficulty
+          // (unify-layered-path).
+          const focus = this.mg
+            .config()
+            .aiDifficulty(this._owner.type()).resourceFocus;
+          priority -= RESOURCE_ATTACK_PRIORITY * focus;
+        }
+      }
 
       this.toConquer.enqueue(neighbor, priority);
     }

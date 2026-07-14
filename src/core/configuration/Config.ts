@@ -31,8 +31,8 @@ interface EconomyPlayer {
     isUnderConstruction(): boolean;
     level(): number;
   }>;
-  /** True when the game map has layer data — the food economy is active. */
-  hasFoodEconomy(): boolean;
+  /** Built urban area (Σ density) — the carrying capacity. */
+  urbanArea(): number;
 }
 
 declare global {
@@ -108,7 +108,7 @@ const DOOMSDAY_CLOCK_DEFAULTS = {
 
 /**
  * Tribal-age food economy knobs (see openspec add-tribal-food-economy).
- * Active only on layered maps (game.hasLayers()). Food flows are computed in
+ * Food flows are computed in
  * "milliunits" — 1000 milli = 1 displayed food — so sub-unit per-tick rates
  * stay integer. All balance tuning happens here; the mechanics in
  * FoodEconomy.ts are shape, not numbers.
@@ -136,9 +136,8 @@ export interface FoodConfig {
    */
   basePopulation: number;
   /**
-   * Starting population for every player type (replaces vanilla
-   * startManpower on layered maps). Sized to what the spawn starter kit's
-   * three farms feed — idling at spawn must not starve.
+   * Starting population for every player type. Sized to what the spawn
+   * starter kit's three farms feed — idling at spawn must not starve.
    */
   startPopulation: number;
   /** Extra population cap per Settlement level. */
@@ -160,15 +159,6 @@ export interface FoodConfig {
    * conquest yields scorched land, never a turnkey economy.
    */
   capturedPlotRazeChance: number;
-  /**
-   * Growth reaches full speed when production exceeds consumption by this
-   * fraction (e.g. 0.25 → a 25% surplus grows at the vanilla rate). Between
-   * break-even and that point, growth scales linearly. At or below
-   * break-even there is no growth (storage only buffers against starvation).
-   */
-  surplusForFullGrowth: number;
-  /** Fraction of unfed population that starves per deficit tick. */
-  starvationDeathFraction: number;
   /**
    * Plot cost bases (display food). Actual cost =
    * base × (1 + owned × costGrowthPerOwned) — cheap plots, gently rising,
@@ -214,6 +204,98 @@ export interface FoodConfig {
    * base war rate — supply failures kill men, not budgets.
    */
   warSupplyAttrition: number;
+
+  // ── Urban core growth (add-urban-core-growth) ─────────────────────────
+  /**
+   * Logistic growth rate: per tick, built area advances
+   * ΔA = urbanGrowthRate · A · (1 − A/K) · surplusFactor, where K is the
+   * summed suitability of reachable owned land. Slow founding →
+   * acceleration → saturation (the empirical S-curve).
+   */
+  urbanGrowthRate: number;
+  /** People housed per full city tile — the urban density. City footprint =
+   *  foodCapacity / popPerDensity, and maxTroops = base + urbanArea·popPerDensity. */
+  popPerDensity: number;
+  // ── Demographics (add-urban-core-growth): population is agents with an
+  // average lifespan; food modulates births and deaths, and the city footprint
+  // and survival follow the LIVING population. ─────────────────────────────
+  /** Average lifespan in ticks — baseline death fraction is 1/avgLifespanTicks. */
+  avgLifespanTicks: number;
+  /** Base births per person per tick at food break-even (≈ 1/avgLifespanTicks
+   *  so the population is stable when exactly fed, grows on surplus). */
+  baseBirthRate: number;
+  /** Max birth-rate multiplier at food surplus (2 → 2× births at ≥200% food). */
+  birthSurplusCap: number;
+  /** Floor on the fed-ratio in the death calc so full starvation is finite,
+   *  not a divide-by-zero (0.05 → at ≤5% food the unfed die within ~1/base). */
+  minFedForLife: number;
+  /** Suitability weights: fertility, freshwater, shoreline-within-water,
+   *  logistics (supply quality to core), congestion (local density). */
+  wFood: number;
+  wWater: number;
+  wShore: number;
+  wLogi: number;
+  wCong: number;
+
+  // ── Farm maturation (add-urban-core-growth, growth-model.md Part 1) ────
+  /**
+   * Gompertz base rate: a Farmland's maturity M∈[0,1] advances per tick by
+   * farmGrowthRate · M·ln(1/M) · climateSuitability. A well-sited farm ripens
+   * over tens of seconds; a marginal one crawls (McMaster & Wilhelm GDD ×
+   * AquaCrop Ks × FAO soil, combined by Liebig's min).
+   */
+  farmGrowthRate: number;
+  /**
+   * Canopy-decline rate (AquaCrop CDC): when a farm's maturity exceeds what its
+   * tile can support, it senesces toward suitability by farmSenesceRate·gap per
+   * tick. Distinct from farmGrowthRate — decline does not stall at full
+   * maturity the way the Gompertz growth slope does.
+   */
+  farmSenesceRate: number;
+  /** Maturity a freshly-built Farmland starts at (milliunits) so the Gompertz
+   *  slope M·ln(1/M) is non-zero and the field can begin ripening. */
+  farmSeedMilli: number;
+  /**
+   * GDD temperature band on the normalised `temperature` layer (byte/255):
+   * f_temp is 0 below tempBaseN, ramps to 1 across [tempOptLoN, tempOptHiN],
+   * and plateaus then falls to 0 above tempMaxN (heat stress).
+   */
+  tempBaseN: number;
+  tempOptLoN: number;
+  tempOptHiN: number;
+  tempMaxN: number;
+  /**
+   * AquaCrop water-stress thresholds on the blended moisture signal
+   * (humidityWeight·humidity + (1−humidityWeight)·water, each byte/255):
+   * f_water is 0 at/below waterWiltN (wilting), 1 at/above waterFullN, linear
+   * between.
+   */
+  waterWiltN: number;
+  waterFullN: number;
+  humidityWeight: number;
+  /** Milli-food per tick per (maturity · cropN · district) of each Farmland. */
+  farmYieldMilli: number;
+
+  // ── Food-shed (add-urban-core-growth, growth-model.md Part 2) ──────────
+  /**
+   * Soft-decay food-shed radius: a Farmland of maturity M projects
+   * potential M·1/(1+(d/foodShedRadius)^foodShedPower) at owned-land step
+   * distance d. Same curve family as the military supplyRadius, different
+   * source (farms, maturity-weighted). Gates how fast a nearby Settlement
+   * grows into a city.
+   */
+  foodShedRadius: number;
+  foodShedPower: number;
+  /** Weight of the food-shed potential in urban suitability / carrying K. */
+  wFoodShed: number;
+  /**
+   * Real-world size of one tile, in km per edge (add-urban-core-growth).
+   * Default 1 → one tile is 1 km² (a city block / neighbourhood), so a full
+   * tile at popPerDensity people is a realistic urban density and a city is a
+   * cluster of many tiles (granular enough for localized pushes). Used to
+   * report built areas in km² (tiles·tileKm²).
+   */
+  tileKm: number;
 }
 
 // Scarcity-first defaults (rework-tribal-scarcity): raw land sustains only
@@ -230,16 +312,19 @@ const FOOD_DEFAULTS: FoodConfig = {
   landHarvestMilli: 0,
   landHarvestExponent: 0.5,
   farmProductionMilli: 80,
-  basePopulation: 3_000,
-  startPopulation: 4_000,
-  populationPerSettlement: 3_000,
+  // Urban model (add-urban-core-growth): the city IS the population source,
+  // so the floor and founding size are a village that grows — not a camp of
+  // thousands the seed city cannot feed. popPerDensity supplies the rest.
+  basePopulation: 100,
+  // A young nation — ~1 city tile at popPerDensity, sized near what the starter
+  // farms feed so it grows from the start (rather than crashing then recovering).
+  startPopulation: 2000,
+  populationPerSettlement: 3_000, // legacy plot knob (unused by urban maxTroops)
   baseStorage: 5_000,
   storagePerBarn: 1_500,
   decayNumer: 1,
   decayDenom: 2000,
-  capturedPlotRazeChance: 1.0,
-  surplusForFullGrowth: 0.25,
-  starvationDeathFraction: 0.02,
+  capturedPlotRazeChance: 0.5,
   settlementCost: 150,
   farmlandCost: 40,
   barnCost: 60,
@@ -247,10 +332,135 @@ const FOOD_DEFAULTS: FoodConfig = {
   adjacencyBonus: 0.1,
   startingFood: 4_000,
   defaultPopulationShare: 0.7,
-  supplyRadius: 30,
+  supplyRadius: 10,
   supplyDecayPower: 3,
   supplyRefreshTicks: 10,
-  warSupplyAttrition: 0.005,
+  // A push far from your settlements bleeds: an out-of-supply attack loses ~5%
+  // of its troops/tick, so exploring/expanding beyond your supply reach costs
+  // real manpower (build settlements as you push). This attacker-side attrition
+  // also curbs the strong from over-running the map — mean leader share ~40%
+  // vs ~55%+ without it.
+  warSupplyAttrition: 0.05,
+  // Pace: each tick the city closes ~this fraction of the gap to its
+  // food-supported target size (min one tile), so it grows over seconds, not
+  // instantly — bounded growth, not a land-grab.
+  urbanGrowthRate: 0.1,
+  // People on a full city tile — the URBAN DENSITY. At tileKm=1 that's 1000
+  // people/km² (a real town/suburb density), and a city is a cluster of many
+  // tiles. Lower it for finer/denser clusters, raise it for coarser.
+  popPerDensity: 10000,
+  // Demographics: gentle old-age turnover (~6000-tick life), strong births when
+  // food-rich (clamped to the food-supported population, so growth approaches
+  // that ceiling and holds — never overshoots into mass starvation). Scarcity
+  // accelerates deaths (halved food ⇒ halved lifespan) and cuts births.
+  // One life ≈ 10 seconds (100 ticks at 10 ticks/s) — high turnover: ~1% of the
+  // population dies and is (re)born each tick, so a nation is a constantly
+  // churning demographic that lives or dies by its food.
+  avgLifespanTicks: 100,
+  // High so the population refills quickly toward its food capacity (the
+  // headroom clamp prevents overshoot); this keeps up with troops spent
+  // expanding territory. Effectively "how fast people fill the food they have".
+  // NOTE: because troops are BOTH population and army (vanilla expansion still
+  // spends them), a fast rate can fuel snowball — the real fix is the deferred
+  // "troops for war only, territory by diffusion" pivot. Tunable in the sweep.
+  baseBirthRate: 0.02,
+  birthSurplusCap: 2,
+  minFedForLife: 0.05,
+  wFood: 1.0,
+  wWater: 0.8,
+  wShore: 0.5,
+  wLogi: 1.0,
+  wCong: 1.8,
+  // Farm maturation: a well-sited farm (suitability≈1) climbs 0→~1 over
+  // ~120–200 ticks (Gompertz slope peaks near M=1/e); marginal soil crawls.
+  farmGrowthRate: 0.08,
+  farmSenesceRate: 0.05,
+  farmSeedMilli: 50,
+  tempBaseN: 0.15,
+  tempOptLoN: 0.45,
+  tempOptHiN: 0.75,
+  tempMaxN: 0.95,
+  waterWiltN: 0.1,
+  waterFullN: 0.55,
+  humidityWeight: 0.5,
+  // Sized so ONE mature farm on good soil feeds roughly ONE city tile
+  // (per-farm capacity ≈ popPerDensity): a player who places a handful of
+  // farms near a settlement sees it grow into a town, instead of needing the
+  // hundreds of farms a bot auto-builds. City size stays food-bounded — this
+  // only changes how many farms it takes to reach that bound.
+  farmYieldMilli: 100_000,
+  // Food-shed: a mature farm feeds cities within ~foodShedRadius tiles; the
+  // radius is tighter than military supply so food logistics matter locally.
+  foodShedRadius: 12,
+  foodShedPower: 3,
+  wFoodShed: 1.5,
+  tileKm: 20,
+};
+
+/**
+ * Per-difficulty AI levers (unify-layered-path). The vanilla game scaled
+ * bot/nation strength through its maxTroops formula; the layered economy
+ * scales three independent knobs instead: raw capacity, how often the AI
+ * acts, and how well it chooses. Humans are never scaled.
+ */
+export interface AiDifficultySettings {
+  /** Carrying-capacity multiplier applied in maxTroops (humans always 1). */
+  populationMultiplier: number;
+  /** Ticks between bot-tribe economy pulses (TribeExecution). */
+  tribePulseTicks: number;
+  /** Economy build attempts per nation structure pass. */
+  nationBuildBudget: number;
+  /**
+   * Placement precision: the AI picks uniformly among the top-k scored
+   * candidates (1 = always the argmax).
+   */
+  precisionTopK: number;
+  /**
+   * 0..1 scale on the attack-priority bonus for enemy Farmland/Settlement
+   * tiles — how sharply the AI hunts your economy.
+   */
+  resourceFocus: number;
+}
+
+const AI_DIFFICULTY: Record<
+  Difficulty,
+  Omit<AiDifficultySettings, "populationMultiplier"> & {
+    nationPopulationMultiplier: number;
+    botPopulationMultiplier: number;
+  }
+> = {
+  [Difficulty.Easy]: {
+    nationPopulationMultiplier: 0.5,
+    botPopulationMultiplier: 1 / 3,
+    tribePulseTicks: 40,
+    nationBuildBudget: 1,
+    precisionTopK: 4,
+    resourceFocus: 0.25,
+  },
+  [Difficulty.Medium]: {
+    nationPopulationMultiplier: 0.75,
+    botPopulationMultiplier: 1 / 3,
+    tribePulseTicks: 30,
+    nationBuildBudget: 2,
+    precisionTopK: 3,
+    resourceFocus: 0.5,
+  },
+  [Difficulty.Hard]: {
+    nationPopulationMultiplier: 1,
+    botPopulationMultiplier: 1 / 3,
+    tribePulseTicks: 25,
+    nationBuildBudget: 3,
+    precisionTopK: 2,
+    resourceFocus: 0.75,
+  },
+  [Difficulty.Impossible]: {
+    nationPopulationMultiplier: 1.25,
+    botPopulationMultiplier: 1 / 3,
+    tribePulseTicks: 20,
+    nationBuildBudget: 3,
+    precisionTopK: 1,
+    resourceFocus: 1,
+  },
 };
 
 export class Config {
@@ -310,10 +520,6 @@ export class Config {
       throw new Error("userSettings is null");
     }
     return this._userSettings;
-  }
-
-  cityTroopIncrease(): number {
-    return 250_000;
   }
 
   falloutDefenseModifier(falloutRatio: number): number {
@@ -973,29 +1179,32 @@ export class Config {
     }
   }
 
-  startManpower(playerInfo: PlayerInfo): number {
-    if (playerInfo.playerType === PlayerType.Bot) {
-      return 10_000;
-    }
-    if (playerInfo.playerType === PlayerType.Nation) {
-      switch (this._gameConfig.difficulty) {
-        case Difficulty.Easy:
-          return 12_500;
-        case Difficulty.Medium:
-          return 18_750;
-        case Difficulty.Hard:
-          return 25_000; // Like humans
-        case Difficulty.Impossible:
-          return 31_250;
-        default:
-          assertNever(this._gameConfig.difficulty);
-      }
-    }
-    return this.hasInfiniteTroopsForInfo(playerInfo) ? 1_000_000 : 25_000;
-  }
-
   food(): FoodConfig {
     return FOOD_DEFAULTS;
+  }
+
+  /** Per-difficulty AI levers; humans always get multiplier 1 / argmax. */
+  aiDifficulty(type: PlayerType): AiDifficultySettings {
+    const d = AI_DIFFICULTY[this._gameConfig.difficulty];
+    const populationMultiplier =
+      type === PlayerType.Human
+        ? 1
+        : type === PlayerType.Bot
+          ? d.botPopulationMultiplier
+          : d.nationPopulationMultiplier;
+    return {
+      populationMultiplier,
+      tribePulseTicks: d.tribePulseTicks,
+      nationBuildBudget: d.nationBuildBudget,
+      precisionTopK: type === PlayerType.Human ? 1 : d.precisionTopK,
+      resourceFocus: d.resourceFocus,
+    };
+  }
+
+  /** Convert a built area in tiles to km² using the tileKm scale. */
+  urbanAreaKm2(areaTiles: number): number {
+    const km = this.food().tileKm;
+    return areaTiles * km * km;
   }
 
   maxTroops(player: EconomyPlayer): number {
@@ -1005,91 +1214,14 @@ export class Config {
     ) {
       return 1_000_000_000;
     }
-    if (player.hasFoodEconomy()) {
-      // Layered maps: carrying capacity comes from Settlements, not territory.
-      // Conquered land grants production, not population — you must build.
-      const f = this.food();
-      const settlementLevels = player
-        .units(UnitType.Settlement)
-        .filter((u) => !u.isUnderConstruction())
-        .map((s) => s.level())
-        .reduce((a, b) => a + b, 0);
-      return f.basePopulation + settlementLevels * f.populationPerSettlement;
-    }
-    const maxTroops =
-      2 * (Math.pow(player.numTilesOwned(), 0.6) * 1000 + 50000) +
-      player
-        .units(UnitType.City)
-        .filter((u) => !u.isUnderConstruction())
-        .map((city) => city.level())
-        .reduce((a, b) => a + b, 0) *
-        this.cityTroopIncrease();
-
-    if (player.type() === PlayerType.Bot) {
-      return maxTroops / 3;
-    }
-
-    if (player.type() === PlayerType.Human) {
-      return maxTroops;
-    }
-
-    switch (this._gameConfig.difficulty) {
-      case Difficulty.Easy:
-        return maxTroops * 0.5;
-      case Difficulty.Medium:
-        return maxTroops * 0.75;
-      case Difficulty.Hard:
-        return maxTroops * 1; // Like humans
-      case Difficulty.Impossible:
-        return maxTroops * 1.25;
-      default:
-        assertNever(this._gameConfig.difficulty);
-    }
-  }
-
-  troopIncreaseRate(player: EconomyPlayer): number {
-    const max = this.maxTroops(player);
-
-    let toAdd = 10 + Math.pow(player.troops(), 0.73) / 4;
-
-    const ratio = 1 - player.troops() / max;
-    toAdd *= ratio;
-
-    if (player.type() === PlayerType.Bot) {
-      toAdd *= 0.5;
-    }
-
-    if (player.type() === PlayerType.Nation) {
-      switch (this._gameConfig.difficulty) {
-        case Difficulty.Easy:
-          toAdd *= 0.9;
-          break;
-        case Difficulty.Medium:
-          toAdd *= 0.95;
-          break;
-        case Difficulty.Hard:
-          toAdd *= 1; // Like humans
-          break;
-        case Difficulty.Impossible:
-          toAdd *= 1.05;
-          break;
-        default:
-          assertNever(this._gameConfig.difficulty);
-      }
-    }
-
-    return Math.min(player.troops() + toAdd, max) - player.troops();
-  }
-
-  goldAdditionRate(player: EconomyPlayer): Gold {
-    const multiplier = this.goldMultiplierFor(player);
-    let baseRate: bigint;
-    if (player.type() === PlayerType.Bot) {
-      baseRate = 50n;
-    } else {
-      baseRate = 100n;
-    }
-    return BigInt(Math.floor(Number(baseRate) * multiplier));
+    // Carrying capacity is the built urban area — the self-growing density
+    // field — not territory (add-urban-core-growth). A bigger city houses
+    // more people; conquered-but-unbuilt land grants nothing until it
+    // urbanizes. AI capacity scales with difficulty (unify-layered-path);
+    // humans are always at multiplier 1.
+    const f = this.food();
+    const capacity = f.basePopulation + player.urbanArea() * f.popPerDensity;
+    return capacity * this.aiDifficulty(player.type()).populationMultiplier;
   }
 
   nukeMagnitudes(unitType: UnitType): NukeMagnitude {

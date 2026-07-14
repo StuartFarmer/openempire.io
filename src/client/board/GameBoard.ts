@@ -169,7 +169,6 @@ export async function createGameBoard(
       ? await options.terrainLoad
       : await loadTerrainMap(
           options.gameStartInfo.config.gameMap,
-          options.gameStartInfo.config.gameMapSize,
           options.mapLoader,
         );
 

@@ -4,11 +4,6 @@
     "num_land_tiles": 2317767,
     "width": 4108
   },
-  "map16x": {
-    "height": 487,
-    "num_land_tiles": 128871,
-    "width": 1027
-  },
   "map4x": {
     "height": 974,
     "num_land_tiles": 556211,

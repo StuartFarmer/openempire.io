@@ -27,11 +27,11 @@ import { Config, FoodConfig } from "../../../src/core/configuration/Config";
 import { Executor } from "../../../src/core/execution/ExecutionManager";
 import {
   Difficulty,
-  GameMapSize,
   GameMapType,
   GameMode,
   GameType,
   Player,
+  UnitType,
 } from "../../../src/core/game/Game";
 import { createGame } from "../../../src/core/game/GameImpl";
 import { GameUpdateType, HashUpdate } from "../../../src/core/game/GameUpdates";
@@ -175,13 +175,13 @@ async function runOne(
   nationCount: number,
   sampleEvery: number,
   overrides: Partial<FoodConfig>,
+  difficulty: Difficulty,
 ): Promise<RunResult> {
   const gameConfig: GameConfig = {
     gameMap: map,
-    gameMapSize: GameMapSize.Normal,
     gameMode: GameMode.FFA,
     gameType: GameType.Public,
-    difficulty: Difficulty.Medium,
+    difficulty,
     // Generated maps carry no manifest nations — request procedural ones.
     // Nations (not plain bots) are what exercise the tribal build behavior.
     nations: nationCount,
@@ -288,12 +288,46 @@ async function runOne(
   }
 
   const last = series[series.length - 1];
+  // Urban-core-growth census: built area is the density field, not plots.
   const structures: Record<string, number> = {};
+  let urbanAreaTotal = 0;
+  let urbanAreaMax = 0;
+  let cities = 0;
+  let topP: Player | null = null;
+  let topPop = -1;
   for (const p of game.players()) {
     if (!p.isAlive()) continue;
-    for (const u of p.units()) {
-      structures[u.type()] = (structures[u.type()] ?? 0) + 1;
+    const a = p.urbanArea();
+    urbanAreaTotal += a;
+    urbanAreaMax = Math.max(urbanAreaMax, a);
+    if (p.troops() > topPop) {
+      topPop = p.troops();
+      topP = p;
     }
+    if (p.core() !== null) cities++;
+  }
+  structures.UrbanAreaTotal = Math.round(urbanAreaTotal);
+  structures.UrbanAreaMax = Math.round(urbanAreaMax);
+  structures.MaxCityKm2 = Math.round(game.config().urbanAreaKm2(urbanAreaMax));
+  structures.Cities = cities;
+  // Diagnostic: is the top nation's "sprawl" grown tiles or just settlement
+  // seeds? Settlements each seed one tile; grown = urbanArea − settlements.
+  if (topP !== null) {
+    const settlements = topP
+      .units(UnitType.Settlement)
+      .filter(
+        (u: { isUnderConstruction(): boolean }) => !u.isUnderConstruction(),
+      ).length;
+    const farms = topP
+      .units(UnitType.Farmland)
+      .filter(
+        (u: { isUnderConstruction(): boolean }) => !u.isUnderConstruction(),
+      ).length;
+    structures.TopSettlements = settlements;
+    structures.TopFarms = farms;
+    structures.TopCityTiles = Math.round(topP.urbanArea());
+    structures.TopPopulation = topP.troops();
+    structures.TopCapacity = topP.foodFlow().capacity;
   }
   return {
     seed,
@@ -321,6 +355,14 @@ async function main(): Promise<void> {
   const nationCount = Number(arg("nations", "20"));
   const sampleEvery = Number(arg("sample", "50"));
   const seedPrefix = arg("seed-prefix", "bal")!;
+  const difficultyArg = arg("difficulty", "Medium")!;
+  const difficulty = (Object.values(Difficulty) as string[]).includes(
+    difficultyArg,
+  )
+    ? (difficultyArg as Difficulty)
+    : (() => {
+        throw new Error(`unknown difficulty: ${difficultyArg}`);
+      })();
   const out = arg("out");
   const overrides = collectOverrides();
   const checkRepro = process.argv.includes("--check-repro");
@@ -329,7 +371,16 @@ async function main(): Promise<void> {
   for (let i = 0; i < runs; i++) {
     const seed = `${seedPrefix}-${i}`;
     results.push(
-      await runOne(map, seed, ticks, bots, nationCount, sampleEvery, overrides),
+      await runOne(
+        map,
+        seed,
+        ticks,
+        bots,
+        nationCount,
+        sampleEvery,
+        overrides,
+        difficulty,
+      ),
     );
     consoleLog(
       `run ${seed}: alive ${results[i].finalAlive}, leader ${(results[i].finalLeaderShare * 100).toFixed(1)}%, ` +
@@ -347,6 +398,7 @@ async function main(): Promise<void> {
       nationCount,
       sampleEvery,
       overrides,
+      difficulty,
     );
     const same = JSON.stringify(again) === JSON.stringify(results[0]);
     consoleLog(`repro check: ${same ? "IDENTICAL" : "MISMATCH"}`);

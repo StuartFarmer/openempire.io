@@ -1,5 +1,7 @@
 {
   "name": "openfront-client",
+  "version": "0.1.0",
+  "main": "electron/main.mjs",
   "exports": {
     ".": "./src/client/board/index.ts",
     "./board": "./src/client/board/index.ts",
@@ -23,7 +25,11 @@
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "gen-maps": "cd map-generator && go run . && npm run format",
-    "inst": "npm ci --ignore-scripts"
+    "earth:data": "tsx map-generator/earth/download.ts",
+    "inst": "npm ci --ignore-scripts",
+    "app:deps": "node node_modules/electron/install.js",
+    "app:preview": "npm run app:deps && vite build --mode electron && electron .",
+    "app:mac": "vite build --mode electron && electron-builder --mac"
   },
   "devDependencies": {
     "@datastructures-js/priority-queue": "^6.3.5",
@@ -42,6 +48,8 @@
     "concurrently": "^9.2.3",
     "cross-env": "^10.1.0",
     "d3": "^7.9.0",
+    "electron": "^43.1.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^10.3.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-formatter-gha": "^2.0.1",

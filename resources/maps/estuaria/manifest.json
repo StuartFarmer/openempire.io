@@ -1,0 +1,20 @@
+{
+  "categories": ["new", "fictional"],
+  "id": "Estuaria",
+  "layers": true,
+  "map": {
+    "height": 384,
+    "num_land_tiles": 76277,
+    "width": 384
+  },
+  "map4x": {
+    "height": 192,
+    "num_land_tiles": 18098,
+    "width": 192
+  },
+  "multiplayer_frequency": 0,
+  "name": "Estuaria",
+  "nations": [],
+  "terrain_colors": true,
+  "translation_key": "map.estuaria"
+}

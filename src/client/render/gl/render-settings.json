@@ -95,7 +95,10 @@
     "embargoTintB": 0,
     "friendlyTintR": 0,
     "friendlyTintG": 1,
-    "friendlyTintB": 0
+    "friendlyTintB": 0,
+    "segmentHighlightR": 0.3,
+    "segmentHighlightG": 0.95,
+    "segmentHighlightB": 1
   },
   "affiliation": {
     "selfR": 0,
@@ -346,6 +349,16 @@
     "highR": 0.0,
     "highG": 0.0,
     "highB": 0.0
+  },
+  "densityOverlay": {
+    "alphaLow": 0.18,
+    "alphaHigh": 0.8,
+    "lowR": 0.55,
+    "lowG": 0.5,
+    "lowB": 0.42,
+    "highR": 1.0,
+    "highG": 0.88,
+    "highB": 0.55
   },
   "tileDrip": {
     "bucketCount": 9

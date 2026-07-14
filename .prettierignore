@@ -1,0 +1,2 @@
+# Earth-map ingest venv (python/GDAL; see map-generator/earth/README.md)
+map-generator/earth/.venv/

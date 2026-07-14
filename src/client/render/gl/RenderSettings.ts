@@ -144,6 +144,10 @@ export interface RenderSettings {
     friendlyTintR: number;
     friendlyTintG: number;
     friendlyTintB: number;
+    /** Border colour of the aimed concentrated-push segment (0–1 RGB). */
+    segmentHighlightR: number;
+    segmentHighlightG: number;
+    segmentHighlightB: number;
   };
   /** Alt-view affiliation colors (0–1 RGB). */
   affiliation: {
@@ -393,6 +397,16 @@ export interface RenderSettings {
     lowG: number;
     lowB: number;
     highR: number; // quality-1 tint (irrelevant at alpha 0)
+    highG: number;
+    highB: number;
+  };
+  densityOverlay: {
+    alphaLow: number; // wash opacity at faint density
+    alphaHigh: number; // wash opacity at a dense urban core
+    lowR: number; // faint-settlement tint
+    lowG: number;
+    lowB: number;
+    highR: number; // dense-core tint
     highG: number;
     highB: number;
   };

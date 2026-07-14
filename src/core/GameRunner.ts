@@ -39,11 +39,7 @@ export async function createGameRunner(
   callBack: (gu: GameUpdateViewData | ErrorUpdate) => void,
 ): Promise<GameRunner> {
   const config = new Config(gameStart.config, null, false);
-  const gameMap = await loadGameMap(
-    gameStart.config.gameMap,
-    gameStart.config.gameMapSize,
-    mapLoader,
-  );
+  const gameMap = await loadGameMap(gameStart.config.gameMap, mapLoader);
   const random = new PseudoRandom(simpleHash(gameStart.gameID));
 
   const humans = gameStart.players.map((p) => {
@@ -196,6 +192,7 @@ export class GameRunner {
     const packedMotionPlans = this.game.drainPackedMotionPlans();
     const packedPlayerUpdates = this.game.drainPackedPlayerUpdates();
     const packedAttackUpdates = this.game.drainPackedAttackUpdates();
+    const packedDensityUpdates = this.game.drainPackedDensityUpdates();
 
     this.callBack({
       tick: this.game.ticks(),
@@ -203,6 +200,7 @@ export class GameRunner {
       ...(packedMotionPlans ? { packedMotionPlans } : {}),
       ...(packedPlayerUpdates ? { packedPlayerUpdates } : {}),
       ...(packedAttackUpdates ? { packedAttackUpdates } : {}),
+      ...(packedDensityUpdates ? { packedDensityUpdates } : {}),
       updates: updates,
       ...(viewDataChanged ? { playerNameViewData: this.playerViewData } : {}),
       tickExecutionDuration: tickExecutionDuration,

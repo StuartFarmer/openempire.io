@@ -7,8 +7,11 @@ uniform sampler2D uPalette;
 uniform sampler2D uBorderTex;     // RGBA8 — border flags from BorderComputePass
 uniform sampler2D uDefenseCoverageTex; // R8 — 1.0 = defended by same-owner post
 uniform sampler2D uAffiliation;   // 256×2 RGBA8 — affiliation colors (row 0 = border)
+uniform sampler2D uSegmentMask;   // R8 — aimed concentrated-push segment (1.0 = in segment)
 uniform vec2 uMapSize;
 uniform int uAltView;
+uniform int uSegmentActive;       // 1 while a push segment is being aimed
+uniform vec3 uSegmentColor;       // border colour for the aimed segment (cyan)
 uniform float uHighlightBrighten;
 uniform float uDefenseCheckerDarken;
 uniform float uEmbargoTintRatio;
@@ -58,6 +61,11 @@ void main() {
         bool checker = ((tc.x + tc.y) & 1) == 1;
         if (checker) bc *= uDefenseCheckerDarken;
       }
+    }
+    // Aimed concentrated-push segment: recolour these border cells (they are
+    // the player's own border tiles) so the highlighted stretch reads clearly.
+    if (uSegmentActive != 0 && texelFetch(uSegmentMask, tc, 0).r > 0.5) {
+      bc = uSegmentColor;
     }
     fragColor = vec4(bc, 1.0);
     return;

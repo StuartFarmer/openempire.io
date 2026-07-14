@@ -11,6 +11,7 @@ import {
   ServerMessage,
 } from "../core/Schemas";
 import { createPartialGameRecord, findClosestBy, replacer } from "../core/Util";
+import { borderSegment } from "../core/execution/utils/BorderSegment";
 import {
   BuildableUnit,
   PlayerType,
@@ -130,11 +131,7 @@ export function joinLobby(
       console.log(
         `lobby: game prestarting: ${JSON.stringify(message, replacer)}`,
       );
-      terrainLoad = loadTerrainMap(
-        message.gameMap,
-        message.gameMapSize,
-        terrainMapFileLoader,
-      );
+      terrainLoad = loadTerrainMap(message.gameMap, terrainMapFileLoader);
       resolvePrestart();
     }
     if (message.type === "start") {
@@ -632,12 +629,29 @@ export class ClientGameRunner {
     }
     this.myPlayer.actions(tile, [UnitType.TransportShip]).then((actions) => {
       if (actions.canAttack) {
-        this.eventBus.emit(
-          new SendAttackIntentEvent(
-            this.gameView.owner(tile).id(),
-            this.myPlayer!.troops() * this.renderer.uiState.attackRatio,
-          ),
-        );
+        // Concentrated push (add-urban-core-growth): the click aims a segment of
+        // OUR border nearest the click; distance sets its breadth (near = broad,
+        // far = a pointed spearhead). Falls back to a whole-border advance if
+        // the border can't be resolved.
+        const targetID = this.gameView.owner(tile).id();
+        const troops =
+          this.myPlayer!.troops() * this.renderer.uiState.attackRatio;
+        this.myPlayer!.borderTiles()
+          .then((bt) => {
+            const seg = borderSegment(
+              Array.from(bt.borderTiles),
+              cell.x,
+              cell.y,
+              (t) => this.gameView.x(t),
+              (t) => this.gameView.y(t),
+            );
+            this.eventBus.emit(
+              new SendAttackIntentEvent(targetID, troops, seg?.sourceTiles),
+            );
+          })
+          .catch(() =>
+            this.eventBus.emit(new SendAttackIntentEvent(targetID, troops)),
+          );
       } else if (this.canAutoBoat(actions.buildableUnits, tile)) {
         this.sendBoatAttackIntent(tile);
       }

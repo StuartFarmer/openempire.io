@@ -1,4 +1,5 @@
 import tailwindcss from "@tailwindcss/vite";
+import { execSync } from "child_process";
 import fs from "fs";
 import { lookup as lookupMime } from "mrmime";
 import path from "path";
@@ -22,6 +23,80 @@ import {
 // Vite already handles these, but its good practice to define them explicitly
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+function gitCommit(): string {
+  try {
+    return execSync("git rev-parse --short HEAD", { cwd: __dirname })
+      .toString()
+      .trim();
+  } catch {
+    return "LOCAL";
+  }
+}
+
+/**
+ * Dev-only: serve the ingested Earth fields to the #earth tuning page.
+ *
+ * fields.bin is ~112 MB of raw float32 and lives OUTSIDE the repo (in the
+ * world-maps sibling, or $WORLD_MAPS_DIR) precisely because it must never be
+ * committed or bundled. This exposes it at /earth-data/* for localhost only.
+ * Absent in production builds — the page is a dev tool, not a shipped feature.
+ */
+function serveEarthData(): Plugin {
+  const root =
+    process.env.WORLD_MAPS_DIR ??
+    path.resolve(__dirname, "..", "world-maps", "derived");
+  return {
+    name: "serve-earth-data",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (!req.url?.startsWith("/earth-data/")) return next();
+
+        // Enumerate the ingested datasets so the page can offer a picker
+        // (global-2048x1024, global-4096x2048, spqr-2048x1024, ...).
+        if (req.url === "/earth-data/index.json") {
+          const dirs = fs.existsSync(root)
+            ? fs
+                .readdirSync(root, { withFileTypes: true })
+                .filter(
+                  (e) =>
+                    e.isDirectory() &&
+                    fs.existsSync(path.join(root, e.name, "fields.bin")),
+                )
+                .map((e) => e.name)
+                .sort()
+            : [];
+          res.setHeader("Content-Type", "application/json");
+          res.setHeader("Cache-Control", "no-store");
+          res.end(JSON.stringify(dirs));
+          return;
+        }
+
+        const rel = decodeURIComponent(
+          new URL(req.url, "http://x").pathname,
+        ).replace(/^\/earth-data\//, "");
+        if (rel.includes("..")) return next();
+        const filePath = path.join(root, rel);
+        if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+          res.statusCode = 404;
+          res.end(
+            `no ingested field data at ${filePath}\n` +
+              `run: map-generator/earth/.venv/bin/python map-generator/earth/ingest.py`,
+          );
+          return;
+        }
+        res.setHeader(
+          "Content-Type",
+          filePath.endsWith(".json")
+            ? "application/json"
+            : "application/octet-stream",
+        );
+        res.setHeader("Cache-Control", "no-store");
+        fs.createReadStream(filePath).pipe(res);
+      });
+    },
+  };
+}
 
 function serveProprietaryDir(
   proprietaryDir: string,
@@ -53,14 +128,21 @@ function serveProprietaryDir(
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  const isProduction = mode === "production";
+  // "electron" is a production build for the desktop app: same hashed-asset
+  // pipeline, but index.html's EJS placeholders are rendered at build time
+  // (there is no request-time renderer in the .app) and no CDN rewrite.
+  const isElectron = mode === "electron";
+  const isProduction = mode === "production" || isElectron;
   const resourcesDir = getResourcesDir(__dirname);
   const proprietaryDir = getProprietaryDir(__dirname);
   const sourceDirs = [resourcesDir, proprietaryDir];
   const assetManifest: AssetManifest = isProduction
     ? buildPublicAssetManifest(sourceDirs)
     : {};
-  const cdnBase = env.CDN_BASE ?? "";
+  // The sim worker is an inline Blob worker (WorkerClient), so its fetches
+  // have no base URL — asset URLs must be absolute. In the .app the origin
+  // is the app:// scheme served by electron/main.cjs.
+  const cdnBase = isElectron ? "app://game" : (env.CDN_BASE ?? "");
   const htmlAssetData = {
     assetManifest: JSON.stringify(assetManifest),
     cdnBase: JSON.stringify(cdnBase),
@@ -145,26 +227,28 @@ export default defineConfig(({ mode }) => {
 
     plugins: [
       ...(!isProduction
-        ? [serveProprietaryDir(proprietaryDir, resourcesDir)]
+        ? [serveProprietaryDir(proprietaryDir, resourcesDir), serveEarthData()]
         : []),
-      ...(isProduction
+      ...(isProduction && !isElectron
         ? []
         : [
             createHtmlPlugin({
               minify: false,
-              entry: "/src/client/Main.ts",
+              // In electron builds index.html's own <script> entry is
+              // processed by Vite; passing `entry` here too would inject it
+              // twice.
+              ...(isElectron ? {} : { entry: "/src/client/Main.ts" }),
               template: "index.html",
               inject: {
                 data: {
-                  gitCommit: JSON.stringify("DEV"),
+                  gitCommit: JSON.stringify(isElectron ? gitCommit() : "DEV"),
                   ...htmlAssetData,
                 },
               },
             }),
           ]),
-      ...(isProduction
-        ? [injectCdnBaseTemplate(), syncHashedPublicAssets()]
-        : []),
+      ...(isProduction && !isElectron ? [injectCdnBaseTemplate()] : []),
+      ...(isProduction ? [syncHashedPublicAssets()] : []),
       tailwindcss(),
     ],
 

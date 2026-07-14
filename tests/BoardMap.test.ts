@@ -1,9 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { withTerrainColorSidecar } from "../src/client/board/TerrainColorSidecar";
-import {
-  buildBoardMapTerrainRGBA,
-  buildTerrainRGBA,
-} from "../src/client/render/gl/utils/ColorUtils";
+import { buildBoardMapTerrainRGBA } from "../src/client/render/gl/utils/ColorUtils";
 import {
   boardMapFromGameMap,
   validateBoardMap,
@@ -55,7 +52,7 @@ describe("BoardMap", () => {
     expect(boardMap.layers).toBeUndefined();
   });
 
-  test("uses default OpenFront terrain coloring when no custom colorizer exists", () => {
+  test("throws when no colorizer is attached (the sidecar is mandatory)", () => {
     const boardMap: BoardMap = {
       width: 1,
       height: 1,
@@ -63,8 +60,8 @@ describe("BoardMap", () => {
       state: new Uint16Array(1),
     };
 
-    expect(Array.from(buildBoardMapTerrainRGBA(boardMap))).toEqual(
-      Array.from(buildTerrainRGBA(boardMap.terrain, 1, 1)),
+    expect(() => buildBoardMapTerrainRGBA(boardMap)).toThrow(
+      /terrain-colors sidecar is required/,
     );
   });
 
@@ -95,7 +92,7 @@ describe("BoardMap", () => {
     ]);
   });
 
-  test("uses terrain color sidecar before terrain-byte colors", () => {
+  test("uses the terrain color sidecar as the base texture", () => {
     const boardMap: BoardMap = {
       width: 1,
       height: 1,

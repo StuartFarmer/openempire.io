@@ -105,13 +105,36 @@ export class PlayerImpl implements Player {
    *  conquer/relinquish, never recomputed by scanning. */
   public _fertilitySum: number = 0;
   /** Last tick's food flow breakdown (display units), for UI/stats. */
-  public _foodFlow = { production: 0, consumption: 0, starvedTroops: 0 };
+  public _foodFlow = {
+    production: 0,
+    consumption: 0,
+    starvedTroops: 0,
+    capacity: 0,
+    population: 0,
+  };
+  /** Fractional birth/death carry so small populations still change smoothly
+   *  (demographics apply whole people; the remainder accumulates). _deathCredit
+   *  is old age (civilians), _starveCredit is famine (everyone). */
+  public _birthCredit = 0;
+  public _deathCredit = 0;
+  public _starveCredit = 0;
   /**
    * Allocation slider (add-food-allocation): fraction of each tick's
    * production offered to the population; the rest banks into storage.
    * Set via the food_allocation intent; initialized from Config.food().
    */
   private _foodPopulationShare: number = 1;
+
+  // ── Urban core growth (add-urban-core-growth) ───────────────────────────
+  /** Founded capital tile, or null before founding. */
+  private _core: TileRef | null = null;
+  /** Per-tile population — people living on each tile (0..popPerDensity).
+   *  Absent = 0 (unsettled). Σ ≈ the nation's settled population. */
+  public _density = new Map<TileRef, number>();
+  /** Cached Σ density in milliunits, kept in sync by setDensity(). */
+  private _urbanAreaMilli = 0;
+  /** Per-Farmland-tile maturity M∈[0,1] in milliunits (add-urban-core-growth). */
+  public _farmMaturity = new Map<TileRef, number>();
 
   markedTraitorTick = -1;
   markedDoomsdayClockTick = -1;
@@ -163,15 +186,11 @@ export class PlayerImpl implements Player {
     private readonly _team: Team | null,
   ) {
     this._troops = toInt(startTroops);
-    if (mg.hasLayers()) {
-      // Tribal age: no gold — the food stake is the survival budget
-      // (enough for the first farms, not for comfort).
-      this._gold = 0n;
-      this._foodMilli = BigInt(mg.config().food().startingFood) * 1000n;
-      this._foodPopulationShare = mg.config().food().defaultPopulationShare;
-    } else {
-      this._gold = mg.config().startingGold(playerInfo);
-    }
+    // Tribal age: no gold — the food stake is the survival budget
+    // (enough for the first farms, not for comfort).
+    this._gold = 0n;
+    this._foodMilli = BigInt(mg.config().food().startingFood) * 1000n;
+    this._foodPopulationShare = mg.config().food().defaultPopulationShare;
     this._pseudo_random = new PseudoRandom(simpleHash(this.playerInfo.id));
   }
 
@@ -322,17 +341,15 @@ export class PlayerImpl implements Player {
       }
     }
 
-    // Food fields exist only on layered games so classic-map updates stay
-    // byte-identical (all four stay undefined there).
-    const foodFields = this.hasFoodEconomy()
-      ? {
-          food: Number(this.food()),
-          foodProduction: this._foodFlow.production,
-          foodConsumption: this._foodFlow.consumption,
-          foodStarved: this._foodFlow.starvedTroops,
-          foodPopulationShare: this._foodPopulationShare,
-        }
-      : undefined;
+    const foodFields = {
+      food: Number(this.food()),
+      foodProduction: this._foodFlow.production,
+      foodConsumption: this._foodFlow.consumption,
+      foodStarved: this._foodFlow.starvedTroops,
+      foodCapacity: this._foodFlow.capacity,
+      foodPopulationShare: this._foodPopulationShare,
+      urbanArea: this.urbanArea(),
+    };
 
     return {
       type: GameUpdateType.Player,
@@ -1182,10 +1199,6 @@ export class PlayerImpl implements Player {
     return this._gold;
   }
 
-  hasFoodEconomy(): boolean {
-    return this.mg.hasLayers();
-  }
-
   /** Food stock in display units (floor of the milliunit stock). */
   food(): Gold {
     return this._foodMilli / 1000n;
@@ -1212,6 +1225,8 @@ export class PlayerImpl implements Player {
     production: number;
     consumption: number;
     starvedTroops: number;
+    capacity: number;
+    population: number;
   } {
     return this._foodFlow;
   }
@@ -1222,6 +1237,64 @@ export class PlayerImpl implements Player {
 
   setFoodPopulationShare(share: number): void {
     this._foodPopulationShare = Math.max(0, Math.min(1, share));
+  }
+
+  // ── Urban core growth (add-urban-core-growth) ───────────────────────────
+  core(): TileRef | null {
+    return this._core;
+  }
+
+  setCore(tile: TileRef): void {
+    this._core = tile;
+  }
+
+  /** People living on a tile (0..popPerDensity); absent = 0 (unsettled). */
+  density(tile: TileRef): number {
+    return this._density.get(tile) ?? 0;
+  }
+
+  /** Set the tile's population (people, 0..popPerDensity), maintaining the sum.
+   *  A full tile holds popPerDensity people; the field is per-tile so a future
+   *  combat/movement layer can draw people from specific tiles. */
+  setDensity(tile: TileRef, people: number): void {
+    const full = this.mg.config().food().popPerDensity;
+    const v = people <= 0 ? 0 : people >= full ? full : Math.round(people);
+    const prev = this._density.get(tile) ?? 0;
+    if (v === prev) return;
+    this._urbanAreaMilli += v - prev;
+    if (v === 0) {
+      this._density.delete(tile);
+    } else {
+      this._density.set(tile, v);
+    }
+    // Emit a render delta when the displayed byte (fill fraction) changes.
+    const byte = Math.round((v * 255) / full);
+    const prevByte = Math.round((prev * 255) / full);
+    if (byte !== prevByte) this.mg.recordDensityUpdate(tile, byte);
+  }
+
+  densityEntries(): IterableIterator<[TileRef, number]> {
+    return this._density.entries();
+  }
+
+  /** Urban area in tile-equivalents (Σ people / popPerDensity). */
+  urbanArea(): number {
+    return this._urbanAreaMilli / this.mg.config().food().popPerDensity;
+  }
+
+  farmMaturity(tile: TileRef): number {
+    return this._farmMaturity.get(tile) ?? 0;
+  }
+
+  /** Set farm maturity (milliunits 0..1000) on a Farmland tile. */
+  setFarmMaturity(tile: TileRef, milli: number): void {
+    const v = milli <= 0 ? 0 : milli >= 1000 ? 1000 : Math.round(milli);
+    if (v === 0) this._farmMaturity.delete(tile);
+    else this._farmMaturity.set(tile, v);
+  }
+
+  farmMaturityEntries(): IterableIterator<[TileRef, number]> {
+    return this._farmMaturity.entries();
   }
 
   addGold(toAdd: Gold, tile?: TileRef): void {
@@ -1350,10 +1423,6 @@ export class PlayerImpl implements Player {
     knownCost: Gold | null = null,
   ): boolean {
     if (this.mg.config().isUnitDisabled(unitType)) {
-      return false;
-    }
-    // Tribal buildings exist only where the food economy is active.
-    if (TribalStructures.has(unitType) && !this.hasFoodEconomy()) {
       return false;
     }
     const cost = knownCost ?? this.mg.unitInfo(unitType).cost(this.mg, this);
@@ -1509,7 +1578,7 @@ export class PlayerImpl implements Player {
       case UnitType.Settlement:
       case UnitType.Farmland:
       case UnitType.Barn:
-        return this.plotSpawn(targetTile);
+        return this.plotSpawn(unitType, targetTile);
       default:
         assertNever(unitType);
     }
@@ -1520,12 +1589,22 @@ export class PlayerImpl implements Player {
    * tile of owned, passable land. Deliberately no structureMinDist —
    * districts pack tile-by-tile.
    */
-  private plotSpawn(anchor: TileRef): TileRef | false {
+  private plotSpawn(unitType: UnitType, anchor: TileRef): TileRef | false {
     if (
       !this.mg.isLand(anchor) ||
       this.mg.isImpassable(anchor) ||
       this.mg.owner(anchor) !== this ||
       this.mg.plotAt(anchor) !== undefined
+    ) {
+      return false;
+    }
+    // Mutual exclusivity (add-urban-core-growth): Farmland and a full city tile
+    // are never the same tile — a farm cannot be planted on a fully-settled city
+    // tile, and the city never spreads onto a farm tile (see UrbanGrowth).
+    // Unsettled land (no people) is fair game for farming.
+    if (
+      unitType === UnitType.Farmland &&
+      this.density(anchor) >= this.mg.config().food().popPerDensity
     ) {
       return false;
     }
@@ -1645,10 +1724,16 @@ export class PlayerImpl implements Player {
     const searchRadius = 15;
     const searchRadiusSquared = searchRadius ** 2;
 
+    // Spacing applies between conventional structures only: tribal PLOTS
+    // (tile-painted districts) pack tile-by-tile and must not reserve a
+    // structureMinDist radius around themselves.
+    const spacedStructures = Structures.types.filter(
+      (t) => !TribalStructures.has(t),
+    );
     const nearbyUnits = this.mg.nearbyUnits(
       tile,
       searchRadius * 2,
-      Structures.types,
+      spacedStructures,
       undefined,
       true,
     );
@@ -1659,6 +1744,10 @@ export class PlayerImpl implements Player {
       );
     });
     const validSet: Set<TileRef> = new Set(nearbyTiles);
+    // A tile already holding a plot cannot also hold a structure.
+    for (const t of nearbyTiles) {
+      if (this.mg.plotAt(t) !== undefined) validSet.delete(t);
+    }
 
     const minDistSquared = this.mg.config().structureMinDist() ** 2;
     for (const t of nearbyTiles) {

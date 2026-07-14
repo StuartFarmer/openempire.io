@@ -3,10 +3,15 @@
 // Regenerate with `npm run gen-maps`.
 
 export enum GameMapType {
+  Earth = "Earth", // map-generator/assets/maps/earth/info.json
+  EarthMini = "Earth Mini", // map-generator/assets/maps/earthmini/info.json
+  EarthXL = "Earth XL", // map-generator/assets/maps/earthxl/info.json
+  Estuaria = "Estuaria", // map-generator/assets/maps/estuaria/info.json
   MajorMenor = "Majora y Menora", // map-generator/assets/maps/majormenor/info.json
   Pangea001 = "Pangea I", // map-generator/assets/maps/pangea001/info.json
   Pangea002 = "Pangea II", // map-generator/assets/maps/pangea002/info.json
-  Verdantia = "verdantia", // map-generator/assets/maps/verdantia/info.json
+  SPQR = "SPQR", // map-generator/assets/maps/spqr/info.json
+  Verdantia = "Verdantia", // map-generator/assets/maps/verdantia/info.json
   World = "World", // map-generator/assets/maps/world/info.json
 }
 
@@ -69,6 +74,34 @@ export interface MapInfo {
 
 export const maps: readonly MapInfo[] = [
   {
+    id: "Earth",
+    type: GameMapType.Earth,
+    translationKey: "map.earth",
+    categories: ["new", "world"],
+    multiplayerFrequency: 0,
+  },
+  {
+    id: "EarthMini",
+    type: GameMapType.EarthMini,
+    translationKey: "map.earthmini",
+    categories: ["new", "world"],
+    multiplayerFrequency: 0,
+  },
+  {
+    id: "EarthXL",
+    type: GameMapType.EarthXL,
+    translationKey: "map.earthxl",
+    categories: ["new", "world"],
+    multiplayerFrequency: 0,
+  },
+  {
+    id: "Estuaria",
+    type: GameMapType.Estuaria,
+    translationKey: "map.estuaria",
+    categories: ["new", "fictional"],
+    multiplayerFrequency: 0,
+  },
+  {
     id: "MajorMenor",
     type: GameMapType.MajorMenor,
     translationKey: "map.majormenor",
@@ -87,6 +120,13 @@ export const maps: readonly MapInfo[] = [
     type: GameMapType.Pangea002,
     translationKey: "map.pangea002",
     categories: ["new", "fictional"],
+    multiplayerFrequency: 0,
+  },
+  {
+    id: "SPQR",
+    type: GameMapType.SPQR,
+    translationKey: "map.spqr",
+    categories: ["new", "world"],
     multiplayerFrequency: 0,
   },
   {

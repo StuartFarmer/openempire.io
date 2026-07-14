@@ -594,9 +594,8 @@ export const rootMenuElement: MenuElement = {
         ? [
             deleteUnitElement,
             allyRequestElement,
-            // Layered maps: the persistent build bar is the build entry
-            // point — the radial has no wrench there.
-            ...(params.game.hasLayers() ? [] : [buildMenuElement]),
+            // The persistent build bar is the build entry point — the
+            // radial menu has no wrench.
           ]
         : [
             isAllied && !isDisconnected ? allyBreakElement : boatMenuElement,

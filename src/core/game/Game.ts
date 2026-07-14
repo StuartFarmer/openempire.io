@@ -129,11 +129,6 @@ export enum RankedType {
 export const isGameMode = (value: unknown): value is GameMode =>
   isEnumValue(GameMode, value);
 
-export enum GameMapSize {
-  Compact = "Compact",
-  Normal = "Normal",
-}
-
 export interface PublicGameModifiers {
   isCompact?: boolean;
   isRandomSpawn?: boolean;
@@ -611,8 +606,7 @@ export interface Player {
   addTroops(troops: number): void;
   removeTroops(troops: number): number;
 
-  // Food economy (layered maps only — see add-tribal-food-economy)
-  hasFoodEconomy(): boolean;
+  // Food economy (see add-tribal-food-economy)
   /** Food stock in display units. */
   food(): Gold;
   addFood(toAdd: Gold): void;
@@ -624,10 +618,30 @@ export interface Player {
     production: number;
     consumption: number;
     starvedTroops: number;
+    /** Food-supported population = productionMilli / idleConsumptionMilli. */
+    capacity: number;
+    /** Total living population (idle + deployed) after this tick's births and
+     *  deaths — drives the city footprint and the population-death loss. */
+    population: number;
   };
   /** Allocation slider: production fraction fed to the population (0..1). */
   foodPopulationShare(): number;
   setFoodPopulationShare(share: number): void;
+
+  // Urban core growth (add-urban-core-growth): the city is a self-growing
+  // density field founded from a Core, replacing painted plots.
+  core(): TileRef | null;
+  setCore(tile: TileRef): void;
+  /** Urban density on a tile in milliunits (0..1000); absent = 0. */
+  density(tile: TileRef): number;
+  setDensity(tile: TileRef, milli: number): void;
+  densityEntries(): IterableIterator<[TileRef, number]>;
+  /** Urban area in tile-equivalents (Σ density). */
+  urbanArea(): number;
+  /** Farm maturity M∈[0,1] on a Farmland tile in milliunits (0..1000). */
+  farmMaturity(tile: TileRef): number;
+  setFarmMaturity(tile: TileRef, milli: number): void;
+  farmMaturityEntries(): IterableIterator<[TileRef, number]>;
 
   // Units
   units(...types: UnitType[]): Unit[];
@@ -791,6 +805,10 @@ export interface Game extends GameMap {
   drainPackedMotionPlans(): Uint32Array | null;
   drainPackedPlayerUpdates(): Float64Array | null;
   drainPackedAttackUpdates(): Float64Array | null;
+  // Urban density render deltas (add-urban-core-growth): packed
+  // `tile | (byte<<24)`, byte = round(density/1000·255).
+  recordDensityUpdate(tile: TileRef, byte: number): void;
+  drainPackedDensityUpdates(): Uint32Array | null;
   setWinner(winner: Player | Team, allPlayersStats: AllPlayersStats): void;
   getWinner(): Player | Team | null;
   config(): Config;

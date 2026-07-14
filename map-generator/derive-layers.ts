@@ -1,7 +1,8 @@
 /**
- * derive-layers.ts — retrofit a layers.bin sidecar onto a generated map whose
- * engine state is gone (only the baked image.png survives, e.g. maps exported
- * from the #generator page before layers existed).
+ * derive-layers.ts — retrofit the layers.bin and terrain-colors.png sidecars
+ * onto a generated map whose engine state is gone (only the baked image.png
+ * survives, e.g. maps exported from the #generator page before layers
+ * existed).
  *
  * The baked image preserves land/water and the 0–30 elevation magnitude per
  * land tile (gray = 140 + 2·magnitude; see buildGeneratorSourceImage). We
@@ -16,16 +17,19 @@
  *   npx tsx map-generator/derive-layers.ts --map majormenor [--seed 123]
  *   # then: npm run gen-maps
  */
-import { createCanvas, loadImage } from "canvas";
+import { createCanvas, ImageData, loadImage } from "canvas";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { encodeLayers, LAYER_NAMES } from "../src/core/game/MapLayers";
 import { simpleHash } from "../src/core/Util";
+import { buildFreshwaterPlane } from "../src/games/alternative/world/GeneratorMapExport";
 import {
+  buildWorldEngineTerrainColors,
   deriveFoundationWorldEngineResourceConfig,
   deriveWorldEngineOcean,
   deriveWorldEngineSeaDepth,
+  generateWorldEngineBiome,
   generateWorldEngineHumidity,
   generateWorldEngineIrrigation,
   generateWorldEnginePermeability,
@@ -69,7 +73,13 @@ const width = img.width;
 const height = img.height;
 const total = width * height;
 
-const cfg = normalizeFoundationWorldEngineMapConfig({ seed, width, height });
+// The normalizer clamps dimensions to the interactive generator's 1024 cap,
+// but we must run the pipeline at the baked image's true size.
+const cfg = {
+  ...normalizeFoundationWorldEngineMapConfig({ seed, width, height }),
+  width,
+  height,
+};
 
 // ── Invert the bake: land elevation from magnitude; water from shore dist ──
 const elevation = new Float32Array(total);
@@ -145,7 +155,7 @@ const precipitation = generateWorldEnginePrecipitation(
   cfg,
 );
 const seaDepth = deriveWorldEngineSeaDepth(elevation, ocean, cfg);
-const { watermap } = generateWorldEngineWatermap(
+const { watermap, lakes } = generateWorldEngineWatermap(
   elevation,
   ocean,
   precipitation,
@@ -178,11 +188,44 @@ const blob = encodeLayers(
     oil: resources.oil,
     temperature,
     humidity,
+    water: buildFreshwaterPlane(
+      { irrigation, normalizedWatermap, lakes },
+      width,
+      height,
+    ),
   },
   width,
   height,
 );
 fs.writeFileSync(path.join(mapDir, "layers.bin"), blob);
+
+// ── Terrain colors: the engine's real palette over the reconstructed fields ──
+const biome = generateWorldEngineBiome(ocean, temperature, humidity);
+const terrainColors = buildWorldEngineTerrainColors(
+  elevation,
+  ocean,
+  temperature,
+  precipitation,
+  seaDepth,
+  normalizedWatermap,
+  humidity,
+  biome,
+  lakes,
+  cfg,
+);
+{
+  const colorCanvas = createCanvas(width, height);
+  const colorCtx = colorCanvas.getContext("2d");
+  colorCtx.putImageData(
+    new ImageData(new Uint8ClampedArray(terrainColors), width, height),
+    0,
+    0,
+  );
+  fs.writeFileSync(
+    path.join(mapDir, "terrain-colors.png"),
+    colorCanvas.toBuffer("image/png"),
+  );
+}
 
 // ── Report: crop distribution over land, vs any reference layers.bin ──
 function cropStats(bytes: Uint8Array, water: (i: number) => boolean) {
@@ -200,6 +243,7 @@ const stats = cropStats(blob, (i) => isWater[i] === 1);
 console.log(
   `wrote ${mapDir}/layers.bin (${width}x${height}, seed ${seed}, planes: ${LAYER_NAMES.join(",")})`,
 );
+console.log(`wrote ${mapDir}/terrain-colors.png (${width}x${height})`);
 console.log(
   `crop over land: mean ${stats.mean}, p50 ${stats.p50}, p90 ${stats.p90}, ≥30 (farmable): ${(stats.farmable * 100).toFixed(0)}%`,
 );

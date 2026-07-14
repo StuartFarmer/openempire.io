@@ -3,7 +3,6 @@ import path from "path";
 import {
   Difficulty,
   Game,
-  GameMapSize,
   GameMapType,
   GameMode,
   GameType,
@@ -64,8 +63,10 @@ export async function setup(
   ) satisfies MapManifest;
 
   let layersData: Uint8Array | null = null;
-  // Baked fixture maps carry a real layers.bin (manifest.layers); synthetic
-  // layers via layersFill take precedence when both are given.
+  // Every game is layered (unify-layered-path). Baked fixture maps carry a
+  // real layers.bin (manifest.layers); synthetic layers via layersFill take
+  // precedence when both are given; otherwise planes default to all-zero
+  // (no crop → no production; startingFood covers short tests).
   if (layersFill === undefined && manifest.layers === true) {
     const layersPath = path.join(
       currentDir,
@@ -73,6 +74,11 @@ export async function setup(
     );
     layersData = new Uint8Array(fs.readFileSync(layersPath));
   }
+  // Legacy (non-economy) tests get zero layers AND an inert food config so
+  // troop counts stay under test control; economy tests opt into the real
+  // knobs by passing layersFill or using a baked layered fixture.
+  const inertFood = layersFill === undefined && layersData === null;
+  layersFill ??= layersData === null ? () => 0 : undefined;
   if (layersFill !== undefined) {
     const { width, height } = manifest.map;
     layersData = new Uint8Array(expectedLayersByteLength(width, height));
@@ -95,7 +101,6 @@ export async function setup(
 
   const gameConfig: GameConfig = {
     gameMap: GameMapType.World,
-    gameMapSize: GameMapSize.Normal,
     gameMode: GameMode.FFA,
     gameType: GameType.Singleplayer,
     difficulty: Difficulty.Medium,
@@ -110,6 +115,7 @@ export async function setup(
     ..._gameConfig,
   };
   const config = new ConfigClass(gameConfig, new UserSettings(), false);
+  config.setInertFood(inertFood);
 
   const game = createGame(humans, [], gameMap, miniGameMap, config);
   if (autoEndSpawnPhase) game.endSpawnPhase();

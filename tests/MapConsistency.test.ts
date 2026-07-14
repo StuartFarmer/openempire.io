@@ -23,6 +23,12 @@ const FREQUENCY_EXEMPTIONS: Set<GameMapName> = new Set([
   "Pangea001",
   "Pangea002",
   "Verdantia",
+  "Estuaria",
+  // Built from real-world geospatial data (map-generator/earth), not in rotation.
+  "Earth",
+  "EarthMini",
+  "EarthXL",
+  "SPQR",
 ]);
 
 // Keys in the en.json "map" section that are UI strings, not map names.
@@ -72,15 +78,19 @@ describe("Map consistency", () => {
       }
 
       const files = fs.readdirSync(dir).sort();
-      const required = ["image.png", "info.json"];
-      const optional = ["terrain-colors.png", "layers.bin"];
+      // Every map must ship the full source set — both sidecars are mandatory
+      // (retrofit legacy sources with `npx tsx map-generator/derive-layers.ts`).
+      const required = [
+        "image.png",
+        "info.json",
+        "layers.bin",
+        "terrain-colors.png",
+      ];
       const missing = required.filter((f) => !files.includes(f));
-      const unexpected = files.filter(
-        (f) => !required.includes(f) && !optional.includes(f),
-      );
+      const unexpected = files.filter((f) => !required.includes(f));
       if (missing.length > 0 || unexpected.length > 0) {
         errors.push(
-          `${key}: expected [${required.join(", ")}] (+ optional ${optional.join(", ")}) but found [${files.join(", ")}]`,
+          `${key}: expected [${required.join(", ")}] but found [${files.join(", ")}]`,
         );
       }
     }
@@ -214,13 +224,13 @@ describe("Map consistency", () => {
     }
   });
 
-  test("Every GameMapType has resources/maps/ with thumbnail.webp, bin files, and manifest.json", () => {
+  test("Every GameMapType has resources/maps/ with map.bin, both sidecars, thumbnail, and manifest", () => {
     const errors: string[] = [];
     const requiredFiles = [
       "manifest.json",
       "map.bin",
-      "map4x.bin",
-      "map16x.bin",
+      "layers.bin",
+      "terrain-colors.png",
       "thumbnail.webp",
     ];
 
@@ -242,6 +252,30 @@ describe("Map consistency", () => {
     }
     if (errors.length > 0) {
       throw new Error("Resource map file violations:\n" + errors.join("\n"));
+    }
+  });
+
+  test("Every manifest declares both sidecars (layers + terrain_colors)", () => {
+    const errors: string[] = [];
+    for (const key of allMapKeys) {
+      const folder = toFolderName(key);
+      const manifestPath = path.join(RESOURCES_MAPS, folder, "manifest.json");
+      if (!fs.existsSync(manifestPath)) continue; // Other tests catch this.
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+      if (manifest.layers !== true) {
+        errors.push(`${key}: manifest.layers is ${manifest.layers}`);
+      }
+      if (manifest.terrain_colors !== true) {
+        errors.push(
+          `${key}: manifest.terrain_colors is ${manifest.terrain_colors}`,
+        );
+      }
+    }
+    if (errors.length > 0) {
+      throw new Error(
+        "There is exactly one game mode — every map must ship layers.bin and terrain-colors.png:\n" +
+          errors.join("\n"),
+      );
     }
   });
 
