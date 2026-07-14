@@ -32,6 +32,13 @@ export class PlayerFoodShed {
    *  Precomputed at refresh so the hot urban-growth loop is a plain lookup
    *  (no per-tile Math.pow). */
   readonly potential = new Map<TileRef, number>();
+  /**
+   * Farm tile → people living in its shed cell (rework-settlement-ecology
+   * task 4.1). The BFS partitions the shed into nearest-farm Voronoi cells;
+   * each farm's labor pool is the summed urban density of its cell — every
+   * farmer tends exactly one farm, no double counting.
+   */
+  readonly laborByFarm = new Map<TileRef, number>();
   lastCalcTick = -1;
 }
 
@@ -87,15 +94,19 @@ function recompute(mg: Game, player: Player, s: PlayerFoodShed): void {
   // precomputed potential = srcMaturity·decay(dist).
   const dist = new Map<TileRef, number>();
   const srcMaturity = new Map<TileRef, number>();
+  const srcFarm = new Map<TileRef, TileRef>();
+  const farms: TileRef[] = [];
   const queue: TileRef[] = [];
   for (const farm of player.units(UnitType.Farmland)) {
     if (farm.isUnderConstruction()) continue;
     const tile = farm.tile();
     if (map.ownerID(tile) !== smallID) continue;
+    farms.push(tile);
     const m = player.farmMaturity(tile) / 1000;
     if (!dist.has(tile)) {
       dist.set(tile, 0);
       srcMaturity.set(tile, m);
+      srcFarm.set(tile, tile);
       queue.push(tile);
     } else if (m > (srcMaturity.get(tile) ?? 0)) {
       srcMaturity.set(tile, m);
@@ -117,6 +128,7 @@ function recompute(mg: Game, player: Player, s: PlayerFoodShed): void {
       if (!map.isLand(n) || map.isImpassable(n)) continue;
       dist.set(n, d);
       srcMaturity.set(n, curM);
+      srcFarm.set(n, srcFarm.get(cur)!);
       queue.push(n);
     }
   }
@@ -124,4 +136,76 @@ function recompute(mg: Game, player: Player, s: PlayerFoodShed): void {
   for (const [tile, d] of dist) {
     s.potential.set(tile, (srcMaturity.get(tile) ?? 0) * foodShedDecay(d, f));
   }
+
+  // Labor pools: each farm is tended by the people whose homes fall in its
+  // nearest-farm cell of the shed.
+  s.laborByFarm.clear();
+  for (const [tile] of dist) {
+    const people = player.density(tile);
+    if (people <= 0) continue;
+    const farm = srcFarm.get(tile)!;
+    s.laborByFarm.set(farm, (s.laborByFarm.get(farm) ?? 0) + people);
+  }
+
+  // The RURAL population: everyone not housed in a city tile. A young
+  // village has no urban tiles at all — its whole population is rural, and
+  // rural people are exactly who tends farms. Without this the labor model
+  // is a bootstrap death-trap (no city → no farmers → no food → no city).
+  // Rural labor splits equally across farms until 4.2 spatializes it.
+  if (farms.length > 0) {
+    let urban = 0;
+    for (const [, people] of player.densityEntries()) urban += people;
+    const rural = Math.max(0, player.foodFlow().population - urban);
+    const perFarm = Math.floor(rural / farms.length);
+    if (perFarm > 0) {
+      for (const farm of farms) {
+        s.laborByFarm.set(farm, (s.laborByFarm.get(farm) ?? 0) + perFarm);
+      }
+    }
+  }
+
+  // Surplus spillover: a dense core holds far more people than its nearest
+  // farm needs; the excess walks to the under-tended farms of the same shed
+  // network (deterministic tile-ref order). Only city-dwellers inside some
+  // shed cell count here — locality still rules; this just stops one
+  // Voronoi cell from hoarding workers three farms could use.
+  const need = f.farmersPerFarm;
+  let surplus = 0;
+  for (const [farm, pool] of s.laborByFarm) {
+    if (pool > need) {
+      surplus += pool - need;
+      s.laborByFarm.set(farm, need);
+    }
+  }
+  if (surplus > 0) {
+    const hungry: TileRef[] = [];
+    for (const farm of farms) {
+      if ((s.laborByFarm.get(farm) ?? 0) < need) hungry.push(farm);
+    }
+    hungry.sort((a, b) => a - b);
+    for (const farm of hungry) {
+      if (surplus <= 0) break;
+      const pool = s.laborByFarm.get(farm) ?? 0;
+      const take = Math.min(need - pool, surplus);
+      s.laborByFarm.set(farm, pool + take);
+      surplus -= take;
+    }
+  }
+}
+
+/**
+ * Labor factor of a farm (rework-settlement-ecology task 4.1): output scales
+ * with the farmers living in the farm's shed cell —
+ * max(laborFloor, min(1, localPop / farmersPerFarm)). A soft multiplier: an
+ * unpeopled breadbasket underproduces but never hits zero from labor alone
+ * (the floor is a death-spiral guard).
+ */
+export function farmLaborFactor(
+  mg: Game,
+  shed: PlayerFoodShed,
+  farmTile: TileRef,
+): number {
+  const f = mg.config().food();
+  const local = shed.laborByFarm.get(farmTile) ?? 0;
+  return Math.max(f.laborFloor, Math.min(1, local / f.farmersPerFarm));
 }

@@ -210,6 +210,15 @@ export interface FoodConfig {
   /** One farm seed per this many peak-territory tiles. */
   farmSeedTilesPerSeed: number;
   /**
+   * Labor (rework-settlement-ecology task 4.1): a farm at full output needs
+   * this many people living in its food-shed cell. Output scales
+   * max(laborFloor, min(1, localPop/farmersPerFarm)) — an unpeopled
+   * breadbasket underproduces; the floor keeps labor from ever zeroing a
+   * farm outright (death-spiral guard).
+   */
+  farmersPerFarm: number;
+  laborFloor: number;
+  /**
    * Plot cost bases (display food). Actual cost =
    * base × (1 + owned × costGrowthPerOwned) — cheap plots, gently rising,
    * so empires are painted from dozens of them; the storage cap still
@@ -390,6 +399,8 @@ const FOOD_DEFAULTS: FoodConfig = {
   scalingExponent: 1.26, // measured 2026-07-14 (see design.md §6)
   settlementLadderBasePop: 10_000,
   farmSeedTilesPerSeed: 25,
+  farmersPerFarm: 50,
+  laborFloor: 0.2,
   settlementCost: 150,
   farmlandCost: 40,
   barnCost: 60,

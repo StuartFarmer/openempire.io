@@ -1,5 +1,6 @@
 import { Game, Player, Unit, UnitType } from "../../game/Game";
 import { farmTick } from "./FarmGrowth";
+import { farmLaborFactor, foodShedField } from "./FoodShed";
 import {
   probeDistance,
   supplyField,
@@ -55,6 +56,7 @@ export function foodTick(mg: Game, player: Player): number {
   // a freshly planted farm yields almost nothing until it ripens, and a farm
   // in a hostile biome never reaches full yield.
   farmTick(mg, player);
+  const shed = foodShedField(mg, player);
   let farmYieldMilli = 0;
   for (const farm of player.units(UnitType.Farmland)) {
     if (farm.isUnderConstruction()) continue;
@@ -63,8 +65,11 @@ export function foodTick(mg: Game, player: Player): number {
     const district = 1 + sameTypeNeighborPlots(mg, farm) * f.adjacencyBonus;
     const maturity = player.farmMaturity(tile) / 1000; // AquaCrop canopy
     const soilN = mg.layer("crop", tile) / 255; // FAO fertility ceiling
-    // yield = M · f_soil · farmYieldMilli (AquaCrop biomass→harvest collapsed).
-    farmYieldMilli += maturity * soilN * district * f.farmYieldMilli;
+    // Labor (rework-settlement-ecology): tended by the people living in the
+    // farm's shed cell — an unpeopled breadbasket underproduces (soft floor).
+    const labor = farmLaborFactor(mg, shed, tile);
+    // yield = M · f_soil · labor · farmYieldMilli (AquaCrop collapsed).
+    farmYieldMilli += maturity * soilN * district * labor * f.farmYieldMilli;
   }
   const landMilli = Math.floor(
     Math.pow(player.fertilitySum(), f.landHarvestExponent) * f.landHarvestMilli,

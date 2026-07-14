@@ -2,6 +2,7 @@ import { FoodConfig } from "../../configuration/Config";
 import { Game, Player, UnitType } from "../../game/Game";
 import { TileRef } from "../../game/GameMap";
 import { climateSuitability } from "./FarmGrowth";
+import { farmLaborFactor, foodShedField } from "./FoodShed";
 import { PlayerSupply } from "./SupplyField";
 import { urbanSuitability } from "./UrbanGrowth";
 
@@ -114,7 +115,14 @@ export function farmSteadyYieldMilli(
   const district =
     1 +
     neighborPlotCount(mg, player, tile, UnitType.Farmland) * f.adjacencyBonus;
-  return suit * cropN * district * f.farmYieldMilli;
+  // Labor (rework-settlement-ecology 4.1): an EXISTING farm's realized yield
+  // scales with its shed labor pool; a candidate site (no farm yet) is
+  // priced at full staffing — constant across sites, so ranking is unbiased.
+  const labor =
+    mg.plotAt(tile)?.type() === UnitType.Farmland
+      ? farmLaborFactor(mg, foodShedField(mg, player), tile)
+      : 1;
+  return suit * cropN * district * labor * f.farmYieldMilli;
 }
 
 /**

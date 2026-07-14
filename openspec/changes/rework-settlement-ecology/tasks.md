@@ -28,7 +28,7 @@ Build-order, not phases. Each core task ships with tests. Everything gated on
 
 ## 4. Local food + labor (biggest sim rewire)
 
-- [ ] 4.1 Labor factor: localPop within food-shed / farmersPerFarm soft multiplier on farm yield
+- [x] 4.1 Labor factor: shed-cell Voronoi pools + surplus spillover + RURAL pool (pop not housed in city tiles — without it, bootstrap death-trap), `max(laborFloor, min(1, pool/farmersPerFarm))` on farm yield; bot model prices existing farms at realized labor, candidates at full staffing; tests/FarmLabor.test.ts (5). Harness: leader share 20.6%→12.8%, 25/26 alive
 - [ ] 4.2 Local distribution: food-shed becomes the feeding channel — per-neighborhood fed-ratio; births/deaths applied through the neighborhood's density field
 - [ ] 4.3 Local storage: per-farm capacity = storageCurve(tenure); Barn removed (unit, BuildBar, bots, en.json); global-stock plumbing replaced; spoilage on local stocks
 - [ ] 4.4 Time-constant guard: starvation faster than senescence + tenure decay (spec'd invariant, tested)

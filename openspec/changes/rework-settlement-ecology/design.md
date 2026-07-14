@@ -108,9 +108,21 @@ A tile must be **fully healed** (damage = 0, §3) before its clock can run.
 The local-ledger model ("rung B"): food is local, the population count stays
 global but is _spatialized_ by the existing per-tile density field.
 
-- **Labor**: each farm needs `farmersPerFarm` people living within its
-  food-shed neighborhood. Output × `min(1, localPop / farmersPerFarm)` — a
-  soft factor, never a cliff, so degradation is graceful.
+- **Labor**: each farm needs `farmersPerFarm` people to tend it. Output ×
+  `max(laborFloor, min(1, localPop / farmersPerFarm))` — a soft factor with
+  a floor, so degradation is graceful and labor alone never zeroes a farm.
+  The labor pool of a farm (computed at food-shed refresh) is:
+  1. city-dwellers in its nearest-farm Voronoi cell of the shed, with
+     surplus beyond `farmersPerFarm` spilling to under-tended farms of the
+     same shed network (a dense core staffs several nearby farms); PLUS
+  2. an equal split of the RURAL population — everyone not housed in a city
+     tile. Discovered the hard way: without the rural pool the model is a
+     bootstrap death-trap (a young village has no city tiles → no labor →
+     no food → never earns a city tile). Rural labor is aspatial until §4.2
+     spatializes the population fully.
+  Measured effect (harness, verdantia t2000): 25/26 nations alive (was 16)
+  and leader share 12.8% (was 20.6%) — under-tended frontier farms are a
+  strong natural anti-snowball brake.
 - **Distribution**: farm output lands in its food-shed (FoodShed.ts stops being
   only a growth gate and becomes the feeding channel). Each neighborhood's
   fed-ratio is computed locally; local births/deaths flow through the density
