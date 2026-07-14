@@ -4,6 +4,7 @@ import { PseudoRandom } from "../../PseudoRandom";
 import { simpleHash } from "../../Util";
 import { foodTick } from "./FoodEconomy";
 import { foodShedField, foodShedPotential } from "./FoodShed";
+import { seedAwardTick } from "./SeedAwards";
 import { nucleusPaceBoost, tenureTick } from "./TileTenure";
 import { PlayerSupply, supplyField, supplyQuality } from "./SupplyField";
 
@@ -63,6 +64,11 @@ export function urbanTick(mg: Game, player: Player): void {
   // Food economy + demographics: farms produce, the population is born and
   // dies by the food it has (FoodEconomy.foodTick sets foodFlow().population).
   foodTick(mg, player);
+
+  // Seed awards (rework-settlement-ecology): ratchet the high-water marks
+  // and bank newly crossed farm/settlement awards. Runs for every player,
+  // core or not — conquest earns seeds from the first tile.
+  seedAwardTick(mg, player);
 
   if (player.core() === null) return;
 

@@ -80,10 +80,36 @@ export class BuildBar extends LitElement implements Controller {
     return 0n;
   }
 
+  /** Banked seed count for awarded plots; null for food-priced buildables. */
+  private seedCount(unitType: UnitType): number | null {
+    const player = this.game?.myPlayer();
+    if (!player) return null;
+    if (unitType === UnitType.Settlement) return player.settlementSeeds();
+    if (unitType === UnitType.Farmland) return player.farmSeeds();
+    return null;
+  }
+
   private affordable(unitType: UnitType): boolean {
     const player = this.game?.myPlayer();
     if (!player) return false;
+    // Awarded plots (rework-settlement-ecology): placeable while a banked
+    // seed exists — conquest earns farm seeds, population milestones earn
+    // settlements. Food never pays for plots.
+    const seeds = this.seedCount(unitType);
+    if (seeds !== null) return seeds > 0;
     return this.cost(unitType) <= player.food();
+  }
+
+  /** The price row: banked seeds for awarded plots, food cost otherwise. */
+  private renderPrice(unitType: UnitType, iconPx: number) {
+    const seeds = this.seedCount(unitType);
+    if (seeds !== null) {
+      return html`<span class="${seeds > 0 ? "text-lime-300" : "text-red-300"}"
+        >${seeds} ${translateText("build_menu.seeds")}</span
+      >`;
+    }
+    return html`<img src=${foodIcon} width=${iconPx} height=${iconPx} />
+      <span class="text-amber-300">${renderNumber(this.cost(unitType))}</span>`;
   }
 
   render() {
@@ -133,10 +159,7 @@ export class BuildBar extends LitElement implements Controller {
                   ${translateText(`build_menu.desc.${entry.key}`)}
                 </div>
                 <div class="flex items-center justify-center gap-1">
-                  <img src=${foodIcon} width="13" height="13" />
-                  <span class="text-amber-300"
-                    >${renderNumber(this.cost(entry.unitType))}</span
-                  >
+                  ${this.renderPrice(entry.unitType, 13)}
                 </div>
               </div>
             `
@@ -169,13 +192,8 @@ export class BuildBar extends LitElement implements Controller {
           <img src=${entry.icon} alt=${entry.key} class="size-6" />
           <div class="flex flex-col items-start leading-none">
             <span class="text-xs font-bold">${countLabel}</span>
-            <span
-              class="text-[10px] ${affordable
-                ? "text-amber-300"
-                : "text-red-300"} flex items-center gap-0.5"
-            >
-              <img src=${foodIcon} width="9" height="9" />
-              ${renderNumber(this.cost(entry.unitType))}
+            <span class="text-[10px] flex items-center gap-0.5">
+              ${this.renderPrice(entry.unitType, 9)}
             </span>
           </div>
         </button>

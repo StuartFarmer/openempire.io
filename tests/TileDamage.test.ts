@@ -137,6 +137,13 @@ describe("nothing grows on smoking ground", () => {
     const player = game.player(atkInfo.id);
     conquerBlock(game, player, 0, 0, 6);
     const tile = game.ref(3, 3);
+    // Grant seeds so the ONLY thing gating placement here is the damage.
+    const seeded = player as Player & {
+      _farmSeeds: number;
+      _settlementSeeds: number;
+    };
+    seeded._farmSeeds = 5;
+    seeded._settlementSeeds = 5;
 
     game.addTileDamage(tile, 500);
     expect(player.canBuild(UnitType.Farmland, tile)).toBe(false);

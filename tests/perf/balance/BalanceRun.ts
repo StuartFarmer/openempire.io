@@ -112,16 +112,66 @@ interface Sample {
   starved: number;
 }
 
+/** One (perimeter, area, population) observation of one nation at one tick —
+ *  the raw material of the geometric scaling law (design.md §6). */
+interface ScalingObs {
+  tick: number;
+  area: number;
+  border: number;
+  pop: number;
+  troops: number;
+}
+
 interface RunResult {
   seed: string;
   spawnTurns: number;
   series: Sample[];
+  /** Per-nation scaling observations, one per alive nation per sample tick. */
+  scaling: ScalingObs[];
   firstElimTick: number | null;
   finalLeaderShare: number;
   finalAlive: number;
   /** Structure counts across alive players at the end of the run. */
   structures: Record<string, number>;
   stateHash: number | null;
+}
+
+/**
+ * OLS log-log fit of A ∝ P^k over the observations (x = ln border,
+ * y = ln area): the empirical area↔perimeter exponent — the anti-snowball
+ * basis (rework-settlement-ecology, design.md §6). Specks are filtered so
+ * one-tile nations don't drown the signal.
+ */
+function fitScaling(obs: ScalingObs[]): {
+  k: number;
+  r2: number;
+  n: number;
+} {
+  const pts = obs.filter((o) => o.area >= 30 && o.border >= 4);
+  const n = pts.length;
+  if (n < 8) return { k: NaN, r2: NaN, n };
+  let sx = 0,
+    sy = 0;
+  for (const o of pts) {
+    sx += Math.log(o.border);
+    sy += Math.log(o.area);
+  }
+  const mx = sx / n;
+  const my = sy / n;
+  let sxx = 0,
+    sxy = 0,
+    syy = 0;
+  for (const o of pts) {
+    const dx = Math.log(o.border) - mx;
+    const dy = Math.log(o.area) - my;
+    sxx += dx * dx;
+    sxy += dx * dy;
+    syy += dy * dy;
+  }
+  if (sxx === 0 || syy === 0) return { k: NaN, r2: NaN, n };
+  const k = sxy / sxx;
+  const r2 = (sxy * sxy) / (sxx * syy);
+  return { k, r2, n };
 }
 
 function gini(values: number[]): number {
@@ -275,6 +325,7 @@ async function runOne(
 
   const spawnedCount = game.players().filter((p) => p.isAlive()).length;
   const series: Sample[] = [];
+  const scaling: ScalingObs[] = [];
   let firstElimTick: number | null = null;
   for (let i = 0; i < ticks; i++) {
     if (!runTick()) throw new Error(`tick ${game.ticks()}:\n${fatalError}`);
@@ -283,6 +334,17 @@ async function runOne(
       series.push(s);
       if (firstElimTick === null && s.alive < spawnedCount) {
         firstElimTick = s.tick;
+      }
+      // Scaling-law observations: one (P, A, pop) point per alive nation.
+      for (const p of game.players()) {
+        if (!p.isAlive()) continue;
+        scaling.push({
+          tick: game.ticks(),
+          area: p.numTilesOwned(),
+          border: p.borderTiles().size,
+          pop: p.foodFlow().population,
+          troops: p.troops(),
+        });
       }
     }
   }
@@ -333,6 +395,7 @@ async function runOne(
     seed,
     spawnTurns,
     series,
+    scaling,
     firstElimTick,
     finalLeaderShare: last.leaderShare,
     finalAlive: last.alive,
@@ -405,8 +468,26 @@ async function main(): Promise<void> {
     if (!same) process.exitCode = 1;
   }
 
+  // The geometric scaling law (design.md §6): fit A ∝ P^k per run and over
+  // the pooled observations. The pooled k is the scalingExponent candidate.
+  const allObs = results.flatMap((r) => r.scaling);
+  const pooled = fitScaling(allObs);
+  for (const r of results) {
+    const f = fitScaling(r.scaling);
+    consoleLog(
+      `scaling ${r.seed}: k=${f.k.toFixed(3)} (R²=${f.r2.toFixed(3)}, n=${f.n})`,
+    );
+  }
+  consoleLog(
+    `scaling POOLED: A ∝ P^${pooled.k.toFixed(3)} ` +
+      `(R²=${pooled.r2.toFixed(3)}, n=${pooled.n}) — scalingExponent candidate`,
+  );
+
   const finals = results.map((r) => r.finalLeaderShare);
   const summary = {
+    scalingExponent: Number(pooled.k.toFixed(3)),
+    scalingR2: Number(pooled.r2.toFixed(3)),
+    scalingN: pooled.n,
     map: arg("map", "verdantia"),
     ticks,
     bots,

@@ -164,6 +164,10 @@ troops)`.
 - A fitting pass runs log-log regression over the runs and emits `k` per map
   plus an aggregate — a report artifact recorded in balance-notes, and the
   chosen value checked into Config as `scalingExponent`.
+- **Measured 2026-07-14** (BalanceRun, 25 nations + 40 bots, 3000 ticks):
+  verdantia `k = 1.263` (R² 0.941, n = 5830), pangea001 `k = 1.272`
+  (R² 0.935, n = 2736). Real borders are RAGGED — far below the circle
+  bound of 2 — and remarkably map-stable. Adopted `scalingExponent: 1.26`.
 - `k` is a **measured constant baked into config**, not a live in-sim
   computation — deterministic, legible, and re-measured whenever knobs or maps
   change enough to matter.

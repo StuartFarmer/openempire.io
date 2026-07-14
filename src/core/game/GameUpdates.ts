@@ -252,6 +252,9 @@ export interface PlayerUpdate {
   urbanArea?: number;
   /** Extra housing from tile tenure (rework-settlement-ecology). */
   tenureCapacityBonus?: number;
+  /** Banked seeds (rework-settlement-ecology) — drive the BuildBar counters. */
+  farmSeeds?: number;
+  settlementSeeds?: number;
   allies?: number[];
   embargoes?: Set<PlayerID>;
   isTraitor?: boolean;

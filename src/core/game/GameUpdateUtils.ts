@@ -71,6 +71,11 @@ export function diffPlayerUpdate(
     "tenureCapacityBonus",
     prev.tenureCapacityBonus === next.tenureCapacityBonus,
   );
+  setIfDifferent("farmSeeds", prev.farmSeeds === next.farmSeeds);
+  setIfDifferent(
+    "settlementSeeds",
+    prev.settlementSeeds === next.settlementSeeds,
+  );
   setIfDifferent("isTraitor", prev.isTraitor === next.isTraitor);
   setIfDifferent(
     "traitorRemainingTicks",
@@ -152,6 +157,9 @@ export function applyStateUpdate(target: PlayerState, pu: PlayerUpdate): void {
   if (pu.urbanArea !== undefined) target.urbanArea = pu.urbanArea;
   if (pu.tenureCapacityBonus !== undefined)
     target.tenureCapacityBonus = pu.tenureCapacityBonus;
+  if (pu.farmSeeds !== undefined) target.farmSeeds = pu.farmSeeds;
+  if (pu.settlementSeeds !== undefined)
+    target.settlementSeeds = pu.settlementSeeds;
   if (pu.isTraitor !== undefined) target.isTraitor = pu.isTraitor;
   if (pu.traitorRemainingTicks !== undefined) {
     target.traitorRemainingTicks = Math.max(0, pu.traitorRemainingTicks);

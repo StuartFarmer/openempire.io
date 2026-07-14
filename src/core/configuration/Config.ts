@@ -195,6 +195,21 @@ export interface FoodConfig {
    *  1 + wNucleusTenure·g(core tenure) — old capitals grow faster. */
   wNucleusTenure: number;
   /**
+   * Seed awards (rework-settlement-ecology): plots are awarded, never
+   * purchased. Farm seeds accrue from PEAK TERRITORY (one per
+   * farmSeedTilesPerSeed tiles at the high-water mark); Settlement seeds
+   * from PEAK POPULATION on a power-law ladder — the nth settlement at
+   * settlementLadderBasePop · n^scalingExponent. Ratchets never re-award.
+   */
+  /** Measured area↔perimeter exponent k in A ∝ P^k (balance harness,
+   *  design.md §6). Verdantia 1.263 / pangea001 1.272, R²≈0.94 — real
+   *  borders are ragged, far below the circle bound of 2. */
+  scalingExponent: number;
+  /** Peak population for the FIRST settlement; the nth costs ·n^k. */
+  settlementLadderBasePop: number;
+  /** One farm seed per this many peak-territory tiles. */
+  farmSeedTilesPerSeed: number;
+  /**
    * Plot cost bases (display food). Actual cost =
    * base × (1 + owned × costGrowthPerOwned) — cheap plots, gently rising,
    * so empires are painted from dozens of them; the storage cap still
@@ -372,6 +387,9 @@ const FOOD_DEFAULTS: FoodConfig = {
   tenureSaturationRatio: 0.9,
   tenureDecayMilli: 100,
   wNucleusTenure: 0.5,
+  scalingExponent: 1.26, // measured 2026-07-14 (see design.md §6)
+  settlementLadderBasePop: 10_000,
+  farmSeedTilesPerSeed: 25,
   settlementCost: 150,
   farmlandCost: 40,
   barnCost: 60,
@@ -849,10 +867,10 @@ export class Config {
         break;
       case UnitType.Settlement:
         info = {
-          cost: this.foodCostWrapper(
-            () => this.food().settlementCost,
-            UnitType.Settlement,
-          ),
+          // Awarded, not purchased (rework-settlement-ecology): placing one
+          // consumes a banked Settlement seed (peak-population ladder) and
+          // costs no food.
+          cost: () => 0n,
           costResource: "food",
           // NOT upgradable: plots multiply, they don't level. An upgradable
           // tribal plot lets buildableUnits hijack a nearby build click into
@@ -862,10 +880,8 @@ export class Config {
         break;
       case UnitType.Farmland:
         info = {
-          cost: this.foodCostWrapper(
-            () => this.food().farmlandCost,
-            UnitType.Farmland,
-          ),
+          // Awarded from peak territory; costs no food (see Settlement).
+          cost: () => 0n,
           costResource: "food",
         };
         break;

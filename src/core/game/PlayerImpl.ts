@@ -140,6 +140,14 @@ export class PlayerImpl implements Player {
   /** Extra housing from tile tenure (rework-settlement-ecology): Σ over city
    *  tiles of (capMult−1)·popPerDensity, refreshed by TileTenure.tenureTick. */
   public _tenureCapacityBonus = 0;
+  // Seed awards (rework-settlement-ecology): ratcheted high-water marks and
+  // banked seeds, maintained by SeedAwards.seedAwardTick.
+  public _peakTerritory = 0;
+  public _peakPopulation = 0;
+  public _farmSeedsAwarded = 0;
+  public _settlementsAwarded = 0;
+  public _farmSeeds = 0;
+  public _settlementSeeds = 0;
   /** Per-Farmland-tile maturity M∈[0,1] in milliunits (add-urban-core-growth). */
   public _farmMaturity = new Map<TileRef, number>();
 
@@ -357,6 +365,8 @@ export class PlayerImpl implements Player {
       foodPopulationShare: this._foodPopulationShare,
       urbanArea: this.urbanArea(),
       tenureCapacityBonus: this._tenureCapacityBonus,
+      farmSeeds: this._farmSeeds,
+      settlementSeeds: this._settlementSeeds,
     };
 
     return {
@@ -1289,6 +1299,16 @@ export class PlayerImpl implements Player {
     return this._tenureCapacityBonus;
   }
 
+  /** Banked farm seeds (awarded from peak territory). */
+  farmSeeds(): number {
+    return this._farmSeeds;
+  }
+
+  /** Banked Settlement seeds (awarded from peak-population milestones). */
+  settlementSeeds(): number {
+    return this._settlementSeeds;
+  }
+
   densityEntries(): IterableIterator<[TileRef, number]> {
     return this._density.entries();
   }
@@ -1385,6 +1405,13 @@ export class PlayerImpl implements Player {
     this._units.push(b);
     this.recordUnitConstructed(type);
     this.removeCost(type, cost);
+    // Spend a banked seed (rework-settlement-ecology). Floored at zero: the
+    // pre-placed spawn kit plants before any award ticks.
+    if (type === UnitType.Settlement) {
+      this._settlementSeeds = Math.max(0, this._settlementSeeds - 1);
+    } else if (type === UnitType.Farmland) {
+      this._farmSeeds = Math.max(0, this._farmSeeds - 1);
+    }
     this.removeTroops("troops" in params ? (params.troops ?? 0) : 0);
     this.mg.addUpdate(b.toUpdate());
     this.mg.addUnit(b);
@@ -1443,6 +1470,14 @@ export class PlayerImpl implements Player {
     }
     const cost = knownCost ?? this.mg.unitInfo(unitType).cost(this.mg, this);
     if (this.costBalance(unitType) < cost) {
+      return false;
+    }
+    // Awarded seeds, not purchases (rework-settlement-ecology): placing a
+    // Settlement or Farmland requires a banked seed of that type.
+    if (unitType === UnitType.Settlement && this._settlementSeeds < 1) {
+      return false;
+    }
+    if (unitType === UnitType.Farmland && this._farmSeeds < 1) {
       return false;
     }
     if (unitType !== UnitType.MIRVWarhead && !this.isAlive()) {

@@ -29,6 +29,8 @@ function makePlayerState(overrides: Partial<PlayerState> = {}): PlayerState {
     foodPopulationShare: 1,
     urbanArea: 0,
     tenureCapacityBonus: 0,
+    farmSeeds: 0,
+    settlementSeeds: 0,
     isTraitor: false,
     traitorRemainingTicks: 0,
     inDoomsdayClock: false,

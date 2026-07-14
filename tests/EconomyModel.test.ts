@@ -72,6 +72,14 @@ function settleExecutions(game: Game, ticks = 3): void {
   for (let i = 0; i < ticks; i++) game.executeNextTick();
 }
 
+/** Plots are awarded, not bought (rework-settlement-ecology): give the
+ *  planner a full seed bank so these tests exercise SITING only. */
+function grantSeeds(p: Player): void {
+  const impl = p as Player & { _farmSeeds: number; _settlementSeeds: number };
+  impl._farmSeeds = 100;
+  impl._settlementSeeds = 100;
+}
+
 describe("EconomyModel — pure math (add-greedy-economy-planner)", () => {
   let game: Game;
   let player: Player;
@@ -183,6 +191,7 @@ describe("TribalEconomy — greedy planner policy", () => {
     conquerBlock(game, player, 10, 10, 30);
     player.addFood(100_000n);
 
+    grantSeeds(player);
     const economy = new TribalEconomy(new PseudoRandom(42), game, player);
     // Settle each pulse's construction before the next so sampling sees the
     // built plots (and canBuild filters occupied tiles).
@@ -200,6 +209,7 @@ describe("TribalEconomy — greedy planner policy", () => {
     player.addFood(2_000n); // affordable but worthless — and below the barn
     // accrual threshold, so insurance isn't wanted either
 
+    grantSeeds(player);
     const economy = new TribalEconomy(new PseudoRandom(42), game, player);
     expect(economy.tryBuild(5)).toBe(0);
     settleExecutions(game);
@@ -231,6 +241,7 @@ describe("TribalEconomy — greedy planner policy", () => {
     const room = assessUrbanRoom(game, player, supply);
     expect(room.deficit).toBeGreaterThan(0);
 
+    grantSeeds(player);
     const economy = new TribalEconomy(new PseudoRandom(7), game, player);
     expect(economy.tryBuild(1)).toBe(1);
     settleExecutions(game);
@@ -255,6 +266,7 @@ describe("TribalEconomy — greedy planner policy", () => {
     )._foodFlow.population = 50_000;
     player.addFood(BigInt(f.baseStorage)); // ≥ accrual fraction of the cap
 
+    grantSeeds(player);
     const economy = new TribalEconomy(new PseudoRandom(11), game, player);
     expect(wantsBarnInsurance(game, player)).toBe(true);
     expect(economy.tryBuild(1)).toBe(1);
@@ -270,7 +282,8 @@ describe("TribalEconomy — greedy planner policy", () => {
       const player = game.player(founderInfo.id);
       conquerBlock(game, player, 10, 10, 40);
       player.addFood(100_000n);
-      const economy = new TribalEconomy(new PseudoRandom(123), game, player);
+      grantSeeds(player);
+    const economy = new TribalEconomy(new PseudoRandom(123), game, player);
       economy.tryBuild(4);
       settleExecutions(game);
       runs.push(

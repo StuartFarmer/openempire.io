@@ -20,7 +20,7 @@ On layered maps, Farmland SHALL NOT be purchasable. Instead the player SHALL acc
 
 ### Requirement: Settlement seeds are awarded from peak population
 
-On layered maps, Settlements SHALL NOT be purchasable. The player SHALL accrue banked **Settlement seeds** as their population high-water mark crosses a power-law ladder of thresholds: the nth settlement triggers at `basePop · n^scalingExponent`, where `scalingExponent` is the empirically measured area↔perimeter exponent of the game's territorial geometry (see design.md §6; default 2, the circle bound, until measured). Each successive settlement thereby costs a constant increment of frontier effort rather than of raw population. Once awarded, a seed (and any Settlement placed from it) SHALL NOT be revoked by later population loss — settlements are fixed awards.
+On layered maps, Settlements SHALL NOT be purchasable. The player SHALL accrue banked **Settlement seeds** as their population high-water mark crosses a power-law ladder of thresholds: the nth settlement triggers at `basePop · n^scalingExponent`, where `scalingExponent` is the empirically measured area↔perimeter exponent of the game's territorial geometry (see design.md §6; measured 1.26 on 2026-07-14 — ragged real borders sit far below the circle bound of 2). Each successive settlement thereby costs a constant increment of frontier effort rather than of raw population. Once awarded, a seed (and any Settlement placed from it) SHALL NOT be revoked by later population loss — settlements are fixed awards.
 
 #### Scenario: Population milestones award settlements
 

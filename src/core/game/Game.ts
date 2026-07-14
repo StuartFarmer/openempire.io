@@ -641,6 +641,11 @@ export interface Player {
   /** Extra housing from tile tenure (rework-settlement-ecology): old city
    *  tiles hold more people. Refreshed each tick by TileTenure.tenureTick. */
   tenureCapacityBonus(): number;
+  /** Banked farm seeds — awarded from peak territory, spent by placement
+   *  (rework-settlement-ecology). */
+  farmSeeds(): number;
+  /** Banked Settlement seeds — awarded from peak-population milestones. */
+  settlementSeeds(): number;
   /** Farm maturity M∈[0,1] on a Farmland tile in milliunits (0..1000). */
   farmMaturity(tile: TileRef): number;
   setFarmMaturity(tile: TileRef, milli: number): void;

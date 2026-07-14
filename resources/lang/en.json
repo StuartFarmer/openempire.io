@@ -6,17 +6,18 @@
       "city": "Increases max population",
       "defense_post": "Increases defenses of nearby borders",
       "factory": "Creates railroads and spawns trains",
-      "farmland": "Produces food from fertile land",
+      "farmland": "Produces food from fertile land. Seeds are awarded as your territory grows.",
       "hydrogen_bomb": "Large explosion",
       "mirv": "Huge explosion, only targets selected player",
       "missile_silo": "Used to launch nukes",
       "port": "Sends trade ships to generate gold",
       "sam_launcher": "Defends against incoming nukes",
-      "settlement": "A city seed that grows where farms feed it",
+      "settlement": "A city seed that grows where farms feed it. Awarded at population milestones.",
       "warship": "Captures trade ships, destroys ships and boats"
     },
     "not_enough_food": "Not enough food",
-    "not_enough_money": "Not enough money"
+    "not_enough_money": "Not enough money",
+    "seeds": "seeds"
   },
   "chat": {
     "attack": {

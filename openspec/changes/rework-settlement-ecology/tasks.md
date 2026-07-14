@@ -20,11 +20,11 @@ Build-order, not phases. Each core task ships with tests. Everything gated on
 
 ## 3. Seed awards
 
-- [ ] 3.0 Scaling-law discovery: BalanceRun logs per-nation `(tick, area, border, pop, troops)`; log-log fit of `A ∝ P^k` per map + aggregate; report → balance-notes; adopt fitted `k` as Config `scalingExponent` (default 2 until measured)
-- [ ] 3.1 Peak-territory / peak-population ratchets on PlayerImpl; award ledgers; settlement ladder = `basePop · n^scalingExponent`
-- [ ] 3.2 Placement path consumes seeds, zero food cost; damage gate; spawn kit expressed through the seed system
-- [ ] 3.3 BuildBar: seed counters replace prices; disabled at zero; award ping/toast
-- [ ] 3.4 Tests: ratchet no-refarm, ladder math, spend/refuse, spawn kit
+- [x] 3.0 Scaling-law discovery: BalanceRun logs per-nation `(tick, area, border, pop, troops)` + `fitScaling` log-log OLS. **Measured k = 1.263 (verdantia, R² 0.941, n 5830) / 1.272 (pangea001)** — adopted `scalingExponent: 1.26`
+- [x] 3.1 `SeedAwards.seedAwardTick` (from urbanTick, every player): peak-territory → farm seeds (1 per farmSeedTilesPerSeed=25 tiles), peak-population → settlements at `settlementLadderBasePop(10k) · n^1.26`; ratchets never re-award
+- [x] 3.2 Settlement/Farmland cost 0n; canBuild gates on banked seeds (bots included — they route through canBuild); buildUnit spends (floored, so the pre-placed spawn kit never underflows — kit stays pre-placed per spec); seeds synced to client via PlayerUpdate
+- [x] 3.3 BuildBar: seed counters replace food prices for Settlement/Farmland (lime when banked, red at zero; Barn keeps its food price); award toast deferred to polish
+- [x] 3.4 Tests (tests/SeedAwards.test.ts): territory ratchet no-refarm, n^k ladder + famine no-revoke, spend/refuse/free placement, settlement gate. Harness sanity: 16/26 nations alive at t2000 under the seed regime
 
 ## 4. Local food + labor (biggest sim rewire)
 

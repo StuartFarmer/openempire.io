@@ -70,6 +70,9 @@ export interface PlayerState {
   urbanArea: number;
   /** Extra housing from tile tenure (rework-settlement-ecology). */
   tenureCapacityBonus: number;
+  /** Banked seeds (rework-settlement-ecology). */
+  farmSeeds: number;
+  settlementSeeds: number;
   isTraitor: boolean;
   traitorRemainingTicks: number;
   inDoomsdayClock: boolean;
