@@ -279,6 +279,14 @@ export class MapRenderer {
   applyDensityDelta(refs: readonly number[], density: Uint8Array): void {
     this.renderer?.applyDensityDelta(refs, density);
   }
+  /** Full upload of the tile combat-damage field (rework-settlement-ecology). */
+  updateDamageField(damage: Uint8Array): void {
+    this.renderer?.updateDamageField(damage);
+  }
+  /** Sub-upload the tiles whose combat damage changed this tick. */
+  applyDamageDelta(refs: readonly number[], damage: Uint8Array): void {
+    this.renderer?.applyDamageDelta(refs, damage);
+  }
   /** Toggle the supply-lines heatmap (layered maps). */
   setSupplyOverlay(active: boolean): void {
     this.renderer?.setSupplyOverlay(active);

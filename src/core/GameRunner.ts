@@ -193,6 +193,7 @@ export class GameRunner {
     const packedPlayerUpdates = this.game.drainPackedPlayerUpdates();
     const packedAttackUpdates = this.game.drainPackedAttackUpdates();
     const packedDensityUpdates = this.game.drainPackedDensityUpdates();
+    const packedDamageUpdates = this.game.drainPackedDamageUpdates();
 
     this.callBack({
       tick: this.game.ticks(),
@@ -201,6 +202,7 @@ export class GameRunner {
       ...(packedPlayerUpdates ? { packedPlayerUpdates } : {}),
       ...(packedAttackUpdates ? { packedAttackUpdates } : {}),
       ...(packedDensityUpdates ? { packedDensityUpdates } : {}),
+      ...(packedDamageUpdates ? { packedDamageUpdates } : {}),
       updates: updates,
       ...(viewDataChanged ? { playerNameViewData: this.playerViewData } : {}),
       tickExecutionDuration: tickExecutionDuration,

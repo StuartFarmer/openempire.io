@@ -809,6 +809,9 @@ export interface Game extends GameMap {
   // `tile | (byte<<24)`, byte = round(density/1000·255).
   recordDensityUpdate(tile: TileRef, byte: number): void;
   drainPackedDensityUpdates(): Uint32Array | null;
+  // Tile combat-damage render deltas (rework-settlement-ecology): same
+  // packing, byte = round(damage/1000·255); byte 0 = fully healed.
+  drainPackedDamageUpdates(): Uint32Array | null;
   setWinner(winner: Player | Team, allPlayersStats: AllPlayersStats): void;
   getWinner(): Player | Team | null;
   config(): Config;

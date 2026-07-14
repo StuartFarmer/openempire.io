@@ -410,6 +410,19 @@ export interface RenderSettings {
     highG: number;
     highB: number;
   };
+  // Battle-worn ground (rework-settlement-ecology): brown wash over damaged
+  // tiles, alpha scaled by remaining damage. Same shape as densityOverlay —
+  // both are R8-field washes drawn by the DensityPass class.
+  damageOverlay: {
+    alphaLow: number; // wash opacity at barely-scarred
+    alphaHigh: number; // wash opacity at fully battle-worn
+    lowR: number; // the standard brown (low == high: one color, alpha ramps)
+    lowG: number;
+    lowB: number;
+    highR: number;
+    highG: number;
+    highB: number;
+  };
   tileDrip: {
     /**
      * Round-robin bucket count for staggering territory tile uploads across

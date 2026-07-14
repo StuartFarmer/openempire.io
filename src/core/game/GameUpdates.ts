@@ -61,6 +61,12 @@ export interface GameUpdateViewData {
    */
   packedDensityUpdates?: Uint32Array;
   /**
+   * Packed tile combat-damage deltas as `tile | (byte<<24)` uint32 words
+   * (rework-settlement-ecology), byte = round(damage/1000·255). Byte 0 means
+   * fully healed. Absent when no tile's damage changed.
+   */
+  packedDamageUpdates?: Uint32Array;
+  /**
    * Name placement per player. Only present on ticks where the worker
    * recomputed placements (spawn ticks, the first ticks, every 30th tick,
    * spawn end) — between those the values wouldn't change, so the record is

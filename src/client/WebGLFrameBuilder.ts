@@ -198,6 +198,7 @@ export class WebGLFrameBuilder {
     this.syncSpawnOverlay(gameView);
     this.syncTerrainDeltas(gameView);
     this.syncDensityField(gameView);
+    this.syncDamageField(gameView);
     this.syncSupplyOverlay(gameView);
     this.resolveDeadUnitExplosions(gameView);
     uploadFrameData(this.view, gameView.frameData());
@@ -219,6 +220,24 @@ export class WebGLFrameBuilder {
     const changed = gameView.recentlyUpdatedDensityTiles();
     if (changed.length > 0) {
       this.view.applyDensityDelta(changed, gameView.densityStateBuffer());
+    }
+  }
+
+  private damageUploaded = false;
+
+  /**
+   * Push the tile combat-damage field (rework-settlement-ecology): full
+   * upload on the first tick, then per-tile deltas as scars accrue and heal.
+   */
+  private syncDamageField(gameView: GameView): void {
+    if (!this.damageUploaded) {
+      this.view.updateDamageField(gameView.damageStateBuffer());
+      this.damageUploaded = true;
+      return;
+    }
+    const changed = gameView.recentlyUpdatedDamageTiles();
+    if (changed.length > 0) {
+      this.view.applyDamageDelta(changed, gameView.damageStateBuffer());
     }
   }
 

@@ -90,6 +90,9 @@ export class GameView implements GameMap {
   // Urban density field (add-urban-core-growth).
   private densityState!: Uint8Array;
   private densityChanged: TileRef[] = [];
+  // Tile combat-damage field (rework-settlement-ecology).
+  private damageState!: Uint8Array;
+  private damageChanged: TileRef[] = [];
   /** Long-lived NameEntry map for the renderer's NamePass. */
   private _names = new Map<string, NameEntry>();
   /** Reusable scratch buffers for per-tick deltas. */
@@ -171,6 +174,9 @@ export class GameView implements GameMap {
     // Urban density field (add-urban-core-growth): per-tile built-up density
     // (0..255), applied from packedDensityUpdates and rendered by DensityPass.
     this.densityState = new Uint8Array(mapW * mapH);
+    // Tile combat damage (rework-settlement-ecology): per-tile battle-worn
+    // level (0..255), applied from packedDamageUpdates, rendered brown.
+    this.damageState = new Uint8Array(mapW * mapH);
 
     // Long-lived FrameData. Most fields are mutable references to long-lived
     // buffers (tileState, trailState, etc.); some (_changedTilesScratch,
@@ -304,6 +310,18 @@ export class GameView implements GameMap {
         const tile = word & 0xffffff;
         this.densityState[tile] = word >>> 24;
         this.densityChanged.push(tile);
+      }
+    }
+
+    // Tile combat-damage deltas: same packing (byte 0 = fully healed).
+    this.damageChanged = [];
+    if (gu.packedDamageUpdates) {
+      const dmg = gu.packedDamageUpdates;
+      for (let i = 0; i < dmg.length; i++) {
+        const word = dmg[i];
+        const tile = word & 0xffffff;
+        this.damageState[tile] = word >>> 24;
+        this.damageChanged.push(tile);
       }
     }
 
@@ -934,6 +952,16 @@ export class GameView implements GameMap {
   /** Tiles whose density changed this tick (for delta uploads). */
   recentlyUpdatedDensityTiles(): TileRef[] {
     return this.densityChanged;
+  }
+
+  /** Tile combat-damage buffer (0..255 per tile) — rework-settlement-ecology. */
+  damageStateBuffer(): Uint8Array {
+    return this.damageState;
+  }
+
+  /** Tiles whose combat damage changed this tick (for delta uploads). */
+  recentlyUpdatedDamageTiles(): TileRef[] {
+    return this.damageChanged;
   }
 
   recentlyUpdatedTerrainTiles(): TileRef[] {

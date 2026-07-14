@@ -151,6 +151,7 @@ export class GPURenderer {
   private spawnOverlayPass: SpawnOverlayPass;
   private supplyOverlayPass: SupplyOverlayPass;
   private densityPass: DensityPass;
+  private damagePass: DensityPass; // battle-worn brown wash (same field-wash pass)
   private inSpawnPhase = false;
 
   private paletteTex: WebGLTexture;
@@ -534,6 +535,15 @@ export class GPURenderer {
       mapW,
       mapH,
       this.settings.densityOverlay,
+    );
+
+    // --- Tile combat damage (battle-worn ground, rework-settlement-ecology):
+    // the same R8-field wash pass with a brown palette. ---
+    this.damagePass = new DensityPass(
+      gl,
+      mapW,
+      mapH,
+      this.settings.damageOverlay,
     );
 
     // --- Range circle (ghost preview radius) ---
@@ -1107,6 +1117,14 @@ export class GPURenderer {
     this.densityPass.applyDelta(refs, density);
   }
 
+  updateDamageField(damage: Uint8Array): void {
+    this.damagePass.update(damage);
+  }
+
+  applyDamageDelta(refs: readonly number[], damage: Uint8Array): void {
+    this.damagePass.applyDelta(refs, damage);
+  }
+
   setSupplyOverlay(active: boolean): void {
     this.supplyOverlayPass.setEnabled(active);
   }
@@ -1335,6 +1353,9 @@ export class GPURenderer {
     this.spawnOverlayPass.draw(cam);
     // The urban density field (the growing city) draws over territory.
     this.densityPass.draw(cam);
+    // Battle-worn ground draws over territory AND city: a scar reads brown
+    // whoever holds it, fading as it heals.
+    this.damagePass.draw(cam);
     // Supply heatmap sits under borders/structures so plots stay readable.
     this.supplyOverlayPass.draw(cam);
     // Borders draw here; the aimed concentrated-push segment is recoloured onto
@@ -1401,6 +1422,7 @@ export class GPURenderer {
     this.spawnOverlayPass.dispose();
     this.supplyOverlayPass.dispose();
     this.densityPass.dispose();
+    this.damagePass.dispose();
     this.railroadPass.dispose();
     this.plotPass.dispose();
     this.plotFirePass.dispose();

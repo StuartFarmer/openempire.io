@@ -99,6 +99,9 @@ export class GameImpl implements Game {
   // Urban density deltas (add-urban-core-growth): packed `tile | (byte<<24)`,
   // byte = round(density/1000·255). Drained to packedDensityUpdates each tick.
   private densityUpdatePairs: number[] = [];
+  // Tile combat-damage deltas (rework-settlement-ecology): same packing,
+  // byte = round(damage/1000·255). Drained to packedDamageUpdates each tick.
+  private damageUpdatePairs: number[] = [];
   /** [smallID, tilesOwned, gold, troops] quads — see PlayerImpl.toUpdate. */
   private playerStatsQuads: number[] = [];
   /** [smallID, direction, index, troops] quads — see packAttackTroopDeltas. */
@@ -516,6 +519,14 @@ export class GameImpl implements Game {
     return packed;
   }
 
+  drainPackedDamageUpdates(): Uint32Array | null {
+    const pairs = this.damageUpdatePairs;
+    if (pairs.length === 0) return null;
+    const packed = new Uint32Array(pairs);
+    pairs.length = 0;
+    return packed;
+  }
+
   drainPackedPlayerUpdates(): Float64Array | null {
     const quads = this.playerStatsQuads;
     if (quads.length === 0) return null;
@@ -727,7 +738,7 @@ export class GameImpl implements Game {
     if (milli <= 0) return;
     const next = Math.min(1000, this.tileDamage(tile) + milli);
     this._tileDamage.set(tile, next);
-    this.recordTileUpdate(tile);
+    this.damageUpdatePairs.push(tile | (Math.round((next * 255) / 1000) << 24));
   }
 
   tileDamageEntries(): IterableIterator<[TileRef, number]> {
@@ -747,11 +758,14 @@ export class GameImpl implements Game {
         healed.push(tile);
       } else {
         this._tileDamage.set(tile, next);
+        this.damageUpdatePairs.push(
+          tile | (Math.round((next * 255) / 1000) << 24),
+        );
       }
     }
     for (const tile of healed) {
       this._tileDamage.delete(tile);
-      this.recordTileUpdate(tile);
+      this.damageUpdatePairs.push(tile); // byte 0 — fully healed, tint gone
     }
   }
 

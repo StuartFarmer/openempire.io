@@ -7,7 +7,7 @@ Build-order, not phases. Each core task ships with tests. Everything gated on
 
 - [x] 1.1 Per-tile damage field (sparse Map on GameImpl, milli 0..1000, deterministic insertion-order heal each tick in executeNextTick); applied in AttackExecution only for tiles taken FROM A PLAYER (wilderness expansion leaves no scar); knobs `combatTileDamageMilli`/`tileDamageHealMilli`
 - [x] 1.2 Gates: urban CA skips damaged tiles (addCityTiles eligibility); plotSpawn refuses all plots on damaged ground; farmTick freezes a damaged farm (no ripening, no senescence)
-- [ ] 1.3 Render: brown tint pass, alpha ∝ damage (single standard brown)
+- [x] 1.3 Render: brown wash, alpha ∝ damage — packedDamageUpdates channel (GameImpl→GameRunner→GameView→WebGLFrameBuilder), second DensityPass instance with `damageOverlay` settings; verified in-browser (verify-tile-damage.mjs: buffer bytes + heal rate + visible brown scar at a bot war front)
 - [x] 1.4 Tests (tests/TileDamage.test.ts): combat scars / wilderness doesn't, cap + linear heal to zero, plot refusal until healed, farm freeze/resume, city grows around the scar
 
 ## 2. Tile stability (tenure)

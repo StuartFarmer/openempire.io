@@ -360,6 +360,16 @@
     "highG": 0.88,
     "highB": 0.55
   },
+  "damageOverlay": {
+    "alphaLow": 0.12,
+    "alphaHigh": 0.72,
+    "lowR": 0.38,
+    "lowG": 0.26,
+    "lowB": 0.14,
+    "highR": 0.38,
+    "highG": 0.26,
+    "highB": 0.14
+  },
   "tileDrip": {
     "bucketCount": 9
   },
