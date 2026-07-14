@@ -340,6 +340,15 @@ export class AttackExecution implements Execution {
         targetPlayer.removeTroops(defenderTroopLoss);
       }
       this._owner.conquer(tileToConquer);
+      // Fighting scars the ground (rework-settlement-ecology): tiles taken
+      // from a PLAYER in combat accumulate damage that must fully heal before
+      // they grow again. Wilderness expansion is not combat and leaves no scar.
+      if (targetPlayer) {
+        this.mg.addTileDamage(
+          tileToConquer,
+          this.mg.config().food().combatTileDamageMilli,
+        );
+      }
       this.attack.setFrontTile(tileToConquer);
       this.handleDeadDefender();
     }

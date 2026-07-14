@@ -479,6 +479,7 @@ export class GameImpl implements Game {
     for (const tile of waterChangedTiles) {
       this.recordTileUpdate(tile);
     }
+    this.healTileDamage();
     this._ticks++;
     return this.updates;
   }
@@ -711,6 +712,47 @@ export class GameImpl implements Game {
     callback: (neighbor: TileRef) => void,
   ): void {
     this._map.forEachNeighborWithDiag(tile, callback);
+  }
+
+  // Tile combat damage (rework-settlement-ecology): sparse — only tiles that
+  // have seen combat are tracked; healed tiles are dropped. Map iteration is
+  // insertion-ordered and inserts are deterministic, so healing is too.
+  private _tileDamage = new Map<TileRef, number>();
+
+  tileDamage(tile: TileRef): number {
+    return this._tileDamage.get(tile) ?? 0;
+  }
+
+  addTileDamage(tile: TileRef, milli: number): void {
+    if (milli <= 0) return;
+    const next = Math.min(1000, this.tileDamage(tile) + milli);
+    this._tileDamage.set(tile, next);
+    this.recordTileUpdate(tile);
+  }
+
+  tileDamageEntries(): IterableIterator<[TileRef, number]> {
+    return this._tileDamage.entries();
+  }
+
+  /** Heal every damaged tile by the per-tick rate; fully healed tiles drop
+   *  out of the sparse map (and only then can tenure/growth resume). */
+  private healTileDamage(): void {
+    if (this._tileDamage.size === 0) return;
+    const heal = this.config().food().tileDamageHealMilli;
+    if (heal <= 0) return;
+    const healed: TileRef[] = [];
+    for (const [tile, dmg] of this._tileDamage) {
+      const next = dmg - heal;
+      if (next <= 0) {
+        healed.push(tile);
+      } else {
+        this._tileDamage.set(tile, next);
+      }
+    }
+    for (const tile of healed) {
+      this._tileDamage.delete(tile);
+      this.recordTileUpdate(tile);
+    }
   }
 
   conquer(owner: PlayerImpl, tile: TileRef): void {

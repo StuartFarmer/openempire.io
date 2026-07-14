@@ -1598,6 +1598,11 @@ export class PlayerImpl implements Player {
     ) {
       return false;
     }
+    // Battle-worn ground (rework-settlement-ecology): no rebuilding on
+    // smoking ground — a damaged tile refuses plots until fully healed.
+    if (this.mg.tileDamage(anchor) > 0) {
+      return false;
+    }
     // Mutual exclusivity (add-urban-core-growth): Farmland and a full city tile
     // are never the same tile — a farm cannot be planted on a fully-settled city
     // tile, and the city never spreads onto a farm tile (see UrbanGrowth).

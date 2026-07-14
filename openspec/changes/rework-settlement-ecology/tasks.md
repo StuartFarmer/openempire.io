@@ -5,10 +5,10 @@ Build-order, not phases. Each core task ships with tests. Everything gated on
 
 ## 1. Tile damage (foundation — smallest, everything gates on it)
 
-- [ ] 1.1 Per-tile damage field (map-wide int array) + apply-on-combat hooks in AttackExecution; heal-per-tick on the supply cadence; deterministic
-- [ ] 1.2 Gates: urban CA skips damaged tiles; Farmland placement refused; farm maturation halted while damaged
+- [x] 1.1 Per-tile damage field (sparse Map on GameImpl, milli 0..1000, deterministic insertion-order heal each tick in executeNextTick); applied in AttackExecution only for tiles taken FROM A PLAYER (wilderness expansion leaves no scar); knobs `combatTileDamageMilli`/`tileDamageHealMilli`
+- [x] 1.2 Gates: urban CA skips damaged tiles (addCityTiles eligibility); plotSpawn refuses all plots on damaged ground; farmTick freezes a damaged farm (no ripening, no senescence)
 - [ ] 1.3 Render: brown tint pass, alpha ∝ damage (single standard brown)
-- [ ] 1.4 Tests: contested corridor accumulates, heals linearly, gates hold, determinism
+- [x] 1.4 Tests (tests/TileDamage.test.ts): combat scars / wilderness doesn't, cap + linear heal to zero, plot refusal until healed, farm freeze/resume, city grows around the scar
 
 ## 2. Tile stability (tenure)
 

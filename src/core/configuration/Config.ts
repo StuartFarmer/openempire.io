@@ -160,6 +160,16 @@ export interface FoodConfig {
    */
   capturedPlotRazeChance: number;
   /**
+   * Combat damage (milli, 0..1000) added to a tile each time it is conquered
+   * in an attack on another player (rework-settlement-ecology). Damaged
+   * ground refuses plots and urban growth and freezes farm maturation until
+   * fully healed; contested corridors accumulate toward 1000 (battle-worn).
+   */
+  combatTileDamageMilli: number;
+  /** Damage healed per tile per tick (milli). Full heal from one hit takes
+   *  combatTileDamageMilli / tileDamageHealMilli ticks. */
+  tileDamageHealMilli: number;
+  /**
    * Plot cost bases (display food). Actual cost =
    * base × (1 + owned × costGrowthPerOwned) — cheap plots, gently rising,
    * so empires are painted from dozens of them; the storage cap still
@@ -325,6 +335,10 @@ const FOOD_DEFAULTS: FoodConfig = {
   decayNumer: 1,
   decayDenom: 2000,
   capturedPlotRazeChance: 0.5,
+  // One combat conquest scars a tile to 40%; at 4/tick it fully heals in
+  // 100 ticks (~10 s) — repeated fighting stacks toward a long-lived scar.
+  combatTileDamageMilli: 400,
+  tileDamageHealMilli: 4,
   settlementCost: 150,
   farmlandCost: 40,
   barnCost: 60,

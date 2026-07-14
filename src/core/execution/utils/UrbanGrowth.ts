@@ -155,6 +155,9 @@ function addCityTiles(
     if (player.density(tile) >= CITY) continue; // already a city tile
     // Mutual exclusivity: a Farmland tile is food, never city.
     if (mg.plotAt(tile)?.type() === UnitType.Farmland) continue;
+    // Battle-worn ground never urbanizes until fully healed — the city
+    // grows around the scar (rework-settlement-ecology).
+    if (mg.tileDamage(tile) > 0) continue;
     const base = urbanSuitability(mg, player, supply, tile, localDensity(tile));
     if (base <= 0) continue;
     const gate = Math.min(1, f.wFoodShed * foodShedPotential(mg, shed, tile));

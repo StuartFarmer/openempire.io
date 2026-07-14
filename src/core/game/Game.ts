@@ -881,6 +881,14 @@ export interface Game extends GameMap {
   /** The tribal plot (if any) covering this tile. */
   plotAt(tile: TileRef): Unit | undefined;
 
+  // Tile combat damage (rework-settlement-ecology): battle-worn ground.
+  /** Remaining combat damage on a tile (milli, 0..1000; 0 = fully healed). */
+  tileDamage(tile: TileRef): number;
+  /** Add combat damage to a tile (milli, clamped to 1000). */
+  addTileDamage(tile: TileRef, milli: number): void;
+  /** All tiles with damage > 0 (sparse; deterministic insertion order). */
+  tileDamageEntries(): IterableIterator<[TileRef, number]>;
+
   addUpdate(update: GameUpdate): void;
   railNetwork(): RailNetwork;
   conquerPlayer(conqueror: Player, conquered: Player): void;

@@ -88,6 +88,9 @@ export function farmTick(mg: Game, player: Player): void {
   for (const farm of player.units(UnitType.Farmland)) {
     if (farm.isUnderConstruction()) continue;
     const tile = farm.tile();
+    // Battle-worn ground (rework-settlement-ecology): a damaged tile freezes
+    // its farm — no ripening, no senescence — until it fully heals.
+    if (mg.tileDamage(tile) > 0) continue;
     let mMilli = player.farmMaturity(tile);
     if (mMilli <= 0) mMilli = seed; // just planted
     const m = mMilli / 1000;
