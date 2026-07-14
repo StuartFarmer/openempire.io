@@ -67,7 +67,10 @@ export function foodShedField(mg: Game, player: Player): PlayerFoodShed {
   const t = mg.ticks();
   if (s.lastCalcTick === -1 || t - s.lastCalcTick >= period) {
     recompute(mg, player, s);
-    s.lastCalcTick = t;
+    // Staggered per player like the military supply field (see
+    // SupplyField.supplyField): all-on-one-tick refreshes are the
+    // once-a-second framerate dip.
+    s.lastCalcTick = Math.max(0, t - ((t + player.smallID()) % period));
   }
   return s;
 }

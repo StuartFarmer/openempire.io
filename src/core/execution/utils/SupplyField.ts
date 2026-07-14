@@ -63,7 +63,12 @@ export function supplyField(mg: Game, player: Player): PlayerSupply {
     nodeCount !== s.lastNodeCount
   ) {
     recompute(mg, player, s);
-    s.lastCalcTick = t;
+    // STAGGER the cadence by player (deterministic smallID phase): every
+    // player refreshing on the same tick piles all the BFS sweeps into one
+    // frame — a measured 7× tick spike every period (the once-a-second
+    // framerate dip). Backdating the stamp spreads refreshes across the
+    // whole cycle while keeping each player's period exact.
+    s.lastCalcTick = Math.max(0, t - ((t + player.smallID()) % period));
     s.lastNodeCount = nodeCount;
   }
   return s;
