@@ -759,9 +759,15 @@ export class GameImpl implements Game {
         healed.push(tile);
       } else {
         this._tileDamage.set(tile, next);
-        this.damageUpdatePairs.push(
-          tile | (Math.round((next * 255) / 1000) << 24),
-        );
+        // Emit a render delta only when the QUANTIZED byte steps (8-wide
+        // bands): healing moves ~1 byte/tick, and re-uploading every damaged
+        // tile every tick floods the render channel (measured 1.8k one-pixel
+        // GPU uploads/tick — the 3fps bug). An 8-step fade is invisible.
+        const prevQ = Math.round((dmg * 255) / 1000) & ~7;
+        const nextQ = Math.round((next * 255) / 1000) & ~7;
+        if (nextQ !== prevQ) {
+          this.damageUpdatePairs.push(tile | (nextQ << 24));
+        }
       }
     }
     for (const tile of healed) {

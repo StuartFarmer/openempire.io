@@ -90,27 +90,73 @@ export class DensityPass {
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
   }
 
-  /** Sub-upload the tiles that changed this tick. */
+  /**
+   * Sub-upload the tiles that changed this tick. Small deltas go pixel by
+   * pixel; larger ones are batched into DIRTY-ROW SPANS (one texSubImage2D
+   * per contiguous run of changed rows, sliced from the CPU buffer) — a war
+   * front healing thousands of tiles/tick must not become thousands of
+   * one-pixel GPU uploads (measured: that floods the main thread to ~3fps).
+   */
   applyDelta(refs: readonly number[], density: Uint8Array): void {
     if (refs.length === 0) return;
     const gl = this.gl;
     gl.bindTexture(gl.TEXTURE_2D, this.tex);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-    for (const ref of refs) {
-      this.scratch[0] = density[ref];
-      const x = ref % this.mapW;
-      const y = (ref / this.mapW) | 0;
-      gl.texSubImage2D(
-        gl.TEXTURE_2D,
-        0,
-        x,
-        y,
-        1,
-        1,
-        gl.RED,
-        gl.UNSIGNED_BYTE,
-        this.scratch,
-      );
+    if (refs.length <= 64) {
+      for (const ref of refs) {
+        this.scratch[0] = density[ref];
+        const x = ref % this.mapW;
+        const y = (ref / this.mapW) | 0;
+        gl.texSubImage2D(
+          gl.TEXTURE_2D,
+          0,
+          x,
+          y,
+          1,
+          1,
+          gl.RED,
+          gl.UNSIGNED_BYTE,
+          this.scratch,
+        );
+      }
+    } else {
+      const rowSet = new Set<number>();
+      for (const ref of refs) rowSet.add((ref / this.mapW) | 0);
+      if (rowSet.size > this.mapH / 2) {
+        // Dirt everywhere — one full-texture upload beats row juggling.
+        gl.texSubImage2D(
+          gl.TEXTURE_2D,
+          0,
+          0,
+          0,
+          this.mapW,
+          this.mapH,
+          gl.RED,
+          gl.UNSIGNED_BYTE,
+          density,
+        );
+      } else {
+        const rows = Array.from(rowSet).sort((a, b) => a - b);
+        let i = 0;
+        while (i < rows.length) {
+          let j = i;
+          while (j + 1 < rows.length && rows[j + 1] === rows[j] + 1) j++;
+          const y0 = rows[i];
+          const h = rows[j] - y0 + 1;
+          gl.texSubImage2D(
+            gl.TEXTURE_2D,
+            0,
+            0,
+            y0,
+            this.mapW,
+            h,
+            gl.RED,
+            gl.UNSIGNED_BYTE,
+            density.subarray(y0 * this.mapW, (y0 + h) * this.mapW),
+          );
+          i = j + 1;
+        }
+      }
     }
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
   }
