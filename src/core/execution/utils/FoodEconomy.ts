@@ -1,8 +1,8 @@
 import { Game, Player, Unit, UnitType } from "../../game/Game";
+import { farmTick } from "./FarmGrowth";
 import {
   probeDistance,
   supplyField,
-  supplyQuality,
   supplyQualityFromDistance,
 } from "./SupplyField";
 
@@ -50,25 +50,26 @@ export function foodTick(mg: Game, player: Player): number {
 
   // ── Production: farms are the ONLY food source (landHarvestMilli
   // defaults to 0 — unfarmed land produces nothing; conquest wins tiles to
-  // farm, not free food). The spawn starter kit provides the first farms.
-  let farmFertility = 0;
+  // farm, not free food). Advance each farm's maturity first (climate-driven
+  // Gompertz, growth-model.md Part 1), then harvest at the updated maturity:
+  // a freshly planted farm yields almost nothing until it ripens, and a farm
+  // in a hostile biome never reaches full yield.
+  farmTick(mg, player);
+  let farmYieldMilli = 0;
   for (const farm of player.units(UnitType.Farmland)) {
     if (farm.isUnderConstruction()) continue;
+    const tile = farm.tile();
     // District bonus: contiguous farm belts out-produce scattered plots.
     const district = 1 + sameTypeNeighborPlots(mg, farm) * f.adjacencyBonus;
-    // Supply-line term: frontier farms far from any Settlement/Barn
-    // underperform until the district's logistics catch up.
-    const quality = supplyQuality(mg, supply, farm.tile());
-    farmFertility +=
-      mg.layer("crop", farm.tile()) * farm.level() * district * quality;
+    const maturity = player.farmMaturity(tile) / 1000; // AquaCrop canopy
+    const soilN = mg.layer("crop", tile) / 255; // FAO fertility ceiling
+    // yield = M · f_soil · farmYieldMilli (AquaCrop biomass→harvest collapsed).
+    farmYieldMilli += maturity * soilN * district * f.farmYieldMilli;
   }
   const landMilli = Math.floor(
     Math.pow(player.fertilitySum(), f.landHarvestExponent) * f.landHarvestMilli,
   );
-  // farmFertility carries fractional district multipliers — floor before
-  // the value flows into bigint stock math.
-  const productionMilli =
-    landMilli + Math.floor(farmFertility * f.farmProductionMilli);
+  const productionMilli = landMilli + Math.floor(farmYieldMilli);
 
   // ── Consumption: idle population < moving troops < fighting troops ──────
   // Attack and boat troops leave the player's troops() pool while deployed,
@@ -139,38 +140,80 @@ export function foodTick(mg: Game, player: Player): number {
   stock -= (stock * BigInt(f.decayNumer)) / BigInt(f.decayDenom);
   impl._foodMilli = stock;
 
-  // ── Growth throttled by the population share's surplus, or starvation ───
-  // Three regimes: surplus → grow (scaled up to full at surplusForFullGrowth
-  // above break-even) — the surplus is eaten by growth, never banked;
-  // covered deficit → stagnate (reserves feed people, they don't multiply);
-  // uncovered deficit → starve.
-  let starved = 0;
-  let surplusFactor = 0;
-  if (deficitMilli > 0) {
-    // Starvation hits the WHOLE population proportionally — idle pool,
-    // troops deployed in attacks, and troops on boats. Deployed troops must
-    // not be a famine shelter: without this, "attack with everything" was
-    // starvation-immune (and conquered land on top).
-    const total = idle + fighting + moving;
-    const unfed = deficitMilli / f.idleConsumptionMilli;
-    starved = Math.min(total, Math.ceil(unfed * f.starvationDeathFraction));
-    if (total > 0 && starved > 0) {
-      player.removeTroops(Math.round((starved * idle) / total));
-      for (const attack of player.outgoingAttacks()) {
-        const share = Math.round((starved * attack.troops()) / total);
-        attack.setTroops(Math.max(0, attack.troops() - share));
-      }
-      for (const boat of player.units(UnitType.TransportShip)) {
-        const share = Math.round((starved * boat.troops()) / total);
-        boat.setTroops(Math.max(0, boat.troops() - share));
-      }
-    }
-  } else if (netMilli > 0) {
-    const surplusRatio = netMilli / Math.max(1, consumptionMilli);
-    surplusFactor = Math.min(1, surplusRatio / f.surplusForFullGrowth);
-    // Population fills toward the cap (set by the urban sprawl) on surplus.
-    player.addTroops(mg.config().troopIncreaseRate(player) * surplusFactor);
+  // ── Demographics (add-urban-core-growth): the population is agents with an
+  // average lifespan. Food modulates BIRTHS and DEATHS; the city footprint and
+  // survival follow the LIVING population, not the food capacity. ───────────
+  const pop = idle + fighting + moving; // total manpower
+  const need = Math.max(1, consumptionMilli);
+  // Food-supported population — how many mouths this production can feed. It is
+  // the ceiling births approach (never overshoot).
+  const capacity = Math.floor(productionMilli / f.idleConsumptionMilli);
+
+  // fedRatio: fraction of the population's need met this tick (1 = fully fed).
+  const fedRatio = Math.max(0, Math.min(1, 1 - deficitMilli / need));
+  // surplusRatio: production vs need — >1 is surplus, which boosts births.
+  const surplusRatio = productionMilli / need;
+
+  const dem = player as Player & {
+    _birthCredit: number;
+    _deathCredit: number;
+    _starveCredit: number;
+  };
+  const baseDeathFraction = 1 / f.avgLifespanTicks;
+
+  // Old-age deaths take the CIVILIAN population (the idle pool). Deployed
+  // soldiers are a transient consumed by war and famine, not by aging at the
+  // front — a 10-second life must not evaporate an army in the field.
+  dem._deathCredit += idle * baseDeathFraction;
+  const oldAge = Math.min(idle, Math.floor(dem._deathCredit));
+  dem._deathCredit -= oldAge;
+
+  // Starvation kills EVERYONE (idle + deployed, no famine shelter) on TOP of old
+  // age: as food falls the effective lifespan shortens — half food ⇒ half life
+  // (double death), floored at minFedForLife so full starvation is finite.
+  const starveFraction = Math.min(
+    1,
+    baseDeathFraction * (1 / Math.max(f.minFedForLife, fedRatio) - 1),
+  );
+  dem._starveCredit += pop * starveFraction;
+  const starved = Math.min(pop, Math.floor(dem._starveCredit));
+  dem._starveCredit -= starved;
+
+  // Births: base rate, scaled 0→birthSurplusCap× by food surplus (0 at no food,
+  // 1× at break-even, up to the cap at ≥200% food). New people join the idle
+  // pool — but never breed past the food-supported population, so growth
+  // approaches that ceiling and holds instead of overshooting into famine.
+  const birthFactor = Math.max(0, Math.min(f.birthSurplusCap, surplusRatio));
+  dem._birthCredit += pop * f.baseBirthRate * birthFactor;
+  let births = Math.floor(dem._birthCredit);
+  dem._birthCredit -= births;
+  const headroom = Math.max(0, capacity - pop);
+  if (births > headroom) {
+    births = headroom;
+    dem._birthCredit = 0; // the food ceiling, not banked credit, caps growth
   }
+
+  // Apply old age to the idle pool, then starvation proportionally across the
+  // whole population, then births to the idle pool.
+  if (oldAge > 0) player.removeTroops(oldAge);
+  if (starved > 0 && pop > 0) {
+    player.removeTroops(Math.round((starved * idle) / pop));
+    for (const attack of player.outgoingAttacks()) {
+      const share = Math.round((starved * attack.troops()) / pop);
+      attack.setTroops(Math.max(0, attack.troops() - share));
+    }
+    for (const boat of player.units(UnitType.TransportShip)) {
+      const share = Math.round((starved * boat.troops()) / pop);
+      boat.setTroops(Math.max(0, boat.troops() - share));
+    }
+  }
+  if (births > 0) player.addTroops(births);
+
+  // Living population after this tick's demographics.
+  const newPop =
+    player.troops() +
+    player.outgoingAttacks().reduce((a, at) => a + at.troops(), 0) +
+    player.units(UnitType.TransportShip).reduce((a, b) => a + b.troops(), 0);
 
   // Expose the breakdown (display units) for the client/stats.
   const flow = (
@@ -179,16 +222,24 @@ export function foodTick(mg: Game, player: Player): number {
         production: number;
         consumption: number;
         starvedTroops: number;
+        capacity: number;
+        population: number;
       };
     }
   )._foodFlow;
   flow.production = Math.floor(productionMilli / 1000);
   flow.consumption = Math.floor(consumptionMilli / 1000);
   flow.starvedTroops = starved;
+  flow.capacity = capacity;
+  flow.population = newPop;
 
-  // The food surplus fraction (0..1) drives urban-sprawl growth (see
-  // UrbanGrowth.urbanTick); 0 on break-even or deficit.
-  return surplusFactor;
+  // The nation dies out when its entire population is gone — even if it still
+  // holds land. Its territory reverts to neutral (add-urban-core-growth).
+  if (newPop <= 0 && player.hasSpawned() && player.isAlive()) {
+    for (const t of Array.from(player.tiles())) player.relinquish(t);
+  }
+
+  return surplusRatio;
 }
 
 /** Barn levels weighted by their district (adjacency) multiplier. */

@@ -3,6 +3,7 @@ import { assetUrl } from "../core/AssetUrls";
 import { EventBus } from "../core/EventBus";
 import { GameInfo, GameRecord, GameStartInfo } from "../core/Schemas";
 import { joinLobby, type JoinLobbyResult } from "./ClientGameRunner";
+import "./EarthPage";
 import { GameStartingModal } from "./GameStartingModal";
 import "./GeneratorPage";
 import { HelpModal } from "./HelpModal";
@@ -172,6 +173,10 @@ class Client {
         window.showPage?.("page-generator");
         return;
       }
+      if (window.location.hash === "#earth") {
+        window.showPage?.("page-earth");
+        return;
+      }
 
       // Router-managed hash changes (#modal=...) are handled by the router
       // syncing in/out; we don't need to tear down the lobby state for them.
@@ -250,6 +255,11 @@ class Client {
 
     if (decodedHash === "#generator") {
       window.showPage?.("page-generator");
+      return;
+    }
+
+    if (decodedHash === "#earth") {
+      window.showPage?.("page-earth");
       return;
     }
 

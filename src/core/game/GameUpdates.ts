@@ -241,6 +241,7 @@ export interface PlayerUpdate {
   foodProduction?: number;
   foodConsumption?: number;
   foodStarved?: number;
+  foodCapacity?: number;
   foodPopulationShare?: number;
   urbanArea?: number;
   allies?: number[];

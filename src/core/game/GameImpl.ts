@@ -118,7 +118,6 @@ export class GameImpl implements Game {
   private nextAllianceID: number = 0;
 
   private _isPaused: boolean = false;
-  private readonly _hasLayers: boolean;
   private _winner: Player | Team | null = null;
   private _waterManager: WaterManager;
   private _sharedWaterCache: SharedWaterCache;
@@ -139,8 +138,6 @@ export class GameImpl implements Game {
     this._terraNullius = new TerraNulliusImpl();
     this._width = _map.width();
     this._height = _map.height();
-    // Cached: conquer() runs per transferred tile in the hottest path.
-    this._hasLayers = _map.hasLayers();
     this.unitGrid = new UnitGrid(this._map);
     this._waterManager = new WaterManager(
       this._map,
@@ -632,12 +629,10 @@ export class GameImpl implements Game {
   }
 
   addPlayer(playerInfo: PlayerInfo, team: Team | null = null): Player {
-    // Layered maps: every player type starts at the population the ghost
-    // infrastructure feeds (no vanilla human/nation/bot asymmetry — idling
-    // at spawn must not starve). Classic maps keep vanilla startManpower.
-    const startTroops = this._hasLayers
-      ? this.config().food().startPopulation
-      : this.config().startManpower(playerInfo);
+    // Every player type starts at the population the ghost infrastructure
+    // feeds (no human/nation/bot asymmetry — idling at spawn must not
+    // starve).
+    const startTroops = this.config().food().startPopulation;
     const player = new PlayerImpl(
       this,
       this.nextPlayerID,
@@ -727,16 +722,18 @@ export class GameImpl implements Game {
     }
     const previousOwner = this.owner(tile) as TerraNullius | PlayerImpl;
     // Fertility accounting mirrors _tiles: incremental on transfer, never a
-    // full-map scan. Only meaningful on layered maps.
-    const crop = this._hasLayers ? this._map.layer("crop", tile) : 0;
+    // full-map scan.
+    const crop = this._map.layer("crop", tile);
     if (previousOwner.isPlayer()) {
       previousOwner._lastTileChange = this._ticks;
       previousOwner._tiles.delete(tile);
       previousOwner._borderTiles.delete(tile);
       previousOwner._fertilitySum -= crop;
       // War razing (add-urban-core-growth): a captured tile loses its urban
-      // density — conquest yields scorched land the captor must regrow.
-      if (this._hasLayers) previousOwner.setDensity(tile, 0);
+      // density and any farm maturity — conquest yields scorched land the
+      // captor must regrow / re-cultivate from scratch.
+      previousOwner.setDensity(tile, 0);
+      previousOwner.setFarmMaturity(tile, 0);
     }
     this._map.setOwnerID(tile, owner.smallID());
     owner._tiles.add(tile);
@@ -759,10 +756,9 @@ export class GameImpl implements Game {
     previousOwner._lastTileChange = this._ticks;
     previousOwner._tiles.delete(tile);
     previousOwner._borderTiles.delete(tile);
-    if (this._hasLayers) {
-      previousOwner._fertilitySum -= this._map.layer("crop", tile);
-      previousOwner.setDensity(tile, 0);
-    }
+    previousOwner._fertilitySum -= this._map.layer("crop", tile);
+    previousOwner.setDensity(tile, 0);
+    previousOwner.setFarmMaturity(tile, 0);
 
     this._map.setOwnerID(tile, 0);
     this.updateBorders(tile);
@@ -1248,9 +1244,6 @@ export class GameImpl implements Game {
   }
   numTilesWithFallout(): number {
     return this._map.numTilesWithFallout();
-  }
-  hasLayers(): boolean {
-    return this._map.hasLayers();
   }
   layer(name: LayerName, ref: TileRef): number {
     return this._map.layer(name, ref);

@@ -77,9 +77,7 @@ export class SpawnExecution implements Execution {
 
     player.setSpawnTile(spawn.center);
 
-    if (this.mg.hasLayers()) {
-      this.foundCore(player, spawn.center);
-    }
+    this.foundCore(player, spawn.center);
 
     if (
       this.mg.config().gameConfig().gameType === GameType.Singleplayer &&
@@ -131,7 +129,9 @@ export class SpawnExecution implements Execution {
       if (nearest !== undefined) coreTile = nearest;
     }
     player.setCore(coreTile);
-    player.setDensity(coreTile, mg.config().food().coreSeedMilli);
+    // Seed the capital as one full city tile (popPerDensity people); the
+    // demographic model grows or shrinks the footprint from there.
+    player.setDensity(coreTile, mg.config().food().popPerDensity);
 
     // Paint the starter Farmland kit (free) around the core so the opening
     // city has food to grow on. Nearest owned tiles that aren't the core.
@@ -151,7 +151,12 @@ export class SpawnExecution implements Execution {
         if (valid(t) && mg.plotAt(t) === undefined) kitSlots.push(t);
       }
     }
-    for (const t of kitSlots) player.buildUnit(UnitType.Farmland, t, {});
+    // Starter farms begin already ripe, so a young nation is fed from tick one
+    // (its population grows) instead of starving while its first crop matures.
+    for (const t of kitSlots) {
+      player.buildUnit(UnitType.Farmland, t, {});
+      player.setFarmMaturity(t, 1000);
+    }
 
     // Reset the opening food stake (the kit is free).
     player.removeFood(player.food());

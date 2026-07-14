@@ -168,7 +168,7 @@ export class GameLeftSidebar extends LitElement implements Controller {
                 </div>
               `
             : null}
-          ${this.game?.hasLayers()
+          ${this.game
             ? html`
                 <div
                   class="cursor-pointer p-0.5 border rounded-md border-slate-500 transition-colors ${this

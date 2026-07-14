@@ -5,6 +5,7 @@ import { AttackingTroopsController } from "../controllers/AttackingTroopsControl
 import { BuildPreviewController } from "../controllers/BuildPreviewController";
 import { HoverHighlightController } from "../controllers/HoverHighlightController";
 import { LiveStatsController } from "../controllers/LiveStatsController";
+import { SegmentHighlightController } from "../controllers/SegmentHighlightController";
 import { SoundEffectController } from "../controllers/SoundEffectController";
 import { StructureHighlightController } from "../controllers/StructureHighlightController";
 import { ViewModeController } from "../controllers/ViewModeController";
@@ -35,7 +36,6 @@ import { ReplayPanel } from "./layers/ReplayPanel";
 import { SettingsModal } from "./layers/SettingsModal";
 import { SpawnTimer } from "./layers/SpawnTimer";
 import { TeamStats } from "./layers/TeamStats";
-import { UnitDisplay } from "./layers/UnitDisplay";
 import { WinModal } from "./layers/WinModal";
 import { loadAllSprites } from "./SpriteLoader";
 
@@ -189,14 +189,6 @@ export function createRenderer(
   graphicsSettingsModal.userSettings = userSettings;
   graphicsSettingsModal.eventBus = eventBus;
 
-  const unitDisplay = document.querySelector("unit-display") as UnitDisplay;
-  if (!(unitDisplay instanceof UnitDisplay)) {
-    console.error("unit display not found");
-  }
-  unitDisplay.game = game;
-  unitDisplay.eventBus = eventBus;
-  unitDisplay.uiState = uiState;
-
   const buildBar = document.querySelector("build-bar") as BuildBar;
   if (!(buildBar instanceof BuildBar)) {
     console.error("build bar not found");
@@ -257,6 +249,7 @@ export function createRenderer(
       userSettings,
     ),
     new HoverHighlightController(game, eventBus, transformHandler, view),
+    new SegmentHighlightController(game, eventBus, transformHandler, view),
     new LiveStatsController(game, eventBus),
     new StructureHighlightController(eventBus, view),
     new ViewModeController(eventBus, view),
@@ -279,7 +272,6 @@ export function createRenderer(
     immunityTimer,
     leaderboard,
     gameLeftSidebar,
-    unitDisplay,
     buildBar,
     gameRightSidebar,
     controlPanel,

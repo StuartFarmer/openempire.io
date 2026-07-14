@@ -297,6 +297,12 @@ export class UnitImpl implements Unit {
     this.mg.addUpdate(this.toUpdate());
     this.mg.removeUnit(this);
 
+    // A deleted/razed Farmland forfeits its maturity so a farm later rebuilt
+    // on the same tile starts from scratch (add-urban-core-growth).
+    if (this._type === UnitType.Farmland) {
+      this._owner.setFarmMaturity(this._tile, 0);
+    }
+
     if (displayMessage !== false) {
       this.displayMessageOnDeleted();
     }

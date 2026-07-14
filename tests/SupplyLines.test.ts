@@ -122,13 +122,17 @@ describe("Supply field (add-supply-lines)", () => {
     player.buildUnit(UnitType.Settlement, game.ref(2, 2), {});
     const before = supplyField(game, player);
     const farTile = game.ref(38, 2);
-    const beforeDist = before.dist.get(farTile)!;
+    // Out of supply from the lone settlement (beyond the flood cutoff), or at
+    // least far — either way the fresh Barn brings it much closer.
+    const beforeDist = before.dist.get(farTile); // may be undefined (unsupplied)
 
     // Same tick, no cadence wait: painting a Barn lights up its district.
     player.buildUnit(UnitType.Barn, game.ref(36, 2), {});
     const after = supplyField(game, player);
-    expect(after.dist.get(farTile)).toBe(2);
-    expect(after.dist.get(farTile)!).toBeLessThan(beforeDist);
+    expect(after.dist.get(farTile)).toBe(2); // 2 tiles from the new Barn
+    expect(
+      beforeDist === undefined || after.dist.get(farTile)! < beforeDist,
+    ).toBe(true);
   });
 
   test("probeDistance reconnects tiles conquered after the last refresh", () => {
@@ -148,28 +152,10 @@ describe("Supply field (add-supply-lines)", () => {
   });
 });
 
-describe("Supply-gated farming (add-urban-core-growth)", () => {
-  test("a distant farm out-produces nothing — quality gates yield", async () => {
-    // Two identical strips; the only difference is how far the farm sits from
-    // the Core (the supply source). flatLayers → identical fertility.
-    const run = async (farmX: number) => {
-      const g = await layeredGame();
-      const p = g.player(humanInfo.id);
-      conquerBlock(g, p, 0, 0, 95, 4);
-      p.addFood(10_000n);
-      p.setTroops(0);
-      p.setCore(g.ref(1, 1));
-      p.buildUnit(UnitType.Farmland, g.ref(farmX, 1), {});
-      activate(g, p);
-      g.executeNextTick();
-      return flow(p).production;
-    };
-    const near = await run(2);
-    const far = await run(90); // ~3× radius out — quality ~0.04
-    expect(near).toBeGreaterThan(0);
-    expect(far).toBeLessThan(near / 2);
-  });
-});
+// NOTE: farm yield is no longer gated by military supply distance — under the
+// urban-core-growth model a farm's output is gated by its MATURITY (climate,
+// see FarmGrowth.test.ts), and the military supply field governs troops and
+// urban logistics only. The former "supply-gated farming" test was removed.
 
 describe("Supply attrition in war", () => {
   test("an overextended front bleeds troops; a supplied one does not", async () => {
@@ -192,19 +178,21 @@ describe("Supply attrition in war", () => {
 
     attack.setFrontTile(game.ref(2, 1)); // beside the settlement
     for (let i = 0; i < 20; i++) game.executeNextTick();
-    // Fully supplied: no attrition, and the army eats the plain war rate.
-    expect(attack.troops()).toBe(1_000);
-    const warBase = (1_000 * f.fightConsumptionMilli) / 1000;
+    // Fully supplied: no attrition — the army stays essentially full (it loses
+    // only a handful to natural death, never to supply).
+    expect(attack.troops()).toBeGreaterThan(990);
+    const warBase = (attack.troops() * f.fightConsumptionMilli) / 1000;
     expect(flow(player).consumption).toBeGreaterThanOrEqual(warBase * 0.95);
     expect(flow(player).consumption).toBeLessThanOrEqual(warBase * 1.05);
 
     attack.setFrontTile(game.ref(94, 1)); // ~3× radius down the corridor
     const before = attack.troops();
     game.executeNextTick();
-    // Quality ~0.04 out there → ≈ troops × attrition die this tick.
+    // Quality ~0.04 out there → ≈ troops × attrition die this tick (plus at most
+    // a couple to natural death).
     const expected = Math.floor(before * 0.96 * f.warSupplyAttrition);
     expect(before - attack.troops()).toBeGreaterThanOrEqual(expected - 1);
-    expect(before - attack.troops()).toBeLessThanOrEqual(expected + 1);
+    expect(before - attack.troops()).toBeLessThanOrEqual(expected + 3);
     // Sustained: the army keeps shrinking even though food never ran out.
     for (let i = 0; i < 50; i++) game.executeNextTick();
     expect(attack.troops()).toBeLessThan(before * 0.85);
@@ -229,10 +217,11 @@ describe("Supply attrition in war", () => {
     activate(game, player);
     game.executeNextTick();
 
-    // frontTile null → quality 0 → full attrition on the first tick.
-    expect(attack.troops()).toBe(
-      10_000 - Math.floor(10_000 * f.warSupplyAttrition),
-    );
+    // frontTile null → quality 0 → full attrition on the first tick (plus at
+    // most a few to natural death).
+    const attrition = Math.floor(10_000 * f.warSupplyAttrition);
+    expect(attack.troops()).toBeLessThanOrEqual(10_000 - attrition);
+    expect(attack.troops()).toBeGreaterThanOrEqual(10_000 - attrition - 5);
   });
 
   test("deterministic across identical runs", async () => {

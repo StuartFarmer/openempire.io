@@ -1,0 +1,24 @@
+# Desktop packaging for the singleplayer build. `npm run app:mac` runs
+# `vite build --mode electron` first, so static/ is the fully-rendered site.
+appId: io.openfront.singleplayer
+productName: OpenFront
+directories:
+  output: dist-app
+files:
+  - electron/**/*
+  - static/**/*
+  - package.json
+  - "!node_modules/**/*"
+# The renderer bundle is self-contained; nothing in node_modules ships, so
+# skip the native-dep rebuild (canvas would otherwise be rebuilt for Electron).
+npmRebuild: false
+# asar is off because the app:// protocol handler streams files via net.fetch,
+# which cannot read inside an asar archive.
+asar: false
+mac:
+  category: public.app-category.strategy-games
+  target:
+    - target: dmg
+      arch: [arm64]
+    - target: zip
+      arch: [arm64]

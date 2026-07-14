@@ -5,7 +5,6 @@ import { TrainExecution } from "../../../src/core/execution/TrainExecution";
 import {
   Difficulty,
   Game,
-  GameMapSize,
   GameMapType,
   GameMode,
   GameType,
@@ -212,7 +211,6 @@ describe("Config.trainGold trade stop penalty", () => {
   beforeEach(() => {
     const gameConfig: GameConfig = {
       gameMap: GameMapType.World,
-      gameMapSize: GameMapSize.Normal,
       gameMode: GameMode.FFA,
       gameType: GameType.Singleplayer,
       difficulty: Difficulty.Medium,

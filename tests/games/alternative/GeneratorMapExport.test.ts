@@ -77,7 +77,6 @@ describe("generator map export", () => {
       blob,
     );
 
-    expect(gameMap.hasLayers()).toBe(true);
     const enginePlane = {
       crop: worldEngineLayers.resources.crop,
       metal: worldEngineLayers.resources.metal,

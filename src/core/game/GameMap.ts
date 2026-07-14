@@ -102,14 +102,10 @@ export interface GameMap {
   numTilesWithFallout(): number;
 
   /**
-   * True when the map was loaded with a layers.bin sidecar (generated maps
-   * at Normal size). Mechanics that read layers must gate on this.
-   */
-  hasLayers(): boolean;
-
-  /**
    * Baked per-tile data layer value (0..255) from the layers.bin sidecar.
-   * Throws when the map has no layers — call hasLayers() first.
+   * Every playable map carries layers (the loader enforces it); only the
+   * pathfinding minimap is constructed without them, and it must never be
+   * asked for layer data.
    */
   layer(name: LayerName, ref: TileRef): number;
 }
@@ -183,14 +179,10 @@ export class GameMapImpl implements GameMap {
     return this._numTilesWithFallout;
   }
 
-  hasLayers(): boolean {
-    return this.layers_ !== null;
-  }
-
   layer(name: LayerName, ref: TileRef): number {
     if (this.layers_ === null) {
       throw new Error(
-        `layer("${name}") read on a map without a layers sidecar — gate on hasLayers()`,
+        `layer("${name}") read on a map without layers — only the pathfinding minimap is unlayered`,
       );
     }
     return this.layers_[

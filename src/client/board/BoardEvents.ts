@@ -56,6 +56,9 @@ export class SendAttackIntentEvent implements GameEvent {
   constructor(
     public readonly targetID: PlayerID | null,
     public readonly troops: number,
+    // Concentrated push: the stretch of the attacker's border to advance from
+    // (the "drag along the border" segment). Undefined → whole-border advance.
+    public readonly sourceTiles?: readonly TileRef[],
   ) {}
 }
 

@@ -85,10 +85,9 @@ export class Leaderboard extends LitElement implements Controller {
       .playerViews()
       .map((p) => ({ pv: p, maxTroops: maxTroops(p) }));
 
-    // On layered games the "gold" column shows food (the Tribal age has no
-    // gold); the sort key keeps its name as a display slot.
-    const wealth = (p: PlayerView) =>
-      Number(this.game!.hasLayers() ? p.food() : p.gold());
+    // The "gold" column shows food (the Tribal age has no gold); the sort
+    // key keeps its name as a display slot.
+    const wealth = (p: PlayerView) => Number(p.food());
 
     switch (this._sortKey) {
       case "gold":
@@ -120,9 +119,7 @@ export class Leaderboard extends LitElement implements Controller {
         score: formatPercentage(
           player.numTilesOwned() / numTilesWithoutFallout,
         ),
-        gold: renderNumber(
-          this.game!.hasLayers() ? player.food() : player.gold(),
-        ),
+        gold: renderNumber(player.food()),
         maxTroops: renderTroops(maxTroops),
         isMyPlayer: player === myPlayer,
         isOnSameTeam:
@@ -153,9 +150,7 @@ export class Leaderboard extends LitElement implements Controller {
           score: formatPercentage(
             myPlayer.numTilesOwned() / this.game.numLandTiles(),
           ),
-          gold: renderNumber(
-            this.game.hasLayers() ? myPlayer.food() : myPlayer.gold(),
-          ),
+          gold: renderNumber(myPlayer.food()),
           maxTroops: renderTroops(myPlayerMaxTroops),
           isMyPlayer: true,
           isOnSameTeam: true,
@@ -212,9 +207,7 @@ export class Leaderboard extends LitElement implements Controller {
               class="py-1 md:py-2 text-center border-b border-slate-500 cursor-pointer whitespace-nowrap truncate"
               @click=${() => this.setSort("gold")}
             >
-              ${this.game?.hasLayers()
-                ? translateText("leaderboard.food")
-                : translateText("leaderboard.gold")}
+              ${translateText("leaderboard.food")}
               ${this._sortKey === "gold"
                 ? this._sortOrder === "asc"
                   ? "⬆️"

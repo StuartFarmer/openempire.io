@@ -451,7 +451,9 @@ describe("Hard/Impossible troop floor", () => {
       players[assigned % 3].conquer(tile);
       assigned++;
     });
-    bot.addTroops(100);
+    // Attack size vs bots is 4x the bot's troops; top the bot up so the
+    // uncapped team-mode attack clearly exceeds the FFA Hard cap (32.5k).
+    bot.addTroops(8_100);
 
     const mockEmoji = {
       maybeSendAttackEmoji: vi.fn(),

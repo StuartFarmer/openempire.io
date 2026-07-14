@@ -535,19 +535,15 @@ export class BuildMenu extends LitElement implements Controller {
   }
 
   private getBuildableUnits(): BuildItemDisplay[][] {
-    const layered = this.game?.hasLayers() ?? false;
     return buildTable
       .map((row) =>
         row.filter((item) => {
           if (this.game?.config()?.isUnitDisabled(item.unitType)) {
             return false;
           }
-          // Tribal age (layered maps): gold is removed, so only food-costed
-          // buildings are offered. Classic maps show the vanilla menu and no
-          // tribal buildings. (rework-tribal-scarcity)
-          return layered
-            ? TribalStructures.has(item.unitType)
-            : !TribalStructures.has(item.unitType);
+          // Tribal age: gold is removed, so only food-costed buildings are
+          // offered. Gold structures return with the Metal-age spec.
+          return TribalStructures.has(item.unitType);
         }),
       )
       .filter((row) => row.length > 0);

@@ -25,7 +25,6 @@ describe("GameMapImpl layers", () => {
     ) as Record<LayerName, number[]>;
     const map = makeMap(encodeLayers(planes, W, H));
 
-    expect(map.hasLayers()).toBe(true);
     LAYER_NAMES.forEach((name, p) => {
       for (let y = 0; y < H; y++) {
         for (let x = 0; x < W; x++) {
@@ -36,10 +35,9 @@ describe("GameMapImpl layers", () => {
     });
   });
 
-  test("unlayered map reports hasLayers() false and layer() throws", () => {
+  test("a layerless map (the pathfinding minimap) throws on layer()", () => {
     const map = makeMap(null);
-    expect(map.hasLayers()).toBe(false);
-    expect(() => map.layer("crop", map.ref(0, 0))).toThrow(/hasLayers/);
+    expect(() => map.layer("crop", map.ref(0, 0))).toThrow(/minimap/);
   });
 
   test("constructor rejects a mis-sized layers blob", () => {

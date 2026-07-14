@@ -32,6 +32,7 @@ export default [
           allowDefaultProject: [
             "__mocks__/fileMock.js",
             "eslint.config.js",
+            "electron/main.mjs",
             "scripts/sync-assets.mjs",
           ],
         },

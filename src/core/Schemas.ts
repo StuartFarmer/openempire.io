@@ -11,7 +11,6 @@ import {
   AllPlayers,
   Difficulty,
   Duos,
-  GameMapSize,
   GameMapType,
   GameMode,
   GameType,
@@ -269,7 +268,6 @@ export const GameConfigSchema = z.object({
   gameType: z.enum(GameType),
   gameMode: z.enum(GameMode),
   rankedType: z.enum(RankedType).optional(), // Only set for ranked games.
-  gameMapSize: z.enum(GameMapSize),
   doomsdayClock: DoomsdayClockConfigSchema.optional(),
   publicGameModifiers: z
     .object({
@@ -394,6 +392,9 @@ export const AttackIntentSchema = z.object({
   type: z.literal("attack"),
   targetID: ID.nullable(),
   troops: z.number().nonnegative().nullable(),
+  // Concentrated push (add-urban-core-growth): border tiles of the stretch the
+  // player dragged along. Absent → the classic whole-border advance.
+  sourceTiles: z.array(z.number()).nullable().optional(),
 });
 
 export const SpawnIntentSchema = z.object({
@@ -688,7 +689,6 @@ export const ServerPingMessageSchema = z.object({
 export const ServerPrestartMessageSchema = z.object({
   type: z.literal("prestart"),
   gameMap: z.enum(GameMapType),
-  gameMapSize: z.enum(GameMapSize),
 });
 
 export const ServerStartGameMessageSchema = z.object({

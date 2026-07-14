@@ -213,7 +213,7 @@ export class GPURenderer {
     settings: RenderSettings,
     raf: typeof requestAnimationFrame = requestAnimationFrame.bind(window),
     caf: typeof cancelAnimationFrame = cancelAnimationFrame.bind(window),
-    boardMap?: BoardMap,
+    boardMap: BoardMap,
   ) {
     this.canvas = canvas;
     // Settings are resolved (defaults + user overrides) by the caller and
@@ -1119,6 +1119,14 @@ export class GPURenderer {
     this.supplyOverlayPass.update(quality);
   }
 
+  setSegmentHighlight(active: boolean): void {
+    this.borderStampPass.setSegmentActive(active);
+  }
+
+  updateSegmentHighlight(mask: Uint8Array): void {
+    this.borderStampPass.updateSegmentMask(mask);
+  }
+
   setAltView(active: boolean): void {
     this.altView = active;
     this.territoryPass.setAltView(active);
@@ -1329,6 +1337,8 @@ export class GPURenderer {
     this.densityPass.draw(cam);
     // Supply heatmap sits under borders/structures so plots stay readable.
     this.supplyOverlayPass.draw(cam);
+    // Borders draw here; the aimed concentrated-push segment is recoloured onto
+    // the player's own border cells inside BorderStampPass.
     if (pe.borderStamp) this.borderStampPass.draw(cam);
     if (pe.railroad) this.railroadPass.draw(cam, zoom);
     if (pe.unit) this.unitPass.drawGround(cam);

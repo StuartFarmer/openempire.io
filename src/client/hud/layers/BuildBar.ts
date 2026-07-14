@@ -17,23 +17,26 @@ import { UIState } from "../../UIState";
 import { renderNumber, translateText } from "../../Utils";
 import { GameView } from "../../view";
 
+const settlementIcon = assetUrl("images/SettlementIconWhite.svg");
 const farmlandIcon = assetUrl("images/FarmlandIconWhite.svg");
 const barnIcon = assetUrl("images/BarnIconWhite.svg");
 const foodIcon = assetUrl("images/FoodIcon.svg");
 
 /**
- * Persistent build bar for the urban age (add-urban-core-growth). The city
- * sprawls itself from the founded Core — there is no Settlement to paint — but
- * the player STILL paints the food economy: Farmland (production) and Barns
- * (storage). Clicking an entry arms plot placement (uiState.ghostStructure the
- * paint mode reads); clicking again / Escape / right-click disarms. The bar
- * also carries map-overlay toggles (Supply).
+ * Persistent build bar for the urban age (add-urban-core-growth). The player
+ * places SEEDS: a Settlement is a city nucleus that grows outward on its own,
+ * gated by the food-shed around it; Farmland ripens in place and feeds nearby
+ * settlements; a Barn stores the surplus. Cities and farms are mutually
+ * exclusive per tile. Clicking an entry arms plot placement
+ * (uiState.ghostStructure the paint mode reads); clicking again / Escape /
+ * right-click disarms. The bar also carries map-overlay toggles (Supply).
  */
 const BAR_ENTRIES: Array<{
   unitType: PlayerBuildableUnitType;
   icon: string;
   key: string;
 }> = [
+  { unitType: UnitType.Settlement, icon: settlementIcon, key: "settlement" },
   { unitType: UnitType.Farmland, icon: farmlandIcon, key: "farmland" },
   { unitType: UnitType.Barn, icon: barnIcon, key: "barn" },
 ];
@@ -57,9 +60,13 @@ export class BuildBar extends LitElement implements Controller {
 
   tick() {
     const player = this.game?.myPlayer();
-    if (!this.game?.hasLayers() || !player) return;
+    if (!player) return;
     player
-      .buildables(undefined, [UnitType.Farmland, UnitType.Barn])
+      .buildables(undefined, [
+        UnitType.Settlement,
+        UnitType.Farmland,
+        UnitType.Barn,
+      ])
       .then((buildables) => {
         this.playerBuildables = buildables;
       });
@@ -83,7 +90,6 @@ export class BuildBar extends LitElement implements Controller {
     const myPlayer = this.game?.myPlayer();
     if (
       !this.game ||
-      !this.game.hasLayers() ||
       !myPlayer ||
       this.game.inSpawnPhase() ||
       !myPlayer.isAlive()
@@ -111,6 +117,7 @@ export class BuildBar extends LitElement implements Controller {
     const affordable = this.affordable(entry.unitType);
     const hovered = this._hovered === entry.unitType;
     const count = this.game.myPlayer()?.totalUnitLevels(entry.unitType) ?? 0;
+    const countLabel = renderNumber(count);
 
     return html`
       <div class="relative">
@@ -161,7 +168,7 @@ export class BuildBar extends LitElement implements Controller {
         >
           <img src=${entry.icon} alt=${entry.key} class="size-6" />
           <div class="flex flex-col items-start leading-none">
-            <span class="text-xs font-bold">${renderNumber(count)}</span>
+            <span class="text-xs font-bold">${countLabel}</span>
             <span
               class="text-[10px] ${affordable
                 ? "text-amber-300"

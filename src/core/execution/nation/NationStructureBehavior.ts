@@ -42,7 +42,6 @@ const SAM_RATIO_BY_DIFFICULTY: Record<Difficulty, number> = {
 /**
  * Returns structure ratios relative to city count, adjusted by difficulty.
  * Cities are always prioritized and built first.
- * When cities are disabled, we use TILES_PER_CITY_EQUIVALENT. That's not ideal, nations won't properly upgrade structures, but it's better than nothing. Probably 99.9% of players won't disable cities anyway.
  */
 function getStructureRatios(
   difficulty: Difficulty,
@@ -87,7 +86,6 @@ const UPGRADE_DENSITY_THRESHOLD = 1 / 1500;
 const MIN_PORT_WATER_COMPONENT_SIZE = 3000;
 
 /** Estimated number of tiles per city equivalent, used when cities are disabled */
-const TILES_PER_CITY_EQUIVALENT = 2000;
 
 /**
  * When map-wide nation density (nations per land tile) is above this threshold,
@@ -424,120 +422,20 @@ export class NationStructureBehavior {
 
   private doHandleStructures(): boolean {
     this.reachableStationsCache = null;
-    const config = this.game.config();
 
-    // Tribal-age economy: on layered maps, nations build ONLY food
-    // buildings (Settlement/Farmland/Barn) — no ports/factories/cities.
-    // Gold structures rejoin the bot build order with the Metal-age spec.
+    // Tribal-age economy: nations build ONLY food buildings
+    // (Settlement/Farmland/Barn) — no ports/factories/cities. Gold
+    // structures rejoin the build order with the Metal-age spec.
     // (Defense posts are handled separately in handleStructures and stay.)
-    if (this.player.hasFoodEconomy()) {
-      this.tribalEconomy ??= new TribalEconomy(
-        this.random,
-        this.game,
-        this.player,
-      );
-      return this.tribalEconomy.tryBuild(3) > 0;
-    }
-    const citiesDisabled = config.isUnitDisabled(UnitType.City);
-    const cityCount = citiesDisabled
-      ? Math.max(
-          1,
-          Math.floor(this.player.numTilesOwned() / TILES_PER_CITY_EQUIVALENT),
-        )
-      : this.player.unitsOwned(UnitType.City);
-    this._sharedWaterComponents = this.game.sharedWaterComponents(this.player);
-    const hasCoastalTiles = this._sharedWaterComponents !== null;
-
-    const missileSilosEnabled = !config.isUnitDisabled(UnitType.MissileSilo);
-
-    // High-starting-gold Hard/Impossible nations build a SAM first so their
-    // next structures get SAM coverage and aren't clustered under the same nuke target.
-    const { difficulty } = config.gameConfig();
-    if (
-      this.placementsCount === 0 &&
-      (difficulty === Difficulty.Hard ||
-        difficulty === Difficulty.Impossible) &&
-      !config.isUnitDisabled(UnitType.AtomBomb) &&
-      missileSilosEnabled &&
-      !config.isUnitDisabled(UnitType.SAMLauncher) &&
-      this.hasHighStartingGold() &&
-      this.maybeSpawnStructure(UnitType.SAMLauncher)
-    ) {
-      return true;
-    }
-
-    // On crowded maps the first structure is a port (or factory if landlocked)
-    // instead of a city, so nations can get income earlier.
-    // Mainly intended for private 200+ nation HvN games.
-    if (
-      !citiesDisabled &&
-      this.player.unitsOwned(UnitType.City) === 0 &&
-      this.isHighNationDensity()
-    ) {
-      const preferredFirst =
-        hasCoastalTiles && !config.isUnitDisabled(UnitType.Port)
-          ? UnitType.Port
-          : UnitType.Factory;
-      if (
-        !config.isUnitDisabled(preferredFirst) &&
-        this.maybeSpawnStructure(preferredFirst)
-      ) {
-        return true;
-      }
-    }
-
-    // Build order for non-city structures (priority order)
-    const buildOrder: UnitType[] = [
-      UnitType.Port,
-      UnitType.Factory,
-      UnitType.SAMLauncher,
-      UnitType.MissileSilo,
-    ];
-
-    const nukesEnabled =
-      !config.isUnitDisabled(UnitType.AtomBomb) ||
-      !config.isUnitDisabled(UnitType.HydrogenBomb) ||
-      !config.isUnitDisabled(UnitType.MIRV);
-
-    for (const structureType of buildOrder) {
-      // Skip disabled structure types
-      if (config.isUnitDisabled(structureType)) {
-        continue;
-      }
-
-      // Skip ports if no coastal tiles
-      if (structureType === UnitType.Port && !hasCoastalTiles) {
-        continue;
-      }
-
-      // Skip missile silos and SAM launchers if all nukes are disabled
-      if (
-        !nukesEnabled &&
-        (structureType === UnitType.MissileSilo ||
-          structureType === UnitType.SAMLauncher)
-      ) {
-        continue;
-      }
-
-      // Skip SAM launchers if missile silos are disabled
-      if (!missileSilosEnabled && structureType === UnitType.SAMLauncher) {
-        continue;
-      }
-
-      if (
-        this.shouldBuildStructure(structureType, cityCount, hasCoastalTiles)
-      ) {
-        if (this.maybeSpawnStructure(structureType)) {
-          return true;
-        }
-      }
-    }
-
-    if (!citiesDisabled && this.maybeSpawnStructure(UnitType.City)) {
-      return true;
-    }
-
-    return false;
+    this.tribalEconomy ??= new TribalEconomy(
+      this.random,
+      this.game,
+      this.player,
+    );
+    const budget = this.game
+      .config()
+      .aiDifficulty(this.player.type()).nationBuildBudget;
+    return this.tribalEconomy.tryBuild(budget) > 0;
   }
 
   private hasHighStartingGold(): boolean {

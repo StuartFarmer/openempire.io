@@ -95,7 +95,10 @@
     "embargoTintB": 0,
     "friendlyTintR": 0,
     "friendlyTintG": 1,
-    "friendlyTintB": 0
+    "friendlyTintB": 0,
+    "segmentHighlightR": 0.3,
+    "segmentHighlightG": 0.95,
+    "segmentHighlightB": 1
   },
   "affiliation": {
     "selfR": 0,

@@ -564,7 +564,7 @@ describe("DoomsdayClockExecution (integration)", () => {
 // (ignoring income) under-counts this to ~45s; income offsets the early bleed.
 // ---------------------------------------------------------------------------
 
-describe("DoomsdayClockExecution (default drain, with income)", () => {
+describe("DoomsdayClockExecution (default drain)", () => {
   it("wipes a full-troop side in ~1 minute (warn + linear drain)", async () => {
     // Only enabled + speed set -> drain uses the defaults (warn 10s, 2%->6% /50s).
     // veryfast is chosen purely so the bar rises fast enough to catch the sliver.
@@ -610,8 +610,8 @@ describe("DoomsdayClockExecution (default drain, with income)", () => {
     }
     expect(zeroTick).toBeGreaterThan(0);
     const seconds = (zeroTick - caughtTick) / 10;
-    // ~10s warn + ~50s drain, income included: about a minute (NOT ~45s).
-    expect(seconds).toBeGreaterThan(50);
+    // ~10s warn + ~35s drain (no passive troop income in the food economy).
+    expect(seconds).toBeGreaterThan(30);
     expect(seconds).toBeLessThan(85);
   });
 });

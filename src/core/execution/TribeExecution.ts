@@ -39,9 +39,13 @@ export class TribeExecution implements Execution {
 
   tick(ticks: number) {
     // Tribes farm too (add-economy-insights): a modest economy pulse so
-    // plain bots grow beyond their starter kit instead of stagnating.
+    // plain bots grow beyond their starter kit instead of stagnating. The
+    // pulse interval is a difficulty lever (unify-layered-path).
+    const pulse = this.mg
+      .config()
+      .aiDifficulty(this.tribe.type()).tribePulseTicks;
     if (
-      ticks % 25 === this.attackTick % 25 &&
+      ticks % pulse === this.attackTick % pulse &&
       tribalEconomyActive(this.mg, this.tribe)
     ) {
       this.economy ??= new TribalEconomy(this.random, this.mg, this.tribe);

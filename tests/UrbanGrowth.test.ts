@@ -1,17 +1,42 @@
 import { beforeEach, describe, expect, test } from "vitest";
-import { PlayerExecution } from "../src/core/execution/PlayerExecution";
 import { supplyField } from "../src/core/execution/utils/SupplyField";
-import { growUrbanArea } from "../src/core/execution/utils/UrbanGrowth";
-import { Game, Player, PlayerInfo, PlayerType } from "../src/core/game/Game";
+import {
+  foodTargetTiles,
+  growUrbanArea,
+  recedeToTarget,
+} from "../src/core/execution/utils/UrbanGrowth";
+import {
+  Game,
+  Player,
+  PlayerInfo,
+  PlayerType,
+  UnitType,
+} from "../src/core/game/Game";
 import { LayersFill, setup } from "./util/Setup";
 import { TestConfig } from "./util/TestConfig";
 
 const founderInfo = new PlayerInfo("founder", PlayerType.Human, null, "f_id");
 const flat: LayersFill = () => 200;
 
+/**
+ * A broad food-shed for the spatial-dynamics tests: a huge foodShedRadius makes
+ * one mature farm feed the whole region uniformly, so these tests isolate the
+ * urban SUITABILITY field and the food-CAPACITY bound from the food-shed gate.
+ */
+class Fed extends TestConfig {
+  override food() {
+    return {
+      ...super.food(),
+      foodShedRadius: 500,
+      foodShedPower: 3,
+      wFoodShed: 2,
+    };
+  }
+}
+
 async function layeredGame(
   fill: LayersFill = flat,
-  config?: new (...args: never[]) => TestConfig,
+  config: new (...args: never[]) => TestConfig = Fed,
 ): Promise<Game> {
   return setup(
     "plains", // 100×100 all land
@@ -37,41 +62,36 @@ function conquerBlock(
   }
 }
 
-/** Found a Core at (cx,cy) and seed it. */
+/** Set the living population that drives the city footprint. */
+function setPopulation(player: Player, people: number): void {
+  (
+    player as Player & { _foodFlow: { population: number } }
+  )._foodFlow.population = people;
+}
+
+/** Plant a fully-mature Farmland at (x,y) so it projects the food-shed. */
+function plantFedFarm(game: Game, player: Player, x: number, y: number): void {
+  const t = game.ref(x, y);
+  player.buildUnit(UnitType.Farmland, t, {});
+  player.setFarmMaturity(t, 1000);
+}
+
+/** Found a Core at (cx,cy), seed it, and feed it a mature farm nearby. */
 function found(game: Game, player: Player, cx: number, cy: number): void {
   const core = game.ref(cx, cy);
   player.setCore(core);
-  player.setDensity(core, game.config().food().coreSeedMilli);
+  player.setDensity(core, game.config().food().popPerDensity);
+  plantFedFarm(game, player, cx + 3, cy + 3);
 }
 
 /**
- * Drive the sprawl engine directly with a full food surplus, isolating the
- * spatial dynamics from the food economy (which gates growth in urbanTick).
+ * Drive the sprawl engine directly with an effectively-unbounded population,
+ * isolating the spatial dynamics from the population bound.
  */
 function grow(game: Game, player: Player, ticks: number): void {
+  setPopulation(player, 3_000_000); // target far above the test region
   const supply = supplyField(game, player);
-  for (let i = 0; i < ticks; i++) growUrbanArea(game, player, supply, 1);
-}
-
-/** Average per-built-tile density at Manhattan distance [lo,hi] — ρ(r). */
-function ringDensity(
-  game: Game,
-  player: Player,
-  cx: number,
-  cy: number,
-  lo: number,
-  hi: number,
-): number {
-  let sum = 0;
-  let count = 0;
-  for (const [tile, d] of player.densityEntries()) {
-    const md = Math.abs(game.x(tile) - cx) + Math.abs(game.y(tile) - cy);
-    if (md >= lo && md <= hi) {
-      sum += d;
-      count++;
-    }
-  }
-  return count > 0 ? sum / count : 0;
+  for (let i = 0; i < ticks; i++) growUrbanArea(game, player, supply);
 }
 
 describe("Urban sprawl engine (add-urban-core-growth)", () => {
@@ -83,52 +103,52 @@ describe("Urban sprawl engine (add-urban-core-growth)", () => {
     player = game.player(founderInfo.id);
   });
 
-  test("logistic S-curve: area accelerates then saturates", () => {
-    conquerBlock(game, player, 10, 10, 80);
+  test("city size is bounded by living population, not by land", () => {
+    conquerBlock(game, player, 10, 10, 80); // plenty of land
     found(game, player, 50, 50);
-    const supply = supplyField(game, player);
+    // A population of 10 tiles' worth of people (popPerDensity people per tile).
+    setPopulation(player, game.config().food().popPerDensity * 10);
+    expect(foodTargetTiles(game, player)).toBe(10);
 
-    const areaAt: number[] = [];
-    for (let t = 1; t <= 400; t++) {
-      growUrbanArea(game, player, supply, 1);
-      if (t === 20 || t === 60 || t === 200 || t === 400) {
-        areaAt.push(player.urbanArea());
-      }
-    }
-    const [a20, a60, a200, a400] = areaAt;
-    expect(a20).toBeGreaterThan(1);
-    expect(a60).toBeGreaterThan(a20);
-    expect(a200).toBeGreaterThan(a60);
-    const early = (a60 - a20) / 40;
-    const late = (a400 - a200) / 200;
-    expect(late).toBeLessThan(early);
+    const supply = supplyField(game, player);
+    for (let i = 0; i < 300; i++) growUrbanArea(game, player, supply);
+
+    // The city saturates at exactly what its population houses, not one tile
+    // more, even though 80×80 of land is available.
+    expect(player.urbanArea()).toBe(10);
   });
 
-  test("density decays from the core (emergent gradient)", async () => {
-    class NoDispersal extends TestConfig {
-      override food() {
-        return { ...super.food(), dispersalRate: 0 };
+  test("city tiles are binary and 4-contiguous (no gradient, no islands)", () => {
+    conquerBlock(game, player, 10, 10, 60);
+    found(game, player, 40, 40);
+    grow(game, player, 120);
+
+    // Every built tile is a full city tile (popPerDensity people) — no partials.
+    const full = game.config().food().popPerDensity;
+    const cityTiles = new Set<number>();
+    for (const [tile, d] of player.densityEntries()) {
+      expect(d).toBe(full);
+      cityTiles.add(tile);
+    }
+    expect(cityTiles.size).toBeGreaterThan(5);
+
+    // Every city tile is 4-connected back to the seed through other city tiles.
+    const core = game.ref(40, 40);
+    const seen = new Set<number>([core]);
+    const stack = [core];
+    const nbuf: number[] = [0, 0, 0, 0];
+    while (stack.length > 0) {
+      const cur = stack.pop()!;
+      const n = game.map().neighbors4(cur, nbuf);
+      for (let i = 0; i < n; i++) {
+        const nb = nbuf[i];
+        if (cityTiles.has(nb) && !seen.has(nb)) {
+          seen.add(nb);
+          stack.push(nb);
+        }
       }
     }
-    game = await layeredGame(flat, NoDispersal);
-    player = game.player(founderInfo.id);
-    conquerBlock(game, player, 10, 10, 80);
-    found(game, player, 50, 50);
-    grow(game, player, 60);
-
-    let maxDist = 0;
-    for (const [tile] of player.densityEntries()) {
-      maxDist = Math.max(
-        maxDist,
-        Math.abs(game.x(tile) - 50) + Math.abs(game.y(tile) - 50),
-      );
-    }
-    const near = ringDensity(game, player, 50, 50, 1, 4);
-    const front = ringDensity(game, player, 50, 50, maxDist - 3, maxDist);
-    expect(near).toBeGreaterThan(front);
-    expect(near).toBeGreaterThan(950);
-    expect(front).toBeLessThan(900);
-    expect(maxDist).toBeGreaterThan(6);
+    for (const t of cityTiles) expect(seen.has(t)).toBe(true);
   });
 
   test("sprawl is drawn toward freshwater", async () => {
@@ -143,9 +163,9 @@ describe("Urban sprawl engine (add-urban-core-growth)", () => {
 
     let east = 0;
     let west = 0;
-    for (const [tile, d] of player.densityEntries()) {
-      if (game.x(tile) > cx) east += d;
-      else if (game.x(tile) < cx) west += d;
+    for (const [tile] of player.densityEntries()) {
+      if (game.x(tile) > cx) east++;
+      else if (game.x(tile) < cx) west++;
     }
     expect(east).toBeGreaterThan(west * 1.3);
   });
@@ -157,26 +177,65 @@ describe("Urban sprawl engine (add-urban-core-growth)", () => {
     grow(game, player, 150);
 
     let pocket = 0;
-    for (const [tile, d] of player.densityEntries()) {
-      if (game.x(tile) >= 60 && game.y(tile) >= 60) pocket += d;
+    for (const [tile] of player.densityEntries()) {
+      if (game.x(tile) >= 60 && game.y(tile) >= 60) pocket++;
     }
     expect(pocket).toBe(0);
     expect(player.urbanArea()).toBeGreaterThan(1);
   });
 
-  test("a starving city deurbanizes via urbanTick", () => {
-    // Grow a city, then choke the food economy (no farms, huge population).
+  test("a city only grows where farms feed it (food-shed gate)", async () => {
+    // Two settlements, same nation: one ringed by a mature farm, one with none.
+    class Local extends TestConfig {
+      override food() {
+        return { ...super.food(), foodShedRadius: 6, foodShedPower: 3 };
+      }
+    }
+    game = await layeredGame(flat, Local);
+    player = game.player(founderInfo.id);
+    conquerBlock(game, player, 0, 0, 90, 90);
+
+    // Fed settlement at (20,20) with a mature farm two tiles away.
+    player.setCore(game.ref(20, 20));
+    player.setDensity(game.ref(20, 20), game.config().food().popPerDensity);
+    plantFedFarm(game, player, 22, 20);
+    // Starved settlement at (70,70): a supplied city seed, but no farm within
+    // its food-shed — the food-shed gate (not supply) blocks it.
+    player.buildUnit(UnitType.Settlement, game.ref(70, 70), {});
+    player.setDensity(game.ref(70, 70), game.config().food().popPerDensity);
+
+    setPopulation(player, 3_000_000);
+    const supply = supplyField(game, player);
+    for (let i = 0; i < 200; i++) growUrbanArea(game, player, supply);
+
+    let fed = 0;
+    let starved = 0;
+    for (const [tile] of player.densityEntries()) {
+      const near = (cx: number, cy: number) =>
+        Math.abs(game.x(tile) - cx) + Math.abs(game.y(tile) - cy) < 30;
+      if (near(20, 20)) fed++;
+      else if (near(70, 70)) starved++;
+    }
+    expect(fed).toBeGreaterThan(starved * 3);
+  });
+
+  test("city razes tiles when the population dies off", () => {
     conquerBlock(game, player, 10, 10, 40);
     found(game, player, 30, 30);
-    grow(game, player, 120);
+    // A population that houses 15 tiles.
+    const f = game.config().food();
+    setPopulation(player, f.popPerDensity * 15);
+    const supply = supplyField(game, player);
+    for (let i = 0; i < 200; i++) growUrbanArea(game, player, supply);
     const peak = player.urbanArea();
-    expect(peak).toBeGreaterThan(5);
+    expect(peak).toBeGreaterThan(10);
 
-    player.removeFood(player.food());
-    player.setTroops(200_000); // nothing feeds them → starvation → recede
-    game.addExecution(new PlayerExecution(player));
-    for (let i = 0; i < 120; i++) game.executeNextTick();
+    // The population collapses to 3 tiles' worth → the city sheds its rim over
+    // ticks (recedeToTarget runs from urbanTick; drive it directly here).
+    setPopulation(player, f.popPerDensity * 3);
+    for (let i = 0; i < 100; i++) recedeToTarget(game, player);
     expect(player.urbanArea()).toBeLessThan(peak);
+    expect(player.urbanArea()).toBe(3); // shrinks exactly to what people fill
   });
 
   test("deterministic across identical runs", async () => {

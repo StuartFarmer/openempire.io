@@ -1,31 +1,35 @@
-import { Game, Player } from "../../game/Game";
-import { GameMap, TileRef } from "../../game/GameMap";
+import { Game, Player, UnitType } from "../../game/Game";
+import { TileRef } from "../../game/GameMap";
 import { PseudoRandom } from "../../PseudoRandom";
 import { simpleHash } from "../../Util";
 import { foodTick } from "./FoodEconomy";
+import { foodShedField, foodShedPotential } from "./FoodShed";
 import { PlayerSupply, supplyField, supplyQuality } from "./SupplyField";
 
 /**
- * The urban tick (openspec add-urban-core-growth). A hybrid on layered maps:
- * the player STILL paints Farmland (food) and Barns (storage) — that food
- * economy runs unchanged via FoodEconomy.foodTick — but the CITY is no longer
- * painted. It sprawls on its own as a per-tile density field grown from a
- * founded Core, and that sprawl (not settlements) sets the population cap.
+ * The urban tick (openspec add-urban-core-growth; see growth-model.md). On
+ * layered maps the player places SEEDS — Settlement (city nuclei) and Farmland
+ * (food) — and the cities grow themselves as a binary cellular automaton:
  *
- * The sprawl follows the urban-growth literature:
- *   - HOW MUCH (Wang et al.): built area advances on a logistic S-curve
- *     ΔA = r·A·(1 − A/K)·surplus, where the surplus is the food surplus from
- *     the player's farms — a well-fed city sprawls, a starving one recedes.
- *   - WHERE (Marquis & Barthelemy): the area budget is deposited on the
- *     frontier weighted by a suitability field (fertility, freshwater, shore,
- *     supply logistics − congestion), reproducing the exponential density
- *     gradient, √P radius scaling, and rough edges emergently.
+ *   - Each tile stores its POPULATION (people, 0..popPerDensity); a full tile
+ *     holds popPerDensity people. A new tile fills only 4-adjacent to an
+ *     existing city tile (contiguity); no detached satellites. So `urbanArea`
+ *     is Σ people / popPerDensity, and sprawl ↔ population are one-to-one.
+ *   - HOW BIG (the key bound): the city tracks its FOOD-SUPPORTED size —
+ *     target = foodFlow.capacity / popPerDensity. A city is only as big as the
+ *     people its farms feed, never as big as the land it owns, so it can't
+ *     sprawl across a continent. It grows toward the target a paced few tiles
+ *     per tick and razes edge tiles when food drops below it.
+ *   - WHERE (Marquis & Barthelemy): each new tile is chosen on the frontier by
+ *     suitability (fertility, freshwater, shore, supply − congestion) × a
+ *     food-shed gate, so the city grows toward farm-fed, fertile, watered land
+ *     and each settlement grows locally from its own surroundings.
  *
- * Deterministic: the suitability field is a pure function of layers+supply+
- * density; deposit order uses a per-tick seeded PRNG.
+ * Deterministic: suitability and food-shed are pure functions of
+ * layers+supply+density+maturity; placement order uses a per-tick seeded PRNG.
  */
 
-/** Hard cap on deposit iterations per player per tick (runaway backstop). */
+/** Hard cap on placement iterations per player per tick (runaway backstop). */
 const MAX_DEPOSITS = 4096;
 
 /**
@@ -55,88 +59,134 @@ export function urbanSuitability(
 }
 
 export function urbanTick(mg: Game, player: Player): void {
-  // Food economy (painted Farmland + Barn plots, unchanged): farms produce,
-  // barns store, the population — capped by the urban sprawl (density field)
-  // via Config.maxTroops — eats and grows or starves. Returns the surplus.
-  const surplusFactor = foodTick(mg, player);
+  // Food economy + demographics: farms produce, the population is born and
+  // dies by the food it has (FoodEconomy.foodTick sets foodFlow().population).
+  foodTick(mg, player);
 
-  // Urban sprawl growth (the new mechanic): a fed city sprawls. On a food
-  // surplus, the built area advances on the logistic curve, spatially placed
-  // by the suitability field; on a deficit, foodTick starves and the sprawl
-  // recedes here.
   if (player.core() === null) return;
-  if (surplusFactor > 0) {
-    const supply = supplyField(mg, player);
-    growUrbanArea(mg, player, supply, surplusFactor);
-  } else if (player.foodFlow().starvedTroops > 0) {
-    recedeDensity(player, mg.config().food().starvationDeathFraction);
+
+  // The city footprint tracks the LIVING population: it grows near your nuclei
+  // (Core + Settlements) where farms feed it, and razes tile-by-tile as people
+  // die. When the whole population is gone, so is the city (and the nation).
+  const supply = supplyField(mg, player);
+  growUrbanArea(mg, player, supply);
+  recedeToTarget(mg, player);
+}
+
+/** The Core and every completed Settlement — the nuclei a city grows from. */
+function nucleusTiles(player: Player): Set<TileRef> {
+  const nuclei = new Set<TileRef>();
+  const core = player.core();
+  if (core !== null) nuclei.add(core);
+  for (const s of player.units(UnitType.Settlement)) {
+    if (!s.isUnderConstruction()) nuclei.add(s.tile());
   }
+  return nuclei;
 }
 
 /**
- * Deposit this tick's logistic area budget onto the frontier, weighted by
- * suitability. Congestion (in the suitability field) saturates the interior
- * and pushes deposition outward; a fraction seeds satellites beyond the front.
+ * Target city size, in whole tiles: the LIVING population divided by the
+ * people-per-tile density. Population is driven by food-modulated births and
+ * deaths (FoodEconomy), so the city grows as people are born and shrinks as
+ * they die — houses follow heads (growth-model.md Part 3).
+ */
+export function foodTargetTiles(mg: Game, player: Player): number {
+  const f = mg.config().food();
+  return Math.floor(player.foodFlow().population / f.popPerDensity);
+}
+
+/**
+ * Grow the city toward its food-bounded target by a paced number of WHOLE,
+ * fully-opaque tiles (strictly binary — a tile is a city tile or nothing).
+ * Each new tile must be 4-adjacent to an existing city tile (contiguity), and
+ * is chosen by suitability × food-shed so the city grows toward fertile,
+ * well-watered, farm-fed land. Exported for the engine tests.
  */
 export function growUrbanArea(
   mg: Game,
   player: Player,
   supply: PlayerSupply,
-  surplusFactor: number,
 ): void {
   const f = mg.config().food();
+  // urbanGrowthRate 0 means frozen urban dynamics (used by inert test
+  // configs), not "one tile per tick" via the pacing floor below.
+  if (f.urbanGrowthRate <= 0) return;
+  const A = Math.round(player.urbanArea());
+  const target = foodTargetTiles(mg, player);
+  if (A >= target) return;
+  const gap = target - A;
+  // Pace: close a fraction of the gap this tick (at least one tile), so a city
+  // grows over seconds toward its bounded size, not in a single frame.
+  const n = Math.min(gap, Math.max(1, Math.floor(gap * f.urbanGrowthRate)));
+  addCityTiles(mg, player, supply, n);
+}
+
+/** Place up to `n` whole city tiles on the contiguous, suitable, fed frontier. */
+function addCityTiles(
+  mg: Game,
+  player: Player,
+  supply: PlayerSupply,
+  n: number,
+): void {
+  if (n <= 0) return;
+  const f = mg.config().food();
+  const CITY = f.popPerDensity; // a full city tile = this many people
   const map = mg.map();
   const smallID = player.smallID();
+  const nbuf: TileRef[] = [0, 0, 0, 0];
 
-  // Start-of-tick local density (for the congestion term) — snapshot so all
-  // deposits this tick see a consistent field.
   const localDensity = (tile: TileRef): number => {
-    const nbuf: TileRef[] = [0, 0, 0, 0];
-    const n = map.neighbors4(tile, nbuf);
+    const k = map.neighbors4(tile, nbuf);
     let sum = 0;
-    for (let i = 0; i < n; i++) sum += player.density(nbuf[i]) / 1000;
-    return n > 0 ? sum / n : 0;
+    for (let i = 0; i < k; i++) sum += player.density(nbuf[i]) / CITY;
+    return k > 0 ? sum / k : 0;
   };
 
-  // Suitability + carrying capacity K over reachable owned land.
+  // Food-shed field: cities only grow where mature farms feed them — the gate
+  // that makes each settlement grow LOCALLY and independently.
+  const shed = foodShedField(mg, player);
+
+  // Suitability × food-shed over eligible (reachable, owned, non-farm,
+  // non-city) land — the placement weights (WHERE the city grows).
   const suit = new Map<TileRef, number>();
-  let K = 0;
   for (const [tile] of supply.dist) {
     if (map.ownerID(tile) !== smallID) continue;
     if (!map.isLand(tile) || map.isImpassable(tile)) continue;
-    const s = urbanSuitability(mg, player, supply, tile, localDensity(tile));
-    const sp = s > 0 ? s : 0;
+    if (player.density(tile) >= CITY) continue; // already a city tile
+    // Mutual exclusivity: a Farmland tile is food, never city.
+    if (mg.plotAt(tile)?.type() === UnitType.Farmland) continue;
+    const base = urbanSuitability(mg, player, supply, tile, localDensity(tile));
+    if (base <= 0) continue;
+    const gate = Math.min(1, f.wFoodShed * foodShedPotential(mg, shed, tile));
+    const sp = base * gate;
+    if (sp <= 0) continue;
     suit.set(tile, sp);
-    K += sp;
   }
-  if (K <= 0) return;
 
-  const A = player.urbanArea();
-  const deltaA = f.urbanGrowthRate * A * (1 - A / K) * surplusFactor;
-  let budget = Math.floor(deltaA * 1000); // milli-density to deposit
-  if (budget <= 0) return;
-
-  // Frontier: reachable owned unbuilt-or-partial tiles adjacent to built land
-  // (or the core). Satellite pool: any reachable unbuilt tile.
-  const core = player.core();
-  const nbuf: TileRef[] = [0, 0, 0, 0];
-  const isFrontier = (tile: TileRef): boolean => {
-    if (player.density(tile) >= 1000) return false;
-    if (player.density(tile) > 0 || tile === core) return true;
-    const n = map.neighbors4(tile, nbuf);
-    for (let i = 0; i < n; i++) if (player.density(nbuf[i]) > 0) return true;
+  const isCity = (t: TileRef): boolean => player.density(t) >= CITY;
+  const touchesCity = (t: TileRef): boolean => {
+    const k = map.neighbors4(t, nbuf);
+    for (let i = 0; i < k; i++) if (isCity(nbuf[i])) return true;
     return false;
   };
+  // A city grows outward from its NUCLEI (Core + Settlements): a nucleus tile,
+  // or land adjacent to one, seeds the first front even before any density
+  // exists there — so a fresh settlement's population urbanizes around it.
+  const nuclei = nucleusTiles(player);
+  const nearNucleus = (t: TileRef): boolean => {
+    if (nuclei.has(t)) return true;
+    const k = map.neighbors4(t, nbuf);
+    for (let i = 0; i < k; i++) if (nuclei.has(nbuf[i])) return true;
+    return false;
+  };
+  // Frontier: eligible tiles 4-adjacent to an existing city tile, or seeded by
+  // a nucleus.
   const frontier: TileRef[] = [];
   const inFrontier = new Set<TileRef>();
-  const satellitePool: TileRef[] = [];
-  for (const [tile, sp] of suit) {
-    if (sp <= 0) continue;
-    if (isFrontier(tile)) {
+  for (const [tile] of suit) {
+    if (touchesCity(tile) || nearNucleus(tile)) {
       frontier.push(tile);
       inFrontier.add(tile);
-    } else if (player.density(tile) === 0) {
-      satellitePool.push(tile);
     }
   }
 
@@ -144,63 +194,28 @@ export function growUrbanArea(
     simpleHash(`urban:${player.id()}:${mg.ticks()}`),
   );
   const weightOf = (tile: TileRef): number => suit.get(tile) ?? 0;
-  const step = f.densityStepMilli;
 
+  let placed = 0;
   let guard = 0;
-  while (budget > 0 && guard < MAX_DEPOSITS) {
+  while (placed < n && frontier.length > 0 && guard < MAX_DEPOSITS) {
     guard++;
-
-    // Satellite seeding: a disconnected deposit that becomes a new nucleus.
-    if (satellitePool.length > 0 && rand.next() < f.dispersalRate) {
-      const t = weightedPick(satellitePool, weightOf, rand);
-      if (t !== null) {
-        deposit(player, t, Math.min(step, budget));
-        budget -= Math.min(step, budget);
-        // The satellite is now built — its neighbors become frontier.
-        promoteNeighbors(map, player, t, suit, frontier, inFrontier, nbuf);
-        continue;
-      }
-    }
-
-    if (frontier.length === 0) break;
     const t = weightedPick(frontier, weightOf, rand);
     if (t === null) break;
-    const room = 1000 - player.density(t);
-    const add = Math.min(step, budget, room);
-    deposit(player, t, add);
-    budget -= add;
-    if (player.density(t) >= 1000) {
-      // Saturated — drop from frontier, promote unbuilt neighbors.
-      inFrontier.delete(t);
-      const idx = frontier.indexOf(t);
-      if (idx >= 0) frontier.splice(idx, 1);
-      promoteNeighbors(map, player, t, suit, frontier, inFrontier, nbuf);
+    player.setDensity(t, CITY); // a whole, fully-opaque city tile
+    placed++;
+    inFrontier.delete(t);
+    const idx = frontier.indexOf(t);
+    if (idx >= 0) frontier.splice(idx, 1);
+    // Promote the new tile's eligible neighbours onto the frontier.
+    const k = map.neighbors4(t, nbuf);
+    for (let i = 0; i < k; i++) {
+      const nb = nbuf[i];
+      if (inFrontier.has(nb) || isCity(nb)) continue;
+      if ((suit.get(nb) ?? 0) <= 0) continue;
+      frontier.push(nb);
+      inFrontier.add(nb);
     }
   }
-}
-
-function promoteNeighbors(
-  map: GameMap,
-  player: Player,
-  tile: TileRef,
-  suit: Map<TileRef, number>,
-  frontier: TileRef[],
-  inFrontier: Set<TileRef>,
-  nbuf: TileRef[],
-): void {
-  const n = map.neighbors4(tile, nbuf);
-  for (let i = 0; i < n; i++) {
-    const nb = nbuf[i];
-    if (inFrontier.has(nb)) continue;
-    if (player.density(nb) >= 1000) continue;
-    if ((suit.get(nb) ?? 0) <= 0) continue;
-    frontier.push(nb);
-    inFrontier.add(nb);
-  }
-}
-
-function deposit(player: Player, tile: TileRef, milli: number): void {
-  player.setDensity(tile, player.density(tile) + milli);
 }
 
 /** Weighted random pick from `pool` by `weightOf`; null if total weight is 0. */
@@ -220,11 +235,36 @@ function weightedPick(
   return pool[pool.length - 1];
 }
 
-/** Uniformly recede density by `frac` (deurbanization under starvation). */
-function recedeDensity(player: Player, frac: number): void {
-  if (frac <= 0) return;
-  const entries = Array.from(player.densityEntries());
-  for (const [tile, dMilli] of entries) {
-    player.setDensity(tile, dMilli * (1 - frac));
+/**
+ * Raze whole city tiles from the OUTER edge (fewest city neighbours first) when
+ * the population can no longer fill the city — deaths outrunning births. Nothing
+ * is protected: as the population dwindles the city shrinks to nothing, and when
+ * everyone is gone the last tile goes with them. Paced like growth.
+ */
+export function recedeToTarget(mg: Game, player: Player): void {
+  const f = mg.config().food();
+  // urbanGrowthRate 0 freezes contraction too (see growUrbanArea).
+  if (f.urbanGrowthRate <= 0) return;
+  const A = Math.round(player.urbanArea());
+  const target = foodTargetTiles(mg, player);
+  if (A <= target) return;
+  const gap = A - target;
+  let remove = Math.min(gap, Math.max(1, Math.floor(gap * f.urbanGrowthRate)));
+
+  const CITY = f.popPerDensity;
+  const map = mg.map();
+  const nbuf: TileRef[] = [0, 0, 0, 0];
+  const cityNeighbors = (t: TileRef): number => {
+    let c = 0;
+    const k = map.neighbors4(t, nbuf);
+    for (let i = 0; i < k; i++) if (player.density(nbuf[i]) >= CITY) c++;
+    return c;
+  };
+  const tiles = Array.from(player.densityEntries()).map(([t]) => t);
+  tiles.sort((a, b) => cityNeighbors(a) - cityNeighbors(b) || a - b);
+  for (const t of tiles) {
+    if (remove <= 0) break;
+    player.setDensity(t, 0);
+    remove--;
   }
 }

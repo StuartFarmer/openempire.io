@@ -100,7 +100,6 @@ describe("RadialMenuElements", () => {
       inSpawnPhase: vi.fn(() => false),
       owner: vi.fn(() => mockPlayer),
       isLand: vi.fn(() => true),
-      hasLayers: vi.fn(() => false),
       config: vi.fn(() => ({
         theme: () => ({
           territoryColor: () => ({
@@ -300,24 +299,14 @@ describe("RadialMenuElements", () => {
       expect(rootMenuElement.disabled(mockParams)).toBe(false);
     });
 
-    it("should show build and delete menu on own territory", () => {
+    it("should show delete but NOT build on own territory (build bar replaces the wrench)", () => {
       const subMenu = rootMenuElement.subMenu!(mockParams);
       const buildMenu = subMenu.find((item) => item.id === Slot.Build);
       const attackMenu = subMenu.find((item) => item.id === Slot.Attack);
       const deleteMenu = subMenu.find((item) => item.id === Slot.Delete);
 
-      expect(buildMenu).toBeDefined();
-      expect(attackMenu).toBeUndefined();
-      expect(deleteMenu).toBeDefined();
-    });
-
-    it("should NOT show the build menu on layered maps (build bar replaces it)", () => {
-      (mockGame.hasLayers as ReturnType<typeof vi.fn>).mockReturnValue(true);
-      const subMenu = rootMenuElement.subMenu!(mockParams);
-      const buildMenu = subMenu.find((item) => item.id === Slot.Build);
-      const deleteMenu = subMenu.find((item) => item.id === Slot.Delete);
-
       expect(buildMenu).toBeUndefined();
+      expect(attackMenu).toBeUndefined();
       expect(deleteMenu).toBeDefined();
     });
 

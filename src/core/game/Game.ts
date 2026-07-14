@@ -129,11 +129,6 @@ export enum RankedType {
 export const isGameMode = (value: unknown): value is GameMode =>
   isEnumValue(GameMode, value);
 
-export enum GameMapSize {
-  Compact = "Compact",
-  Normal = "Normal",
-}
-
 export interface PublicGameModifiers {
   isCompact?: boolean;
   isRandomSpawn?: boolean;
@@ -611,8 +606,7 @@ export interface Player {
   addTroops(troops: number): void;
   removeTroops(troops: number): number;
 
-  // Food economy (layered maps only — see add-tribal-food-economy)
-  hasFoodEconomy(): boolean;
+  // Food economy (see add-tribal-food-economy)
   /** Food stock in display units. */
   food(): Gold;
   addFood(toAdd: Gold): void;
@@ -624,6 +618,11 @@ export interface Player {
     production: number;
     consumption: number;
     starvedTroops: number;
+    /** Food-supported population = productionMilli / idleConsumptionMilli. */
+    capacity: number;
+    /** Total living population (idle + deployed) after this tick's births and
+     *  deaths — drives the city footprint and the population-death loss. */
+    population: number;
   };
   /** Allocation slider: production fraction fed to the population (0..1). */
   foodPopulationShare(): number;
@@ -639,6 +638,10 @@ export interface Player {
   densityEntries(): IterableIterator<[TileRef, number]>;
   /** Urban area in tile-equivalents (Σ density). */
   urbanArea(): number;
+  /** Farm maturity M∈[0,1] on a Farmland tile in milliunits (0..1000). */
+  farmMaturity(tile: TileRef): number;
+  setFarmMaturity(tile: TileRef, milli: number): void;
+  farmMaturityEntries(): IterableIterator<[TileRef, number]>;
 
   // Units
   units(...types: UnitType[]): Unit[];

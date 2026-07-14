@@ -10,6 +10,7 @@ import {
   UnitType,
 } from "../src/core/game/Game";
 import { setup } from "./util/Setup";
+import { TestConfig } from "./util/TestConfig";
 
 /**
  * The layered-map economy under the urban-core-growth HYBRID: the player still
@@ -66,7 +67,7 @@ function foundSprawl(
   const half = Math.floor(size / 2);
   for (let y = cy - half; y < cy - half + size; y++) {
     for (let x = cx - half; x < cx - half + size; x++) {
-      player.setDensity(game.ref(x, y), 1000);
+      player.setDensity(game.ref(x, y), game.config().food().popPerDensity);
     }
   }
 }
@@ -90,15 +91,6 @@ describe("Urban economy (add-urban-core-growth)", () => {
     rival = game.player(rivalInfo.id);
   });
 
-  test("food economy activates only on layered maps", async () => {
-    expect(game.hasLayers()).toBe(true);
-    expect(player.hasFoodEconomy()).toBe(true);
-
-    const classic = await setup("plains", {}, [humanInfo]);
-    expect(classic.hasLayers()).toBe(false);
-    expect(classic.player(humanInfo.id).hasFoodEconomy()).toBe(false);
-  });
-
   test("food comes from painted Farmland, not from the city sprawl", () => {
     // A dense sprawl with NO farms produces nothing; painting Farmland does.
     conquerBlock(game, player, 0, 0, 20);
@@ -109,8 +101,12 @@ describe("Urban economy (add-urban-core-growth)", () => {
     game.executeNextTick();
     expect(flow(player).production).toBe(0); // sprawl alone → no food
 
+    // Mature farms (maturity is exercised in FarmGrowth.test.ts) so the yield
+    // clears the display-food floor.
     player.buildUnit(UnitType.Farmland, game.ref(15, 10), {});
     player.buildUnit(UnitType.Farmland, game.ref(16, 10), {});
+    player.setFarmMaturity(game.ref(15, 10), 1000);
+    player.setFarmMaturity(game.ref(16, 10), 1000);
     game.executeNextTick();
     expect(flow(player).production).toBeGreaterThan(0);
   });
@@ -138,7 +134,7 @@ describe("Urban economy (add-urban-core-growth)", () => {
     const f = game.config().food();
     conquerBlock(game, player, 0, 0, 10);
     player.setCore(game.ref(5, 5));
-    player.setDensity(game.ref(5, 5), 1000);
+    player.setDensity(game.ref(5, 5), game.config().food().popPerDensity);
     expect(game.config().maxTroops(player)).toBe(
       f.basePopulation + 1 * f.popPerDensity,
     );
@@ -150,7 +146,7 @@ describe("Urban economy (add-urban-core-growth)", () => {
       [5, 4],
       [5, 6],
     ]) {
-      player.setDensity(game.ref(x, y), 1000);
+      player.setDensity(game.ref(x, y), game.config().food().popPerDensity);
       n++;
     }
     expect(game.config().maxTroops(player)).toBe(
@@ -179,25 +175,34 @@ describe("Urban economy (add-urban-core-growth)", () => {
     expect(p.units(UnitType.Farmland).length).toBeGreaterThan(0); // starter kit
     expect(p.food()).toBe(BigInt(f.startingFood)); // founding is free
 
-    // Idle: the starter farms feed the sprawl, which grows without dying.
+    // Idle: the starter kit is a small farm village — it survives without
+    // dying. Under the food bound (~5 farms per city tile) three starter farms
+    // hold a 1-tile village; growth into a city needs more farms (tested next).
     for (let i = 0; i < 200; i++) g.executeNextTick();
     expect(p.isAlive()).toBe(true);
-    expect(p.urbanArea()).toBeGreaterThan(1); // the city sprawled
+    expect(p.urbanArea()).toBeGreaterThanOrEqual(1);
   });
 
-  test("a farm-fed city sprawls; the sprawl raises the population cap", () => {
+  test("a farm-fed population grows and its city sprawls with it", () => {
     conquerBlock(game, player, 0, 0, 30);
-    foundSprawl(game, player, 15, 15, 2);
-    // A belt of farms feeds a growing city.
-    for (let x = 5; x < 26; x++)
-      player.buildUnit(UnitType.Farmland, game.ref(x, 5), {});
-    player.setTroops(0);
+    player.setCore(game.ref(15, 15));
+    player.setDensity(game.ref(15, 15), game.config().food().popPerDensity);
+    // Feed it heavily: two mature farm belts → a big food surplus → births →
+    // the population grows, and the city footprint tracks it.
+    for (let y = 5; y <= 6; y++)
+      for (let x = 3; x < 28; x++) {
+        const t = game.ref(x, y);
+        player.buildUnit(UnitType.Farmland, t, {});
+        player.setFarmMaturity(t, 1000);
+      }
+    player.setTroops(2000); // a starting population (not zero — that would die out)
     player.addFood(20_000n);
     activate(game, player);
-    const capBefore = game.config().maxTroops(player);
-    for (let i = 0; i < 150; i++) game.executeNextTick();
-    expect(player.urbanArea()).toBeGreaterThan(2); // sprawled
-    expect(game.config().maxTroops(player)).toBeGreaterThan(capBefore);
+    const popBefore = player.troops();
+    const areaBefore = player.urbanArea();
+    for (let i = 0; i < 200; i++) game.executeNextTick();
+    expect(player.troops()).toBeGreaterThan(popBefore); // surplus → births
+    expect(player.urbanArea()).toBeGreaterThan(areaBefore); // city grew with them
   });
 
   test("war razing: capturing a district clears its sprawl density", () => {
@@ -250,12 +255,62 @@ describe("Urban economy (add-urban-core-growth)", () => {
     };
     expect(await run()).toEqual(await run());
   });
+
+  test("a fed population grows toward its food capacity and holds there", () => {
+    conquerBlock(game, player, 0, 0, 20);
+    player.setCore(game.ref(10, 10));
+    for (let x = 2; x < 14; x++) {
+      player.buildUnit(UnitType.Farmland, game.ref(x, 2), {});
+      player.setFarmMaturity(game.ref(x, 2), 1000);
+    }
+    player.setTroops(500);
+    player.addFood(50_000n);
+    activate(game, player);
+    const start = player.troops();
+    for (let i = 0; i < 300; i++) game.executeNextTick();
+    // Births on the food surplus grew the population…
+    expect(player.troops()).toBeGreaterThan(start);
+    // …but never past what the farms feed (the headroom clamp).
+    expect(player.troops()).toBeLessThanOrEqual(
+      player.foodFlow().capacity + 50,
+    );
+  });
+
+  test("a nation whose population starves to nothing is eliminated", async () => {
+    class ShortLife extends TestConfig {
+      override food() {
+        return { ...super.food(), avgLifespanTicks: 80 };
+      }
+    }
+    const g = await setup(
+      "plains",
+      { instantBuild: true },
+      [humanInfo],
+      undefined,
+      ShortLife,
+      true,
+      flatLayers,
+    );
+    const p = g.player(humanInfo.id);
+    for (let y = 0; y < 8; y++)
+      for (let x = 0; x < 8; x++) p.conquer(g.ref(x, y));
+    p.setCore(g.ref(4, 4));
+    p.setSpawnTile(g.ref(4, 4));
+    p.setTroops(400);
+    p.removeFood(p.food()); // no stock, no farms → total, permanent starvation
+    g.addExecution(new PlayerExecution(p));
+    expect(p.isAlive()).toBe(true);
+
+    for (let i = 0; i < 400; i++) g.executeNextTick();
+    // The population dies out and the nation is gone — even though it never lost
+    // a battle; its land reverts to neutral.
+    expect(p.isAlive()).toBe(false);
+  });
 });
 
 describe("Baked layered fixture", () => {
   test("tribalsmall loads its layers.bin through setup()", async () => {
     const game = await setup("tribalsmall", {}, [humanInfo]);
-    expect(game.hasLayers()).toBe(true);
     const crops = new Set<number>();
     const water = new Set<number>();
     let maxWater = 0;

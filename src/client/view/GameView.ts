@@ -1257,9 +1257,6 @@ export class GameView implements GameMap {
   numTilesWithFallout(): number {
     return this._map.numTilesWithFallout();
   }
-  hasLayers(): boolean {
-    return this._map.hasLayers();
-  }
   /** Tribal plot-type value at a tile (0 = none) — paint-mode prechecks. */
   plotStateAt(ref: TileRef): number {
     return this.plotCache.plotStateAt(ref);

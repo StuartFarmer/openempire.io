@@ -171,6 +171,10 @@ describe("Player update diffing (toUpdate)", () => {
   });
 
   test("attacks appear for attacker and defender through the tick pipeline", () => {
+    // Fund both attacks up front (players start at the food-economy
+    // startPopulation, which is smaller than the combined attack sizes —
+    // an underfunded attack retreats and churns the attack arrays).
+    alice.addTroops(20_000);
     // Expand alice into terra nullius until she borders bob — a land attack
     // on a non-adjacent player retreats immediately.
     game.addExecution(

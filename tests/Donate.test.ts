@@ -50,7 +50,14 @@ describe("Donate troops to an ally", () => {
       allianceRequest.accept();
     }
 
-    // Ensure donor can actually donate the requested amount
+    // Let the spawns land first: the recipient's carrying capacity (which
+    // caps donations in the urban model) comes from the founded core.
+    game.executeNextTick();
+    game.executeNextTick();
+
+    // Ensure donor can actually donate the requested amount. (Donations are
+    // capped at the recipient's free carrying capacity, which the founded
+    // core provides once the spawns have landed.)
     donor.addTroops(6000);
     const donorTroopsBefore = donor.troops();
     const recipientTroopsBefore = recipient.troops();

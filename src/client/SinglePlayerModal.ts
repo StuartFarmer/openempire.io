@@ -4,7 +4,6 @@ import { translateText } from "../client/Utils";
 import { DoomsdayClockSpeed } from "../core/game/DoomsdayClock";
 import {
   Difficulty,
-  GameMapSize,
   GameMapType,
   GameMode,
   GameType,
@@ -21,8 +20,6 @@ import { modalHeader } from "./components/ui/ModalHeader";
 import { JoinLobbyEvent } from "./Main";
 import { UsernameInput } from "./UsernameInput";
 import {
-  getBotsForCompactMap,
-  getNationsForCompactMap,
   getRandomMapType,
   getUpdatedDisabledUnits,
   parseBoundedFloatFromInput,
@@ -40,7 +37,6 @@ const DEFAULT_OPTIONS = {
   bots: 400,
   infiniteGold: false,
   infiniteTroops: false,
-  compactMap: false,
   maxTimer: false,
   maxTimerValue: undefined as number | undefined,
   instantBuild: false,
@@ -71,7 +67,6 @@ export class SinglePlayerModal extends BaseModal {
   @state() private bots: number = DEFAULT_OPTIONS.bots;
   @state() private infiniteGold: boolean = DEFAULT_OPTIONS.infiniteGold;
   @state() private infiniteTroops: boolean = DEFAULT_OPTIONS.infiniteTroops;
-  @state() private compactMap: boolean = DEFAULT_OPTIONS.compactMap;
   @state() private maxTimer: boolean = DEFAULT_OPTIONS.maxTimer;
   @state() private maxTimerValue: number | undefined =
     DEFAULT_OPTIONS.maxTimerValue;
@@ -220,10 +215,6 @@ export class SinglePlayerModal extends BaseModal {
                     checked: this.infiniteTroops,
                   },
                   {
-                    labelKey: "single_modal.compact_map",
-                    checked: this.compactMap,
-                  },
-                  {
                     labelKey: "single_modal.disable_alliances",
                     checked: this.disableAlliances,
                   },
@@ -279,7 +270,6 @@ export class SinglePlayerModal extends BaseModal {
       this.bots !== DEFAULT_OPTIONS.bots ||
       this.infiniteGold !== DEFAULT_OPTIONS.infiniteGold ||
       this.infiniteTroops !== DEFAULT_OPTIONS.infiniteTroops ||
-      this.compactMap !== DEFAULT_OPTIONS.compactMap ||
       this.maxTimer !== DEFAULT_OPTIONS.maxTimer ||
       this.instantBuild !== DEFAULT_OPTIONS.instantBuild ||
       this.randomSpawn !== DEFAULT_OPTIONS.randomSpawn ||
@@ -307,7 +297,6 @@ export class SinglePlayerModal extends BaseModal {
     this.defaultNationCount = 0;
     this.infiniteGold = DEFAULT_OPTIONS.infiniteGold;
     this.infiniteTroops = DEFAULT_OPTIONS.infiniteTroops;
-    this.compactMap = DEFAULT_OPTIONS.compactMap;
     this.maxTimer = DEFAULT_OPTIONS.maxTimer;
     this.maxTimerValue = DEFAULT_OPTIONS.maxTimerValue;
     this.instantBuild = DEFAULT_OPTIONS.instantBuild;
@@ -373,16 +362,6 @@ export class SinglePlayerModal extends BaseModal {
     this.handleTeamCountSelection(customEvent.detail.count);
   };
 
-  private handleCompactMapChange(val: boolean) {
-    this.compactMap = val;
-    this.bots = getBotsForCompactMap(this.bots, val);
-    this.nations = getNationsForCompactMap(
-      this.nations,
-      this.defaultNationCount,
-      val,
-    );
-  }
-
   private handleConfigOptionToggleChanged = (e: Event) => {
     const customEvent = e as CustomEvent<{
       labelKey: string;
@@ -402,9 +381,6 @@ export class SinglePlayerModal extends BaseModal {
         break;
       case "single_modal.infinite_troops":
         this.infiniteTroops = checked;
-        break;
-      case "single_modal.compact_map":
-        this.handleCompactMapChange(checked);
         break;
       case "single_modal.disable_alliances":
         this.disableAlliances = checked;
@@ -586,9 +562,6 @@ export class SinglePlayerModal extends BaseModal {
             ],
             config: {
               gameMap: this.selectedMap,
-              gameMapSize: this.compactMap
-                ? GameMapSize.Compact
-                : GameMapSize.Normal,
               gameType: GameType.Singleplayer,
               gameMode: this.gameMode,
               playerTeams: this.teamCount,
@@ -648,9 +621,7 @@ export class SinglePlayerModal extends BaseModal {
       // Only update if the map hasn't changed
       if (this.selectedMap === currentMap) {
         this.defaultNationCount = manifest.nations.length;
-        this.nations = this.compactMap
-          ? Math.max(0, Math.floor(manifest.nations.length * 0.25))
-          : manifest.nations.length;
+        this.nations = manifest.nations.length;
       }
     } catch (error) {
       console.warn("Failed to load nation count", error);

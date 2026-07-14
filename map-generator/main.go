@@ -130,16 +130,13 @@ func processMap(ctx context.Context, name string, isTest bool) error {
 		"height":         result.Map.Height,
 		"num_land_tiles": result.Map.NumLandTiles,
 	}
+	// map4x is the pathfinding minimap, not a playable size.
 	manifest["map4x"] = map[string]interface{}{
 		"width":          result.Map4x.Width,
 		"height":         result.Map4x.Height,
 		"num_land_tiles": result.Map4x.NumLandTiles,
 	}
-	manifest["map16x"] = map[string]interface{}{
-		"width":          result.Map16x.Width,
-		"height":         result.Map16x.Height,
-		"num_land_tiles": result.Map16x.NumLandTiles,
-	}
+	delete(manifest, "map16x")
 
 	mapDir := filepath.Join(outputMapBaseDir, name)
 	if err := os.MkdirAll(mapDir, 0755); err != nil {
@@ -149,9 +146,6 @@ func processMap(ctx context.Context, name string, isTest bool) error {
 		return fmt.Errorf("failed to write combined binary for %s: %w", name, err)
 	}
 	if err := os.WriteFile(filepath.Join(mapDir, "map4x.bin"), result.Map4x.Data, 0644); err != nil {
-		return fmt.Errorf("failed to write combined binary for %s: %w", name, err)
-	}
-	if err := os.WriteFile(filepath.Join(mapDir, "map16x.bin"), result.Map16x.Data, 0644); err != nil {
 		return fmt.Errorf("failed to write combined binary for %s: %w", name, err)
 	}
 	if err := os.WriteFile(filepath.Join(mapDir, "thumbnail.webp"), result.Thumbnail, 0644); err != nil {
@@ -166,6 +160,10 @@ func processMap(ctx context.Context, name string, isTest bool) error {
 	}
 	if copiedTerrainColors {
 		manifest["terrain_colors"] = true
+	} else if !isTest {
+		// Shipped maps must carry the color sidecar — there is exactly one
+		// rendering path. Retrofit with: npx tsx map-generator/derive-layers.ts
+		return fmt.Errorf("map %s has no terrain-colors.png (required; run derive-layers.ts to retrofit)", name)
 	} else {
 		delete(manifest, "terrain_colors")
 	}
@@ -184,6 +182,10 @@ func processMap(ctx context.Context, name string, isTest bool) error {
 	}
 	if copiedLayers {
 		manifest["layers"] = true
+	} else if !isTest {
+		// Shipped maps must carry the layer sidecar — there is exactly one
+		// game mode. Retrofit with: npx tsx map-generator/derive-layers.ts
+		return fmt.Errorf("map %s has no layers.bin (required; run derive-layers.ts to retrofit)", name)
 	} else {
 		delete(manifest, "layers")
 	}

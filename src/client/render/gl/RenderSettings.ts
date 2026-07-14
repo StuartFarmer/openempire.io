@@ -144,6 +144,10 @@ export interface RenderSettings {
     friendlyTintR: number;
     friendlyTintG: number;
     friendlyTintB: number;
+    /** Border colour of the aimed concentrated-push segment (0–1 RGB). */
+    segmentHighlightR: number;
+    segmentHighlightG: number;
+    segmentHighlightB: number;
   };
   /** Alt-view affiliation colors (0–1 RGB). */
   affiliation: {

@@ -51,15 +51,21 @@ try {
   const grown = await page.evaluate(() => {
     const g = document.querySelector("build-menu").game;
     const me = g.myPlayer();
-    return { area: me.urbanArea?.() ?? 0, troops: me.troops(), tiles: me.numTilesOwned() };
+    return {
+      area: me.urbanArea?.() ?? 0,
+      troops: me.troops(),
+      tiles: me.numTilesOwned(),
+    };
   });
   console.log("after growth:", JSON.stringify(grown));
   await panTo(page, tile.x, tile.y);
   await page.waitForTimeout(4000);
   await page.screenshot({ path: `${OUT}/urban-grown.png` });
 
-  if (grown.area > founded.area + 1) console.log("URBAN GROWTH VERIFY: PASS (city grew and renders)");
-  else console.log("VERIFY: city did not grow —", founded.area, "→", grown.area);
+  if (grown.area > founded.area + 1)
+    console.log("URBAN GROWTH VERIFY: PASS (city grew and renders)");
+  else
+    console.log("VERIFY: city did not grow —", founded.area, "→", grown.area);
 } finally {
   await browser.close();
 }

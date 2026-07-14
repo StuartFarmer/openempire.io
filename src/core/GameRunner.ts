@@ -39,11 +39,7 @@ export async function createGameRunner(
   callBack: (gu: GameUpdateViewData | ErrorUpdate) => void,
 ): Promise<GameRunner> {
   const config = new Config(gameStart.config, null, false);
-  const gameMap = await loadGameMap(
-    gameStart.config.gameMap,
-    gameStart.config.gameMapSize,
-    mapLoader,
-  );
+  const gameMap = await loadGameMap(gameStart.config.gameMap, mapLoader);
   const random = new PseudoRandom(simpleHash(gameStart.gameID));
 
   const humans = gameStart.players.map((p) => {

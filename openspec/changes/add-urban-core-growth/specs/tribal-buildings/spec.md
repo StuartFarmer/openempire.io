@@ -1,17 +1,30 @@
 # Spec delta: tribal-buildings (add-urban-core-growth)
 
+See `../../growth-model.md` for the full model and citations.
+
 ## MODIFIED Requirements
 
-### Requirement: Painted plots — Farmland and Barn kept, Settlement replaced
+### Requirement: Painted plots are seeds — Settlement, Farmland, Barn
 
-The player SHALL still paint **Farmland** (food) and **Barn** (storage) plots exactly as before — the food economy is unchanged. Only the **Settlement** plot is removed: the residential city is no longer painted, it _sprawls itself_ as a density field from a founded Core (see `urban-core-growth`), and that sprawl — not settlements — sets the population cap.
+The player SHALL place three kinds of plot on layered maps, all seeds rather than finished structures:
 
-#### Scenario: Farms and barns are still painted
+- **Settlement** — a city seed. It seeds urban density on its tile and is a growth nucleus; the city grows outward on its own, gated by the food-shed around it. It is also a military-supply source. The player may place as many as they can afford, founding cities in new regions.
+- **Farmland** — a food seed. It ripens in place from the tile's climate (maturity `M`), yielding food scaled by maturity and projecting the food-shed that nearby settlements grow on.
+- **Barn** — storage, as before.
 
-- **WHEN** the player is on a layered map with a founded city
-- **THEN** the build bar offers Farmland and Barn (not Settlement), and painting them produces/stores food as before
+Settlement and Farmland are **mutually exclusive per tile** and never convert each other: a farm cannot be planted on urban density, and urban density never deposits on a farm tile.
+
+#### Scenario: Placing the three seeds
+
+- **WHEN** the player is on a layered map with a founded capital
+- **THEN** the build bar offers Settlement, Farmland, and Barn, and placing them seeds a city nucleus, plants a maturing farm, or adds storage respectively
 
 #### Scenario: The city is not painted
 
-- **WHEN** the player wants to grow the city
-- **THEN** there is no Settlement to place; the city sprawls on its own from the Core, fed by the player's farms
+- **WHEN** the player wants to grow a city
+- **THEN** they place a Settlement seed (and Farmland to feed it); the city sprawls on its own from the seed — there is no city fabric painted tile-by-tile
+
+#### Scenario: Mutual exclusivity
+
+- **WHEN** the player tries to place Farmland on a tile that already carries urban density
+- **THEN** the placement is rejected — a tile is farm or city, never both

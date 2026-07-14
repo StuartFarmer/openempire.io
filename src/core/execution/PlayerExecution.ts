@@ -88,21 +88,11 @@ export class PlayerExecution implements Execution {
       return;
     }
 
-    if (this.mg.hasLayers()) {
-      // Layered maps: the urban-core growth tick owns the density field,
-      // production/consumption, population growth/starvation, and area
-      // growth (Config.food knobs; see execution/utils/UrbanGrowth.ts).
-      // No gold in this age.
-      urbanTick(this.mg, this.player);
-    } else {
-      const troopInc = this.config.troopIncreaseRate(this.player);
-      this.player.addTroops(troopInc);
-      const goldFromWorkers = this.config.goldAdditionRate(this.player);
-      this.player.addGold(goldFromWorkers);
-
-      // Record stats
-      this.mg.stats().goldWork(this.player, goldFromWorkers);
-    }
+    // The urban-core growth tick owns the density field,
+    // production/consumption, population growth/starvation, and area
+    // growth (Config.food knobs; see execution/utils/UrbanGrowth.ts).
+    // No gold in this age.
+    urbanTick(this.mg, this.player);
 
     for (const alliance of this.player.alliances()) {
       if (alliance.expiresAt() <= this.mg.ticks()) {

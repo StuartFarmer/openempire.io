@@ -55,9 +55,9 @@ export class MapRenderer {
     // is re-used when a GPURenderer is recreated after a context restore,
     // preserving any user overrides that were applied to it.
     private settings: RenderSettings,
-    private raf?: typeof requestAnimationFrame,
-    private caf?: typeof cancelAnimationFrame,
-    private boardMap?: BoardMap,
+    private raf: typeof requestAnimationFrame | undefined,
+    private caf: typeof cancelAnimationFrame | undefined,
+    private boardMap: BoardMap,
   ) {
     this.initRenderer();
 
@@ -289,6 +289,13 @@ export class MapRenderer {
   /** Push a fresh supply-quality field (map-sized R8 bytes). */
   updateSupplyOverlay(quality: Uint8Array): void {
     this.renderer?.updateSupplyOverlay(quality);
+  }
+  /** Concentrated-push aim preview: toggle + push a map-sized R8 segment mask. */
+  setSegmentHighlight(active: boolean): void {
+    this.renderer?.setSegmentHighlight(active);
+  }
+  updateSegmentHighlight(mask: Uint8Array): void {
+    this.renderer?.updateSegmentHighlight(mask);
   }
   setGridView(active: boolean): void {
     this.renderer?.setGridView(active);
