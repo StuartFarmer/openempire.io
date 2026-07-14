@@ -33,6 +33,9 @@ interface EconomyPlayer {
   }>;
   /** Built urban area (Σ density) — the carrying capacity. */
   urbanArea(): number;
+  /** Extra housing from tile tenure (rework-settlement-ecology): old city
+   *  tiles hold more people than young ones. */
+  tenureCapacityBonus(): number;
 }
 
 declare global {
@@ -169,6 +172,28 @@ export interface FoodConfig {
   /** Damage healed per tile per tick (milli). Full heal from one hit takes
    *  combatTileDamageMilli / tileDamageHealMilli ticks. */
   tileDamageHealMilli: number;
+  /**
+   * Tile stability (rework-settlement-ecology): a demand-gated tenure clock.
+   * A city tile ages (+1 tick of tenure) only while the city is pushing its
+   * housing limit and the tile is fully healed; a farm ages only once settled
+   * at its climate ceiling. Tenure feeds consumers through the saturating
+   * curve g = tenure/(tenure + tenureHalfTicks) — steep early, plateau late,
+   * so age never compounds without bound.
+   */
+  /** Density-cap multiplier at the tenure plateau: an old core holds up to
+   *  this × popPerDensity people per tile (young tiles hold 1×). */
+  tenureCapMultMax: number;
+  /** Tenure (ticks) at which the curve reaches half its plateau. */
+  tenureHalfTicks: number;
+  /** The demand gate: city tiles age only while population ≥ this fraction
+   *  of total housing (the city is pushing its limit). */
+  tenureSaturationRatio: number;
+  /** Tenure lost per tick (milli-ticks) on a VACANT tile — depopulation
+   *  decays stability slowly (a setback), never resets it (a crater). */
+  tenureDecayMilli: number;
+  /** Nucleus gravity: urban growth pacing is scaled by
+   *  1 + wNucleusTenure·g(core tenure) — old capitals grow faster. */
+  wNucleusTenure: number;
   /**
    * Plot cost bases (display food). Actual cost =
    * base × (1 + owned × costGrowthPerOwned) — cheap plots, gently rising,
@@ -339,6 +364,14 @@ const FOOD_DEFAULTS: FoodConfig = {
   // 100 ticks (~10 s) — repeated fighting stacks toward a long-lived scar.
   combatTileDamageMilli: 400,
   tileDamageHealMilli: 4,
+  // Stability: an old core plateaus at 3× housing; half the plateau after
+  // ~2 min (1200 ticks) of demand-gated aging. Vacancy decays 10× slower
+  // than accrual; capitals up to 1.5× growth pace at full age.
+  tenureCapMultMax: 3,
+  tenureHalfTicks: 1200,
+  tenureSaturationRatio: 0.9,
+  tenureDecayMilli: 100,
+  wNucleusTenure: 0.5,
   settlementCost: 150,
   farmlandCost: 40,
   barnCost: 60,
@@ -1234,7 +1267,12 @@ export class Config {
     // urbanizes. AI capacity scales with difficulty (unify-layered-path);
     // humans are always at multiplier 1.
     const f = this.food();
-    const capacity = f.basePopulation + player.urbanArea() * f.popPerDensity;
+    // Tenure bonus (rework-settlement-ecology): old city tiles house more
+    // people than young ones, so a stable city outgrows its footprint.
+    const capacity =
+      f.basePopulation +
+      player.urbanArea() * f.popPerDensity +
+      player.tenureCapacityBonus();
     return capacity * this.aiDifficulty(player.type()).populationMultiplier;
   }
 

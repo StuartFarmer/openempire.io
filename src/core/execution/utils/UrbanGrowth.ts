@@ -4,6 +4,7 @@ import { PseudoRandom } from "../../PseudoRandom";
 import { simpleHash } from "../../Util";
 import { foodTick } from "./FoodEconomy";
 import { foodShedField, foodShedPotential } from "./FoodShed";
+import { nucleusPaceBoost, tenureTick } from "./TileTenure";
 import { PlayerSupply, supplyField, supplyQuality } from "./SupplyField";
 
 /**
@@ -65,6 +66,10 @@ export function urbanTick(mg: Game, player: Player): void {
 
   if (player.core() === null) return;
 
+  // Stability (rework-settlement-ecology): advance the demand-gated tenure
+  // clocks and refresh the tenure housing bonus, before growth reads them.
+  tenureTick(mg, player);
+
   // The city footprint tracks the LIVING population: it grows near your nuclei
   // (Core + Settlements) where farms feed it, and razes tile-by-tile as people
   // die. When the whole population is gone, so is the city (and the nation).
@@ -92,7 +97,15 @@ function nucleusTiles(player: Player): Set<TileRef> {
  */
 export function foodTargetTiles(mg: Game, player: Player): number {
   const f = mg.config().food();
-  return Math.floor(player.foodFlow().population / f.popPerDensity);
+  // Tenure raises per-tile housing (rework-settlement-ecology): an aging
+  // city houses more people per tile, so the same population needs FEWER
+  // tiles — old cities densify instead of sprawling.
+  const area = Math.round(player.urbanArea());
+  const perTile =
+    area > 0
+      ? f.popPerDensity + player.tenureCapacityBonus() / area
+      : f.popPerDensity;
+  return Math.floor(player.foodFlow().population / perTile);
 }
 
 /**
@@ -116,8 +129,10 @@ export function growUrbanArea(
   if (A >= target) return;
   const gap = target - A;
   // Pace: close a fraction of the gap this tick (at least one tile), so a city
-  // grows over seconds toward its bounded size, not in a single frame.
-  const n = Math.min(gap, Math.max(1, Math.floor(gap * f.urbanGrowthRate)));
+  // grows over seconds toward its bounded size, not in a single frame. An old
+  // capital grows faster (nucleus gravity, rework-settlement-ecology).
+  const pace = f.urbanGrowthRate * nucleusPaceBoost(mg, player.core());
+  const n = Math.min(gap, Math.max(1, Math.floor(gap * pace)));
   addCityTiles(mg, player, supply, n);
 }
 

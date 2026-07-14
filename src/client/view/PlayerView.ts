@@ -87,6 +87,7 @@ function stateFromUpdate(pu: PlayerUpdate): PlayerState {
     foodCapacity: pu.foodCapacity ?? 0,
     foodPopulationShare: pu.foodPopulationShare ?? 1,
     urbanArea: pu.urbanArea ?? 0,
+    tenureCapacityBonus: pu.tenureCapacityBonus ?? 0,
     isTraitor: pu.isTraitor!,
     traitorRemainingTicks: Math.max(0, pu.traitorRemainingTicks ?? 0),
     inDoomsdayClock: pu.inDoomsdayClock ?? false,
@@ -525,6 +526,10 @@ export class PlayerView {
 
   urbanArea(): number {
     return this.state.urbanArea;
+  }
+
+  tenureCapacityBonus(): number {
+    return this.state.tenureCapacityBonus;
   }
 
   totalUnitLevels(type: UnitType): number {

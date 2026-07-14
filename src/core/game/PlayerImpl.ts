@@ -1,3 +1,7 @@
+import {
+  tenureCurve,
+  urbanRenderByte,
+} from "../execution/utils/TileTenure";
 import { PseudoRandom } from "../PseudoRandom";
 import { ClientID } from "../Schemas";
 import {
@@ -133,6 +137,9 @@ export class PlayerImpl implements Player {
   public _density = new Map<TileRef, number>();
   /** Cached Σ density in milliunits, kept in sync by setDensity(). */
   private _urbanAreaMilli = 0;
+  /** Extra housing from tile tenure (rework-settlement-ecology): Σ over city
+   *  tiles of (capMult−1)·popPerDensity, refreshed by TileTenure.tenureTick. */
+  public _tenureCapacityBonus = 0;
   /** Per-Farmland-tile maturity M∈[0,1] in milliunits (add-urban-core-growth). */
   public _farmMaturity = new Map<TileRef, number>();
 
@@ -349,6 +356,7 @@ export class PlayerImpl implements Player {
       foodCapacity: this._foodFlow.capacity,
       foodPopulationShare: this._foodPopulationShare,
       urbanArea: this.urbanArea(),
+      tenureCapacityBonus: this._tenureCapacityBonus,
     };
 
     return {
@@ -1267,10 +1275,18 @@ export class PlayerImpl implements Player {
     } else {
       this._density.set(tile, v);
     }
-    // Emit a render delta when the displayed byte (fill fraction) changes.
-    const byte = Math.round((v * 255) / full);
-    const prevByte = Math.round((prev * 255) / full);
+    // Emit a render delta when the displayed byte changes: fill fraction
+    // shaded by the tile's age (rework-settlement-ecology) — young suburbs
+    // draw dim, old cores bright. Same formula as TileTenure's aging tick.
+    const g = tenureCurve(this.mg, this.mg.tileTenure(tile));
+    const byte = urbanRenderByte(v, full, g);
+    const prevByte = urbanRenderByte(prev, full, g);
     if (byte !== prevByte) this.mg.recordDensityUpdate(tile, byte);
+  }
+
+  /** Extra housing from tile tenure (rework-settlement-ecology). */
+  tenureCapacityBonus(): number {
+    return this._tenureCapacityBonus;
   }
 
   densityEntries(): IterableIterator<[TileRef, number]> {

@@ -638,6 +638,9 @@ export interface Player {
   densityEntries(): IterableIterator<[TileRef, number]>;
   /** Urban area in tile-equivalents (Σ density). */
   urbanArea(): number;
+  /** Extra housing from tile tenure (rework-settlement-ecology): old city
+   *  tiles hold more people. Refreshed each tick by TileTenure.tenureTick. */
+  tenureCapacityBonus(): number;
   /** Farm maturity M∈[0,1] on a Farmland tile in milliunits (0..1000). */
   farmMaturity(tile: TileRef): number;
   setFarmMaturity(tile: TileRef, milli: number): void;
@@ -891,6 +894,16 @@ export interface Game extends GameMap {
   addTileDamage(tile: TileRef, milli: number): void;
   /** All tiles with damage > 0 (sparse; deterministic insertion order). */
   tileDamageEntries(): IterableIterator<[TileRef, number]>;
+
+  // Tile stability (rework-settlement-ecology): the demand-gated tenure
+  // clock. Owner-agnostic — stability is the tile's continuous life; an
+  // ownership flip hard-resets it, vacancy decays it slowly.
+  /** Accrued tenure of a tile (milli-ticks; 0 = raw land). */
+  tileTenure(tile: TileRef): number;
+  /** Set a tile's tenure (milli-ticks; ≤0 deletes the entry). */
+  setTileTenure(tile: TileRef, milli: number): void;
+  /** All tiles with tenure > 0 (sparse; deterministic insertion order). */
+  tileTenureEntries(): IterableIterator<[TileRef, number]>;
 
   addUpdate(update: GameUpdate): void;
   railNetwork(): RailNetwork;

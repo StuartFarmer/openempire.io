@@ -483,6 +483,7 @@ export class GameImpl implements Game {
       this.recordTileUpdate(tile);
     }
     this.healTileDamage();
+    this.decayTileTenure();
     this._ticks++;
     return this.updates;
   }
@@ -769,6 +770,59 @@ export class GameImpl implements Game {
     }
   }
 
+  // Tile stability (rework-settlement-ecology): sparse demand-gated tenure.
+  // Accrual happens per player in TileTenure.tenureTick; this holds the
+  // ledger, the vacancy decay, and the ownership-flip hard reset.
+  private _tileTenure = new Map<TileRef, number>();
+
+  tileTenure(tile: TileRef): number {
+    return this._tileTenure.get(tile) ?? 0;
+  }
+
+  setTileTenure(tile: TileRef, milli: number): void {
+    if (milli <= 0) {
+      this._tileTenure.delete(tile);
+    } else {
+      this._tileTenure.set(tile, milli);
+    }
+  }
+
+  tileTenureEntries(): IterableIterator<[TileRef, number]> {
+    return this._tileTenure.entries();
+  }
+
+  /**
+   * Vacancy decay, run on the supply cadence: a tenured tile that is no
+   * longer occupied (no urban density, no Farmland) loses tenure slowly —
+   * depopulation is a setback, not a crater. Combat damage pauses the clock
+   * entirely (no accrual, no decay).
+   */
+  private decayTileTenure(): void {
+    if (this._tileTenure.size === 0) return;
+    const f = this.config().food();
+    const period = Math.max(1, f.supplyRefreshTicks);
+    if (this._ticks % period !== 0) return;
+    const decay = f.tenureDecayMilli * period;
+    if (decay <= 0) return;
+    const dead: TileRef[] = [];
+    for (const [tile, v] of this._tileTenure) {
+      if (this.tileDamage(tile) > 0) continue; // battlefield: clock paused
+      const owner = this.owner(tile);
+      const occupied =
+        owner.isPlayer() &&
+        ((owner as PlayerImpl).density(tile) > 0 ||
+          this.plotAt(tile)?.type() === UnitType.Farmland);
+      if (occupied) continue;
+      const next = v - decay;
+      if (next <= 0) {
+        dead.push(tile);
+      } else {
+        this._tileTenure.set(tile, next);
+      }
+    }
+    for (const t of dead) this._tileTenure.delete(t);
+  }
+
   conquer(owner: PlayerImpl, tile: TileRef): void {
     if (!this.isLand(tile)) {
       throw Error(`cannot conquer water`);
@@ -791,6 +845,9 @@ export class GameImpl implements Game {
       previousOwner.setDensity(tile, 0);
       previousOwner.setFarmMaturity(tile, 0);
     }
+    // Stability hard-resets on an ownership flip (rework-settlement-ecology):
+    // conquest yields raw, tenure-zero land the captor must re-stabilize.
+    this._tileTenure.delete(tile);
     this._map.setOwnerID(tile, owner.smallID());
     owner._tiles.add(tile);
     owner._fertilitySum += crop;
@@ -815,6 +872,7 @@ export class GameImpl implements Game {
     previousOwner._fertilitySum -= this._map.layer("crop", tile);
     previousOwner.setDensity(tile, 0);
     previousOwner.setFarmMaturity(tile, 0);
+    this._tileTenure.delete(tile);
 
     this._map.setOwnerID(tile, 0);
     this.updateBorders(tile);

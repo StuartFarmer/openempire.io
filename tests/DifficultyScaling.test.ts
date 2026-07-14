@@ -81,6 +81,7 @@ describe("Difficulty scaling (unify-layered-path)", () => {
         troops: () => 1000,
         units: () => [],
         urbanArea: () => 5,
+        tenureCapacityBonus: () => 0,
       };
       return game.config().maxTroops(stub as never);
     };

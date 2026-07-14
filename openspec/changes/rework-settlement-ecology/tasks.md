@@ -12,11 +12,11 @@ Build-order, not phases. Each core task ships with tests. Everything gated on
 
 ## 2. Tile stability (tenure)
 
-- [ ] 2.1 Per-tile tenure field + demand gate (city tile at cap / farm at settled maturity) + damage-=-0 prerequisite; cadence update
-- [ ] 2.2 Disruption taxonomy: hard reset on ownership flip + razed plot; slow decay on depopulation; pause during combat
-- [ ] 2.3 Consumers: city density cap = capCurve(tenure); Settlement nucleus pacing from nucleus-tile tenure; saturating curves + Config.food() knobs
-- [ ] 2.4 Render: city-tile intensity scales with tenure (heartland readable)
-- [ ] 2.5 Tests: demand gate, taxonomy asymmetry, plateau, cap consumer, determinism
+- [x] 2.1 Tenure ledger on GameImpl (sparse milli-tick Map, owner-agnostic); accrual in `TileTenure.tenureTick` (called from urbanTick): city tiles age only while population ≥ tenureSaturationRatio × housing (demand gate — note: gate is city-wide, per-tile occupancy isn't modeled yet), farms only once settled at climate suitability; damage = 0 prerequisite
+- [x] 2.2 Taxonomy: conquer/relinquish hard-reset; vacancy decays tenureDecayMilli/tick on the supply cadence (no density + no Farmland); damage pauses both accrual AND decay
+- [x] 2.3 Consumers: housing bonus Σ(capMult−1)·popPerDensity → maxTroops + foodTargetTiles (aged cities densify instead of sprawling); nucleus pace boost 1+wNucleusTenure·g(core tenure) in growUrbanArea. Farm-storage consumer lands with task 4. Knobs: tenureCapMultMax/tenureHalfTicks/tenureSaturationRatio/tenureDecayMilli/wNucleusTenure
+- [x] 2.4 Render: the density byte is now fill × (0.55 + 0.45·g(tenure)) — young suburbs dim, old cores bright — via the existing DensityPass channel (urbanRenderByte, single source in TileTenure; emitted on byte change as tiles age)
+- [x] 2.5 Tests (tests/TileTenure.test.ts, 8): demand gate on/off, damage pause, farm settle gate, conquest reset, vacancy-decay-vs-occupied, curve plateau, capacity/footprint consumer, nucleus boost
 
 ## 3. Seed awards
 

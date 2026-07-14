@@ -250,6 +250,8 @@ export interface PlayerUpdate {
   foodCapacity?: number;
   foodPopulationShare?: number;
   urbanArea?: number;
+  /** Extra housing from tile tenure (rework-settlement-ecology). */
+  tenureCapacityBonus?: number;
   allies?: number[];
   embargoes?: Set<PlayerID>;
   isTraitor?: boolean;
