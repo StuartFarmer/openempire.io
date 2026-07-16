@@ -3,6 +3,7 @@ import {
   climateSuitability,
   farmTick,
 } from "../src/core/execution/utils/FarmGrowth";
+import { PlayerFoodShed } from "../src/core/execution/utils/FoodShed";
 import {
   Game,
   Player,
@@ -19,6 +20,9 @@ import { LayersFill, setup } from "./util/Setup";
  * by Liebig's minimum, advancing on a Gompertz sigmoid.
  */
 
+// Coverage-inert shed: empty ranked/tilled sets, so farmTick applies no
+// labor judgement — these tests exercise ripening/spread in isolation.
+const inertShed = new PlayerFoodShed();
 const info = new PlayerInfo("farmer", PlayerType.Human, null, "farmer_id");
 
 /** A layers fill that sets a single named layer to `v` and the rest to `hi`. */
@@ -95,7 +99,7 @@ describe("farm maturation (Gompertz, gated by climate)", () => {
 
     const at: number[] = [];
     for (let i = 1; i <= 300; i++) {
-      farmTick(game, player);
+      farmTick(game, player, inertShed);
       if (i === 20 || i === 60 || i === 300) at.push(player.farmMaturity(tile));
     }
     const [m20, m60, m300] = at;
@@ -114,7 +118,7 @@ describe("farm maturation (Gompertz, gated by climate)", () => {
     );
     const tile = game.ref(3, 3);
     player.buildUnit(UnitType.Farmland, tile, {});
-    for (let i = 0; i < 400; i++) farmTick(game, player);
+    for (let i = 0; i < 400; i++) farmTick(game, player, inertShed);
     const m = player.farmMaturity(tile) / 1000;
     expect(m).toBeGreaterThan(0.35);
     expect(m).toBeLessThanOrEqual(102 / 255 + 0.001);
@@ -127,7 +131,7 @@ describe("farm maturation (Gompertz, gated by climate)", () => {
     // a tile whose ceiling is lower is covered above; here on a suit≈1 tile a
     // farm at full maturity stays put (no senescence when fed).
     player.setFarmMaturity(tile, 1000);
-    farmTick(game, player);
+    farmTick(game, player, inertShed);
     expect(player.farmMaturity(tile)).toBeGreaterThan(950); // fed → holds
   });
 
@@ -139,7 +143,7 @@ describe("farm maturation (Gompertz, gated by climate)", () => {
     player.buildUnit(UnitType.Farmland, tile, {});
     player.setFarmMaturity(tile, 1000); // above the ~0.3 ceiling
     const before = player.farmMaturity(tile);
-    for (let i = 0; i < 50; i++) farmTick(game, player);
+    for (let i = 0; i < 50; i++) farmTick(game, player, inertShed);
     expect(player.farmMaturity(tile)).toBeLessThan(before);
   });
 
@@ -149,7 +153,7 @@ describe("farm maturation (Gompertz, gated by climate)", () => {
       for (let y = 0; y < 4; y++)
         for (let x = 0; x < 4; x++)
           p.buildUnit(UnitType.Farmland, g.ref(x, y), {});
-      for (let i = 0; i < 80; i++) farmTick(g, p);
+      for (let i = 0; i < 80; i++) farmTick(g, p, inertShed);
       return Array.from(p.farmMaturityEntries()).sort((a, b) => a[0] - b[0]);
     };
     expect(await run()).toEqual(await run());

@@ -28,7 +28,6 @@ import { UIState } from "../../UIState";
 import { renderNumber } from "../../Utils";
 import { GameView } from "../../view";
 const warshipIcon = assetUrl("images/BattleshipIconWhite.svg");
-const barnIcon = assetUrl("images/BarnIconWhite.svg");
 const cityIcon = assetUrl("images/CityIconWhite.svg");
 const factoryIcon = assetUrl("images/FactoryIconWhite.svg");
 const farmlandIcon = assetUrl("images/FarmlandIconWhite.svg");
@@ -139,13 +138,6 @@ export const buildTable: BuildItemDisplay[][] = [
       icon: farmlandIcon,
       description: "build_menu.desc.farmland",
       key: "unit_type.farmland",
-      countable: true,
-    },
-    {
-      unitType: UnitType.Barn,
-      icon: barnIcon,
-      description: "build_menu.desc.barn",
-      key: "unit_type.barn",
       countable: true,
     },
   ],

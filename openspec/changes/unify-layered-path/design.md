@@ -44,7 +44,7 @@ The hidden tier exists because `TerrainMapLoader` only loads `layers.bin` at `Ga
 
 ### D3: Remove `GameMapSize` and the 4x/16x artifacts entirely
 
-Maps load at full resolution only. The size option disappears from the UI and `GameConfig`; the Go baker stops emitting `map16x.bin` and existing ones are deleted. **Amendment (discovered in implementation):** `map4x.bin` is NOT deleted — at Normal size it was already serving as the pathfinding minimap (water/rail A*, `WaterManager`), so it survives with exactly that narrowed role and never carries layers. Alternative considered: bake per-size sidecars — rejected; it multiplies every future sidecar by the size matrix for an option whose only purpose was memory savings on huge multiplayer maps. Smaller battlefields are explicit maps (`earthmini` is the pattern). Multiplayer re-added later is unaffected: map size never touched netcode, only client-side loading.
+Maps load at full resolution only. The size option disappears from the UI and `GameConfig`; the Go baker stops emitting `map16x.bin` and existing ones are deleted. **Amendment (discovered in implementation):** `map4x.bin` is NOT deleted — at Normal size it was already serving as the pathfinding minimap (water/rail A\*, `WaterManager`), so it survives with exactly that narrowed role and never carries layers. Alternative considered: bake per-size sidecars — rejected; it multiplies every future sidecar by the size matrix for an option whose only purpose was memory savings on huge multiplayer maps. Smaller battlefields are explicit maps (`earthmini` is the pattern). Multiplayer re-added later is unaffected: map size never touched netcode, only client-side loading.
 
 ### D4: Delete the predicates, not just the branches
 

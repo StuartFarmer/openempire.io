@@ -1,3 +1,23 @@
+> **Reconciled by `rework-settlement-ecology` (task 6.2, 2026-07-15).** The
+> PURCHASE-PLANNING half of this design is obsolete: plots are awarded as
+> founding pairs (seed-awards), never bought, so `farmScore`'s
+> cost-repayment math, the Barn insurance action (`wantsBarnInsurance`,
+> `BARN_INSURANCE_SCORE`, `STOCK_ACCRUAL_FRACTION`), and the food-budget
+> gates were deleted. What SURVIVES is the shape this change introduced:
+> TribalEconomy as a greedy argmax over EconomyModel scores, derived from
+> live knobs, with the same sampling, top-k precision lever, and
+> determinism rules.
+>
+> **Superseded further by `rework-settlement-ecology` task 9 (design.md §7,
+> 2026-07-15).** D3's deficit-ONLY founding trigger and the interim
+> suitability-sum farm score are replaced: every placement prices in
+> population-ticks again (D1 restored as `farmDistrictScore` — the field a
+> nucleus grows, labor-capped by the coverage gate), settlements also earn
+> LABOR RELIEF (staffing labor-capped fields), a banked founding pair is a
+> JOINT candidate (town + field placed together under seed pressure, no
+> deficit wait), and all seed sites carry a hostile-border discount. D5/D6
+> (greedy argmax, bounded sampling, pure-model split) still stand.
+
 ## Context
 
 `TribalEconomy` (src/core/execution/utils/TribalEconomy.ts) is the shared

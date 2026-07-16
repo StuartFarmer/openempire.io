@@ -16,6 +16,7 @@ import { simpleHash } from "../Util";
 import { PlayerExecution } from "./PlayerExecution";
 import { TribeExecution } from "./TribeExecution";
 import { getSpawnTiles } from "./Util";
+import { climateSuitability } from "./utils/FarmGrowth";
 
 type Spawn = { center: TileRef; tiles: TileRef[] };
 
@@ -98,10 +99,10 @@ export class SpawnExecution implements Execution {
   }
 
   /**
-   * Settle (add-urban-core-growth): found the urban Core (seeds the density
-   * field — the city sprawls itself from here, see UrbanGrowth) AND paint a
-   * few starter Farmland plots so the young city has food. The player keeps
-   * painting Farmland/Barns; only the city sprawl grows on its own.
+   * Settle (add-urban-core-growth / rework-settlement-ecology §1): found
+   * the urban Core AND one ripe farm NUCLEUS — the spawn kit is the same
+   * founding pair the award ladder banks. Both grow themselves from here:
+   * the city sprawls (UrbanGrowth) and the field spreads (FarmGrowth §1b).
    * Re-spawns re-found at the new location, clearing the old field + kit.
    */
   private foundCore(player: Player, center: TileRef): void {
@@ -133,29 +134,44 @@ export class SpawnExecution implements Execution {
     // demographic model grows or shrinks the footprint from there.
     player.setDensity(coreTile, mg.config().food().popPerDensity);
 
-    // Paint the starter Farmland kit (free) around the core so the opening
-    // city has food to grow on. Nearest owned tiles that aren't the core.
+    // Plant ONE starter farm nucleus (free) a few tiles OUT from the core —
+    // the field grows itself from here (§1b) and belongs near the village,
+    // not in it: the standoff leaves the young city a collar of wild land
+    // to grow into before the spreading field arrives (first claim holds
+    // between the automata). Sited on the BEST climate-suitability candidate:
+    // maturity settles AT suitability, so a kit farm on hostile ground would
+    // senesce below the claim threshold and never seed a field. It begins
+    // already ripe, so it feeds from tick one AND starts spreading.
     const cx = mg.x(coreTile);
     const cy = mg.y(coreTile);
-    const kitSlots: TileRef[] = [];
+    let kitTile: TileRef | null = null;
+    let kitSuit = -1;
     for (const [dx, dy] of [
-      [1, 0],
+      [3, 0],
+      [0, 3],
+      [-3, 0],
+      [0, -3],
+      [2, 2],
+      [-2, 2],
+      [2, -2],
+      [-2, -2],
+      [1, 0], // cramped spawns: better a close farm than none
       [0, 1],
       [-1, 0],
       [0, -1],
-      [1, 1],
     ]) {
-      if (kitSlots.length >= 3) break;
-      if (mg.isValidCoord(cx + dx, cy + dy)) {
-        const t = mg.ref(cx + dx, cy + dy);
-        if (valid(t) && mg.plotAt(t) === undefined) kitSlots.push(t);
+      if (!mg.isValidCoord(cx + dx, cy + dy)) continue;
+      const t = mg.ref(cx + dx, cy + dy);
+      if (!valid(t) || mg.plotAt(t) !== undefined) continue;
+      const suit = climateSuitability(mg, t);
+      if (suit > kitSuit) {
+        kitSuit = suit;
+        kitTile = t;
       }
     }
-    // Starter farms begin already ripe, so a young nation is fed from tick one
-    // (its population grows) instead of starving while its first crop matures.
-    for (const t of kitSlots) {
-      player.buildUnit(UnitType.Farmland, t, {});
-      player.setFarmMaturity(t, 1000);
+    if (kitTile !== null) {
+      player.buildUnit(UnitType.Farmland, kitTile, {});
+      player.setFarmMaturity(kitTile, 1000);
     }
 
     // Reset the opening food stake (the kit is free).

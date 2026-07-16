@@ -123,13 +123,15 @@ describe("Supply field (add-supply-lines)", () => {
     const before = supplyField(game, player);
     const farTile = game.ref(38, 2);
     // Out of supply from the lone settlement (beyond the flood cutoff), or at
-    // least far — either way the fresh Barn brings it much closer.
+    // least far — either way a fresh Settlement brings it much closer.
     const beforeDist = before.dist.get(farTile); // may be undefined (unsupplied)
 
-    // Same tick, no cadence wait: painting a Barn lights up its district.
-    player.buildUnit(UnitType.Barn, game.ref(36, 2), {});
+    // Same tick, no cadence wait: a new node lights up its district. (The
+    // Barn is gone — rework-settlement-ecology 4.3 — Settlements are the
+    // supply nodes now.)
+    player.buildUnit(UnitType.Settlement, game.ref(36, 2), {});
     const after = supplyField(game, player);
-    expect(after.dist.get(farTile)).toBe(2); // 2 tiles from the new Barn
+    expect(after.dist.get(farTile)).toBe(2); // 2 tiles from the new node
     expect(
       beforeDist === undefined || after.dist.get(farTile)! < beforeDist,
     ).toBe(true);

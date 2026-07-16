@@ -118,6 +118,34 @@ describe("Urban sprawl engine (add-urban-core-growth)", () => {
     expect(player.urbanArea()).toBe(10);
   });
 
+  test("nuclei anchor the target: a founded town earns its first tile at any population", () => {
+    conquerBlock(game, player, 10, 10, 80);
+    found(game, player, 30, 30);
+    const f = game.config().food();
+
+    // A tribal-scale population, far below one full city tile of people:
+    // the pop term says 0 tiles, the Core's nucleus floor says 1.
+    setPopulation(player, Math.floor(f.popPerDensity / 2));
+    expect(foodTargetTiles(game, player)).toBe(1);
+
+    // Found a town (the award pair's settlement) far from the capital,
+    // beside a mature farm so the food-shed gate lets it grow.
+    player.buildUnit(UnitType.Settlement, game.ref(60, 60), {});
+    plantFedFarm(game, player, 63, 63);
+    expect(foodTargetTiles(game, player)).toBe(2);
+
+    // The urban CA grows the town's first tile without waiting for a
+    // national population of (area+1)·popPerDensity.
+    const supply = supplyField(game, player);
+    for (let i = 0; i < 50; i++) growUrbanArea(game, player, supply);
+    expect(player.urbanArea()).toBe(2);
+
+    // And recession never razes a living town's last tile.
+    setPopulation(player, 100);
+    for (let i = 0; i < 100; i++) recedeToTarget(game, player);
+    expect(player.urbanArea()).toBe(2);
+  });
+
   test("city tiles are binary and 4-contiguous (no gradient, no islands)", () => {
     conquerBlock(game, player, 10, 10, 60);
     found(game, player, 40, 40);

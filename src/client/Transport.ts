@@ -42,6 +42,7 @@ import {
   SendSpawnIntentEvent,
   SendTargetPlayerIntentEvent,
   SendToggleGameStartTimer,
+  SendTuneFoodConfigIntentEvent,
   SendUpdateGameConfigIntentEvent,
   SendUpgradeStructureIntentEvent,
   SendWinnerEvent,
@@ -101,6 +102,9 @@ export class Transport {
     this.eventBus.on(SendEmojiIntentEvent, (e) => this.onSendEmojiIntent(e));
     this.eventBus.on(SendDonateGoldIntentEvent, (e) =>
       this.onSendDonateGoldIntent(e),
+    );
+    this.eventBus.on(SendTuneFoodConfigIntentEvent, (e) =>
+      this.onSendTuneFoodConfigIntent(e),
     );
     this.eventBus.on(SendFoodAllocationIntentEvent, (e) =>
       this.onSendFoodAllocationIntent(e),
@@ -409,6 +413,14 @@ export class Transport {
     this.sendIntent({
       type: "food_allocation",
       populationShare: event.populationShare,
+    });
+  }
+
+  private onSendTuneFoodConfigIntent(event: SendTuneFoodConfigIntentEvent) {
+    this.sendIntent({
+      type: "tune_food_config",
+      key: event.key,
+      value: event.value,
     });
   }
 

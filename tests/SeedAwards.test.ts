@@ -14,10 +14,11 @@ import { setup } from "./util/Setup";
 
 /**
  * Seed awards (rework-settlement-ecology): plots are awarded, never
- * purchased. Farm seeds ratchet from peak territory; Settlement seeds from
- * peak population up the measured power-law ladder (n^scalingExponent, the
- * empirically fitted area↔perimeter exponent). Placement spends a banked
- * seed and costs no food.
+ * purchased — one ladder, paired awards. Each crossing of the
+ * peak-population ladder (n^scalingExponent, the empirically fitted
+ * area↔perimeter exponent) banks a founding pair: one Settlement seed AND
+ * one farm seed. Territory awards nothing (conquest buys room to spread —
+ * §1b). Placement spends a banked seed and costs no food.
  */
 
 const info = new PlayerInfo("chief", PlayerType.Human, null, "chief_id");
@@ -41,32 +42,21 @@ function setPopulation(p: Player, people: number): void {
 }
 
 describe("the award ledgers", () => {
-  test("farm seeds ratchet from peak territory; losing land never revokes", async () => {
+  test("each ladder crossing banks a founding pair; territory banks nothing", async () => {
     const [g, p] = await game();
-    const perSeed = g.config().food().farmSeedTilesPerSeed;
 
-    // Conquer 3 seeds' worth of land.
-    const w = 10;
-    const rows = Math.ceil((perSeed * 3) / w);
-    for (let y = 0; y < rows; y++)
-      for (let x = 0; x < w; x++) p.conquer(g.ref(x, y));
+    // Conquest alone — no population growth — awards NOTHING now.
+    for (let y = 0; y < 10; y++)
+      for (let x = 0; x < 10; x++) p.conquer(g.ref(x, y));
     seedAwardTick(g, p);
-    const awarded = p.farmSeeds();
-    expect(awarded).toBe(Math.floor(p.numTilesOwned() / perSeed));
-    expect(awarded).toBeGreaterThanOrEqual(3);
+    expect(p.farmSeeds()).toBe(0);
+    expect(p.settlementSeeds()).toBe(0);
 
-    // Lose most of it, then retake up to (not past) the high-water mark:
-    // the ratchet awards nothing new.
-    const lost: number[] = [];
-    for (const t of Array.from(p.tiles()).slice(0, perSeed * 2)) {
-      lost.push(t);
-      p.relinquish(t);
-    }
+    // Crossing two ladder rungs banks two PAIRS — town and field together.
+    setPopulation(p, settlementThreshold(g, 2) + 1);
     seedAwardTick(g, p);
-    expect(p.farmSeeds()).toBe(awarded); // nothing revoked
-    for (const t of lost) p.conquer(t);
-    seedAwardTick(g, p);
-    expect(p.farmSeeds()).toBe(awarded); // nothing re-awarded
+    expect(p.settlementSeeds()).toBe(2);
+    expect(p.farmSeeds()).toBe(2);
   });
 
   test("settlement seeds climb the measured n^k ladder from peak population", async () => {

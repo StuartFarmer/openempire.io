@@ -93,6 +93,12 @@ export class GameView implements GameMap {
   // Tile combat-damage field (rework-settlement-ecology).
   private damageState!: Uint8Array;
   private damageChanged: TileRef[] = [];
+  // Field maturity plane (rework-settlement-ecology §1b).
+  private fieldState!: Uint8Array;
+  private fieldChanged: TileRef[] = [];
+  /** Tiles WE painted into the plot buffer as field ground (vs real plot
+   *  units, whose paint is owned by the unit add/remove events). */
+  private readonly fieldPainted = new Set<TileRef>();
   /** Long-lived NameEntry map for the renderer's NamePass. */
   private _names = new Map<string, NameEntry>();
   /** Reusable scratch buffers for per-tick deltas. */
@@ -177,6 +183,10 @@ export class GameView implements GameMap {
     // Tile combat damage (rework-settlement-ecology): per-tile battle-worn
     // level (0..255), applied from packedDamageUpdates, rendered brown.
     this.damageState = new Uint8Array(mapW * mapH);
+    // Field maturity (rework-settlement-ecology §1b): per-tile establishment
+    // (0..255), applied from packedFieldUpdates; claimed tiles are painted
+    // into the plot buffer as tilled Farmland ground.
+    this.fieldState = new Uint8Array(mapW * mapH);
 
     // Long-lived FrameData. Most fields are mutable references to long-lived
     // buffers (tileState, trailState, etc.); some (_changedTilesScratch,
@@ -322,6 +332,33 @@ export class GameView implements GameMap {
         const tile = word & 0xffffff;
         this.damageState[tile] = word >>> 24;
         this.damageChanged.push(tile);
+      }
+    }
+
+    // Field-maturity deltas (§1b): same packing (byte 0 = left the field).
+    // Claimed field tiles are painted with the Farmland plot pattern (the
+    // tilled-soil sprite the shader draws for every plot) — a field reads
+    // as brown tilled plots popping up one by one, not a color wash.
+    this.fieldChanged = [];
+    if (gu.packedFieldUpdates) {
+      const claimByte = Math.round(
+        (this.config().food().fieldClaimMilli * 255) / 1000,
+      );
+      const fld = gu.packedFieldUpdates;
+      for (let i = 0; i < fld.length; i++) {
+        const word = fld[i];
+        const tile = word & 0xffffff;
+        this.fieldState[tile] = word >>> 24;
+        this.fieldChanged.push(tile);
+        if (this.fieldState[tile] >= claimByte) {
+          if (this.plotCache.plotStateAt(tile) === 0) {
+            this.plotCache.addPlot(tile, "Farmland");
+            this.fieldPainted.add(tile);
+          }
+        } else if (this.fieldPainted.has(tile)) {
+          this.plotCache.removePlot(tile);
+          this.fieldPainted.delete(tile);
+        }
       }
     }
 
@@ -962,6 +999,16 @@ export class GameView implements GameMap {
   /** Tiles whose combat damage changed this tick (for delta uploads). */
   recentlyUpdatedDamageTiles(): TileRef[] {
     return this.damageChanged;
+  }
+
+  /** Field-maturity buffer (0..255 per tile) — rework-settlement-ecology §1b. */
+  fieldStateBuffer(): Uint8Array {
+    return this.fieldState;
+  }
+
+  /** Tiles whose field maturity byte changed this tick (for delta uploads). */
+  recentlyUpdatedFieldTiles(): TileRef[] {
+    return this.fieldChanged;
   }
 
   recentlyUpdatedTerrainTiles(): TileRef[] {

@@ -2,52 +2,48 @@ import { Game, Player } from "../../game/Game";
 
 /**
  * Seed awards (openspec rework-settlement-ecology, design.md §1): plots are
- * AWARDED, never purchased. Two ratcheted ledgers per player:
+ * AWARDED, never purchased — one ladder, paired awards. The nth crossing of
+ * the peak-population ladder settlementLadderBasePop · n^scalingExponent
+ * banks a FOUNDING PAIR: one Settlement seed AND one farm seed. A new town
+ * needs a field in food-shed reach and a lone field feeds nobody — the pair
+ * is the unit of founding. k = scalingExponent is the MEASURED
+ * area↔perimeter exponent (design.md §6, ~1.26 — ragged real borders, not
+ * the circle's 2), so each founding costs a constant increment of frontier
+ * effort, not of population.
  *
- *   - FARM seeds from PEAK TERRITORY: one per farmSeedTilesPerSeed tiles at
- *     the tiles-ever-held high-water mark. Land earns food potential.
- *   - SETTLEMENT seeds from PEAK POPULATION on the power-law ladder: the nth
- *     settlement triggers at settlementLadderBasePop · n^scalingExponent,
- *     where k = scalingExponent is the MEASURED area↔perimeter exponent
- *     (design.md §6, ~1.26 — ragged real borders, not the circle's 2). Each
- *     settlement costs a constant increment of frontier effort, not of
- *     population — the geometric snowball taxed back to linear.
- *
- * Ratchets never re-award: losing land or people never revokes a seed, and
- * reconquering below the high-water mark awards nothing. Banked seeds are
- * spent by placement (PlayerImpl.buildUnit) and gated in canBuild.
+ * The ratchet never re-awards: losing people never revokes a seed, and
+ * regrowing below the high-water mark awards nothing. Territory awards
+ * NOTHING here — under field growth (§1b) conquest buys ROOM for the
+ * automata to spread into. Banked seeds are spent by placement
+ * (PlayerImpl.buildUnit) and gated in canBuild.
  */
 
-/** Peak population needed for the nth settlement (1-based). */
+/** Peak population needed for the nth founding pair (1-based). The ladder
+ *  exponent is k · ladderTaper: at taper 1 each pair costs a constant
+ *  increment of frontier effort; the adopted taper (>1) thins awards out
+ *  with size — a big nation captures plots by conquest instead of founding
+ *  them (playtest 2026-07-15). */
 export function settlementThreshold(mg: Game, n: number): number {
   const f = mg.config().food();
-  return Math.round(f.settlementLadderBasePop * Math.pow(n, f.scalingExponent));
+  return Math.round(
+    f.settlementLadderBasePop *
+      Math.pow(n, f.scalingExponent * f.settlementLadderTaper),
+  );
 }
 
 /**
- * Ratchet the player's high-water marks and bank any newly crossed awards.
- * Call once per player per tick, after foodTick has refreshed population.
+ * Ratchet the player's population high-water mark and bank any newly
+ * crossed founding pairs. Call once per player per tick, after foodTick has
+ * refreshed population.
  */
 export function seedAwardTick(mg: Game, player: Player): void {
-  const f = mg.config().food();
   const impl = player as Player & {
-    _peakTerritory: number;
     _peakPopulation: number;
-    _farmSeedsAwarded: number;
     _settlementsAwarded: number;
     _farmSeeds: number;
     _settlementSeeds: number;
   };
 
-  // Farm seeds ∝ peak territory (linear).
-  impl._peakTerritory = Math.max(impl._peakTerritory, player.numTilesOwned());
-  const farmTotal = Math.floor(impl._peakTerritory / f.farmSeedTilesPerSeed);
-  if (farmTotal > impl._farmSeedsAwarded) {
-    impl._farmSeeds += farmTotal - impl._farmSeedsAwarded;
-    impl._farmSeedsAwarded = farmTotal;
-  }
-
-  // Settlement seeds from peak population, up the n^k ladder.
   impl._peakPopulation = Math.max(
     impl._peakPopulation,
     player.foodFlow().population,
@@ -58,5 +54,6 @@ export function seedAwardTick(mg: Game, player: Player): void {
   ) {
     impl._settlementsAwarded++;
     impl._settlementSeeds++;
+    impl._farmSeeds++; // the founding PAIR: town and field together
   }
 }

@@ -1,17 +1,26 @@
 import { beforeEach, describe, expect, test } from "vitest";
+import { AttackExecution } from "../src/core/execution/AttackExecution";
 import {
   assessUrbanRoom,
+  committedStaffing,
+  effectiveResidents,
+  farmDistrictScore,
+  farmLaborRelief,
   farmRampTicks,
-  farmScore,
   farmSteadyYieldMilli,
+  fieldRoomYield,
+  deployableTroops,
+  fieldStaffingNeed,
+  hostileBorderDiscount,
   planningHorizonTicks,
-  wantsBarnInsurance,
+  residentsNear,
 } from "../src/core/execution/utils/EconomyModel";
 import {
   climateSuitability,
   farmTick,
 } from "../src/core/execution/utils/FarmGrowth";
 import { foodTick } from "../src/core/execution/utils/FoodEconomy";
+import { PlayerFoodShed } from "../src/core/execution/utils/FoodShed";
 import { supplyField } from "../src/core/execution/utils/SupplyField";
 import { TribalEconomy } from "../src/core/execution/utils/TribalEconomy";
 import {
@@ -25,6 +34,9 @@ import { PseudoRandom } from "../src/core/PseudoRandom";
 import { LayersFill, setup } from "./util/Setup";
 import { TestConfig } from "./util/TestConfig";
 
+// Coverage-inert shed: empty ranked/tilled sets, so farmTick applies no
+// labor judgement — these tests exercise ripening/spread in isolation.
+const inertShed = new PlayerFoodShed();
 const founderInfo = new PlayerInfo("founder", PlayerType.Human, null, "f_id");
 const flat: LayersFill = () => 200;
 /** Crop fertility rises with x; climate staves stay flat and generous. */
@@ -33,9 +45,9 @@ const cropGradient: LayersFill = (name, x) =>
 const barren: LayersFill = (name) => (name === "crop" ? 0 : 200);
 
 /** Cut farm yield so no soil can repay a farm's cost within the horizon. */
-class CutYield extends TestConfig {
+class RaiseClaim extends TestConfig {
   override food() {
-    return { ...super.food(), farmYieldMilli: 500 };
+    return { ...super.food(), fieldClaimMilli: 900 };
   }
 }
 
@@ -73,11 +85,11 @@ function settleExecutions(game: Game, ticks = 3): void {
 }
 
 /** Plots are awarded, not bought (rework-settlement-ecology): give the
- *  planner a full seed bank so these tests exercise SITING only. */
-function grantSeeds(p: Player): void {
+ *  planner a seed bank so these tests exercise SITING only. */
+function grantSeeds(p: Player, farms = 100, settlements = 100): void {
   const impl = p as Player & { _farmSeeds: number; _settlementSeeds: number };
-  impl._farmSeeds = 100;
-  impl._settlementSeeds = 100;
+  impl._farmSeeds = farms;
+  impl._settlementSeeds = settlements;
 }
 
 describe("EconomyModel — pure math (add-greedy-economy-planner)", () => {
@@ -101,7 +113,7 @@ describe("EconomyModel — pure math (add-greedy-economy-planner)", () => {
     const targetMilli = Math.floor(Math.min(suit, 0.95) * 1000);
     let iterated = 0;
     while (player.farmMaturity(t) < targetMilli && iterated < 1000) {
-      farmTick(game, player);
+      farmTick(game, player, inertShed);
       iterated++;
     }
     expect(iterated).toBeLessThan(1000);
@@ -132,44 +144,190 @@ describe("EconomyModel — pure math (add-greedy-economy-planner)", () => {
     expect(Math.abs(realized - predicted)).toBeLessThanOrEqual(1);
   });
 
-  test("farm score orders by fertility and by district adjacency", async () => {
+  test("room yield orders by the field a site can grow", async () => {
     const g = await layeredGame(cropGradient);
     const p = g.player(founderInfo.id);
-    conquerBlock(g, p, 10, 40, 80, 10);
-    const cost = 40_000; // milli, flat for comparison
+    // Tall enough that every scout window below sits fully inside owned
+    // land — otherwise ownership edges, not the plot, decide the room.
+    conquerBlock(g, p, 10, 38, 80, 14);
 
-    // Fertility: richer soil scores higher, everything else equal.
-    const poor = farmScore(g, p, g.ref(20, 45), cost);
-    const rich = farmScore(g, p, g.ref(80, 45), cost);
+    // Fertility: richer surroundings score higher, everything else equal.
+    const poor = fieldRoomYield(g, p, g.ref(20, 45)).yieldMilli;
+    const rich = fieldRoomYield(g, p, g.ref(80, 45)).yieldMilli;
     expect(rich).toBeGreaterThan(poor);
 
-    // District: a tile adjacent to an existing farm outscores the identical
-    // tile in isolation (same x ⇒ same fertility and climate).
+    // A nucleus prefers OPEN ground: a site whose scout window overlaps an
+    // existing plot loses that ground from its room (fields grow, §1b —
+    // planting beside your own farm wastes spreadable land).
     p.buildUnit(UnitType.Farmland, g.ref(60, 44), {});
-    const adjacent = farmScore(g, p, g.ref(60, 45), cost);
-    const isolated = farmScore(g, p, g.ref(60, 48), cost);
-    expect(adjacent).toBeGreaterThan(isolated);
+    const adjacent = fieldRoomYield(g, p, g.ref(60, 45)).yieldMilli;
+    const isolated = fieldRoomYield(g, p, g.ref(60, 48)).yieldMilli;
+    expect(adjacent).toBeLessThan(isolated);
   });
 
-  test("barren soil scores negative — no fixed fertility floor needed", async () => {
+  test("dead ground scores zero — a nucleus that can't claim is worthless", async () => {
     const g = await layeredGame(barren);
     const p = g.player(founderInfo.id);
     conquerBlock(g, p, 10, 10, 20);
-    expect(farmScore(g, p, g.ref(15, 15), 40_000)).toBeLessThan(0);
+    expect(fieldRoomYield(g, p, g.ref(15, 15)).yieldMilli).toBe(0);
+    // Even with a whole town's labor on hand, no room means no field.
+    expect(farmDistrictScore(g, p, g.ref(15, 15), 100_000)).toBe(0);
   });
 
   test("a knob re-tune flips the optimum with no planner changes", async () => {
-    // Same tile, same layers: profitable at default farmYieldMilli…
+    // Same tile, same layers: viable at the default claim threshold…
     conquerBlock(game, player, 10, 10, 20);
-    expect(farmScore(game, player, game.ref(15, 15), 40_000)).toBeGreaterThan(
-      0,
-    );
+    expect(
+      fieldRoomYield(game, player, game.ref(15, 15)).yieldMilli,
+    ).toBeGreaterThan(0);
 
-    // …unprofitable when the yield knob is cut.
-    const g = await layeredGame(flat, CutYield);
+    // …dead when the claim threshold is raised past the ground's ceiling
+    // (maturity settles AT suitability, so the nucleus could never claim).
+    const g = await layeredGame(flat, RaiseClaim);
     const p = g.player(founderInfo.id);
     conquerBlock(g, p, 10, 10, 20);
-    expect(farmScore(g, p, g.ref(15, 15), 40_000)).toBeLessThan(0);
+    expect(fieldRoomYield(g, p, g.ref(15, 15)).yieldMilli).toBe(0);
+  });
+
+  test("labor caps the district: a town in reach beats the empty frontier", () => {
+    const f = game.config().food();
+    conquerBlock(game, player, 10, 40, 40, 10);
+    // A town: one full city tile near the near site, nothing near the far.
+    player.setDensity(game.ref(15, 45), f.popPerDensity);
+    const near = game.ref(18, 45);
+    const far = game.ref(40, 45);
+
+    expect(residentsNear(game, player, near)).toBeGreaterThan(0);
+    expect(residentsNear(game, player, far)).toBe(0);
+
+    const nearScore = farmDistrictScore(
+      game,
+      player,
+      near,
+      residentsNear(game, player, near),
+    );
+    const farScore = farmDistrictScore(
+      game,
+      player,
+      far,
+      residentsNear(game, player, far),
+    );
+    expect(nearScore).toBeGreaterThan(0);
+    expect(farScore).toBe(0); // nobody to till it — the coverage gate
+
+    // PAIRED labor (D-DP2): the town the seed founds is the labor stake,
+    // so the same frontier site prices its full room.
+    expect(
+      farmDistrictScore(game, player, far, f.popPerDensity),
+    ).toBeGreaterThan(0);
+  });
+
+  test("a rival border discounts a seed site; the interior does not", async () => {
+    const enemyInfo = new PlayerInfo("rival", PlayerType.Human, null, "e_id");
+    const g = await setup(
+      "plains",
+      { infiniteGold: false, instantBuild: true },
+      [founderInfo, enemyInfo],
+      undefined,
+      TestConfig,
+      true,
+      flat,
+    );
+    const p = g.player(founderInfo.id);
+    const enemy = g.player(enemyInfo.id);
+    conquerBlock(g, p, 10, 10, 20);
+    conquerBlock(g, enemy, 32, 10, 10, 20); // adjacent front at x = 32
+
+    const frontier = g.ref(29, 15); // 3 tiles from rival ground
+    const interior = g.ref(12, 15); // no rival in scan reach
+    expect(hostileBorderDiscount(g, p, frontier)).toBeLessThan(1);
+    expect(hostileBorderDiscount(g, p, interior)).toBe(1);
+    // Wilderness never discounts — expansion room is where districts belong.
+    expect(hostileBorderDiscount(g, p, g.ref(10, 25))).toBe(1);
+  });
+
+  test("labor relief is the marginal field a town's people unlock", () => {
+    conquerBlock(game, player, 10, 10, 20);
+    const t = game.ref(15, 15);
+    player.buildUnit(UnitType.Farmland, t, {});
+
+    // Nobody lives near the farm: a town's worth of residents unlocks the
+    // whole room, so the relief equals the fully-staffed district score.
+    const empty = new PlayerFoodShed();
+    const relief = farmLaborRelief(game, player, empty, t);
+    expect(relief).toBeGreaterThan(0);
+    expect(relief).toBe(
+      farmDistrictScore(game, player, t, game.config().food().popPerDensity),
+    );
+
+    // A fully-staffed (room-bound) field wants no town: zero marginal.
+    const staffed = new PlayerFoodShed();
+    staffed.peopleByFarm.set(t, 1_000_000);
+    expect(farmLaborRelief(game, player, staffed, t)).toBe(0);
+  });
+
+  test("committed staffing dedupes the pool: a site by a worked field has no free hands", () => {
+    const f = game.config().food();
+    conquerBlock(game, player, 10, 10, 30);
+    // A worked farm: its cell holds exactly its own staffing need.
+    const farmTile = game.ref(20, 20);
+    player.buildUnit(UnitType.Farmland, farmTile, {});
+    const shed = new PlayerFoodShed();
+    shed.peopleByFarm.set(farmTile, 2 * f.farmersPerFieldTile);
+    // 1 acre (the nucleus) + 1 expansion slot, capped at the cell's people.
+    const committed = committedStaffing(game, player, shed);
+    expect(committed.get(farmTile)).toBe(2 * f.farmersPerFieldTile);
+
+    // A town lives beside the farm; every hand it houses is spoken for.
+    player.setDensity(game.ref(21, 21), 2 * f.farmersPerFieldTile);
+    const nearSite = game.ref(23, 20);
+    expect(residentsNear(game, player, nearSite)).toBeGreaterThan(0);
+    expect(effectiveResidents(game, player, nearSite, committed)).toBe(
+      Math.max(
+        0,
+        residentsNear(game, player, nearSite) - committed.get(farmTile)!,
+      ),
+    );
+
+    // Out of the farm's labor window, nothing is subtracted.
+    player.setDensity(game.ref(38, 38), 1000);
+    const farSite = game.ref(37, 37);
+    expect(effectiveResidents(game, player, farSite, committed)).toBe(
+      residentsNear(game, player, farSite),
+    );
+  });
+
+  test("the attack reserve is the tilled set's staffing", () => {
+    const f = game.config().food();
+    const shed = new PlayerFoodShed();
+    expect(fieldStaffingNeed(game, player, shed)).toBe(0);
+    shed.tilled.add(game.ref(1, 1));
+    shed.tilled.add(game.ref(2, 2));
+    shed.tilled.add(game.ref(3, 3));
+    expect(fieldStaffingNeed(game, player, shed)).toBe(
+      3 * f.farmersPerFieldTile,
+    );
+  });
+
+  test("war share bounds total deployment by the LIVING population (10.6)", () => {
+    const f = game.config().food();
+    player.setTroops(5000);
+    // Nothing deployed: the full share is available — and it is a share of
+    // the population, not of the housing-based maxTroops.
+    expect(deployableTroops(game, player)).toBe(
+      Math.floor(5000 * f.maxWarShare),
+    );
+    // Deployment in flight counts against the share.
+    game.addExecution(new AttackExecution(1000, player, null));
+    game.executeNextTick(); // attack becomes an outgoing deployment
+    const idle = player.troops();
+    const deployed = player
+      .outgoingAttacks()
+      .reduce((a, at) => a + at.troops(), 0);
+    expect(deployed).toBeGreaterThan(0);
+    expect(deployableTroops(game, player)).toBe(
+      Math.max(0, Math.floor((idle + deployed) * f.maxWarShare) - deployed),
+    );
   });
 
   test("horizon and ramp are derived and self-consistent", () => {
@@ -202,19 +360,16 @@ describe("TribalEconomy — greedy planner policy", () => {
     expect(player.units(UnitType.Farmland).length).toBe(5);
   });
 
-  test("builds nothing when no action can repay its cost", async () => {
+  test("banked seeds stay banked when every site is dead ground", async () => {
     const game = await layeredGame(barren);
     const player = game.player(founderInfo.id);
     conquerBlock(game, player, 10, 10, 30);
-    player.addFood(2_000n); // affordable but worthless — and below the barn
-    // accrual threshold, so insurance isn't wanted either
 
     grantSeeds(player);
     const economy = new TribalEconomy(new PseudoRandom(42), game, player);
     expect(economy.tryBuild(5)).toBe(0);
     settleExecutions(game);
     expect(player.units(UnitType.Farmland).length).toBe(0);
-    expect(player.units(UnitType.Barn).length).toBe(0);
   });
 
   test("founds a settlement when the city outgrows its placeable room", async () => {
@@ -253,26 +408,67 @@ describe("TribalEconomy — greedy planner policy", () => {
     expect(game.y(s)).toBeGreaterThanOrEqual(60);
   });
 
-  test("barn is insurance: built only when growth has nothing to offer", async () => {
-    const game = await layeredGame(barren); // no farm can repay its cost
+  test("a banked pair founds a district — no room starvation required", async () => {
+    const game = await layeredGame();
     const player = game.player(founderInfo.id);
-    const f = game.config().food();
+
+    // Fertile owned land, nobody housed anywhere: a lone farm seed would
+    // price zero (no labor), and the old deficit trigger never fires.
     conquerBlock(game, player, 10, 10, 30);
+    const supply = supplyField(game, player);
+    expect(assessUrbanRoom(game, player, supply).deficit).toBe(0);
 
-    // A large fed population with stock accruing at the base cap — one
-    // generation of consumption far exceeds baseStorage.
-    (
-      player as Player & { _foodFlow: { population: number } }
-    )._foodFlow.population = 50_000;
-    player.addFood(BigInt(f.baseStorage)); // ≥ accrual fraction of the cap
-
-    grantSeeds(player);
+    grantSeeds(player, 1, 1); // exactly one founding pair
     const economy = new TribalEconomy(new PseudoRandom(11), game, player);
-    expect(wantsBarnInsurance(game, player)).toBe(true);
     expect(economy.tryBuild(1)).toBe(1);
     settleExecutions(game);
-    expect(player.units(UnitType.Barn).length).toBe(1);
-    expect(player.units(UnitType.Farmland).length).toBe(0);
+
+    // The pair placed TOGETHER: town + field, farm in the standoff collar.
+    const settlements = player.units(UnitType.Settlement);
+    const farms = player.units(UnitType.Farmland);
+    expect(settlements.length).toBe(1);
+    expect(farms.length).toBe(1);
+    const s = settlements[0].tile();
+    const t = farms[0].tile();
+    const dist = Math.max(
+      Math.abs(game.x(s) - game.x(t)),
+      Math.abs(game.y(s) - game.y(t)),
+    );
+    expect(dist).toBeGreaterThanOrEqual(2);
+    expect(dist).toBeLessThanOrEqual(4);
+    expect(player.farmSeeds()).toBe(0);
+    expect(player.settlementSeeds()).toBe(0);
+  });
+
+  test("a lone settlement seed staffs a labor-starved field", async () => {
+    const game = await layeredGame();
+    const player = game.player(founderInfo.id);
+    const f = game.config().food();
+
+    conquerBlock(game, player, 10, 10, 30);
+    // An existing farm with spreadable room and NOBODY in labor reach —
+    // its field is capped at zero coverage until a town arrives.
+    const farmTile = game.ref(25, 25);
+    player.buildUnit(UnitType.Farmland, farmTile, {});
+
+    grantSeeds(player, 0, 1); // settlement seed only — no pair possible
+    const supply = supplyField(game, player);
+    expect(assessUrbanRoom(game, player, supply).deficit).toBe(0);
+
+    const economy = new TribalEconomy(new PseudoRandom(5), game, player);
+    expect(economy.tryBuild(1)).toBe(1);
+    settleExecutions(game);
+
+    const settlements = player.units(UnitType.Settlement);
+    expect(settlements.length).toBe(1);
+    // Founded inside the starved farm's food-shed — labor relief, not room.
+    const s = settlements[0].tile();
+    const dist = Math.max(
+      Math.abs(game.x(s) - game.x(farmTile)),
+      Math.abs(game.y(s) - game.y(farmTile)),
+    );
+    expect(dist).toBeLessThanOrEqual(f.foodShedRadius);
+    expect(player.units(UnitType.Farmland).length).toBe(1); // no farm seed spent
   });
 
   test("deterministic: same state and seed choose the same builds", async () => {
@@ -283,7 +479,7 @@ describe("TribalEconomy — greedy planner policy", () => {
       conquerBlock(game, player, 10, 10, 40);
       player.addFood(100_000n);
       grantSeeds(player);
-    const economy = new TribalEconomy(new PseudoRandom(123), game, player);
+      const economy = new TribalEconomy(new PseudoRandom(123), game, player);
       economy.tryBuild(4);
       settleExecutions(game);
       runs.push(

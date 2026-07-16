@@ -1,5 +1,8 @@
 import { Game, Player, UnitType } from "../../game/Game";
 import { TileRef } from "../../game/GameMap";
+import { PseudoRandom } from "../../PseudoRandom";
+import { simpleHash } from "../../Util";
+import { isFallow, PlayerFoodShed } from "./FoodShed";
 
 /**
  * Farm maturation (openspec add-urban-core-growth, growth-model.md Part 1).
@@ -76,23 +79,87 @@ function gompertzSlope(m: number): number {
   return m * Math.log(1 / m);
 }
 
-/**
- * Advance every Farmland's maturity one tick (call once per player per tick
- * from the food tick). A newly-built farm starts at a small seed so the
- * Gompertz slope is non-zero; suitable climate ripens it, hostile climate
- * senesces it back down.
- */
-export function farmTick(mg: Game, player: Player): void {
+/** Water access in [0, 1+wShore] — groundwater plane plus river/coast edge.
+ *  Boosts the SPREAD RATE only (fields race along rivers); the establishment
+ *  ceiling stays the Liebig suitability. */
+export function waterAccess(mg: Game, tile: TileRef): number {
   const f = mg.config().food();
-  const seed = f.farmSeedMilli;
+  const map = mg.map();
+  const waterN = mg.layer("water", tile) / 255;
+  const shore = map.isShoreline(tile) || map.isOceanShore(tile) ? 1 : 0;
+  return waterN + f.wShore * shore;
+}
+
+/** Per-player plot-growth credit, keyed by nucleus tile. Process-local like
+ *  the shed/supply caches (rebuilt empty on reload — pacing state, not truth). */
+const patchCredits = new WeakMap<Player, Map<TileRef, number>>();
+
+/**
+ * Advance the player's FIELDS one tick (call once per player per tick from
+ * the food tick) — the farm CA (rework-settlement-ecology §1b). Two phases
+ * over the maturity plane, both reading start-of-tick state:
+ *
+ *   RIPEN — nuclei and CLAIMED tiles (m ≥ fieldClaimMilli) climb the
+ *   Gompertz curve toward their climate suitability, or senesce down to it,
+ *   exactly as single plots always have. FALLOW tiles (ranked by the shed's
+ *   last refresh but left unstaffed — the labor coverage gate) instead
+ *   senesce, dying OUTRIGHT below the claim threshold: lose your farmers
+ *   and the field dies back plot by plot. Tiles claimed since the last
+ *   refresh are in grace (they ripen; the next refresh judges them).
+ *
+ *   PLOTS (playtest rework 2026-07-15) — fields grow one 1×1 tilled plot
+ *   at a time (every structure is a single tile; the client paints claimed
+ *   tiles with the same tilled-soil pattern as the Farmland plot), never a
+ *   diffusing front. Each nucleus accrues credit equal to its field's
+ *   summed TILLED maturity per tick (capped at fieldPatchDriveCapMilli — a
+ *   riper, larger field readies its next plot sooner, but never
+ *   machine-guns them); at fieldPatchCostMilli it places ONE plot on a
+ *   seeded weighted-random frontier tile (weight = suitability × water
+ *   access), always claim-viable (suitability ≥ the claim threshold —
+ *   desert never gets a plot). Placement is LABOR-GATED: only when the
+ *   field's residents have spare hands for one more tile — labor caps
+ *   field SIZE at the moment of expansion.
+ */
+export function farmTick(mg: Game, player: Player, shed: PlayerFoodShed): void {
+  const f = mg.config().food();
+  const claim = f.fieldClaimMilli;
+
+  // A freshly-built nucleus starts at a small seed so the Gompertz slope
+  // M·ln(1/M) is non-zero and the field can begin ripening.
   for (const farm of player.units(UnitType.Farmland)) {
     if (farm.isUnderConstruction()) continue;
-    const tile = farm.tile();
+    if (player.farmMaturity(farm.tile()) <= 0) {
+      player.setFarmMaturity(farm.tile(), f.farmSeedMilli);
+    }
+  }
+
+  // Phase 1 — RIPEN. Collect the claimed tiles per shed cell along the way
+  // (the patch phase's credit stream and frontier source).
+  const fieldTilesByCell = new Map<TileRef, TileRef[]>();
+  for (const [tile, mMilli] of player.farmMaturityEntries()) {
     // Battle-worn ground (rework-settlement-ecology): a damaged tile freezes
-    // its farm — no ripening, no senescence — until it fully heals.
+    // its farm — no ripening, no senescence — until healed.
     if (mg.tileDamage(tile) > 0) continue;
-    let mMilli = player.farmMaturity(tile);
-    if (mMilli <= 0) mMilli = seed; // just planted
+    const claimed = mMilli >= claim;
+    if (claimed && isFallow(shed, tile)) {
+      // Unstaffed: the tile senesces; under the claim threshold it DIES
+      // OUTRIGHT (establishment cleared) — reversion is decisive, not a
+      // hover at the boundary.
+      const next = mMilli - Math.max(1, f.farmSenesceRate * mMilli);
+      player.setFarmMaturity(tile, next < claim ? 0 : next);
+      continue;
+    }
+    if (claimed) {
+      const cell = shed.cellOf.get(tile) ?? tile;
+      let tiles = fieldTilesByCell.get(cell);
+      if (tiles === undefined) {
+        tiles = [];
+        fieldTilesByCell.set(cell, tiles);
+      }
+      tiles.push(tile);
+    } else if (mg.plotAt(tile)?.type() !== UnitType.Farmland) {
+      continue; // sub-claim remnant with no nucleus: inert until it is wild
+    }
     const m = mMilli / 1000;
     const suit = climateSuitability(mg, tile);
     const drive = suit - m;
@@ -110,4 +177,126 @@ export function farmTick(mg: Game, player: Player): void {
     const settled = drive >= 0 ? Math.min(next, suit) : Math.max(next, suit);
     player.setFarmMaturity(tile, Math.round(settled * 1000));
   }
+
+  // Phase 2 — PATCHES: one 2×2 tilled plot at a time, per nucleus.
+  let credits = patchCredits.get(player);
+  if (credits === undefined) {
+    credits = new Map();
+    patchCredits.set(player, credits);
+  }
+  for (const farm of player.units(UnitType.Farmland)) {
+    if (farm.isUnderConstruction()) continue;
+    const nucleus = farm.tile();
+    // The credit stream: the field's summed TILLED maturity (start-of-tick
+    // snapshot from the shed), capped so mature fields pace, not spray.
+    let output = 0;
+    for (const tile of fieldTilesByCell.get(nucleus) ?? []) {
+      if (shed.tilled.has(tile) || !shed.ranked.has(tile)) {
+        output += player.farmMaturity(tile);
+      }
+    }
+    output = Math.min(f.fieldPatchDriveCapMilli, output);
+    if (output <= 0) continue;
+    const credit = (credits.get(nucleus) ?? 0) + output;
+    if (credit < f.fieldPatchCostMilli) {
+      credits.set(nucleus, credit);
+      continue;
+    }
+    // Labor surplus gate: the field's residents must have spare hands for
+    // one more tile, or the plot waits for people (size ← labor).
+    const residents = shed.peopleByFarm.get(nucleus) ?? 0;
+    const acreage = (fieldTilesByCell.get(nucleus) ?? []).length;
+    if (residents < (acreage + 1) * f.farmersPerFieldTile) {
+      credits.set(nucleus, f.fieldPatchCostMilli); // ready, waiting for people
+      continue;
+    }
+    const placed = placePatch(
+      mg,
+      player,
+      shed,
+      nucleus,
+      fieldTilesByCell.get(nucleus) ?? [],
+    );
+    // No eligible frontier (desert, borders, the city): hold at ready.
+    credits.set(
+      nucleus,
+      placed ? credit - f.fieldPatchCostMilli : f.fieldPatchCostMilli,
+    );
+  }
+  // Sweep credits of dead nuclei.
+  for (const cell of Array.from(credits.keys())) {
+    if (mg.plotAt(cell)?.type() !== UnitType.Farmland) credits.delete(cell);
+  }
+}
+
+/**
+ * Place ONE 1×1 tilled plot on the field's frontier: candidates are the
+ * wild 4-neighbors of the field's tiles (owned, passable, undamaged,
+ * unclaimed by either automaton, and claim-viable), picked by seeded
+ * weighted random on suitability × water access. The plot pops in at the
+ * claim threshold and ripens toward its suitability from there.
+ */
+function placePatch(
+  mg: Game,
+  player: Player,
+  shed: PlayerFoodShed,
+  nucleus: TileRef,
+  fieldTiles: TileRef[],
+): boolean {
+  const f = mg.config().food();
+  const claim = f.fieldClaimMilli;
+  const map = mg.map();
+  const smallID = player.smallID();
+
+  const eligible = (t: TileRef): boolean => {
+    if (map.ownerID(t) !== smallID) return false; // borders bound fields
+    if (!map.isLand(t) || map.isImpassable(t)) return false;
+    if (player.density(t) > 0) return false; // city — first claim holds
+    if (mg.plotAt(t) !== undefined) return false;
+    if (mg.tileDamage(t) > 0) return false; // scarred ground refuses
+    if (player.farmMaturity(t) > 0) return false; // already field ground
+    // Ground the shed judged fallow this refresh is off-limits until
+    // re-ranked — don't re-plot land the pool just failed to staff.
+    if (shed.ranked.has(t)) return false;
+    // Claim-viable: a plot whose ground settles below the claim threshold
+    // would senesce straight back to wild — never place it.
+    return climateSuitability(mg, t) * 1000 >= claim;
+  };
+
+  const nbuf: TileRef[] = [0, 0, 0, 0];
+  const candidates: TileRef[] = [];
+  const weights: number[] = [];
+  const seen = new Set<TileRef>();
+  for (const ft of fieldTiles) {
+    const k = map.neighbors4(ft, nbuf);
+    for (let i = 0; i < k; i++) {
+      const t = nbuf[i];
+      if (seen.has(t)) continue;
+      seen.add(t);
+      if (!eligible(t)) continue;
+      const weight =
+        climateSuitability(mg, t) * (1 + f.wFieldWater * waterAccess(mg, t));
+      if (weight <= 0) continue;
+      candidates.push(t);
+      weights.push(weight);
+    }
+  }
+  if (candidates.length === 0) return false;
+
+  const rand = new PseudoRandom(
+    simpleHash(`patch:${player.id()}:${mg.ticks()}:${nucleus}`),
+  );
+  let total = 0;
+  for (const w of weights) total += w;
+  let r = rand.nextFloat(0, total);
+  let pick = candidates.length - 1;
+  for (let i = 0; i < candidates.length; i++) {
+    r -= weights[i];
+    if (r <= 0) {
+      pick = i;
+      break;
+    }
+  }
+  player.setFarmMaturity(candidates[pick], claim);
+  return true;
 }

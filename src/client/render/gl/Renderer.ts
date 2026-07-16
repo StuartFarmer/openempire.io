@@ -1353,8 +1353,8 @@ export class GPURenderer {
     this.spawnOverlayPass.draw(cam);
     // The urban density field (the growing city) draws over territory.
     this.densityPass.draw(cam);
-    // Battle-worn ground draws over territory AND city: a scar reads brown
-    // whoever holds it, fading as it heals.
+    // Battle-worn ground draws over territory, city AND field: a scar reads
+    // brown whoever holds it, fading as it heals.
     this.damagePass.draw(cam);
     // Supply heatmap sits under borders/structures so plots stay readable.
     this.supplyOverlayPass.draw(cam);

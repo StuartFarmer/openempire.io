@@ -190,11 +190,12 @@ export enum UnitType {
   Barn = "Barn",
 }
 
-/** Tribal-age buildings — buildable only when the food economy is active. */
+/** Tribal-age buildings — placed from awarded seeds (rework-settlement-
+ *  ecology). The Barn is GONE as a buildable: storage is grown from stable
+ *  farmland (task 4.3); the enum member survives only for old references. */
 export const TribalStructures = unitTypeGroup([
   UnitType.Settlement,
   UnitType.Farmland,
-  UnitType.Barn,
 ] as const);
 
 export enum TrainType {
@@ -641,15 +642,22 @@ export interface Player {
   /** Extra housing from tile tenure (rework-settlement-ecology): old city
    *  tiles hold more people. Refreshed each tick by TileTenure.tenureTick. */
   tenureCapacityBonus(): number;
-  /** Banked farm seeds — awarded from peak territory, spent by placement
+  /** Banked farm seeds — half of each founding pair awarded at
+   *  peak-population milestones, spent by placement
    *  (rework-settlement-ecology). */
   farmSeeds(): number;
-  /** Banked Settlement seeds — awarded from peak-population milestones. */
+  /** Banked Settlement seeds — the other half of each founding pair. */
   settlementSeeds(): number;
   /** Farm maturity M∈[0,1] on a Farmland tile in milliunits (0..1000). */
   farmMaturity(tile: TileRef): number;
   setFarmMaturity(tile: TileRef, milli: number): void;
   farmMaturityEntries(): IterableIterator<[TileRef, number]>;
+  /** True when the tile is a CLAIMED field tile of this player (farm CA,
+   *  rework-settlement-ecology §1b): establishment ≥ fieldClaimMilli, or the
+   *  tile hosts one of this player's Farmland nuclei. Claimed field tiles are
+   *  invisible to the city CA and vice versa — first claim holds; a tile
+   *  merely establishing (below the threshold) counts as wild. */
+  isFieldTile(tile: TileRef): boolean;
 
   // Units
   units(...types: UnitType[]): Unit[];
@@ -820,6 +828,9 @@ export interface Game extends GameMap {
   // Tile combat-damage render deltas (rework-settlement-ecology): same
   // packing, byte = round(damage/1000·255); byte 0 = fully healed.
   drainPackedDamageUpdates(): Uint32Array | null;
+  /** Field-maturity render deltas (rework-settlement-ecology §1b): packed
+   *  `tile | (byte<<24)`, byte = round(maturity/1000·255). */
+  drainPackedFieldUpdates(): Uint32Array | null;
   setWinner(winner: Player | Team, allPlayersStats: AllPlayersStats): void;
   getWinner(): Player | Team | null;
   config(): Config;

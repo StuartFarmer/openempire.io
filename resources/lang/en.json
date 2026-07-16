@@ -2,11 +2,10 @@
   "build_menu": {
     "desc": {
       "atom_bomb": "Small explosion",
-      "barn": "Stores more food",
       "city": "Increases max population",
       "defense_post": "Increases defenses of nearby borders",
       "factory": "Creates railroads and spawns trains",
-      "farmland": "Produces food from fertile land. Seeds are awarded as your territory grows.",
+      "farmland": "A field seed that spreads across fertile land where farmers till it. Awarded at population milestones.",
       "hydrogen_bomb": "Large explosion",
       "mirv": "Huge explosion, only targets selected player",
       "missile_silo": "Used to launch nukes",
@@ -139,7 +138,7 @@
     "food_allocation": "Food allocation: how much of each harvest feeds your population (growth) versus going into storage (spending money). Storage still feeds people in a famine.",
     "food_starving": "Starving! Food consumption exceeds production and storage is empty",
     "low_troops_warning": "You are very low on troops - You should always keep some troops for defense.",
-    "supply_overlay": "Toggle the supply-lines overlay: territory out of reach of your settlements and barns darkens (well-supplied land stays untouched)",
+    "supply_overlay": "Toggle the supply-lines overlay: territory out of reach of your settlements darkens (well-supplied land stays untouched)",
     "teammate_afk_neighbor_info": "You can attack disconnected teammates.",
     "traitor_neighbor_info": "You can betray traitors without becoming a traitor yourself."
   },
@@ -707,9 +706,25 @@
     "unknown": "Unknown",
     "yes": "Yes"
   },
+  "tuning_panel": {
+    "default_tooltip": "Default",
+    "group_consumption": "Consumption",
+    "group_demographics": "Demographics",
+    "group_farms": "Farms",
+    "group_other": "Other",
+    "group_population": "Population",
+    "group_production": "Production",
+    "group_scale": "Scale",
+    "group_storage": "Storage",
+    "group_supply_war": "Supply & war",
+    "group_urban": "Urban growth",
+    "reset": "reset",
+    "reset_all": "Reset all",
+    "title": "Sim Tuning",
+    "toggle_tooltip": "Sim tuning: live-edit the food economy knobs"
+  },
   "unit_type": {
     "atom_bomb": "Atom Bomb",
-    "barn": "Barn",
     "boat": "Boat",
     "city": "City",
     "defense_post": "Defense Post",

@@ -5,23 +5,24 @@ The living document for the ecology model. Modify freely — specs follow this.
 ## The model in one picture
 
 ```
- CONQUER LAND ──award──▶ FARM SEEDS ──place──▶ farms ripen (climate, exists)
-      │                                            │ tenure grows (new)
-      │                                            ▼
-      │                                   local food + local storage
-      │                                            │
-      ▼                                            ▼
- tiles start at                          neighborhoods feed people
- tenure ZERO,                            births/deaths (lifespans, exists)
- possibly DAMAGED                                  │
- (conquest = investment)                           ▼
-                                          population = farm labor ──┐
-                                                   ▲                │
- PEAK POPULATION ──award──▶ SETTLEMENT SEEDS       └────────────────┘
-                                │                   the ecology loop
-                                ▼                   (and the death spiral)
-                        new city nuclei
-                        density caps rise with tenure
+ PEAK POPULATION ──award──▶ FOUNDING PAIR ──place──▶ two nuclei, two automata
+      ▲              (1 settlement seed + 1 farm seed,
+      │               one ladder: basePop · n^k)
+      │                                   ┌───────────────┴───────────────┐
+      │                                   ▼                               ▼
+      │                            CITY spreads (exists)          FIELD spreads (§1b)
+      │                            bounded by FOOD                rate ∝ tile suitability
+      │                            density caps rise w/ tenure    tilled only with LABOR
+      │                                   │                               │
+      │                                   ▼                               ▼
+      │                            houses people                  tilled tiles produce
+      │                                   │                       local food + storage
+      │                                   ▼                       (tenure grows, §2)
+      └──── births/deaths ◀── neighborhoods feed people ◀─────────────────┘
+                      the ecology loop (and the death spiral)
+
+ CONQUER LAND: tiles arrive tenure-ZERO, possibly DAMAGED — conquest buys
+ ROOM for both automata to spread into, never awards.
 ```
 
 Three player decisions remain: **where to attack**, **where to plant awarded
@@ -29,29 +30,115 @@ seeds**, **what to protect**. Everything else runs itself.
 
 ## 1. Seed awards
 
-| Currency        | Earns            | Ratchet                         |
-| --------------- | ---------------- | ------------------------------- |
-| Peak territory  | Farm seeds       | tiles-ever-held high-water mark |
-| Peak population | Settlement seeds | population-ever high-water mark |
+**One ladder, paired awards.** The nth crossing of the peak-population ladder
+`basePop · n^k` banks a **founding pair**: one settlement seed AND one farm
+seed. A new town needs a field in food-shed reach and a lone field feeds
+nobody — the pair is the unit of founding. (Revised 2026-07-15: the original
+peak-territory farm-seed ratchet is DELETED — under field growth (§1b) one
+farm seed yields a whole growing district, so per-25-tiles awards were an
+order of magnitude too generous, and territory's reward is now the room it
+gives the automata to spread into.)
 
-- **Ratchets, not current values**: awards trigger when the high-water mark
-  crosses a threshold. Losing land/people never revokes a seed ("fixed"
-  settlements), and oscillating can't farm awards.
-- **Power-law ladder for settlements**, derived from the geometric scaling law
-  (§6): the nth settlement triggers at `basePop · n^k`, where `k` is the
-  measured area↔perimeter exponent (~2 for compact territory). Each settlement
-  then costs a constant increment of _frontier effort_ (linear dimension), not
-  a constant increment of population — the quadratic interior advantage is
-  taxed back to linear. `basePop` and `k` are Config.food() knobs; `k` is
-  discovered, not hand-picked.
-- **Farm seeds per territory**: linear per-N-tiles to start (land → food
-  potential should scale roughly with land). Knob.
+- **Ratchet, not current value**: awards trigger when the population
+  high-water mark crosses a threshold. Losing people never revokes a seed
+  ("fixed" settlements), and oscillating can't farm awards.
+- **Power-law ladder, tapered past constant effort** (revised 2026-07-15):
+  the nth pair triggers at `basePop · n^(k · ladderTaper)` with `k` the
+  measured area↔perimeter exponent and `ladderTaper > 1`. At taper 1 each
+  founding costs a constant increment of frontier effort; the adopted taper
+  (2) makes awards THIN OUT with size — a big nation founds little, because
+  mid-game conquest captures enemy settlements and farms and supplies the
+  plots instead. `basePop`, `k`, and the taper are Config.food() knobs; `k`
+  is discovered, not hand-picked.
 - Seeds are **banked tokens** placed via the BuildBar (agency retained);
-  placement costs nothing. Food's only job is feeding people.
+  placement costs nothing. Food's only job is feeding people. Farm and
+  settlement seeds bank separately — the pair is awarded together but the
+  player chooses where (and when) each is planted.
+- **Spawn kit = the same pair**: Core (the first "settlement") plus one farm
+  nucleus — pre-placed per current spawn behavior. No purchase path anywhere.
 - **Barns**: gone. Storage is an emergent property of stable farmland (§2).
 
-Open: should the starter kit at spawn be expressed as pre-banked seeds?
-(Probably yes — one system.)
+## 1b. Field growth — the farm CA
+
+A planted Farmland is a **nucleus, not a plot** — the field grows itself,
+exactly as a Settlement's city does. Two coupled automata over the same land:
+the city bounded by food, the field gated by labor, and the loop between them
+(§4) is the whole economy.
+
+One per-tile scalar drives everything: **establishment/maturity `E`**
+(the existing `farmMaturity` plane). States are bands of `E` plus one bit
+(labor-covered), never a separate enum:
+
+```
+                1x1 plot pops                      labor covers tile?
+  WILD ────────────────────────────▶ CLAIMED ────────────┬────────────┐
+ (open to     paced by the field's   (tilled-soil     yes│            │no
+  either CA)  output; labor-gated;    plot — city CA     ▼            ▼
+              tile weighted by        skips it)       TILLED        FALLOW
+              suitability × water)                 produces food  senesces (E ↓)
+                                                   tenure runs        │
+                                                         ▲            │ E < claim
+                                                         └── labor ◀──┘ (dies to 0)
+                                                            returns      ▼
+                                                                     WILD again
+                                                                 (either CA may claim)
+```
+
+- **Growth is discrete: 1×1 tilled plots, one at a time** (revised
+  2026-07-15 — playtest: continuous per-tile diffusion read as a circle
+  flooding out of the seed, far too fast and too big; ALL structures are
+  single-tile — the "2×2" tilled look is the plot sprite's sub-tile
+  pattern, drawn by the plot pass). Each nucleus accrues growth credit
+  from its field's TILLED output; at the plot cost it places ONE plot on a
+  weighted-random frontier tile (seeded PRNG), weight = suitability ×
+  water access (humidity, groundwater, river/shore) — plots FAVOR the
+  river without racing along it — and must be claim-viable (suitability ≥
+  claim threshold), so desert never gets a plot. Placement is LABOR-GATED:
+  only when the field's residents have spare hands for one more tile
+  (farmersPerFieldTile). Pace knobs: fieldPatchCostMilli (credit per plot)
+  with the per-tick credit capped (fieldPatchDriveCapMilli) so big fields
+  don't machine-gun plots. Render: claimed tiles are painted into the plot
+  buffer as Farmland ground (GameView → PlotCache → PlotPass), so fields
+  share the exact tilled-soil sprite of their nucleus.
+- **Labor is a coverage gate.** The field's shed-cell labor pool (the existing
+  nearest-farm Voronoi, §4) covers claimed tiles at `farmersPerFieldTile`
+  each, ranked by maturity-then-suitability. Covered tiles are TILLED
+  (produce, age tenure); uncovered tiles lie FALLOW and senesce. When the pool
+  shrinks, the frontier and marginal tiles lose their farmers first — the
+  field contracts to its fertile old core with no special-case code. This
+  REPLACES the §4 labor yield-multiplier (no double-counting).
+  Two anti-flap rules (found by test): a fallow tile senescing below the
+  claim threshold DIES OUTRIGHT (establishment cleared — otherwise the
+  tilled core re-drives it the same tick and it hovers at the boundary),
+  and spread never re-drives ground the current refresh already ranked.
+  Freshly claimed tiles between refreshes get GRACE (ripen, judged next
+  refresh) so cadence staleness never flaps the frontier.
+- **First claim holds while alive.** Field tiles are invisible to the city CA
+  (skip already exists) and city tiles to field spread — symmetric, whichever
+  was there first stays. Land moves between the automata only through death:
+  a fallow tile senescing below the claim threshold reverts to WILD, then
+  either may take it. Where you plant shapes your city's growth corridors.
+  Two guards keep the automata from strangling each other at spawn (found
+  in-game): the CORE tile never recedes while the population lives (a famine
+  dip must not hand the capital's ground to the field CA and lock the city
+  out), and the spawn kit farm plants at DISTANCE 3 from the core, on the
+  best climate-suitability candidate — the field belongs near the village,
+  not in it, and a kit farm on hostile ground would senesce below claim and
+  never seed a field (maturity settles AT suitability).
+- **Spread respects the usual gates**: owned land only (borders bound
+  fields, same as the city CA), damage must be 0, impassable never.
+- **Mutual aid is the credit stream.** Growth credit is the field's summed
+  tilled maturity — a riper, larger field readies its next plot sooner, so
+  healthy districts compound while a struggling nucleus crawls; two fields
+  growing into each other simply merge (shed Voronoi already attributes
+  tiles to nearest nucleus). The old per-plot `adjacencyBonus` district
+  multiplier stays DELETED.
+- **Yield is per-tile**: Σ over TILLED tiles of `maturity · f_soil ·
+yieldPerTile`. No district bonus, no labor multiplier.
+- **Perf/render note**: the update rule is a neighborhood convolution over two
+  byte planes (maturity × suitability) — shader-friendly later if needed. Sim
+  stays CPU/deterministic. Render: green wash ∝ maturity through the existing
+  DensityPass-style channel (the damage brown wash's twin).
 
 ## 2. Tile stability (tenure)
 
@@ -63,16 +150,18 @@ current limit_:
 
 - City tile: runs while the tile is fully populated at its current density cap.
   A half-empty tile doesn't need more density, so it doesn't age.
-- Farm tile: runs while maturity has settled at the tile's climate suitability
-  (the farm is doing all this ground allows).
+- Farm tile: runs while TILLED (labor-covered, §1b) and maturity has settled
+  at the tile's climate suitability (the farm is doing all this ground
+  allows). Fallow tiles neither age nor decay tenure faster than vacancy.
 
 **Consumers** (all saturating curves — a plateau, so old empires don't become
 unassailable; reuse the Gompertz shape from FarmGrowth):
 
 - **City density cap**: `popPerDensity · capCurve(tenure)` — young suburb holds
   fewer people per tile than a century-old core.
-- **Farm storage capacity**: local milli-food capacity per farm =
-  `storageCurve(tenure)`. Replaces Barns.
+- **Farm storage capacity**: local milli-food capacity per FIELD TILE =
+  `storageCurve(tenure)` — a field's granary emerges from its old core tiles,
+  exactly as city density does. Replaces Barns.
 - **Settlement nucleus strength**: growth pacing and/or supply radius scale with
   the nucleus tile's tenure. The nucleus is logically the oldest tile in the
   metro — founding early matters, capitals have gravity.
@@ -108,32 +197,53 @@ A tile must be **fully healed** (damage = 0, §3) before its clock can run.
 The local-ledger model ("rung B"): food is local, the population count stays
 global but is _spatialized_ by the existing per-tile density field.
 
-- **Labor**: each farm needs `farmersPerFarm` people to tend it. Output ×
-  `max(laborFloor, min(1, localPop / farmersPerFarm))` — a soft factor with
-  a floor, so degradation is graceful and labor alone never zeroes a farm.
-  The labor pool of a farm (computed at food-shed refresh) is:
-  1. city-dwellers in its nearest-farm Voronoi cell of the shed, with
-     surplus beyond `farmersPerFarm` spilling to under-tended farms of the
-     same shed network (a dense core staffs several nearby farms); PLUS
+- **Labor**: moved from yield multiplier to the §1b COVERAGE GATE — the pool
+  covers claimed field tiles at `farmersPerFieldTile` each (ranked
+  maturity-then-suitability); covered tiles till and produce, uncovered tiles
+  lie fallow and senesce. Labor bounds the field's SIZE the way food bounds
+  the city's, closing the loop spatially. The pool itself keeps the 4.1
+  plumbing (computed at food-shed refresh):
+  1. city-dwellers in the field's nearest-farm Voronoi cell of the shed, with
+     surplus spilling to under-covered fields of the same shed network (a
+     dense core staffs several nearby fields); PLUS
   2. an equal split of the RURAL population — everyone not housed in a city
      tile. Discovered the hard way: without the rural pool the model is a
      bootstrap death-trap (a young village has no city tiles → no labor →
      no food → never earns a city tile). Rural labor is aspatial until §4.2
      spatializes the population fully.
-  Measured effect (harness, verdantia t2000): 25/26 nations alive (was 16)
-  and leader share 12.8% (was 20.6%) — under-tended frontier farms are a
-  strong natural anti-snowball brake.
-- **Distribution**: farm output lands in its food-shed (FoodShed.ts stops being
-  only a growth gate and becomes the feeding channel). Each neighborhood's
-  fed-ratio is computed locally; local births/deaths flow through the density
-  field of that neighborhood.
-- **Storage**: local. Surplus banks into the district's stable-farmland
-  capacity; shortfall draws the local stock first. A famine is a _regional_
-  event — one metro recedes while another thrives.
+     (History: 4.1 shipped labor as a soft yield multiplier
+     `max(laborFloor, min(1, pool/farmersPerFarm))`; measured effect on the
+     harness — verdantia t2000: 25/26 nations alive (was 16), leader share
+     12.8% (was 20.6%). The coverage gate supersedes the multiplier — one labor
+     mechanism, no double-counting; the anti-snowball brake now acts on field
+     AREA instead of yield.)
+- **Distribution (as built)**: the feeding unit is the REGION — the
+  connected component of the shed flood (union-find over nuclei whose
+  floods touch). The shed CUTOFF, not the Voronoi seam, is the locality
+  bound: a metro eats from every farm within reach; disconnected or
+  out-of-reach regions share nothing. Three cohorts eat each tick:
+  district civilians (per-region production + granaries), the CAMP (people
+  beyond every shed, fed only by the baseStorage spawn stake — the fate of
+  a city with no field in reach), and the WAR cohort (deployed troops, fed
+  by requisition: production tax → camp → granaries). Starvation is
+  per-cohort; recession prefers the worst-fed region's tiles (fedByFarm).
+  Implementation traps (all hit, all fixed): density is HOUSING not
+  headcount (scale by occupancy); scale refresh-time headcounts to the
+  live idle pool (or newborns starve in the camp between refreshes);
+  flooring dust joins a district; the labor pool (capped, spilled) is NOT
+  the feeding population (peopleByFarm vs laborByFarm).
+- **Storage (as built)**: per TILLED tile, capacity =
+  `fieldTileStorageMilli · g(tenure)` — granaries grown from stability,
+  banked/drawn/decayed at region level, written back per cell, burned with
+  their nucleus. The camp stock (`_foodMilli`, baseStorage cap) survives
+  as the spawn stake. Barns are gone. A famine is a _regional_ event — one
+  metro recedes while another thrives.
 - **Death-spiral guards** (all three deliberate):
-  1. labor is a soft multiplier, not a gate;
-  2. starvation acts faster than farm senescence — a famine leaves hungry
-     people and intact-ish farms (recoverable), not dead farms;
+  1. labor loss kills the field from the MARGINS inward (coverage ranked by
+     maturity/suitability, §1b) — a famine costs frontier tiles, never the
+     fertile old core first, so the recovery seed always survives longest;
+  2. starvation acts faster than fallow senescence — a famine leaves hungry
+     people and intact-ish fields (recoverable), not dead fields;
   3. tenure decays (not resets) on depopulation.
 
 Deferred to a future change ("rung C"): migration — people flowing from
@@ -187,15 +297,77 @@ troops)`.
 **Consumers** — anything that should cost "constant effort" gets normalized by
 the law rather than hand-tuned:
 
-| Quantity                  | Naive (snowball fuel) | Law-normalized                            |
-| ------------------------- | --------------------- | ----------------------------------------- |
-| Settlement ladder (§1)    | flat per-100k pop     | nth threshold ∝ `n^k`                     |
-| Farm-seed award rate (§1) | flat per-N tiles      | candidate: per-`A^(1/k)` (frontier units) |
-| Supply / attrition radii  | flat radius           | candidate: scale with `√A`                |
-| Density-cap plateau (§2)  | flat ceiling          | candidate: phase-scaled                   |
+| Quantity                 | Naive (snowball fuel) | Law-normalized             |
+| ------------------------ | --------------------- | -------------------------- |
+| Founding ladder (§1)     | flat per-100k pop     | nth threshold ∝ `n^k`      |
+| Supply / attrition radii | flat radius           | candidate: scale with `√A` |
+| Density-cap plateau (§2) | flat ceiling          | candidate: phase-scaled    |
 
-Only the settlement ladder is committed in this change; the rest are listed so
-future balancing reaches for the measured law first and a magic number second.
+Only the founding ladder is committed in this change (farm seeds inherit it
+via the §1 pairing — the old flat per-N-tiles farm award is deleted); the rest
+are listed so future balancing reaches for the measured law first and a magic
+number second.
+
+## 7. The district planner (bots place founding pairs)
+
+Task 6.1 taught the bots to spend seeds; the harness says they spend them
+badly: settlement seeds are hoarded forever (the urban-room deficit trigger
+almost never fires — TopSettlements ~0 in balance runs), farm siting ignores
+labor (a nucleus on fertile empty frontier stalls at one tile against the
+coverage gate), and the two scores are incomparable currencies (a
+suitability sum vs population-ticks), so the argmax between them is
+meaningless. Under this economy the founding PAIR is the strategic unit —
+the town staffs the field, the field feeds the town — and the planner must
+select it as one.
+
+**D-DP1: One currency, restored.** Every placement scores in
+population-ticks over the derived horizon H (add-greedy-economy-planner D1).
+A farm nucleus is priced as the FIELD it can grow, labor-capped:
+
+```
+roomYieldMilli  = Σ over scout window of suit·cropN · fieldTileYieldMilli   // yield-weighted spreadable room
+laborTiles      = residents / farmersPerFieldTile                           // the coverage gate, inverted
+laborYieldMilli = laborTiles × (roomYieldMilli / roomTiles)                 // capped field at avg tile yield
+score           = min(roomYieldMilli, laborYieldMilli) / idleConsumptionMilli × (H − ramp)
+```
+
+`residents` is the housed population within a small scout window of the
+site (a scoring approximation of the shed-cell pool, like
+FIELD_SCOUT_RADIUS — with `popPerDensity` 10 000 and `farmersPerFieldTile`
+200, ONE full city tile staffs a whole scout-window field, so the test is
+really "is there a town in reach"). The dead-ground gate (site can't hold a
+claim) stays.
+
+**D-DP2: The pair is a candidate.** When both seeds are banked, the planner
+samples JOINT district sites: settlement candidates on owned ground, each
+paired with the best farm site in a standoff annulus around it (the spawn
+kit's collar, ~3 tiles, inside food-shed reach). Pair value = settlement
+room value + farm value at PAIRED labor (`residents + popPerDensity` — the
+town the seed founds is the labor stake; derived, not tuned). The winning
+pair dispatches BOTH constructions in one pulse action. This is the move
+the rules were designed around and the argmax could never express.
+
+**D-DP3: Seed pressure replaces the deficit-only trigger.** A banked pair
+earns nothing; a placed one compounds (field → food → births → next
+milestone). So pairs place whenever a joint site scores positive — no
+waiting for room starvation. Lone seeds (banks diverge via conquest and the
+pre-placed kit) keep their triggers: lone settlements still relieve room
+deficit (D3) and now also LABOR RELIEF — the marginal field yield unlocked
+by staffing a labor-starved nucleus in shed reach, priced with the same
+D-DP1 function at both labor levels. Lone farms use D-DP1 directly, which
+makes an unstaffable frontier nucleus score ~0 and a near-town site win.
+
+**D-DP4: Seeds are capital — a safety discount.** Conquest zeroes maturity
+and tenure and combat damage freezes growth, so a seed spent on the
+contested frontier is a seed wasted. All placement scores multiply by a
+hostile-border factor: min Chebyshev distance to another player's tile
+within a small window, normalized to 1 when no rival is near. Wilderness
+does not discount (expansion room is exactly where districts belong).
+
+**Kept from add-greedy-economy-planner:** greedy argmax, bounded seeded-PRNG
+sampling, the top-k precision lever, the pure-EconomyModel/dispatch split,
+and the `tryBuild(budget)` surface. Attack ROI (territory = room; enemy
+districts = the post-taper plot supply) stays a future change.
 
 ## Determinism & perf
 
@@ -207,13 +379,20 @@ future balancing reaches for the measured law first and a magic number second.
 
 ## Open questions (edit as they resolve)
 
-1. Farm-seed award basis: peak territory (spec'd) vs. gross tiles-ever-conquered
-   vs. current holdings. Peak-territory ratchet chosen for symmetry with
-   settlements and anti-oscillation; revisit if it under-rewards aggression.
-2. Damaged farms: freeze maturity or senesce while damaged?
+1. ~~Farm-seed award basis~~ RESOLVED 2026-07-15: paired with the settlement
+   ladder (§1) — one founding pair per crossing; territory ratchet deleted.
+2. Damaged farms: freeze maturity or senesce while damaged? (Field tiles:
+   freeze is shipped behavior — spread also skips damaged tiles.)
 3. Do awarded-but-unplaced seeds persist forever, or expire? (Lean: forever —
    simpler, and hoarding placement is self-punishing since unplaced seeds feed
    no one.)
 4. Exact ladder values, tenure-curve time constants, damage/heal rates — all
-   harness territory (`tests/perf/balance/`).
+   harness territory (`tests/perf/balance/`). New with §1b: claim threshold
+   `fieldClaimMilli`, spread-rate constant, water-weighted suitability
+   weights, `farmersPerFieldTile` (note: replaces `farmersPerFarm=50` per
+   PLOT — per-tile must be much smaller).
 5. Migration (rung C) — only if regional death-in-place proves unfun.
+6. Does a lone field nucleus with zero labor bootstrap? The nucleus tile
+   itself should probably always count as tilled (rural pool covers it) so a
+   spawn kit can start the loop — verify in harness, it's the §4.1
+   death-trap's field-model twin.

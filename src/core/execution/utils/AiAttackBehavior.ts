@@ -32,6 +32,8 @@ import {
 } from "../nation/NationEmojiBehavior";
 import { TransportShipExecution } from "../TransportShipExecution";
 import { closestTwoTiles } from "../Util";
+import { deployableTroops, fieldStaffingNeed } from "./EconomyModel";
+import { foodShedField } from "./FoodShed";
 
 export class AiAttackBehavior {
   private botAttackTroopsSent: number = 0;
@@ -949,7 +951,29 @@ export class AiAttackBehavior {
     // recapture those structures ASAP, even before reaching the normal reserve.
     const useReserve = target.isPlayer() && !botWithStructures;
     const reserveRatio = useReserve ? this.reserveRatio : this.expandRatio;
-    const targetTroops = maxTroops * reserveRatio;
+    // Farmers stay home (rework-settlement-ecology task 10): the tilled
+    // field runs on the IDLE pool, so troops sent past its staffing need
+    // send the harvest itself — margins fallow, capacity collapses, famine.
+    // The reserve floor keeps the fields worked; a player under attack
+    // fights with everything (survival outranks the harvest).
+    const staffingFloor =
+      this.player.incomingAttacks().length > 0
+        ? 0
+        : fieldStaffingNeed(
+            this.game,
+            this.player,
+            foodShedField(this.game, this.player),
+          );
+    const targetTroops = Math.max(maxTroops * reserveRatio, staffingFloor);
+    // War-share bound (task 10.6): total deployment stays under
+    // maxWarShare of the living population — the vanilla reserves are
+    // housing-based and a food-bound population sits far below housing, so
+    // without this a young AI dumps its whole demography into one push and
+    // never rebuilds. Suspended while under attack (survival first).
+    const warCap =
+      this.player.incomingAttacks().length > 0
+        ? Infinity
+        : deployableTroops(this.game, this.player);
 
     let troops;
     if (
@@ -969,6 +993,7 @@ export class AiAttackBehavior {
     if (target.isPlayer()) {
       troops = Math.min(troops, this.troopSendCap());
     }
+    troops = Math.min(troops, warCap);
 
     if (troops < 1) {
       return null;

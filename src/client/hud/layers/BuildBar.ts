@@ -19,15 +19,14 @@ import { GameView } from "../../view";
 
 const settlementIcon = assetUrl("images/SettlementIconWhite.svg");
 const farmlandIcon = assetUrl("images/FarmlandIconWhite.svg");
-const barnIcon = assetUrl("images/BarnIconWhite.svg");
 const foodIcon = assetUrl("images/FoodIcon.svg");
 
 /**
  * Persistent build bar for the urban age (add-urban-core-growth). The player
- * places SEEDS: a Settlement is a city nucleus that grows outward on its own,
- * gated by the food-shed around it; Farmland ripens in place and feeds nearby
- * settlements; a Barn stores the surplus. Cities and farms are mutually
- * exclusive per tile. Clicking an entry arms plot placement
+ * places SEEDS: a Settlement is a city nucleus that grows outward on its
+ * own, gated by the food-shed around it; a Farmland is a field nucleus that
+ * spreads across suitable ground (rework-settlement-ecology). Cities and
+ * fields are mutually exclusive per tile. Clicking an entry arms plot placement
  * (uiState.ghostStructure the paint mode reads); clicking again / Escape /
  * right-click disarms. The bar also carries map-overlay toggles (Supply).
  */
@@ -38,7 +37,6 @@ const BAR_ENTRIES: Array<{
 }> = [
   { unitType: UnitType.Settlement, icon: settlementIcon, key: "settlement" },
   { unitType: UnitType.Farmland, icon: farmlandIcon, key: "farmland" },
-  { unitType: UnitType.Barn, icon: barnIcon, key: "barn" },
 ];
 
 @customElement("build-bar")
@@ -62,11 +60,7 @@ export class BuildBar extends LitElement implements Controller {
     const player = this.game?.myPlayer();
     if (!player) return;
     player
-      .buildables(undefined, [
-        UnitType.Settlement,
-        UnitType.Farmland,
-        UnitType.Barn,
-      ])
+      .buildables(undefined, [UnitType.Settlement, UnitType.Farmland])
       .then((buildables) => {
         this.playerBuildables = buildables;
       });

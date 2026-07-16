@@ -70,10 +70,8 @@ export class ControlPanel extends LitElement implements Controller {
 
   @state()
   @state()
-
   private _troopRateIsIncreasing: boolean = true;
   private _lastTroopSample: { tick: number; troops: number } | null = null;
-
 
   // Border detection cache
   private _nearbyPlayerIDs: Set<number> = new Set();

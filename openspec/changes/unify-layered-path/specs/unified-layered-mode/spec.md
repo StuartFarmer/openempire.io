@@ -32,7 +32,7 @@ The map loader SHALL require every map to provide a decodable `layers.bin` and `
 
 ### Requirement: Full-resolution maps only
 
-Maps SHALL load at full (Normal) resolution only. The map-size option (`GameMapSize`, the `map16x.bin` artifact, and the size selector UI) SHALL be removed from the baker, loader, schemas, and client. `map4x.bin` SHALL be retained solely as the pathfinding minimap (water/rail A*, WaterManager) — it is not a playable resolution and carries no layers. Smaller battlefields SHALL be authored as explicit maps.
+Maps SHALL load at full (Normal) resolution only. The map-size option (`GameMapSize`, the `map16x.bin` artifact, and the size selector UI) SHALL be removed from the baker, loader, schemas, and client. `map4x.bin` SHALL be retained solely as the pathfinding minimap (water/rail A\*, WaterManager) — it is not a playable resolution and carries no layers. Smaller battlefields SHALL be authored as explicit maps.
 
 #### Scenario: No size selection
 

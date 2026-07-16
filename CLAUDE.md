@@ -18,7 +18,7 @@ npm run build-prod # Production build (static site)
 # Author a new world headlessly (CLI twin of the #generator page), then bake:
 npx tsx map-generator/gen-world.ts --name myworld --seed 7 --width 512 --height 256
 # Balance harness: seeded headless bot games with food-knob overrides
-npx tsx tests/perf/balance/BalanceRun.ts --map verdantia --runs 3 --nations 25 [--difficulty Easy|Medium|Hard|Impossible]
+npx tsx tests/perf/balance/BalanceRun.ts --map verdantia --runs 3 --nations 25 [--difficulty Easy | Medium | Hard | Impossible]
 ```
 
 Note: `gen-world.ts` and the run-openfront skill need the unsaved dev deps `canvas` and `playwright`; install them **together** (`npm install --no-save playwright canvas && npm rebuild canvas`) — installing one evicts the other.

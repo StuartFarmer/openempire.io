@@ -36,6 +36,7 @@ import { ReplayPanel } from "./layers/ReplayPanel";
 import { SettingsModal } from "./layers/SettingsModal";
 import { SpawnTimer } from "./layers/SpawnTimer";
 import { TeamStats } from "./layers/TeamStats";
+import { TuningPanel } from "./layers/TuningPanel";
 import { WinModal } from "./layers/WinModal";
 import { loadAllSprites } from "./SpriteLoader";
 
@@ -92,6 +93,13 @@ export function createRenderer(
   }
   econPanel.eventBus = eventBus;
   econPanel.game = game;
+
+  const tuningPanel = document.querySelector("tuning-panel") as TuningPanel;
+  if (!(tuningPanel instanceof TuningPanel)) {
+    console.error("TuningPanel element not found in the DOM");
+  }
+  tuningPanel.eventBus = eventBus;
+  tuningPanel.game = game;
 
   const teamStats = document.querySelector("team-stats") as TeamStats;
   if (!teamStats || !(teamStats instanceof TeamStats)) {
@@ -268,6 +276,7 @@ export function createRenderer(
       playerPanel,
     ),
     econPanel,
+    tuningPanel,
     spawnTimer,
     immunityTimer,
     leaderboard,

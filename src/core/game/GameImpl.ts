@@ -102,6 +102,11 @@ export class GameImpl implements Game {
   // Tile combat-damage deltas (rework-settlement-ecology): same packing,
   // byte = round(damage/1000·255). Drained to packedDamageUpdates each tick.
   private damageUpdatePairs: number[] = [];
+  // Field maturity deltas (rework-settlement-ecology §1b): same packing,
+  // byte = round(maturity/1000·255), pushed by PlayerImpl.setFarmMaturity
+  // only when the BYTE changes (ripening moves ~1 byte/tick — the same
+  // upload-flood guard as damage). Drained to packedFieldUpdates each tick.
+  public fieldUpdatePairs: number[] = [];
   /** [smallID, tilesOwned, gold, troops] quads — see PlayerImpl.toUpdate. */
   private playerStatsQuads: number[] = [];
   /** [smallID, direction, index, troops] quads — see packAttackTroopDeltas. */
@@ -522,6 +527,14 @@ export class GameImpl implements Game {
 
   drainPackedDamageUpdates(): Uint32Array | null {
     const pairs = this.damageUpdatePairs;
+    if (pairs.length === 0) return null;
+    const packed = new Uint32Array(pairs);
+    pairs.length = 0;
+    return packed;
+  }
+
+  drainPackedFieldUpdates(): Uint32Array | null {
+    const pairs = this.fieldUpdatePairs;
     if (pairs.length === 0) return null;
     const packed = new Uint32Array(pairs);
     pairs.length = 0;

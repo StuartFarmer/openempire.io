@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { AttackExecution } from "../src/core/execution/AttackExecution";
 import { farmTick } from "../src/core/execution/utils/FarmGrowth";
+import { PlayerFoodShed } from "../src/core/execution/utils/FoodShed";
 import { supplyField } from "../src/core/execution/utils/SupplyField";
 import { growUrbanArea } from "../src/core/execution/utils/UrbanGrowth";
 import {
@@ -20,6 +21,9 @@ import { TestConfig } from "./util/TestConfig";
  * freezes its farm — full heal before anything grows again.
  */
 
+// Coverage-inert shed: empty ranked/tilled sets, so farmTick applies no
+// labor judgement — these tests exercise ripening/spread in isolation.
+const inertShed = new PlayerFoodShed();
 const atkInfo = new PlayerInfo("attacker", PlayerType.Human, null, "atk_id");
 const defInfo = new PlayerInfo("defender", PlayerType.Human, null, "def_id");
 
@@ -169,16 +173,16 @@ describe("nothing grows on smoking ground", () => {
     const tile = game.ref(2, 2);
     player.buildUnit(UnitType.Farmland, tile, {});
 
-    for (let i = 0; i < 50; i++) farmTick(game, player);
+    for (let i = 0; i < 50; i++) farmTick(game, player, inertShed);
     const grown = player.farmMaturity(tile);
     expect(grown).toBeGreaterThan(0);
 
     game.addTileDamage(tile, 900);
-    for (let i = 0; i < 50; i++) farmTick(game, player);
+    for (let i = 0; i < 50; i++) farmTick(game, player, inertShed);
     expect(player.farmMaturity(tile)).toBe(grown); // frozen, no senescence either
 
     game.executeNextTick(); // heal
-    farmTick(game, player);
+    farmTick(game, player, inertShed);
     expect(player.farmMaturity(tile)).toBeGreaterThan(grown); // resumes
   });
 

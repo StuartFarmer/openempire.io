@@ -102,32 +102,46 @@ describe("Urban economy (add-urban-core-growth)", () => {
     expect(flow(player).production).toBe(0); // sprawl alone → no food
 
     // Mature farms (maturity is exercised in FarmGrowth.test.ts) so the yield
-    // clears the display-food floor.
+    // clears the display-food floor. Production keys off the shed's TILLED
+    // set (§1b), which refreshes on the supply cadence — tick past it.
     player.buildUnit(UnitType.Farmland, game.ref(15, 10), {});
     player.buildUnit(UnitType.Farmland, game.ref(16, 10), {});
     player.setFarmMaturity(game.ref(15, 10), 1000);
     player.setFarmMaturity(game.ref(16, 10), 1000);
-    game.executeNextTick();
+    const period = game.config().food().supplyRefreshTicks + 1;
+    for (let i = 0; i < period; i++) game.executeNextTick();
     expect(flow(player).production).toBeGreaterThan(0);
   });
 
-  test("Barn raises storage; Farmland raises production", () => {
+  test("storage is grown from stable farmland, never built (4.3)", () => {
     conquerBlock(game, player, 0, 0, 12);
-    foundSprawl(game, player, 6, 6, 2);
     player.setTroops(0);
     const f = game.config().food();
 
-    // Overfill without barns → clamps to base storage.
-    player.addFood(BigInt(f.baseStorage + f.storagePerBarn));
+    // The camp stock clamps to baseStorage — there is nothing to build
+    // past it (the Barn is gone; plotSpawn refuses it outright).
+    player.addFood(BigInt(f.baseStorage * 2));
     activate(game, player);
     game.executeNextTick();
     expect(player.food()).toBeLessThanOrEqual(BigInt(f.baseStorage));
+    expect(player.canBuild(UnitType.Barn, game.ref(1, 1))).toBe(false);
 
-    player.addFood(5_000n);
-    player.buildUnit(UnitType.Barn, game.ref(1, 1), {});
-    player.addFood(BigInt(f.baseStorage + f.storagePerBarn));
-    game.executeNextTick();
-    expect(player.food()).toBeGreaterThan(BigInt(f.baseStorage));
+    // A mature field on TENURE-ZERO ground banks nothing: its granary
+    // capacity is grown from stability, and it has none yet.
+    const nucleus = game.ref(1, 1);
+    player.buildUnit(UnitType.Farmland, nucleus, {});
+    player.setFarmMaturity(nucleus, 1000);
+    player.setFoodPopulationShare(0); // bank everything
+    const stocks = (
+      player as Player & { _fieldStockMilli: Map<number, number> }
+    )._fieldStockMilli;
+    for (let i = 0; i < 15; i++) game.executeNextTick();
+    expect(stocks.get(nucleus) ?? 0).toBe(0);
+
+    // Deep tenure on the same tile → the district granary fills.
+    game.setTileTenure(nucleus, 10_000_000); // plateau
+    for (let i = 0; i < 15; i++) game.executeNextTick();
+    expect(stocks.get(nucleus) ?? 0).toBeGreaterThan(0);
   });
 
   test("population cap scales with the built urban sprawl", () => {
@@ -175,10 +189,11 @@ describe("Urban economy (add-urban-core-growth)", () => {
     expect(p.units(UnitType.Farmland).length).toBeGreaterThan(0); // starter kit
     expect(p.food()).toBe(BigInt(f.startingFood)); // founding is free
 
-    // Idle: the starter kit is a small farm village — it survives without
-    // dying. Under the food bound (~5 farms per city tile) three starter farms
-    // hold a 1-tile village; growth into a city needs more farms (tested next).
-    for (let i = 0; i < 200; i++) g.executeNextTick();
+    // Idle: the starter nucleus is a village seed — the field SPREADS
+    // (§1b) while the population grows toward what it carries, so a lone
+    // spawn kit becomes a fed 1-tile village. The ramp is the spread, so
+    // give it time (the old 3-farm kit fed instantly; the pair does not).
+    for (let i = 0; i < 400; i++) g.executeNextTick();
     expect(p.isAlive()).toBe(true);
     expect(p.urbanArea()).toBeGreaterThanOrEqual(1);
   });

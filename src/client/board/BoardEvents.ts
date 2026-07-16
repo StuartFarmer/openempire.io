@@ -1,3 +1,4 @@
+import type { FoodConfig } from "../../core/configuration/FoodConfig";
 import type { GameEvent } from "../../core/EventBus";
 import {
   AllPlayers,
@@ -132,6 +133,14 @@ export class CancelAttackIntentEvent implements GameEvent {
 /** Food allocation slider (layered maps): population share of production. */
 export class SendFoodAllocationIntentEvent implements GameEvent {
   constructor(public readonly populationShare: number) {}
+}
+
+/** In-game tuning panel (add-sim-tuning-panel): pin one FoodConfig knob. */
+export class SendTuneFoodConfigIntentEvent implements GameEvent {
+  constructor(
+    public readonly key: keyof FoodConfig,
+    public readonly value: number,
+  ) {}
 }
 
 export class CancelBoatIntentEvent implements GameEvent {

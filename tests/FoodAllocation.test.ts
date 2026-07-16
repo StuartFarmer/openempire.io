@@ -120,7 +120,10 @@ describe("Food allocation (add-food-allocation)", () => {
     // share 0.7: the stock climbs (banking a reserve) while the population
     // grows — compared against an early tick, since it soon fills the cap.
     expect(banked.stocks[49]).toBeGreaterThan(banked.stocks[1]);
-    expect(banked.stocks[49]).toBeGreaterThan(1_000n);
+    // Granary capacity is GROWN from tile tenure (task 4.3): after ~50
+    // ticks the young districts hold a few hundred food, not the old
+    // global-cap thousands.
+    expect(banked.stocks[49]).toBeGreaterThan(100n);
     expect(banked.troops).toBeGreaterThan(1000);
     // …and the population share still grows people, just slower.
     expect(allPop.troops).toBeGreaterThanOrEqual(banked.troops);
@@ -131,15 +134,15 @@ describe("Food allocation (add-food-allocation)", () => {
     player.removeFood(player.food());
     player.setTroops(1000);
     player.setFoodPopulationShare(0);
-    const f = game.config().food();
     activate(game, player);
     for (let i = 0; i < 50; i++) game.executeNextTick();
 
-    // Fed from the storage draw — nobody starves — and storage banks to the
-    // cap (max banking). Beyond the cap the overflow rebates to the
-    // population, so growth is not strictly zero, but banking is maximal.
+    // Fed from the granary draw — nobody starves — and the districts bank
+    // whatever their young tenure-grown capacity allows (task 4.3: storage
+    // is GROWN, so a fresh economy banks little; overflow past the young
+    // caps rebates to the population as pass-through).
     expect(player.foodFlow().starvedTroops).toBe(0);
-    expect(player.food()).toBeGreaterThanOrEqual(BigInt(f.baseStorage - 500));
+    expect(player.food()).toBeGreaterThan(0n);
   });
 
   test("storage overflow is rebated to the population, not wasted", () => {
@@ -147,10 +150,11 @@ describe("Food allocation (add-food-allocation)", () => {
     player.setTroops(1000);
     player.setFoodPopulationShare(0); // nothing allocated directly
     const f = game.config().food();
-    // Pin the stock at the cap so the storage share overflows every tick.
-    player.addFood(BigInt(f.baseStorage + 10 * f.storagePerBarn));
+    // Pin the camp stock past its cap so banking overflows every tick.
+    player.addFood(BigInt(f.baseStorage * 3));
     activate(game, player);
-    const capMax = BigInt(f.baseStorage + 2 * f.storagePerBarn); // 1 barn, headroom
+    // Camp cap + the young field's tiny tenure-grown granary headroom.
+    const capMax = BigInt(f.baseStorage + 2000);
     for (let i = 0; i < 30; i++) game.executeNextTick();
 
     // Stock clamped to capacity; the overflow fed (and grew) the population.

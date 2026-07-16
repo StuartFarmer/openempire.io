@@ -67,6 +67,13 @@ export interface GameUpdateViewData {
    */
   packedDamageUpdates?: Uint32Array;
   /**
+   * Packed field-maturity deltas as `tile | (byte<<24)` uint32 words
+   * (rework-settlement-ecology §1b), byte = round(maturity/1000·255). Byte 0
+   * means the tile left the field (reverted, razed, conquered). Absent when
+   * no tile's maturity byte changed.
+   */
+  packedFieldUpdates?: Uint32Array;
+  /**
    * Name placement per player. Only present on ticks where the worker
    * recomputed placements (spawn ticks, the first ticks, every 30th tick,
    * spawn end) — between those the values wouldn't change, so the record is

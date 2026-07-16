@@ -1,5 +1,6 @@
 import quickChatData from "resources/QuickChat.json";
 import { z } from "zod";
+import { FOOD_TUNABLE_KEYS } from "./configuration/FoodConfig";
 import {
   ColorPaletteSchema,
   CosmeticNameSchema,
@@ -41,6 +42,7 @@ export type Intent =
   | DonateGoldIntent
   | DonateTroopsIntent
   | FoodAllocationIntent
+  | TuneFoodConfigIntent
   | BuildUnitIntent
   | EmbargoIntent
   | QuickChatIntent
@@ -57,6 +59,7 @@ export type Intent =
 export type AttackIntent = z.infer<typeof AttackIntentSchema>;
 export type CancelAttackIntent = z.infer<typeof CancelAttackIntentSchema>;
 export type FoodAllocationIntent = z.infer<typeof FoodAllocationIntentSchema>;
+export type TuneFoodConfigIntent = z.infer<typeof TuneFoodConfigIntentSchema>;
 export type SpawnIntent = z.infer<typeof SpawnIntentSchema>;
 export type BoatAttackIntent = z.infer<typeof BoatAttackIntentSchema>;
 export type EmbargoAllIntent = z.infer<typeof EmbargoAllIntentSchema>;
@@ -482,6 +485,14 @@ export const FoodAllocationIntentSchema = z.object({
   populationShare: z.number().min(0).max(1),
 });
 
+// In-game tuning panel (add-sim-tuning-panel): pin one FoodConfig knob.
+// Key allowlist comes from FOOD_DEFAULTS; values are clamped non-negative.
+export const TuneFoodConfigIntentSchema = z.object({
+  type: z.literal("tune_food_config"),
+  key: z.enum(FOOD_TUNABLE_KEYS),
+  value: z.number().finite().min(0),
+});
+
 export const CancelBoatIntentSchema = z.object({
   type: z.literal("cancel_boat"),
   unitID: z.number(),
@@ -554,6 +565,7 @@ export const IntentSchema = z.discriminatedUnion("type", [
   EmbargoAllIntentSchema,
   MoveWarshipIntentSchema,
   FoodAllocationIntentSchema,
+  TuneFoodConfigIntentSchema,
   QuickChatIntentSchema,
   AllianceExtensionIntentSchema,
   DeleteUnitIntentSchema,

@@ -53,10 +53,8 @@ export function supplyField(mg: Game, player: Player): PlayerSupply {
   const period = Math.max(1, mg.config().food().supplyRefreshTicks);
   const t = mg.ticks();
   // Territory changes wait for the cadence; a node built, captured, or
-  // razed refreshes at once — painting a Barn lights up supply immediately.
-  const nodeCount =
-    player.units(UnitType.Settlement).length +
-    player.units(UnitType.Barn).length;
+  // razed refreshes at once — a new Settlement lights up supply immediately.
+  const nodeCount = player.units(UnitType.Settlement).length;
   if (
     s.lastCalcTick === -1 ||
     t - s.lastCalcTick >= period ||
@@ -151,11 +149,10 @@ function recompute(mg: Game, player: Player, s: PlayerSupply): void {
     }
   };
   // Urban model (add-urban-core-growth): the founded Core (and, later, Road
-  // infrastructure) anchor logistics. On classic tribal maps the sources are
-  // Settlements and Barns; core is null there, so this is additive.
+  // infrastructure) anchor logistics alongside the Settlements.
   const core = player.core();
   if (core !== null) addSource(core);
-  for (const type of [UnitType.Settlement, UnitType.Barn]) {
+  for (const type of [UnitType.Settlement]) {
     for (const node of player.units(type)) {
       if (node.isUnderConstruction()) continue;
       addSource(node.tile());

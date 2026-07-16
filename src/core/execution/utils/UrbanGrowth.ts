@@ -5,8 +5,8 @@ import { simpleHash } from "../../Util";
 import { foodTick } from "./FoodEconomy";
 import { foodShedField, foodShedPotential } from "./FoodShed";
 import { seedAwardTick } from "./SeedAwards";
-import { nucleusPaceBoost, tenureTick } from "./TileTenure";
 import { PlayerSupply, supplyField, supplyQuality } from "./SupplyField";
+import { nucleusPaceBoost, tenureTick } from "./TileTenure";
 
 /**
  * The urban tick (openspec add-urban-core-growth; see growth-model.md). On
@@ -111,7 +111,15 @@ export function foodTargetTiles(mg: Game, player: Player): number {
     area > 0
       ? f.popPerDensity + player.tenureCapacityBonus() / area
       : f.popPerDensity;
-  return Math.floor(player.foodFlow().population / perTile);
+  // Nuclei anchor the target (rework-settlement-ecology task 10): every
+  // founded town deserves its first city tile — without this floor a
+  // Settlement placed while national population is under (area+1)·perTile
+  // stays a hollow nucleus forever (the founding pair could never actually
+  // FOUND anything), and recession can never raze a living town's last tile.
+  return Math.max(
+    nucleusTiles(player).size,
+    Math.floor(player.foodFlow().population / perTile),
+  );
 }
 
 /**
@@ -174,8 +182,10 @@ function addCityTiles(
     if (map.ownerID(tile) !== smallID) continue;
     if (!map.isLand(tile) || map.isImpassable(tile)) continue;
     if (player.density(tile) >= CITY) continue; // already a city tile
-    // Mutual exclusivity: a Farmland tile is food, never city.
-    if (mg.plotAt(tile)?.type() === UnitType.Farmland) continue;
+    // First claim holds (rework-settlement-ecology §1b): a claimed field
+    // tile — nucleus or spread — is food, never city. Tiles merely
+    // establishing below the claim threshold are still wild and fair game.
+    if (player.isFieldTile(tile)) continue;
     // Battle-worn ground never urbanizes until fully healed — the city
     // grows around the scar (rework-settlement-ecology).
     if (mg.tileDamage(tile) > 0) continue;
@@ -226,6 +236,9 @@ function addCityTiles(
     const t = weightedPick(frontier, weightOf, rand);
     if (t === null) break;
     player.setDensity(t, CITY); // a whole, fully-opaque city tile
+    // Urbanizing wipes any sub-claim field establishment — the ground is
+    // paved before the field ever claimed it (first claim holds).
+    player.setFarmMaturity(t, 0);
     placed++;
     inFrontier.delete(t);
     const idx = frontier.indexOf(t);
@@ -261,9 +274,11 @@ function weightedPick(
 
 /**
  * Raze whole city tiles from the OUTER edge (fewest city neighbours first) when
- * the population can no longer fill the city — deaths outrunning births. Nothing
- * is protected: as the population dwindles the city shrinks to nothing, and when
- * everyone is gone the last tile goes with them. Paced like growth.
+ * the population can no longer fill the city — deaths outrunning births. One
+ * tile is protected: the CORE never falls while its people live (the nation
+ * dies by starving to zero, not by receding to zero) — and a standing core
+ * blocks field spread (§1b), so a famine dip can't hand the capital's ground
+ * to the farm CA and lock the city out of its own valley. Paced like growth.
  */
 export function recedeToTarget(mg: Game, player: Player): void {
   const f = mg.config().food();
@@ -277,6 +292,7 @@ export function recedeToTarget(mg: Game, player: Player): void {
 
   const CITY = f.popPerDensity;
   const map = mg.map();
+  const core = player.foodFlow().population > 0 ? player.core() : null;
   const nbuf: TileRef[] = [0, 0, 0, 0];
   const cityNeighbors = (t: TileRef): number => {
     let c = 0;
@@ -284,10 +300,25 @@ export function recedeToTarget(mg: Game, player: Player): void {
     for (let i = 0; i < k; i++) if (player.density(nbuf[i]) >= CITY) c++;
     return c;
   };
+  // Regional famine is regional (task 4.2): recession prefers the tiles of
+  // STARVING districts (lowest fed-ratio first), so one metro recedes while
+  // a fed one across the map keeps its footprint. Within a district, outer
+  // edge first as before. Quantized to percent so float noise can't flip
+  // the deterministic order.
+  const shed = foodShedField(mg, player);
+  const fedRank = (t: TileRef): number => {
+    const cell = shed.cellOf.get(t);
+    if (cell === undefined) return 100; // outside every district: last
+    return Math.round((shed.fedByFarm.get(cell) ?? 1) * 100);
+  };
   const tiles = Array.from(player.densityEntries()).map(([t]) => t);
-  tiles.sort((a, b) => cityNeighbors(a) - cityNeighbors(b) || a - b);
+  tiles.sort(
+    (a, b) =>
+      fedRank(a) - fedRank(b) || cityNeighbors(a) - cityNeighbors(b) || a - b,
+  );
   for (const t of tiles) {
     if (remove <= 0) break;
+    if (t === core) continue; // the capital stands while its people live
     player.setDensity(t, 0);
     remove--;
   }

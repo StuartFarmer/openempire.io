@@ -1,39 +1,47 @@
 # Spec delta: food-economy (rework-settlement-ecology)
 
 See `design.md` §4. Local food + labor; storage grows from stable farmland.
+Revised 2026-07-15: labor's application point moved to the farm-growth
+coverage gate (see `specs/farm-growth/spec.md`) — this spec owns the POOL,
+farm-growth owns the gate.
 
 ## MODIFIED Requirements
 
-### Requirement: Farms are tended by local farmers
+### Requirement: Fields draw labor from a local pool
 
-A Farmland's output SHALL be scaled by the labor available in its food-shed neighborhood: `output × min(1, localPopulation / farmersPerFarm)` where `localPopulation` is the population (per-tile density) within the farm's food-shed reach and `farmersPerFarm` is a configured need. The factor is a soft multiplier — an under-tended farm produces proportionally less, never zero from labor alone.
+Each field's labor pool SHALL be computed locally at food-shed refresh: the city-dweller population of the field's nearest-farm Voronoi cell of the shed, with surplus beyond the field's need spilling to under-covered fields of the same shed network, PLUS an equal split of the rural population (people not housed in city tiles — the bootstrap floor). The pool SHALL be consumed by the farm-growth coverage gate (`farmersPerFieldTile` per tilled tile); no separate labor multiplier SHALL apply to yield. An unpeopled region therefore underproduces because its fields cannot be tilled at their claimed extent — not because of a yield discount.
 
 #### Scenario: An unpeopled breadbasket underproduces
 
-- **WHEN** mature Farmland sits far from any populated city tiles
-- **THEN** its effective yield is scaled down by the missing labor, regardless of climate or maturity
+- **WHEN** a large mature field sits far from any populated city tiles
+- **THEN** the rural-floor pool tills only a fraction of its tiles and the rest lie fallow — output tracks the labor, regardless of climate or maturity
 
-#### Scenario: Labor degradation is graceful
+#### Scenario: Labor degradation is graceful in output
 
 - **WHEN** half the farmers of a district die in a famine
-- **THEN** its farms produce roughly half output — reduced, not collapsed to zero
+- **THEN** roughly half the district's tiles stay tilled (the most mature half), so output roughly halves — reduced from the margins, not collapsed to zero
 
-### Requirement: Food feeds the farm's neighborhood
+### Requirement: Food feeds the farm's region
 
-Farm output SHALL be distributed locally through the food-shed rather than pooled globally: each neighborhood's fed-ratio is computed from the food available there (local production plus local storage) against the consumption of the people living there. Births and deaths from feeding SHALL be applied through the density field of the neighborhood that ate or starved. A shortfall in one region SHALL NOT be silently covered by production in a distant one.
+Farm output SHALL be distributed locally rather than pooled globally. The feeding REGION is the connected component of the food-shed (cells whose floods touch share food — the shed CUTOFF, not the Voronoi seam, is the locality bound): each region's fed-ratio is computed from its own production and granaries against the people living there, with cell headcounts scaled from housing to the live population (density is housing, not headcount). People beyond every shed form the CAMP cohort, fed only by the aspatial camp stock (`baseStorage` — the spawn stake); deployed troops form the WAR cohort, fed by requisition (a production tax, then the camp, then the granaries). Starvation SHALL be computed per cohort, and urban recession SHALL prefer razing tiles of the worst-fed regions. A shortfall in one region SHALL NOT be covered by production in a disconnected or out-of-reach one.
 
 #### Scenario: A regional famine is regional
 
 - **WHEN** one metro's farms are razed while another metro across the map is well-fed
 - **THEN** the razed metro's population starves and its city recedes while the other thrives — visible on the map as one region receding
 
+#### Scenario: A metro eats from every farm within reach
+
+- **WHEN** a dense city sits inside a belt of many farms whose shed floods touch
+- **THEN** the whole belt feeds it as one region — the Voronoi seams between farms are labor boundaries, not dinner tables
+
 ### Requirement: Storage is local and grown by stability
 
-Barn-based storage SHALL be removed. Each Farmland SHALL carry local storage capacity that rises with its tenure (per tile-stability) from zero; local surplus banks into the district's capacity and local shortfall draws it down first. Spoilage/decay applies to local stocks as it did to the global stock. Captured or newly planted farmland starts with zero capacity and zero stock.
+Barn-based storage SHALL be removed. Each FIELD TILE SHALL carry local storage capacity that rises with its tenure (per tile-stability) from zero — a field's granary emerges from its old core tiles; local surplus banks into the district's capacity and local shortfall draws it down first. Spoilage/decay applies to local stocks as it did to the global stock. Captured or newly claimed field tiles start with zero capacity and zero stock.
 
 #### Scenario: Old districts weather famine
 
-- **WHEN** a district of long-stable farms and a freshly planted district both lose a season of production
+- **WHEN** a district of long-stable fields and a freshly planted district both lose a season of production
 - **THEN** the old district feeds its people from deep local reserves while the young one starves quickly
 
 #### Scenario: Conquest captures no pantry

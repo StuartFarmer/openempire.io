@@ -17,6 +17,8 @@ import { UserSettingModal } from "./UserSettingModal";
 import "./UsernameInput";
 import { genAnonUsername, UsernameInput } from "./UsernameInput";
 import { incrementGamesPlayed, translateText } from "./Utils";
+import "./FieldLabPage";
+import "./WebGpuGeneratorPage";
 import { installSafariPinchZoomBlocker } from "./utilities/DisableSafariPinchZoom";
 
 import "./components/DesktopNavBar";
@@ -177,6 +179,14 @@ class Client {
         window.showPage?.("page-earth");
         return;
       }
+      if (window.location.hash === "#webgpu") {
+        window.showPage?.("page-webgpu");
+        return;
+      }
+      if (window.location.hash === "#lab") {
+        window.showPage?.("page-lab");
+        return;
+      }
 
       // Router-managed hash changes (#modal=...) are handled by the router
       // syncing in/out; we don't need to tear down the lobby state for them.
@@ -260,6 +270,16 @@ class Client {
 
     if (decodedHash === "#earth") {
       window.showPage?.("page-earth");
+      return;
+    }
+
+    if (decodedHash === "#webgpu") {
+      window.showPage?.("page-webgpu");
+      return;
+    }
+
+    if (decodedHash === "#lab") {
+      window.showPage?.("page-lab");
       return;
     }
 

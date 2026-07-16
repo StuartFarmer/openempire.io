@@ -42,36 +42,71 @@ every score in one currency: population-ticks over a horizon derived from
 
 ### Requirement: Greedy policy picks the best strictly-positive action
 
-Each build pulse the planner SHALL generate candidate actions (Farmland
-sites, Settlement sites, Barn), score every candidate with the model, and
-execute the highest-scoring action whose score is strictly positive and
-whose food cost is affordable. When no candidate scores positive, the
-planner SHALL build nothing and bank the pulse. Candidate sampling MUST use
-the caller-provided seeded PRNG so runs stay deterministic.
+Each build pulse the planner SHALL generate candidate placements for its
+banked seeds (revised by rework-settlement-ecology §7: lone Farmland sites,
+lone Settlement sites, and — when a founding pair is banked — JOINT
+town-plus-field candidates), score every candidate with the model in
+population-ticks, and execute the highest-scoring action whose score is
+strictly positive. Farm candidates SHALL be priced as the field the nucleus
+can grow, capped by the labor in reach (the coverage gate); Settlement
+candidates SHALL be priced as urban-room relief plus the labor they unlock
+at labor-capped fields; every seed site SHALL be discounted by proximity to
+rival territory. When no candidate scores positive, the planner SHALL build
+nothing and keep the seeds banked. Candidate sampling MUST use the
+caller-provided seeded PRNG so runs stay deterministic.
 
 #### Scenario: Barren land is left unfarmed
 
-- **WHEN** every sampled Farmland candidate's lifetime population value is
-  below its food cost (barren soil or hostile climate)
+- **WHEN** every sampled Farmland candidate's field room is dead ground
+  (no claim-viable spreadable tiles)
 - **THEN** no farm is built that pulse — without any fixed fertility-floor
   constant
 
-#### Scenario: Settlements relieve room starvation
+#### Scenario: An unstaffable frontier is left unfarmed
 
-- **WHEN** the food-supported city size (`capacity / popPerDensity`)
-  exceeds the owned, urban-suitable tiles reachable inside the current
-  supply field
+- **WHEN** a fertile Farmland candidate has no housed people within labor
+  reach and no paired Settlement to staff it
+- **THEN** its labor-capped score is zero and the farm seed stays banked
+  for a site a town can serve
+
+#### Scenario: A banked pair founds a district under seed pressure
+
+- **WHEN** a player banks both a Settlement seed and a farm seed and owns
+  ground where a joint site scores positive
+- **THEN** the pair is placed together that pulse — town and field in
+  standoff reach of each other — without waiting for urban-room starvation
+
+#### Scenario: Settlements relieve room starvation and labor starvation
+
+- **WHEN** the food-supported city size exceeds the placeable room inside
+  the supply field, OR an existing field is capped below its room by the
+  labor coverage gate
 - **THEN** a Settlement candidate that brings new suitable room into supply
-  reach outscores additional farms and is founded near uncovered farm
-  clusters or the border
+  reach (or staffs the starved field from within its food-shed) scores
+  positive and is founded there
 
-#### Scenario: Barns are insurance, never growth
+#### Scenario: Seeds avoid the contested frontier
 
-- **WHEN** storage capacity is below one generation of full population
-  consumption (`pop × idleConsumptionMilli × avgLifespanTicks`) and the
-  stock is actually accruing near the cap
-- **THEN** a Barn scores positive — but never above a positive farm or
-  settlement score of equal cost
+- **WHEN** two otherwise-identical seed sites differ only in distance to a
+  rival player's territory
+- **THEN** the site near the rival border scores strictly lower (conquest
+  hard-resets tenure and maturity — a frontier seed is a wasted seed)
+
+#### Scenario: One labor pool is never counted twice
+
+- **WHEN** a candidate site lies within labor reach of an existing worked
+  field
+- **THEN** the staffing that field already commits is subtracted from the
+  candidate's resident count — a "new district" one cell over, whose only
+  labor would be the old district's people, scores near zero
+
+#### Scenario: Farmers stay home
+
+- **WHEN** the AI sizes an outgoing attack while its fields are worked and
+  no attack is incoming
+- **THEN** the troops kept in reserve are at least the tilled set's
+  staffing (`tilled × farmersPerFieldTile`) — expansion spends the spare
+  hands, never the harvest; a player under attack fights unreserved
 
 #### Scenario: Determinism
 

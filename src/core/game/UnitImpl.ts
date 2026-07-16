@@ -298,9 +298,12 @@ export class UnitImpl implements Unit {
     this.mg.removeUnit(this);
 
     // A deleted/razed Farmland forfeits its maturity so a farm later rebuilt
-    // on the same tile starts from scratch (add-urban-core-growth).
+    // on the same tile starts from scratch (add-urban-core-growth) — and its
+    // district granary burns with it (rework-settlement-ecology 4.3:
+    // conquest captures no pantry).
     if (this._type === UnitType.Farmland) {
       this._owner.setFarmMaturity(this._tile, 0);
+      this._owner._fieldStockMilli.delete(this._tile);
     }
 
     if (displayMessage !== false) {

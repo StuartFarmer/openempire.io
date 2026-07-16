@@ -1,7 +1,6 @@
 import { html, LitElement } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { EventBus } from "../../../core/EventBus";
-import { UnitType } from "../../../core/game/Game";
 import { Controller } from "../../Controller";
 import { translateText } from "../../Utils";
 import { GameView, PlayerView } from "../../view";
@@ -57,13 +56,14 @@ export class EconPanel extends LitElement implements Controller {
   }
 
   /**
-   * Storage capacity approximated as base + barn levels × per-barn —
-   * district (adjacency) bonuses are sim-side only, so this understates
-   * clustered granaries by ≤40%. Fine for a chart scale.
+   * Storage capacity for the chart scale: the camp stock cap, stretched to
+   * whatever the granaries actually hold — district capacities are grown
+   * from tile tenure sim-side (rework-settlement-ecology 4.3) and are not
+   * mirrored to the client, so the live stock is the best available bound.
    */
   private capacityOf(p: PlayerView): number {
     const f = this.game!.config().food();
-    return f.baseStorage + p.totalUnitLevels(UnitType.Barn) * f.storagePerBarn;
+    return Math.max(f.baseStorage, Number(p.food()));
   }
 
   private foodSample(me: PlayerView): ResourceSample {

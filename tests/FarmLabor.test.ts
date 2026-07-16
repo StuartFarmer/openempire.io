@@ -1,8 +1,5 @@
 import { describe, expect, test } from "vitest";
-import {
-  farmLaborFactor,
-  foodShedField,
-} from "../src/core/execution/utils/FoodShed";
+import { foodShedField, isFallow } from "../src/core/execution/utils/FoodShed";
 import {
   Game,
   Player,
@@ -13,11 +10,11 @@ import {
 import { setup } from "./util/Setup";
 
 /**
- * Farm labor (rework-settlement-ecology task 4.1): a farm's output scales
- * with the people available to tend it — city-dwellers in its food-shed
- * cell (with surplus spilling to under-tended farms of the same shed) plus
- * the rural population (everyone not housed in a city tile). A soft factor
- * with a floor: an unpeopled breadbasket underproduces but never zeroes.
+ * Labor coverage (rework-settlement-ecology §1b): each field's shed-cell
+ * pool TILLS its claimed tiles at farmersPerFieldTile each, best (most
+ * mature) tiles first; the nucleus is always staffed (bootstrap guard).
+ * Ranked-but-unstaffed tiles are FALLOW. Labor gates tilling — it never
+ * scales yield and never touches growth rates.
  */
 
 const info = new PlayerInfo("farmer", PlayerType.Human, null, "farmer_id");
@@ -39,68 +36,103 @@ async function game(): Promise<[Game, Player]> {
 }
 
 function setPopulation(p: Player, people: number): void {
+  // Labor pools are IDLE-based (troops(); deployed soldiers neither farm
+  // nor eat at home — task 4.2), so stock the idle pool directly.
+  p.setTroops(people);
   (p as Player & { _foodFlow: { population: number } })._foodFlow.population =
     people;
 }
 
-describe("farm labor", () => {
-  test("a village's rural population staffs its farms (no city needed)", async () => {
+/** Force a coverage refresh (the shed normally refreshes on cadence). */
+function refreshShed(g: Game, p: Player) {
+  const s = foodShedField(g, p);
+  s.lastCalcTick = -1;
+  return foodShedField(g, p);
+}
+
+describe("labor coverage", () => {
+  test("a village's rural population tills its whole field (no city needed)", async () => {
     const [g, p] = await game();
-    const t = g.ref(5, 5);
-    p.buildUnit(UnitType.Farmland, t, {});
+    const nucleus = g.ref(5, 5);
+    p.buildUnit(UnitType.Farmland, nucleus, {});
+    const claims = [g.ref(6, 5), g.ref(7, 5), g.ref(5, 6), g.ref(5, 7)];
+    for (const t of claims) p.setFarmMaturity(t, 1000);
     setPopulation(p, 2000); // all rural — no city tiles exist
-    const shed = foodShedField(g, p);
-    expect(farmLaborFactor(g, shed, t)).toBe(1);
-  });
-
-  test("an unpeopled breadbasket bottoms out at the labor floor, never zero", async () => {
-    const [g, p] = await game();
-    const t = g.ref(5, 5);
-    p.buildUnit(UnitType.Farmland, t, {});
-    setPopulation(p, 0); // nobody anywhere
-    const shed = foodShedField(g, p);
-    const f = g.config().food();
-    expect(farmLaborFactor(g, shed, t)).toBe(f.laborFloor);
-    expect(farmLaborFactor(g, shed, t)).toBeGreaterThan(0);
-  });
-
-  test("degradation is graceful: half the farmers, roughly half the factor", async () => {
-    const [g, p] = await game();
-    const f = g.config().food();
-    const t = g.ref(5, 5);
-    p.buildUnit(UnitType.Farmland, t, {});
-    setPopulation(p, Math.floor(f.farmersPerFarm / 2)); // half a farm's need
-    const shed = foodShedField(g, p);
-    expect(farmLaborFactor(g, shed, t)).toBeCloseTo(0.5, 5);
-  });
-
-  test("a dense core's surplus spills to every farm of its shed", async () => {
-    const [g, p] = await game();
-    const f = g.config().food();
-    // Three farms around one packed city tile: the Voronoi cell of one farm
-    // holds ALL the people, but the surplus staffs the siblings too.
-    const core = g.ref(10, 10);
-    p.setDensity(core, f.popPerDensity);
-    const farms = [g.ref(9, 10), g.ref(11, 10), g.ref(10, 12)];
-    for (const t of farms) p.buildUnit(UnitType.Farmland, t, {});
-    setPopulation(p, f.popPerDensity); // everyone lives in the core — no rural
-    const shed = foodShedField(g, p);
-    for (const t of farms) {
-      expect(farmLaborFactor(g, shed, t)).toBe(1);
+    const shed = refreshShed(g, p);
+    expect(shed.tilled.has(nucleus)).toBe(true);
+    for (const t of claims) {
+      expect(shed.tilled.has(t)).toBe(true);
+      expect(isFallow(shed, t)).toBe(false);
     }
   });
 
-  test("a fully urbanized nation leaves remote farms under-tended", async () => {
+  test("zero population tills only the nucleus; the rest lies fallow", async () => {
+    const [g, p] = await game();
+    const nucleus = g.ref(5, 5);
+    p.buildUnit(UnitType.Farmland, nucleus, {});
+    const claim = g.ref(6, 5);
+    p.setFarmMaturity(claim, 1000);
+    setPopulation(p, 0); // nobody anywhere
+    const shed = refreshShed(g, p);
+    expect(shed.tilled.has(nucleus)).toBe(true); // bootstrap guard
+    expect(isFallow(shed, claim)).toBe(true);
+  });
+
+  test("a short pool tills the most mature tiles first — margins go fallow", async () => {
     const [g, p] = await game();
     const f = g.config().food();
-    // One packed city tile far from the farm (outside the shed cutoff), and
-    // zero rural population: nobody can reach the remote farm.
-    const cityTile = g.ref(28, 28);
-    p.setDensity(cityTile, f.popPerDensity);
-    const remote = g.ref(2, 2); // shed cutoff is ~3×foodShedRadius steps
+    const nucleus = g.ref(5, 5);
+    p.buildUnit(UnitType.Farmland, nucleus, {});
+    const graded: [number, ReturnType<Game["ref"]>][] = [
+      [1000, g.ref(6, 5)],
+      [900, g.ref(7, 5)],
+      [800, g.ref(5, 6)],
+      [700, g.ref(5, 7)],
+      [600, g.ref(6, 6)],
+    ];
+    for (const [m, t] of graded) p.setFarmMaturity(t, m);
+    // Pool for nucleus + 2 tiles only.
+    setPopulation(p, 3 * f.farmersPerFieldTile);
+    const shed = refreshShed(g, p);
+    expect(shed.tilled.has(graded[0][1])).toBe(true); // 1000
+    expect(shed.tilled.has(graded[1][1])).toBe(true); // 900
+    for (const [, t] of graded.slice(2)) {
+      expect(isFallow(shed, t)).toBe(true); // the young margins starve first
+    }
+  });
+
+  test("a dense core's surplus spills to the under-staffed field next door", async () => {
+    const [g, p] = await game();
+    const f = g.config().food();
+    // Farm A sits by a packed city tile and needs almost nobody; farm B has
+    // real claimed acreage but no people of its own.
+    const farmA = g.ref(10, 10);
+    p.buildUnit(UnitType.Farmland, farmA, {});
+    p.setDensity(g.ref(10, 11), f.popPerDensity);
+    const farmB = g.ref(14, 10);
+    p.buildUnit(UnitType.Farmland, farmB, {});
+    const bClaims = [g.ref(15, 10), g.ref(16, 10)];
+    for (const t of bClaims) p.setFarmMaturity(t, 1000);
+    setPopulation(p, f.popPerDensity); // everyone lives in the core — no rural
+    const shed = refreshShed(g, p);
+    for (const t of bClaims) expect(shed.tilled.has(t)).toBe(true);
+  });
+
+  test("a fully urbanized nation leaves remote fields unstaffed", async () => {
+    const [g, p] = await game();
+    const f = g.config().food();
+    // The city lives on a DISCONNECTED block — the shed BFS cannot reach
+    // the field through unowned land, so its people staff nothing there.
+    for (let y = 40; y < 44; y++)
+      for (let x = 40; x < 44; x++) p.conquer(g.ref(x, y));
+    p.setDensity(g.ref(41, 41), f.popPerDensity);
+    const remote = g.ref(2, 2);
     p.buildUnit(UnitType.Farmland, remote, {});
+    const claim = g.ref(3, 2);
+    p.setFarmMaturity(claim, 1000);
     setPopulation(p, f.popPerDensity); // pop == urban → rural 0
-    const shed = foodShedField(g, p);
-    expect(farmLaborFactor(g, shed, remote)).toBe(f.laborFloor);
+    const shed = refreshShed(g, p);
+    expect(shed.tilled.has(remote)).toBe(true); // the nucleus never starves
+    expect(isFallow(shed, claim)).toBe(true); // its acreage does
   });
 });

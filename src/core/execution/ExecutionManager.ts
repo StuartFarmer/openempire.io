@@ -27,6 +27,7 @@ import { SpawnExecution } from "./SpawnExecution";
 import { TargetPlayerExecution } from "./TargetPlayerExecution";
 import { TransportShipExecution } from "./TransportShipExecution";
 import { TribeSpawner } from "./TribeSpawner";
+import { TuneFoodConfigExecution } from "./TuneFoodConfigExecution";
 import { UpgradeStructureExecution } from "./UpgradeStructureExecution";
 import { PlayerSpawner } from "./utils/PlayerSpawner";
 
@@ -70,6 +71,8 @@ export class Executor {
         return new RetreatExecution(player, intent.attackID);
       case "food_allocation":
         return new FoodAllocationExecution(player, intent.populationShare);
+      case "tune_food_config":
+        return new TuneFoodConfigExecution(intent.key, intent.value);
       case "cancel_boat":
         return new BoatRetreatExecution(player, intent.unitID);
       case "move_warship":

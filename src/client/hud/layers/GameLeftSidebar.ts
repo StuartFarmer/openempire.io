@@ -27,6 +27,8 @@ export class GameLeftSidebar extends LitElement implements Controller {
   @state()
   private isEconShow = false;
   @state()
+  private isTuningShow = false;
+  @state()
   private isVisible = false;
   @state()
   private isPlayerTeamLabelVisible = false;
@@ -100,6 +102,10 @@ export class GameLeftSidebar extends LitElement implements Controller {
 
   private toggleEcon(): void {
     this.isEconShow = !this.isEconShow;
+  }
+
+  private toggleTuning(): void {
+    this.isTuningShow = !this.isTuningShow;
   }
 
   private get isTeamGame(): boolean {
@@ -206,6 +212,45 @@ export class GameLeftSidebar extends LitElement implements Controller {
                 </div>
               `
             : null}
+          ${this.game
+            ? html`
+                <div
+                  class="cursor-pointer p-0.5 border rounded-md border-slate-500 transition-colors ${this
+                    .isTuningShow
+                    ? "bg-gray-600"
+                    : "bg-gray-700/50 hover:bg-gray-600"}"
+                  @click=${this.toggleTuning}
+                  role="button"
+                  tabindex="0"
+                  title=${translateText("tuning_panel.toggle_tooltip")}
+                  @keydown=${(e: KeyboardEvent) => {
+                    if (
+                      e.key === "Enter" ||
+                      e.key === " " ||
+                      e.code === "Space"
+                    ) {
+                      e.preventDefault();
+                      this.toggleTuning();
+                    }
+                  }}
+                >
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    stroke="white"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                  >
+                    <path d="M3 6h14M3 10h14M3 14h14" />
+                    <circle cx="7" cy="6" r="1.6" fill="white" />
+                    <circle cx="13" cy="10" r="1.6" fill="white" />
+                    <circle cx="9" cy="14" r="1.6" fill="white" />
+                  </svg>
+                </div>
+              `
+            : null}
           ${this.isLeaderboardShow || this.isTeamLeaderboardShow
             ? html`<span
                 class="ml-auto text-[10px] text-slate-500 select-all leading-none self-start"
@@ -236,6 +281,7 @@ export class GameLeftSidebar extends LitElement implements Controller {
         >
           <leader-board .visible=${this.isLeaderboardShow}></leader-board>
           <econ-panel .visible=${this.isEconShow}></econ-panel>
+          <tuning-panel .visible=${this.isTuningShow}></tuning-panel>
           <team-stats
             class="flex-1"
             .visible=${this.isTeamLeaderboardShow && this.isTeamGame}
