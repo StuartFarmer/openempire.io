@@ -233,7 +233,79 @@ to upload), `writeParams`/`encodeBrush`/`decodeScalars` codecs, and
 Determinism: same folder + map + seed + brush log ⇒ same run on a given
 device. Cross-device bit-parity is explicitly not a goal.
 
-## 6. Out of scope for v1 (named so we don't design into a corner)
+## 6. A system is a self-contained game (codify-game-systems)
+
+A `FieldSystem` is a plain object conforming to one interface — **there are no
+per-system classes.** `compileFieldSystem` is the single compiler and
+`FieldViewerBase` (the `#lab` blit preset, the `#shell` camera preset) is the
+single host; a system is data + WESL + at most two closures. Beyond the
+mechanics/layers/views/params above, a system self-describes and owns its
+inputs and AI:
+
+```ts
+export const raiders = defineFieldSystem({
+  id: "raiders", name: "Raiders",
+  description: "Click a tile to send troops.",
+  kind: "game",                 // "study" | "game" — viewer chrome hint (JSON-safe)
+  renderer: "camera",           // "camera" | "blit" preference (hint)
+  defaultMap: "EarthXL",
+  defaultView: "territory",
+
+  players: playerIntent(5),     // shared standard intent fields (alive/attacking/target…)
+
+  // ── the only non-JSON-safe parts: two TS closures ────────────────────
+  input: {                      // pointer/key → brush stamp or player intent
+    cursor: "crosshair",
+    onTile(ctx, x, y) {
+      ctx.setPlayer(ctx.localPlayer, { attacking: 1, targetX: x, targetY: y });
+      return true;              // consumed → the camera does not pan
+    },
+  },
+  ai: {                         // non-human players (writeBots is gone)
+    cadenceTicks: 40,
+    decide: (ctx) => nearestEnemyAI(ctx, { commit: 0.6 }),
+  },
+
+  params: { /* … */ }, views: { /* … */ }, brushes: { /* … */ },
+  modules: import.meta.glob("./**/*.wesl", { query: "?raw", import: "default", eager: true }),
+});
+```
+
+**Inputs and AI both write the `players` intent channel.** `ctx.setPlayer(p,
+fields)` accumulates a per-player intent; the viewer flushes it via
+`writePlayers`, and WESL layers read it with `players::val(p)`. `input.onTile`
+receives tile coordinates already resolved through the camera; returning `true`
+tells the viewer the gesture was consumed (so it pans only on an unconsumed
+drag; shift-drag always pans). A system with **no** `input` keeps the viewer
+default (camera pan/zoom/hover, or brush paint), and a system with no `ai` runs
+without bots — so `study` systems need neither.
+
+Both hooks are TS (not JSON-safe) by choice, for flexibility; every other field
+stays serializable, so a hook is the explicit "this system needs custom code"
+boundary (the node-graph aspiration survives for the data).
+
+### The shared library (`shared::`)
+
+Reusable WESL lives in `src/client/lab/shared/**.wesl`, linked into every
+system as the `shared::` package (a wesl-js `libs` bundle). Import it anywhere a
+registry import is legal:
+
+```wgsl
+import shared::combat::{defenseOf, conquers};   // conquest resolution
+import shared::pack::{packAttack, attackerOf};  // attacker+pressure u32 packing
+import shared::growth::logistic;                // logistic / decay / grow
+import shared::diffusion::blend;                // one relax/spread step
+import shared::palette::{lerp3, ramp3};         // color ramps
+```
+
+Shared modules follow the **lib convention** — pure functions taking all values
+as arguments (no `layers::`/`params::` imports), so they are system-agnostic;
+each caller passes its own balance params. (Noise/`fbm`/`hash01` remain in
+`package::kernel`, already available everywhere.) Reusable **TS** fragments live
+in `src/client/lab/shared/index.ts`: `PLAYER_INTENT_FIELDS` / `playerIntent(n)`
+and AI helpers like `nearestEnemyAI`.
+
+## 7. Out of scope for v1 (named so we don't design into a corner)
 
 - **Iterate blocks** — N-pass relaxations (the worldgen's fill/flow pattern)
   as a first-class construct.

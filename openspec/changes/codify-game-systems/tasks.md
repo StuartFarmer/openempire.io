@@ -27,5 +27,5 @@
 
 ## 5. Docs + verification
 
-- [ ] 5.1 `docs/FieldDynamics.md`: add the "System = self-contained game" section (metadata, `input`, `ai`, `shared::`, the common-concepts inventory).
-- [ ] 5.2 Full tsc + lint clean; FieldDynamics tests pass; `#lab` and `#shell` verified across all systems (a `game` system's click-to-command + AI actually move the front; `study` systems unchanged); `#webgpu` generator unaffected.
+- [x] 5.1 `docs/FieldDynamics.md`: add the "System = self-contained game" section (metadata, `input`, `ai`, `shared::`, the common-concepts inventory).
+- [x] 5.2 Full tsc + lint clean; FieldDynamics tests pass; `#lab` and `#shell` verified across all systems (a `game` system's click-to-command + AI actually move the front; `study` systems unchanged); `#webgpu` generator unaffected.
