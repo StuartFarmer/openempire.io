@@ -6,6 +6,7 @@ import {
   normalizeFoundationWorldEngineMapConfig,
   type FoundationWorldEngineMapConfig,
 } from "../games/alternative/world/WorldEngineElevation";
+import { conquest } from "./lab/systems/conquest/system";
 import { empire } from "./lab/systems/empire/system";
 import { grazing } from "./lab/systems/grazing/system";
 import { settlement } from "./lab/systems/settlement/system";
@@ -161,6 +162,7 @@ export class GameShellPage extends FieldViewerBase {
     // (plus "terrain" alone). The default is terrain on the big Earth map.
     this.systems = [
       terrainSystem,
+      composeTerrain(conquest),
       composeTerrain(grazing),
       composeTerrain(settlement),
       composeTerrain(empire),

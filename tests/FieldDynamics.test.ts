@@ -784,3 +784,19 @@ describe("games composed on terrain compile", () => {
     }
   });
 });
+
+describe("conquest game composes on terrain", () => {
+  test("conquest links on the terrain base (OpenFront terrain-typed combat)", async () => {
+    const { conquest } = await import(
+      "../src/client/lab/systems/conquest/system"
+    );
+    const c = await compileFieldSystem(composeTerrain(conquest));
+    const names = c.kernelConfig.passes.map((p) => p.name);
+    expect(names).toContain("climate"); // terrain base
+    expect(names).toContain("stock/owner");
+    expect(names).toContain("stock/troops");
+    expect(names).toContain("view/conquest");
+    // terrain-typed conquest cost is in the pass source.
+    expect(passByName(c, "stock/owner").code).toContain("conquers");
+  });
+});
