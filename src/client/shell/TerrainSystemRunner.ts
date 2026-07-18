@@ -10,7 +10,6 @@ import {
   type WorldgenRuntimeParams,
   type WorldgenSeasonalParams,
 } from "../webgpu/WebGpuWorldEngine";
-import type { DerivationFields } from "./TerrainDerivation";
 
 // Parity harness (unify-field-viewer phase 2.4): the SAME derivation as
 // TerrainDerivation, but run through the `terrain` FieldDynamics system —
@@ -43,9 +42,14 @@ export class TerrainSystemRunner {
     this.kernel.destroy();
   }
 
-  /** Full derivation through the system — mirrors TerrainDerivation.derive. */
+  /**
+   * Full derivation through the system — mirrors TerrainDerivation.derive.
+   * Inputs come as the declared-field record from `loadMapInputs` (keyed by
+   * derive-field name); each present field is uploaded to its buffer, so the
+   * system derives from exactly the fields the declaration produced.
+   */
   async derive(
-    fields: DerivationFields,
+    fields: Readonly<Record<string, Float32Array | Uint32Array>>,
     config: Parameters<typeof buildWorldgenParams>[0],
     view: WebGpuViewMode,
     seasonal: WorldgenSeasonalParams,
@@ -58,16 +62,9 @@ export class TerrainSystemRunner {
       this.width = width;
       this.height = height;
     }
-    // Upload the same inputs the hand-wired path uses.
-    this.kernel.writeBuffer("elevation", fields.elevation);
-    this.kernel.writeBuffer("waterMask", fields.waterMask);
-    this.kernel.writeBuffer("tempBase", fields.tempBase);
-    this.kernel.writeBuffer("humidityBase", fields.humidityBase);
-    this.kernel.writeBuffer("lakeBase", fields.lakeBase);
-    this.kernel.writeBuffer("riverBase", fields.riverBase);
-    if (fields.seasonAmp) this.kernel.writeBuffer("seasonAmp", fields.seasonAmp);
-    if (fields.seasonPhase) {
-      this.kernel.writeBuffer("seasonPhase", fields.seasonPhase);
+    // Upload every declared input field (elevation, waterMask, tempBase, …).
+    for (const [name, data] of Object.entries(fields)) {
+      this.kernel.writeBuffer(name, data);
     }
     this.kernel.writeUniform(
       "P",

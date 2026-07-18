@@ -21,9 +21,9 @@
 
 ## 3. Declared map inputs + generic loader
 
-- [ ] 3.1 Manifest `inputs` declaration (sidecar.plane) + a generic loader decoding via `ElevationMap`/`HydroMap`/`SeasonMap`/`MapLayers` and uploading read-only input fields
-- [ ] 3.2 CPU `prepare` hook; move `buildWaterMask` (sea/lake connected-components) into the `terrain` system's prep hook
-- [ ] 3.3 Point the `terrain` system at declared inputs; confirm the same fields reach the derivation as the shell's hand-written path
+- [x] 3.1 `FieldDeriveSpec.inputs` declaration (per input field: which sidecar plane fills it — `elevation`/`layers.plane`/`hydro.plane`/`season.plane`+scale/`prepare`) + a generic `loadMapInputs` (`src/client/webgpu/MapInputs.ts`) decoding via `ElevationMap`/`MapLayers`/`HydroMap`/`SeasonMap` into the derive-field record, reporting absent sidecars (season on non-harmonic maps) as `missing`. Reproduces the shell's per-plane decode byte-for-byte (`tests/MapInputs.test.ts`, 4 tests; amplitude within float-ordering ε).
+- [x] 3.2 CPU `prepare` hook (`FieldPrepareHook`): runs after sidecar decode to produce inputs no single sidecar gives. `buildWaterMask` (sea/lake connected-components) moved to `src/client/lab/systems/terrain/waterMask.ts` and driven by the `terrain` system's `prepare` hook from map.bin + decoded elevation + `config.seaLevel`; `TerrainDerivation` re-exports it until phase 5.
+- [x] 3.3 `terrain` system declares its inputs; the shell builds a `MapInputBundle` from the raw sidecar bytes and feeds `TerrainSystemRunner` through `loadMapInputs` (not the hand-built fields). The `y`-toggle A/B confirms the declared loader reaches the derivation with output identical to the shell's hand-written decode on EarthXL.
 
 ## 4. The unified `FieldViewer` runtime
 

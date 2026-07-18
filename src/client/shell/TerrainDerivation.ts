@@ -3,6 +3,12 @@ import {
   normalizeFoundationWorldEngineMapConfig,
   type FoundationWorldEngineMapConfig,
 } from "../../games/alternative/world/WorldEngineElevation";
+import {
+  buildWaterMask,
+  WATER_LAKE,
+  WATER_LAND,
+  WATER_SEA,
+} from "../lab/systems/terrain/waterMask";
 import { FieldKernel } from "../webgpu/FieldKernel";
 import {
   buildWorldgenParams,
@@ -27,66 +33,10 @@ import {
 //                    when a climate/color knob changes.
 //   full tier      — the whole stack including drainage; load time only.
 
-/** The shipped water classification, one entry per tile. */
-export const WATER_LAND = 0;
-export const WATER_SEA = 1;
-export const WATER_LAKE = 2;
-
-/**
- * Build the per-tile water mask from map.bin + decoded elevation. Water
- * bodies are classified whole (connected components): a body is SEA when the
- * map's ocean bit (bit 5) says so anywhere in it, or when it holds genuinely
- * deep water (real bathymetry well below sea level — the Mediterranean and
- * the Caspian, which the baker's largest-body-only ocean rule misses);
- * shallow bodies (the Great Lakes, ponds) are lakes.
- */
-export function buildWaterMask(
-  terrain: Uint8Array,
-  elevation: Float32Array,
-  seaLevel: number,
-  width: number,
-  height: number,
-): Uint32Array {
-  const total = width * height;
-  const mask = new Uint32Array(total);
-  const deepCut = seaLevel * 0.75;
-  const visited = new Uint8Array(total);
-  const queue = new Int32Array(total);
-  const body: number[] = [];
-  for (let start = 0; start < total; start += 1) {
-    if ((terrain[start] & 0x80) !== 0 || visited[start] === 1) continue;
-    // BFS this water body, tracking whether anything marks it as sea.
-    let head = 0;
-    let tail = 0;
-    let isSea = false;
-    body.length = 0;
-    visited[start] = 1;
-    queue[tail++] = start;
-    while (head < tail) {
-      const cur = queue[head++];
-      body.push(cur);
-      if ((terrain[cur] & 0x20) !== 0 || elevation[cur] < deepCut) {
-        isSea = true;
-      }
-      const x = cur % width;
-      const y = (cur / width) | 0;
-      const neighbors = [
-        x > 0 ? cur - 1 : -1,
-        x < width - 1 ? cur + 1 : -1,
-        y > 0 ? cur - width : -1,
-        y < height - 1 ? cur + width : -1,
-      ];
-      for (const n of neighbors) {
-        if (n < 0 || visited[n] === 1 || (terrain[n] & 0x80) !== 0) continue;
-        visited[n] = 1;
-        queue[tail++] = n;
-      }
-    }
-    const value = isSea ? WATER_SEA : WATER_LAKE;
-    for (const tile of body) mask[tile] = value;
-  }
-  return mask;
-}
+// The water classification + buildWaterMask now live with the terrain system
+// (its `prepare` hook, unify-field-viewer phase 3.2). Re-exported here so the
+// shell's existing decode path keeps working until phase 5.
+export { buildWaterMask, WATER_LAKE, WATER_LAND, WATER_SEA };
 
 export interface DerivationFields {
   /** Decoded elevation.bin (world-engine space, 0..1). */

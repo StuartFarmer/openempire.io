@@ -1,8 +1,10 @@
 import type { FieldSystem } from "../../../webgpu/FieldDynamics";
+import { SEASON_AMP_SCALE } from "../../../webgpu/MapInputs";
 import {
   PARAMS_BYTES,
   WORLDGEN_MODULES,
 } from "../../../webgpu/WebGpuWorldEngine";
+import { buildWaterMask } from "./waterMask";
 
 // The worldgen terrain derivation, re-expressed as a FieldDynamics `derive`
 // system (unify-field-viewer, phase 2). The pass BODIES are the existing
@@ -25,6 +27,35 @@ export const terrain: FieldSystem = {
   derive: {
     typeImports: "import package::types::{Params, Globals, GlobalsAtomic};",
     uniform: { wgslType: "Params", bytes: PARAMS_BYTES },
+    // Declared map inputs (phase 3): which sidecar plane fills each input
+    // field. loadMapInputs reproduces the shell's hand-decode from this.
+    inputs: {
+      elevation: { from: "elevation" },
+      tempBase: { from: "layers", plane: "temperature" },
+      humidityBase: { from: "layers", plane: "humidity" },
+      lakeBase: { from: "hydro", plane: "lake" },
+      riverBase: { from: "hydro", plane: "river" },
+      seasonAmp: { from: "season", plane: "amplitude", scale: SEASON_AMP_SCALE },
+      seasonPhase: { from: "season", plane: "phase" },
+      // The connected-components sea/lake mask — no single sidecar gives it.
+      waterMask: { from: "prepare" },
+    },
+    // Turn map.bin + decoded elevation into the sea/lake classification.
+    prepare: ({ width, height, config, sidecars, inputs }) => {
+      const out: Record<string, Float32Array | Uint32Array> = {};
+      const terrain = sidecars.map;
+      const elevation = inputs.elevation;
+      if (!terrain || !(elevation instanceof Float32Array)) return out;
+      const seaLevel = (config as { seaLevel: number }).seaLevel;
+      out.waterMask = buildWaterMask(
+        terrain,
+        elevation,
+        seaLevel,
+        width,
+        height,
+      );
+      return out;
+    },
     fields: {
       // Map inputs (uploaded by the page/loader before deriving).
       elevation: { type: "f32" },

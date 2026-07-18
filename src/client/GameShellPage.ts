@@ -10,6 +10,7 @@ import {
   SEASON_PLANE_NAMES,
 } from "../core/game/SeasonMap";
 import type { FoundationWorldEngineMapConfig } from "../games/alternative/world/WorldEngineElevation";
+import { terrain as terrainSystem } from "./lab/systems/terrain/system";
 import { world } from "./lab/systems/world/system";
 import { CameraRenderer, type CameraState } from "./shell/CameraRenderer";
 import {
@@ -29,6 +30,7 @@ import {
   type CompiledFieldSystem,
 } from "./webgpu/FieldDynamics";
 import { FieldKernel } from "./webgpu/FieldKernel";
+import { loadMapInputs, type MapInputBundle } from "./webgpu/MapInputs";
 import { uploadMapLayers } from "./webgpu/MapLayerUpload";
 import type {
   WebGpuViewMode,
@@ -165,7 +167,10 @@ export class GameShellPage extends LitElement {
   private systemRunner: TerrainSystemRunner | null = null;
   /** Parity toggle ('y'): render the `terrain` system's derivation instead. */
   private useSystemDerivation = false;
-  private lastDeriveFields: DerivationFields | null = null;
+  /** The declared-loader field record (loadMapInputs) for the last map — what
+   * the `terrain` system derives from; the parity toggle re-runs it. */
+  private lastDeriveFields: Record<string, Float32Array | Uint32Array> | null =
+    null;
   private recolorBusy = false;
   private recolorDirty = false;
   /** CPU copies of the derived source fields, for the hover readout. */
@@ -405,7 +410,26 @@ export class GameShellPage extends LitElement {
         riverBase,
         ...(seasonAmp && seasonPhase ? { seasonAmp, seasonPhase } : {}),
       };
-      this.lastDeriveFields = deriveFields;
+      // Phase 3.3: also source the system's input fields through the DECLARED
+      // loader (loadMapInputs) from the raw sidecar bytes — the same fields the
+      // shell just decoded by hand. The y-toggle A/B proves the declaration
+      // reaches the derivation identically. Stored so the toggle can re-run.
+      const bundle: MapInputBundle = {
+        width: this.mapWidth,
+        height: this.mapHeight,
+        sidecars: {
+          elevation: await mapData.elevationBin(),
+          layers,
+          hydro,
+          season:
+            manifest.season && mapData.seasonBin
+              ? await mapData.seasonBin()
+              : undefined,
+          map: terrain,
+        },
+        config: this.derivedConfig,
+      };
+      this.lastDeriveFields = loadMapInputs(terrainSystem.derive!, bundle).fields;
       await this.derivation.derive(
         deriveFields,
         this.derivedConfig,
@@ -415,7 +439,7 @@ export class GameShellPage extends LitElement {
       );
       if (this.useSystemDerivation && this.systemRunner) {
         await this.systemRunner.derive(
-          deriveFields,
+          this.lastDeriveFields,
           this.derivedConfig,
           DERIVED_VIEWS[this.viewKey] ?? "terrain",
           this.seasonal(),

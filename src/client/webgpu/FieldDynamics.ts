@@ -8,6 +8,7 @@ import type {
   FieldKernelConfig,
   FieldPassSpec,
 } from "./FieldKernel";
+import type { FieldPrepareHook, MapInputSpec } from "./MapInputs";
 import { KERNEL_WESL } from "./WeslKernel";
 
 // FieldDynamics: everything per-tile is a LAYER, and every layer has the same
@@ -179,6 +180,15 @@ export interface FieldDeriveSpec {
    * (kernel.writeUniform("P", …)); `bytes` sizes the buffer, `wgslType` names
    * the struct. Omit to use the generated Params from the manifest `params`. */
   uniform?: { wgslType: string; bytes: number };
+  /** Declared map inputs (unify-field-viewer phase 3): for each input field,
+   * which sidecar plane fills it and how it decodes. `loadMapInputs` reads this
+   * to reproduce the hand-written decode generically. Fields not listed here
+   * are scratch/derived (written by the passes, not uploaded). */
+  inputs?: Record<string, MapInputSpec>;
+  /** CPU hook producing inputs a sidecar can't give directly (the
+   * connected-components water mask). Runs after sidecar decode; see
+   * `FieldPrepareHook`. */
+  prepare?: FieldPrepareHook;
 }
 
 /** Normalize an import.meta.glob record (keys like "./layers/x.wesl") into a system's modules. */
