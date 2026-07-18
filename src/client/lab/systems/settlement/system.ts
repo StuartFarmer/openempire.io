@@ -13,6 +13,10 @@ import { defineFieldSystem } from "../../../webgpu/FieldDynamics";
 export const settlement = defineFieldSystem({
   id: "settlement",
   name: "Settlement",
+  kind: "study",
+  renderer: "blit",
+  defaultMap: "Verdantia",
+  defaultView: "life",
 
   params: {
     // Seasonal temperature (same model as the world system).

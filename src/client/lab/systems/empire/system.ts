@@ -1,4 +1,5 @@
 import { defineFieldSystem } from "../../../webgpu/FieldDynamics";
+import { nearestEnemyAI, playerIntent } from "../../shared";
 
 // Age of Food — the 4X vertical slice (openspec/changes/add-age-of-food).
 // The settlement ecology reframed as a game: `potential` is the unowned,
@@ -13,6 +14,15 @@ import { defineFieldSystem } from "../../../webgpu/FieldDynamics";
 export const empire = defineFieldSystem({
   id: "empire",
   name: "Empire",
+  description: "4X vertical slice: empires grow over the ecology and fight.",
+  kind: "game",
+  renderer: "camera",
+  defaultMap: "EarthXL",
+  defaultView: "empire",
+
+  // Bots push slots 1..4 toward wandering targets (slot 0 = neutral, dormant);
+  // paint the starting territories with the spawnP* brushes (click on the map).
+  ai: { decide: (ctx) => nearestEnemyAI(ctx) },
 
   params: {
     // Seasonal temperature.
@@ -55,16 +65,7 @@ export const empire = defineFieldSystem({
     flipMargin: { value: 1.6, min: 1, max: 3 },
   },
 
-  players: {
-    count: 5, // slot 0 = neutral; up to 4 empires
-    fields: {
-      alive: "u32",
-      attacking: "u32",
-      commit: "f32",
-      targetX: "f32",
-      targetY: "f32",
-    },
-  },
+  players: playerIntent(5), // slot 0 = neutral; up to 4 empires
 
   // Incursion pressure resolves before ownership/troops flip on it, same as
   // the territory prototype.

@@ -8,6 +8,10 @@ import { defineFieldSystem } from "../../../webgpu/FieldDynamics";
 export const world = defineFieldSystem({
   id: "world",
   name: "World",
+  kind: "study",
+  renderer: "blit",
+  defaultMap: "Verdantia",
+  defaultView: "world",
 
   params: {
     // Earth's tilt is 23.4°; slide it to see climates exaggerate or flatten.

@@ -6,8 +6,10 @@ import { LAB_SYSTEMS } from "../lab/systems";
 import { terrainMapFileLoader } from "../TerrainMapFileLoader";
 import {
   compileFieldSystem,
+  type AIContext,
   type CompiledFieldSystem,
   type FieldSystem,
+  type InputContext,
 } from "../webgpu/FieldDynamics";
 import { FieldKernel } from "../webgpu/FieldKernel";
 import { uploadMapLayers } from "../webgpu/MapLayerUpload";
@@ -57,7 +59,6 @@ export abstract class FieldViewerBase extends LitElement {
   private inFlight = false;
   protected needsRedraw = false;
   private readbackTimer = 0;
-  private botTimer = 0;
   private pumpActive = false;
   private lastPresent = 0;
   private turboBatch = 8;
@@ -84,25 +85,72 @@ export abstract class FieldViewerBase extends LitElement {
   /** Hook after a system mounts (subclass points the renderer at outView, runs
    * its derivation, etc.). */
   protected async onSystemMounted(_mapData: MapData): Promise<void> {}
-  /** Toy bot driver — overridable; default re-rolls attack targets. */
-  protected writeBots(): void {
-    if (!this.kernel || !this.compiled || this.compiled.playerCount === 0) {
+
+  // --- player intents (input + AI write here) ---------------------------------
+  private playerIntents: (Record<string, number> | undefined)[] = [];
+  private playersDirty = false;
+  private aiClock = 0;
+
+  /** Merge fields into a player's next intent record (input + ai both call). */
+  protected mergePlayerIntent(p: number, fields: Record<string, number>): void {
+    this.playerIntents[p] = { ...this.playerIntents[p], ...fields };
+    this.playersDirty = true;
+  }
+
+  /** Upload the accumulated per-player intents to the PL buffer. */
+  protected flushPlayers(): void {
+    if (
+      !this.playersDirty ||
+      !this.kernel ||
+      !this.compiled ||
+      this.compiled.playerCount === 0
+    ) {
       return;
     }
     const bots = Array.from(
       { length: this.compiled.playerCount },
-      (_, p): Record<string, number> => ({
-        alive: p === 0 ? 0 : 1,
-        attacking: 1,
-        commit: 0.4 + Math.random() * 0.6,
-        targetX: Math.random() * this.mapWidth,
-        targetY: Math.random() * this.mapHeight,
-      }),
+      (_, p): Record<string, number> => this.playerIntents[p] ?? {},
     );
     this.kernel.writeBuffer(
       "PL",
       new Uint8Array(this.compiled.writePlayers(bots)),
     );
+    this.playersDirty = false;
+  }
+
+  /** Run the mounted system's AI (if any) once, then upload intents. */
+  protected runAI(): void {
+    const ai = this.compiled?.system.ai;
+    if (!ai || !this.kernel || !this.compiled) return;
+    if (this.compiled.playerCount === 0) return;
+    let seed = (this.tickReadout * 2654435761) >>> 0;
+    const rand = () => {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return seed / 0xffffffff;
+    };
+    const ctx: AIContext = {
+      playerCount: this.compiled.playerCount,
+      tick: this.tickReadout,
+      mapWidth: this.mapWidth,
+      mapHeight: this.mapHeight,
+      localPlayer: 0,
+      scalars: this.scalarReadout,
+      rand,
+      setPlayer: (p, fields) => this.mergePlayerIntent(p, fields),
+    };
+    ai.decide(ctx);
+    this.flushPlayers();
+  }
+
+  private inputContext(): InputContext {
+    return {
+      mapWidth: this.mapWidth,
+      mapHeight: this.mapHeight,
+      running: this.running,
+      localPlayer: 0,
+      stamp: (brush, x, y) => this.stampBrush(brush, x, y),
+      setPlayer: (p, fields) => this.mergePlayerIntent(p, fields),
+    };
   }
 
   // --- lifecycle --------------------------------------------------------------
@@ -110,16 +158,12 @@ export abstract class FieldViewerBase extends LitElement {
   connectedCallback(): void {
     super.connectedCallback();
     this.readbackTimer = window.setInterval(() => void this.readScalars(), 500);
-    this.botTimer = window.setInterval(() => {
-      if (this.running) this.writeBots();
-    }, 4000);
     this.raf = requestAnimationFrame(this.loop);
   }
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
     window.clearInterval(this.readbackTimer);
-    window.clearInterval(this.botTimer);
     cancelAnimationFrame(this.raf);
     this.kernel?.destroy();
     this.kernel = null;
@@ -190,7 +234,9 @@ export abstract class FieldViewerBase extends LitElement {
         return;
       }
       kernel.writeUniform("P", compiled.writeParams(this.paramValues, this.seed));
-      this.writeBots();
+      this.playerIntents = [];
+      this.aiClock = 0;
+      this.runAI(); // seed the system's bots (no-op without an `ai` hook)
       await this.resetState();
 
       if (preserved) {
@@ -249,11 +295,24 @@ export abstract class FieldViewerBase extends LitElement {
           this.needsRedraw = false;
           this.advance(ticks);
         }
+        if (ticks > 0) this.tickAI(ticks);
       }
     }
     // The renderer presents every display frame (camera animation, resize).
     this.present();
   };
+
+  /** Drive the system's AI on its tick cadence (default 40 ticks ≈ 4s). */
+  private tickAI(ticks: number): void {
+    const ai = this.compiled?.system.ai;
+    if (!ai) return;
+    this.aiClock += ticks;
+    const cadence = ai.cadenceTicks ?? 40;
+    if (this.aiClock >= cadence) {
+      this.aiClock = 0;
+      this.runAI();
+    }
+  }
 
   /** Per-frame advance while running (or on a redraw). Default: tick the sim
    * `ticks` steps and re-render the view. A derive system (the terrain view)
@@ -366,20 +425,54 @@ export abstract class FieldViewerBase extends LitElement {
     }
   }
 
-  /** Stamp the active brush at map coords (from a pointer event on the canvas). */
-  protected stamp(event: PointerEvent): void {
-    if (!this.kernel || !this.compiled || this.brush === "") return;
-    const canvas = event.currentTarget as HTMLCanvasElement;
-    const rect = canvas.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * this.mapWidth;
-    const y = ((event.clientY - rect.top) / rect.height) * this.mapHeight;
-    this.kernel.writeUniform("B", this.compiled.encodeBrush(this.brush, x, y));
+  /** Stamp a declared brush at map-tile coords — the base brush pass. */
+  protected stampBrush(brush: string, x: number, y: number): void {
+    if (!this.kernel || !this.compiled || brush === "") return;
+    this.kernel.writeUniform("B", this.compiled.encodeBrush(brush, x, y));
     const frame = this.kernel.beginFrame();
-    frame.pass(this.compiled.brushPass(this.brush));
+    frame.pass(this.compiled.brushPass(brush));
     if (!this.running && this.shouldRenderSimView()) {
       this.compiled.runView(frame, this.view);
       this.needsRedraw = true;
     }
     void frame.finish();
+  }
+
+  /**
+   * A tile gesture (pointer at map-tile coords). Routes to the system's `input`
+   * hook if declared (which stamps brushes / writes player intents), else falls
+   * back to stamping the active brush. Returns true when it did something —
+   * callers (the camera shell) pan only when it returns false.
+   */
+  protected onTileGesture(x: number, y: number, event: PointerEvent): boolean {
+    const input = this.compiled?.system.input;
+    if (input?.onTile) {
+      const consumed = input.onTile(this.inputContext(), x, y, event);
+      this.flushPlayers();
+      return consumed !== false;
+    }
+    if (this.brush !== "") {
+      this.stampBrush(this.brush, x, y);
+      return true;
+    }
+    return false;
+  }
+
+  /** Route a key event to the system's `input.onKey`; returns true if consumed. */
+  protected onKeyGesture(event: KeyboardEvent): boolean {
+    const input = this.compiled?.system.input;
+    if (!input?.onKey) return false;
+    const consumed = input.onKey(this.inputContext(), event);
+    this.flushPlayers();
+    return consumed !== false;
+  }
+
+  /** Convenience for the blit lab: map a pointer event to a tile gesture. */
+  protected stamp(event: PointerEvent): void {
+    const canvas = event.currentTarget as HTMLCanvasElement;
+    const rect = canvas.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * this.mapWidth;
+    const y = ((event.clientY - rect.top) / rect.height) * this.mapHeight;
+    this.onTileGesture(x, y, event);
   }
 }

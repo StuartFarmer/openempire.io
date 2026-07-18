@@ -1,4 +1,5 @@
 import { defineFieldSystem } from "../../../webgpu/FieldDynamics";
+import { nearestEnemyAI, playerIntent } from "../../shared";
 
 // Phase 2 proof system (docs/FieldDynamics.md): OpenFront-flavored cellular
 // territory combat. Ownership is a u32 layer; attacks are directional
@@ -9,6 +10,14 @@ import { defineFieldSystem } from "../../../webgpu/FieldDynamics";
 export const territory = defineFieldSystem({
   id: "territory",
   name: "Territory",
+  description: "Cellular territory combat: empires push fronts over the map.",
+  kind: "game",
+  renderer: "camera",
+  defaultMap: "EarthXL",
+  defaultView: "territory",
+
+  // Bots drive slots 1..4 (slot 0 neutral); paint spawns with spawnP* (click).
+  ai: { decide: (ctx) => nearestEnemyAI(ctx) },
 
   params: {
     regen: { value: 0.004, min: 0, max: 0.05 },
@@ -22,16 +31,7 @@ export const territory = defineFieldSystem({
     flipChance: { value: 0.18, min: 0.01, max: 1 },
   },
 
-  players: {
-    count: 5, // slot 0 = neutral
-    fields: {
-      alive: "u32",
-      attacking: "u32",
-      commit: "f32",
-      targetX: "f32",
-      targetY: "f32",
-    },
-  },
+  players: playerIntent(5), // slot 0 = neutral
 
   phases: [["attack"], ["owner", "troops"]],
 

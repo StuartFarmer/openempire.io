@@ -15,15 +15,15 @@
 
 ## 3. Viewer drives the hooks
 
-- [ ] 3.1 `FieldViewerBase`: remove the hardcoded `writeBots`; add an AI scheduler that builds an `AIContext`, calls `system.ai.decide` on `cadenceTicks`, and flushes accumulated intents via `writePlayers`.
-- [ ] 3.2 `FieldViewerBase`: route pointer/key events to `system.input` when present (camera-transformed tile coords via an `InputContext`); default to today's pan/zoom/hover (camera) / brush-paint (blit) when absent. The hook signals whether it consumed the gesture (so unhandled drags still pan).
-- [ ] 3.3 Read `renderer`/`defaultMap`/`defaultView` on mount.
+- [x] 3.1 `FieldViewerBase`: remove the hardcoded `writeBots`; add an AI scheduler that builds an `AIContext`, calls `system.ai.decide` on `cadenceTicks`, and flushes accumulated intents via `writePlayers`.
+- [x] 3.2 `FieldViewerBase`: route pointer/key events to `system.input` when present (camera-transformed tile coords via an `InputContext`); default to today's pan/zoom/hover (camera) / brush-paint (blit) when absent. The hook signals whether it consumed the gesture (so unhandled drags still pan).
+- [x] 3.3 Read `renderer`/`defaultMap`/`defaultView` on mount.
 
 ## 4. Adopt in the existing systems
 
-- [ ] 4.1 empire + territory: import `shared::combat`/`shared::pack`; delete their private `combat.wesl`; confirm identical behavior (screenshot the fronts).
-- [ ] 4.2 empire + territory: add `kind: "game"`, `players: PLAYER_INTENT`, an `ai` hook (the relocated toy bot, now per-system), and an `input` hook (click a tile → set the local player's target/attack).
-- [ ] 4.3 terrain/world/settlement/grazing: set `kind`/`renderer`/`defaultMap`/`defaultView` metadata; confirm no behavior change.
+- [x] 4.1 empire + territory: import `shared::combat`/`shared::pack`; delete their private `combat.wesl`; confirm identical behavior (screenshot the fronts).
+- [x] 4.2 empire + territory: add `kind: "game"`, `players: PLAYER_INTENT`, an `ai` hook (the relocated toy bot, now per-system), and an `input` hook (click a tile → set the local player's target/attack).
+- [x] 4.3 terrain/world/settlement/grazing: set `kind`/`renderer`/`defaultMap`/`defaultView` metadata; confirm no behavior change.
 
 ## 5. Docs + verification
 

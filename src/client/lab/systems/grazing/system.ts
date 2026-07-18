@@ -6,6 +6,10 @@ import { defineFieldSystem } from "../../../webgpu/FieldDynamics";
 export const grazing = defineFieldSystem({
   id: "grazing",
   name: "Grazing",
+  kind: "study",
+  renderer: "blit",
+  defaultMap: "Verdantia",
+  defaultView: "herds",
 
   params: {
     grassGrowth: { value: 0.04, min: 0, max: 0.2 },

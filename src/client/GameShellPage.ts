@@ -498,20 +498,12 @@ export class GameShellPage extends FieldViewerBase {
 
   private onKeyDown = (event: KeyboardEvent): void => {
     if (this.classList.contains("hidden")) return;
+    // The system's own key bindings win first.
+    if (this.onKeyGesture(event)) return;
     if (event.key === "n" || event.key === "N") {
       this.cycleView(event.shiftKey ? -1 : 1);
     }
   };
-
-  /** Whether a plain drag paints (sim system with a brush) vs pans. */
-  private paintMode(event: PointerEvent): boolean {
-    return (
-      !this.isTerrain() &&
-      this.brush !== "" &&
-      (this.compiled?.brushNames.length ?? 0) > 0 &&
-      !event.shiftKey
-    );
-  }
 
   private framebufferPoint(event: PointerEvent | WheelEvent): {
     x: number;
@@ -535,34 +527,28 @@ export class GameShellPage extends FieldViewerBase {
     };
   }
 
-  /** Stamp the active brush at the cursor, mapped through the camera. */
-  private stampCamera(event: PointerEvent): void {
-    if (!this.kernel || !this.compiled || this.brush === "") return;
-    const { x, y } = this.cursorToMap(event);
-    this.kernel.writeUniform("B", this.compiled.encodeBrush(this.brush, x, y));
-    const frame = this.kernel.beginFrame();
-    frame.pass(this.compiled.brushPass(this.brush));
-    if (!this.running) this.compiled.runView(frame, this.view);
-    void frame.finish();
-  }
-
   private onPointerDown = (event: PointerEvent): void => {
     (event.currentTarget as HTMLCanvasElement).setPointerCapture(
       event.pointerId,
     );
-    if (this.paintMode(event)) {
-      this.painting = true;
-      this.stampCamera(event);
-    } else {
-      this.dragging = true;
-      this.lastPointer = this.framebufferPoint(event);
+    // A plain drag first offers the tile to the system (input hook / brush);
+    // shift-drag always pans, and an unconsumed gesture falls back to pan.
+    if (!event.shiftKey) {
+      const { x, y } = this.cursorToMap(event);
+      if (this.onTileGesture(Math.floor(x), Math.floor(y), event)) {
+        this.painting = true;
+        return;
+      }
     }
+    this.dragging = true;
+    this.lastPointer = this.framebufferPoint(event);
   };
 
   private onPointerMove = (event: PointerEvent): void => {
     this.updateHover(event);
     if (this.painting) {
-      this.stampCamera(event);
+      const { x, y } = this.cursorToMap(event);
+      this.onTileGesture(Math.floor(x), Math.floor(y), event);
       return;
     }
     if (!this.dragging) return;
@@ -750,10 +736,11 @@ export class GameShellPage extends FieldViewerBase {
       <section class="fixed inset-0 z-[9000] bg-neutral-950 overflow-hidden">
         <canvas
           id="shell-canvas"
-          class="absolute inset-0 w-full h-full touch-none ${terrainMode ||
-          !this.brush
-            ? "cursor-grab active:cursor-grabbing"
-            : "cursor-crosshair"}"
+          class="absolute inset-0 w-full h-full touch-none ${compiled?.system
+            .input?.onTile ||
+          (!terrainMode && this.brush)
+            ? "cursor-crosshair"
+            : "cursor-grab active:cursor-grabbing"}"
           @pointerdown=${this.onPointerDown}
           @pointermove=${this.onPointerMove}
           @pointerup=${this.onPointerUp}
@@ -773,6 +760,18 @@ export class GameShellPage extends FieldViewerBase {
             @change=${(e: Event) => {
               this.systemId = (e.target as HTMLSelectElement).value;
               this.paramValues = {};
+              // Apply the newly-selected system's declared defaults.
+              const sys = this.systems.find((s) => s.id === this.systemId);
+              if (sys?.defaultMap && sys.defaultMap in GameMapType) {
+                this.mapKey = sys.defaultMap;
+              }
+              if (sys?.defaultView) {
+                if (VIEW_KEYS.includes(sys.defaultView as ShellViewKey)) {
+                  this.shellView = sys.defaultView as ShellViewKey;
+                } else {
+                  this.view = sys.defaultView;
+                }
+              }
               void this.loadWorld();
             }}
           >
