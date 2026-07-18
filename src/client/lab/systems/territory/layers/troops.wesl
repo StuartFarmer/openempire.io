@@ -6,7 +6,8 @@ import package::params;
 import package::layers;
 import package::players;
 import package::sim;
-import package::lib::combat::{attackerOf, pressureOf, defenseOf, conquers};
+import shared::pack::{attackerOf, pressureOf};
+import shared::combat::{garrisonDefense, conquersStochastic};
 
 fn init(x: i32, y: i32, i: u32) -> f32 {
   return 0.0;
@@ -18,13 +19,13 @@ fn update(x: i32, y: i32, i: u32) -> f32 {
   let t = layers::troops::val(i);
   let a = layers::attack::val(i);
   let pressure = pressureOf(a);
-  let defense = defenseOf(
+  let defense = garrisonDefense(
     t,
     me == 0u,
     params::defensePower(),
     params::neutralDefense(),
   );
-  let flip = conquers(
+  let flip = conquersStochastic(
     pressure, attackerOf(a), me, defense,
     params::flipMargin(), sim::rand(x, y), params::flipChance(),
   );

@@ -1,5 +1,6 @@
 import { link } from "wesl";
 import { LAYER_NAMES } from "../../core/game/MapLayers";
+import { SHARED_WESL } from "../lab/shared";
 import { linkDerivation, type DerivationPass } from "./FieldDerivation";
 import type {
   FieldBufferSpec,
@@ -1127,6 +1128,7 @@ ${oceanMask ? "  if (land[i] == 0.0) { color = vec3f(0.055, 0.13, 0.20); }" : ""
             ...userModules,
           },
           rootModuleName: "main",
+          libs: [SHARED_WESL],
         });
         return { ...pass, code: linked.dest } as FieldPassSpec;
       } catch (error) {

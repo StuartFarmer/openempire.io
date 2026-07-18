@@ -634,3 +634,45 @@ describe("compileFieldSystem — derivation stage", () => {
     expect(calls).toEqual([]);
   });
 });
+
+describe("shared:: WESL library", () => {
+  // A layer that pulls a helper from the shared library links without any
+  // copy of the function in the system folder (codify-game-systems).
+  test("a system layer can import from shared::", async () => {
+    const system: FieldSystem = {
+      id: "s",
+      name: "s",
+      params: { rate: { value: 0.1, min: 0, max: 1 } },
+      views: { pop: { layer: "pop", ramp: ["#000000", "#ffffff"] } },
+      modules: {
+        "layers/pop.wesl": `import package::layers;
+import package::params;
+import shared::growth::logistic;
+fn init(x: i32, y: i32, i: u32) -> f32 { return 0.1; }
+fn update(x: i32, y: i32, i: u32) -> f32 {
+  return logistic(layers::pop::val(i), params::rate(), 1.0);
+}`,
+      },
+    };
+    const compiled = await compileFieldSystem(system);
+    const stock = passByName(compiled, "stock/pop");
+    // The shared function is linked into the generated pass source.
+    expect(stock.code).toContain("logistic");
+    expect(compiled.layerNames).toEqual(["pop"]);
+  });
+});
+
+describe("systems compile against shared::", () => {
+  test("empire + territory link with shared combat/pack (no private combat.wesl)", async () => {
+    const { empire } = await import("../src/client/lab/systems/empire/system");
+    const { territory } = await import(
+      "../src/client/lab/systems/territory/system"
+    );
+    const e = await compileFieldSystem(empire);
+    const t = await compileFieldSystem(territory);
+    // The shared conquest helpers linked into the flip passes.
+    expect(passByName(e, "stock/owner").code).toContain("conquers");
+    expect(passByName(t, "stock/owner").code).toContain("conquersStochastic");
+    expect(passByName(t, "stock/owner").code).toContain("garrisonDefense");
+  });
+});

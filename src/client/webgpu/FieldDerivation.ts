@@ -1,4 +1,5 @@
 import { link } from "wesl";
+import { SHARED_WESL } from "../lab/shared";
 import type { FieldPassSpec } from "./FieldKernel";
 import { gridMainWesl, KERNEL_WESL, singleMainWesl } from "./WeslKernel";
 
@@ -118,6 +119,7 @@ export async function linkDerivation(opts: {
             ...modules,
           },
           rootModuleName: "main",
+          libs: [SHARED_WESL],
         });
         return {
           name: pass.name,

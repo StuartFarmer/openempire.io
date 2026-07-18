@@ -7,7 +7,8 @@
 // conquest rule, so the two always agree.
 import package::params;
 import package::layers;
-import package::lib::combat::{attackerOf, pressureOf, defenseOf, conquers};
+import shared::pack::{attackerOf, pressureOf};
+import shared::combat::{defenseOf, conquers};
 
 fn init(x: i32, y: i32, i: u32) -> u32 {
   return 0u;

@@ -2,9 +2,9 @@
 
 ## 1. The shared WESL library (`shared::`)
 
-- [ ] 1.1 Create `src/client/lab/shared/` with a WESL glob index; wire the compiler (`compileFieldSystem`) to link the shared tree as the `shared::` package for every layer/view/derivation pass. Verify the wesl-js `link` library API supports a named package; if not, fall back to `package::shared::*` aliasing (design §shared/linking). Add a compiler test: a system importing `shared::` links.
-- [ ] 1.2 Seed `shared::combat` (`defenseOf`, `conquers` with hysteresis margin) and `shared::pack` (`packClaim`/`unpackAttacker`/`unpackPressure`) — the canonical, parameterized versions.
-- [ ] 1.3 Seed `shared::diffusion` (`blend`/relax step), `shared::growth` (`logistic`/`decay`/`grow`), `shared::palette` (ramp/biome helpers), `shared::noise` (`hash01`/`fbm` re-export).
+- [x] 1.1 Create `src/client/lab/shared/` with a WESL glob index; wire the compiler (`compileFieldSystem`) to link the shared tree as the `shared::` package for every layer/view/derivation pass. Verify the wesl-js `link` library API supports a named package; if not, fall back to `package::shared::*` aliasing (design §shared/linking). Add a compiler test: a system importing `shared::` links.
+- [x] 1.2 Seed `shared::combat` (`defenseOf`, `conquers` with hysteresis margin) and `shared::pack` (`packClaim`/`unpackAttacker`/`unpackPressure`) — the canonical, parameterized versions.
+- [x] 1.3 Seed `shared::diffusion` (`blend`/relax step), `shared::growth` (`logistic`/`decay`/`grow`), `shared::palette` (ramp/biome helpers), `shared::noise` (`hash01`/`fbm` re-export).
 - [ ] 1.4 Shared TS fragments (`src/client/lab/shared/index.ts`): the `PLAYER_INTENT` player-field set, common param presets, and reusable AI helpers (`nearestEnemyAI`).
 
 ## 2. The System contract

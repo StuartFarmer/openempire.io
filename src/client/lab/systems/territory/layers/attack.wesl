@@ -7,7 +7,7 @@ import package::kernel::{OFF, inBounds};
 import package::params;
 import package::layers;
 import package::players;
-import package::lib::combat::packAttack;
+import shared::pack::packAttack;
 
 fn contribution(nx: i32, ny: i32, tx: i32, ty: i32) -> f32 {
   let o = layers::owner::at(nx, ny);
