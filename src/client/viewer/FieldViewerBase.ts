@@ -179,8 +179,17 @@ export abstract class FieldViewerBase extends LitElement {
           this.paramValues[p.name] ?? p.value,
         ]),
       );
-      kernel.writeUniform("P", compiled.writeParams(this.paramValues, this.seed));
       this.turboBatch = 8;
+      if (this.isDeriveSystem()) {
+        // A derive system (terrain) owns its own uniform + inputs + run — the
+        // subclass drives it in onSystemMounted; no sim init / generic P.
+        await this.onSystemMounted(mapData);
+        this.status = "";
+        this.tickReadout = 0;
+        this.scalarReadout = {};
+        return;
+      }
+      kernel.writeUniform("P", compiled.writeParams(this.paramValues, this.seed));
       this.writeBots();
       await this.resetState();
 
@@ -238,13 +247,25 @@ export abstract class FieldViewerBase extends LitElement {
         }
         if (ticks > 0 || this.needsRedraw) {
           this.needsRedraw = false;
-          this.encodeFrame(ticks);
+          this.advance(ticks);
         }
       }
     }
     // The renderer presents every display frame (camera animation, resize).
     this.present();
   };
+
+  /** Per-frame advance while running (or on a redraw). Default: tick the sim
+   * `ticks` steps and re-render the view. A derive system (the terrain view)
+   * overrides this to advance its own clock instead of ticking layers. */
+  protected advance(ticks: number): void {
+    this.encodeFrame(ticks);
+  }
+
+  /** Whether the mounted system is an on-demand derivation (no per-tick sim). */
+  protected isDeriveSystem(): boolean {
+    return !!this.compiled?.system.derive;
+  }
 
   private encodeFrame(ticks: number): void {
     if (!this.kernel || !this.compiled) return;
