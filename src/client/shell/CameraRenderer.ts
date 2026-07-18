@@ -5,6 +5,8 @@
 // framebuffer pixels to map coordinates, so later shell steps can composite
 // sim view textures under the exact same transform.
 
+import type { ViewerRenderer } from "../viewer/ViewerRenderer";
+
 const BUFFER_USAGE = { COPY_DST: 0x8, UNIFORM: 0x40 } as const;
 const TEXTURE_USAGE = {
   COPY_DST: 0x2,
@@ -55,7 +57,7 @@ fn fs(@builtin(position) position: vec4f) -> @location(0) vec4f {
 }
 `;
 
-export class CameraRenderer {
+export class CameraRenderer implements ViewerRenderer {
   private constructor(
     readonly device: GPUDevice,
     private readonly context: GPUCanvasContext,
@@ -255,8 +257,8 @@ export class CameraRenderer {
     return true;
   }
 
-  render(camera: CameraState): void {
-    if (!this.bindGroup) return;
+  render(camera?: CameraState): void {
+    if (!this.bindGroup || !camera) return;
     const data = new Float32Array(8);
     const invScale = 1 / camera.scale;
     data[0] = camera.cx - (this.canvas.width / 2) * invScale; // origin.x
