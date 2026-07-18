@@ -5,13 +5,13 @@
 - [x] 1.1 Create `src/client/lab/shared/` with a WESL glob index; wire the compiler (`compileFieldSystem`) to link the shared tree as the `shared::` package for every layer/view/derivation pass. Verify the wesl-js `link` library API supports a named package; if not, fall back to `package::shared::*` aliasing (design §shared/linking). Add a compiler test: a system importing `shared::` links.
 - [x] 1.2 Seed `shared::combat` (`defenseOf`, `conquers` with hysteresis margin) and `shared::pack` (`packClaim`/`unpackAttacker`/`unpackPressure`) — the canonical, parameterized versions.
 - [x] 1.3 Seed `shared::diffusion` (`blend`/relax step), `shared::growth` (`logistic`/`decay`/`grow`), `shared::palette` (ramp/biome helpers), `shared::noise` (`hash01`/`fbm` re-export).
-- [ ] 1.4 Shared TS fragments (`src/client/lab/shared/index.ts`): the `PLAYER_INTENT` player-field set, common param presets, and reusable AI helpers (`nearestEnemyAI`).
+- [x] 1.4 Shared TS fragments (`src/client/lab/shared/index.ts`): the `PLAYER_INTENT` player-field set, common param presets, and reusable AI helpers (`nearestEnemyAI`).
 
 ## 2. The System contract
 
-- [ ] 2.1 `FieldSystem` gains JSON-safe metadata: `description`, `kind`, `renderer`, `defaultMap`, `defaultView`. `CompiledFieldSystem` surfaces them.
-- [ ] 2.2 `FieldSystem.input?: SystemInput` (`onTile`/`onKey`/`cursor`) + the `InputContext` (`stamp`/`setPlayer`/`localPlayer`/dims/running); typed, additive.
-- [ ] 2.3 `FieldSystem.ai?: SystemAI` (`cadenceTicks`, `decide(ctx)`) + the `AIContext` (`scalars`/`tick`/`rand`/`setPlayer`/`localPlayer`/dims); typed, additive.
+- [x] 2.1 `FieldSystem` gains JSON-safe metadata: `description`, `kind`, `renderer`, `defaultMap`, `defaultView`. `CompiledFieldSystem` surfaces them.
+- [x] 2.2 `FieldSystem.input?: SystemInput` (`onTile`/`onKey`/`cursor`) + the `InputContext` (`stamp`/`setPlayer`/`localPlayer`/dims/running); typed, additive.
+- [x] 2.3 `FieldSystem.ai?: SystemAI` (`cadenceTicks`, `decide(ctx)`) + the `AIContext` (`scalars`/`tick`/`rand`/`setPlayer`/`localPlayer`/dims); typed, additive.
 
 ## 3. Viewer drives the hooks
 

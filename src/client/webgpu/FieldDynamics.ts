@@ -102,9 +102,77 @@ export interface FieldPlayersSpec {
   fields: Record<string, "f32" | "u32">;
 }
 
+/** Context handed to a system's `input` hook for one gesture. Pointer
+ * gestures are already resolved to map-tile coordinates by the viewer's camera
+ * transform. (codify-game-systems) */
+export interface InputContext {
+  readonly mapWidth: number;
+  readonly mapHeight: number;
+  readonly running: boolean;
+  /** The human's player slot (0 by convention). */
+  readonly localPlayer: number;
+  /** Stamp a declared brush at a tile — runs the existing brush pass. */
+  stamp(brush: string, x: number, y: number): void;
+  /** Merge fields into a player's next intent (flushed via writePlayers). */
+  setPlayer(p: number, fields: Record<string, number>): void;
+}
+
+/** A system's input mapping — pointer/key gestures → brush stamps or player
+ * intents. A handler returns `true` when it consumes the gesture, so the viewer
+ * can fall back to its default handling (camera pan/zoom/hover, brush paint)
+ * when the system does not. */
+export interface SystemInput {
+  onTile?(
+    ctx: InputContext,
+    x: number,
+    y: number,
+    ev: PointerEvent,
+  ): boolean | void;
+  onKey?(ctx: InputContext, ev: KeyboardEvent): boolean | void;
+  /** CSS cursor hint over the map. */
+  cursor?: string;
+}
+
+/** Context handed to a system's `ai.decide` on its cadence. */
+export interface AIContext {
+  readonly playerCount: number;
+  readonly tick: number;
+  readonly mapWidth: number;
+  readonly mapHeight: number;
+  /** The human slot to skip. */
+  readonly localPlayer: number;
+  /** Last scalar readback (per-player arrays for groupBy scalars). */
+  readonly scalars: Record<string, number | number[]>;
+  /** Deterministic-ish rng for AI jitter (seeded by tick). */
+  rand(): number;
+  /** Write player p's next intent (flushed via writePlayers). */
+  setPlayer(p: number, fields: Record<string, number>): void;
+}
+
+/** A system's bot driver — writes non-human players' intents on a schedule. */
+export interface SystemAI {
+  /** Re-decide every N ticks (default 40 — ~4s at 10/s). */
+  cadenceTicks?: number;
+  decide(ctx: AIContext): void;
+}
+
 export interface FieldSystem {
   id: string;
   name: string;
+  /** Human-readable one-liner for the viewer. */
+  description?: string;
+  /** "study" (a field/CA experiment) or "game" (players + ai + win state).
+   * Informs default viewer chrome; default "study". */
+  kind?: "study" | "game";
+  /** Preferred renderer when hosted standalone (a hint). */
+  renderer?: "camera" | "blit";
+  /** Initial map (GameMapType key) and view when the system is selected. */
+  defaultMap?: string;
+  defaultView?: string;
+  /** Pointer/key → brush/intent mapping (TS hook, out of the JSON-safe core). */
+  input?: SystemInput;
+  /** Non-human player driver (TS hook, out of the JSON-safe core). */
+  ai?: SystemAI;
   params?: Record<string, FieldParamSpec>;
   scalars?: Record<string, FieldReduceSpec>;
   brushes?: Record<string, FieldBrushSpec>;
