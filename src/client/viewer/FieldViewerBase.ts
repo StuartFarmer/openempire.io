@@ -1,4 +1,4 @@
-import { LitElement } from "lit";
+import { html, LitElement, nothing } from "lit";
 import { state } from "lit/decorators.js";
 import { GameMapType } from "../../core/game/Game";
 import type { MapData } from "../../core/game/GameMapLoader";
@@ -13,21 +13,24 @@ import {
 } from "../webgpu/FieldDynamics";
 import { FieldKernel } from "../webgpu/FieldKernel";
 import { uploadMapLayers } from "../webgpu/MapLayerUpload";
-import type { ViewerRenderer } from "./ViewerRenderer";
+import { CameraRenderer, type CameraState } from "../shell/CameraRenderer";
 
-// Shared machinery for the field viewers (unify-field-viewer phase 4): a
-// LitElement base that owns the device/renderer, the headless FieldKernel, the
-// compiled system, and the fixed-clock tick loop — everything both the #lab
-// playground and the #shell world view need. A FieldKernel runs HEADLESS on
-// `renderer.device`; the renderer (BlitRenderer or CameraRenderer, chosen by
-// the subclass) is pointed at the kernel's `outView`. Subclasses add their
-// bespoke layer: the lab keeps brush/turbo/bots/HMR; the shell adds the camera,
-// the terrain derivation, hover, and climate knobs.
+// Shared machinery for the field viewers (unify-field-viewer / codify-game-
+// systems): a LitElement base that owns the device + a pan/zoom CameraRenderer,
+// the headless FieldKernel, the compiled system, the fixed-clock tick loop, and
+// the shared input (drag-to-pan, wheel-zoom, tile hover, brushes, AI) —
+// everything both the #lab playground and the #shell world view need. A
+// FieldKernel runs HEADLESS on `renderer.device`; the camera is pointed at the
+// kernel's `outView`. Subclasses add only their bespoke layer: the lab adds
+// Vite HMR; the shell adds the terrain derivation, climate knobs, and a rich
+// hover readout (via `hoverRows`).
 
 // Fixed-clock death-spiral clamp: at most this many catch-up ticks per frame.
 export const MAX_TICKS_PER_FRAME = 8;
 // Turbo: adapt ticks-per-command-buffer toward this much GPU time per batch.
 const TURBO_TARGET_MS = 25;
+// Camera zoom clamp (framebuffer px per tile).
+const MAX_SCALE = 32;
 
 export abstract class FieldViewerBase extends LitElement {
   @state() protected systemId = LAB_SYSTEMS[0]?.id ?? "";
@@ -44,14 +47,24 @@ export abstract class FieldViewerBase extends LitElement {
   @state() protected tickReadout = 0;
   @state() protected gpuMs = 0;
   @state() protected ticksPerSec = 0;
+  /** Zoom readout (framebuffer px per tile), and the tile under the cursor. */
+  @state() protected zoomReadout = 1;
+  @state() protected hoverTile: { x: number; y: number } | null = null;
 
   protected systems: readonly FieldSystem[] = LAB_SYSTEMS;
-  protected renderer: ViewerRenderer | null = null;
+  protected renderer: CameraRenderer | null = null;
   protected kernel: FieldKernel | null = null;
   protected compiled: CompiledFieldSystem | null = null;
   protected mapWidth = 0;
   protected mapHeight = 0;
   protected seed = 1337;
+
+  // Shared pan/zoom camera — every page gets drag-to-pan, wheel-zoom, hover.
+  protected camera: CameraState = { cx: 0, cy: 0, scale: 1 };
+  protected pendingFit = false;
+  private dragging = false;
+  private painting = false;
+  private lastPointer = { x: 0, y: 0 };
 
   private raf = 0;
   private lastTime = 0;
@@ -71,20 +84,23 @@ export abstract class FieldViewerBase extends LitElement {
 
   /** The <canvas> id this viewer renders into. */
   protected abstract canvasId(): string;
-  /** Create the presentation renderer (blit or camera) for the canvas. */
-  protected abstract createRenderer(
-    canvas: HTMLCanvasElement,
-  ): Promise<ViewerRenderer>;
-  /** Present one frame to the screen (subclass supplies camera / no camera). */
-  protected abstract present(): void;
   /** Whether the sim's out texture should be shown this frame (subclass may
    * suppress it — e.g. the shell shows the derivation instead). Default: yes. */
   protected shouldRenderSimView(): boolean {
     return true;
   }
-  /** Hook after a system mounts (subclass points the renderer at outView, runs
-   * its derivation, etc.). */
-  protected async onSystemMounted(_mapData: MapData): Promise<void> {}
+  /** Hook after a system mounts. Default: point the camera at the sim's out
+   * texture and fit. The shell overrides for the terrain derivation. */
+  protected async onSystemMounted(_mapData: MapData): Promise<void> {
+    if (this.renderer && this.kernel?.outView) {
+      this.renderer.setLiveTexture(
+        this.kernel.outView,
+        this.mapWidth,
+        this.mapHeight,
+      );
+    }
+    this.pendingFit = true;
+  }
 
   // --- player intents (input + AI write here) ---------------------------------
   private playerIntents: (Record<string, number> | undefined)[] = [];
@@ -192,7 +208,7 @@ export abstract class FieldViewerBase extends LitElement {
     this.running = false;
     this.status = "Loading…";
     try {
-      this.renderer ??= await this.createRenderer(canvas);
+      this.renderer ??= await CameraRenderer.create(canvas);
       const compiled = await compileFieldSystem(system);
       const mapData = this.mapData();
       const manifest = await mapData.manifest();
@@ -301,6 +317,164 @@ export abstract class FieldViewerBase extends LitElement {
     // The renderer presents every display frame (camera animation, resize).
     this.present();
   };
+
+  /** Present one frame under the shared pan/zoom camera. Every page gets this. */
+  protected present(): void {
+    const r = this.renderer;
+    if (!r) return;
+    r.syncSize();
+    if (this.pendingFit && r.mapWidth > 0) {
+      this.pendingFit = false;
+      this.camera = {
+        cx: this.mapWidth / 2,
+        cy: this.mapHeight / 2,
+        scale: r.fitScale() * 0.95,
+      };
+    }
+    this.clampCamera();
+    r.render(this.camera);
+    const zoom = Math.round(this.camera.scale * 100) / 100;
+    if (zoom !== this.zoomReadout) this.zoomReadout = zoom;
+  }
+
+  // --- shared pan / zoom / hover (all pages) ----------------------------------
+
+  private framebufferPoint(event: PointerEvent | WheelEvent): {
+    x: number;
+    y: number;
+  } {
+    const canvas = event.currentTarget as HTMLCanvasElement;
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    return {
+      x: (event.clientX - rect.left) * dpr,
+      y: (event.clientY - rect.top) * dpr,
+    };
+  }
+
+  private cursorToMap(event: PointerEvent): { x: number; y: number } {
+    const canvas = event.currentTarget as HTMLCanvasElement;
+    const p = this.framebufferPoint(event);
+    return {
+      x: this.camera.cx + (p.x - canvas.width / 2) / this.camera.scale,
+      y: this.camera.cy + (p.y - canvas.height / 2) / this.camera.scale,
+    };
+  }
+
+  private clampCamera(): void {
+    const r = this.renderer;
+    if (!r || r.mapWidth === 0) return;
+    const minScale = r.fitScale() * 0.5;
+    this.camera.scale = Math.min(MAX_SCALE, Math.max(minScale, this.camera.scale));
+    this.camera.cx = Math.min(r.mapWidth, Math.max(0, this.camera.cx));
+    this.camera.cy = Math.min(r.mapHeight, Math.max(0, this.camera.cy));
+  }
+
+  protected onPointerDown = (event: PointerEvent): void => {
+    (event.currentTarget as HTMLCanvasElement).setPointerCapture(
+      event.pointerId,
+    );
+    // A plain drag offers the tile to the system (input hook / brush); shift-
+    // drag always pans, and an unconsumed gesture falls back to pan.
+    if (!event.shiftKey) {
+      const { x, y } = this.cursorToMap(event);
+      if (this.onTileGesture(Math.floor(x), Math.floor(y), event)) {
+        this.painting = true;
+        return;
+      }
+    }
+    this.dragging = true;
+    this.lastPointer = this.framebufferPoint(event);
+  };
+
+  protected onPointerMove = (event: PointerEvent): void => {
+    this.updateHover(event);
+    if (this.painting) {
+      const { x, y } = this.cursorToMap(event);
+      this.onTileGesture(Math.floor(x), Math.floor(y), event);
+      return;
+    }
+    if (!this.dragging) return;
+    const point = this.framebufferPoint(event);
+    this.camera.cx -= (point.x - this.lastPointer.x) / this.camera.scale;
+    this.camera.cy -= (point.y - this.lastPointer.y) / this.camera.scale;
+    this.lastPointer = point;
+  };
+
+  protected onPointerUp = (): void => {
+    this.dragging = false;
+    this.painting = false;
+  };
+
+  protected onPointerLeave = (): void => {
+    this.hoverTile = null;
+  };
+
+  protected onWheel = (event: WheelEvent): void => {
+    event.preventDefault();
+    const r = this.renderer;
+    if (!r) return;
+    const point = this.framebufferPoint(event);
+    const canvas = event.currentTarget as HTMLCanvasElement;
+    const mapX = this.camera.cx + (point.x - canvas.width / 2) / this.camera.scale;
+    const mapY = this.camera.cy + (point.y - canvas.height / 2) / this.camera.scale;
+    const factor = Math.exp(-event.deltaY * 0.0015);
+    const minScale = r.fitScale() * 0.5;
+    const scale = Math.min(
+      MAX_SCALE,
+      Math.max(minScale, this.camera.scale * factor),
+    );
+    this.camera = {
+      scale,
+      cx: mapX - (point.x - canvas.width / 2) / scale,
+      cy: mapY - (point.y - canvas.height / 2) / scale,
+    };
+  };
+
+  private updateHover(event: PointerEvent): void {
+    const { x: mapX, y: mapY } = this.cursorToMap(event);
+    const x = Math.floor(mapX);
+    const y = Math.floor(mapY);
+    if (x < 0 || y < 0 || x >= this.mapWidth || y >= this.mapHeight) {
+      if (this.hoverTile !== null) this.hoverTile = null;
+      return;
+    }
+    if (this.hoverTile?.x !== x || this.hoverTile?.y !== y) {
+      this.hoverTile = { x, y };
+    }
+  }
+
+  /** Rows for the hover readout. Generic default (tile + normalized position);
+   * subclasses override for richer, domain-specific info. */
+  protected hoverRows(x: number, y: number): [string, string][] {
+    return [
+      ["tile", `${x}, ${y}`],
+      [
+        "pos",
+        `${(((x + 0.5) / this.mapWidth) * 100).toFixed(0)}%, ${(((y + 0.5) / this.mapHeight) * 100).toFixed(0)}%`,
+      ],
+    ];
+  }
+
+  /** The hover readout panel — used by every page's render(). */
+  protected renderHover() {
+    const tile = this.hoverTile;
+    if (!tile) return nothing;
+    return html`
+      <div
+        class="absolute bottom-3 left-3 text-xs text-white bg-black/70 backdrop-blur px-3 py-2 rounded font-mono leading-5 min-w-[12rem] pointer-events-none"
+      >
+        ${this.hoverRows(tile.x, tile.y).map(
+          ([label, value]) => html`
+            <div class="flex justify-between gap-4">
+              <span class="text-white/50">${label}</span>
+              <span class="text-white/90">${value}</span>
+            </div>
+          `,
+        )}
+      </div>
+    `;
+  }
 
   /** Drive the system's AI on its tick cadence (default 40 ticks ≈ 4s). */
   private tickAI(ticks: number): void {
@@ -467,12 +641,4 @@ export abstract class FieldViewerBase extends LitElement {
     return consumed !== false;
   }
 
-  /** Convenience for the blit lab: map a pointer event to a tile gesture. */
-  protected stamp(event: PointerEvent): void {
-    const canvas = event.currentTarget as HTMLCanvasElement;
-    const rect = canvas.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * this.mapWidth;
-    const y = ((event.clientY - rect.top) / rect.height) * this.mapHeight;
-    this.onTileGesture(x, y, event);
-  }
 }

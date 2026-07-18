@@ -13,7 +13,7 @@ To "create plenty of different systems to try out a bunch of different mechanics
 ## What Changes
 
 - **The `FieldSystem` contract gains self-description + game hooks.** New optional, well-marked fields:
-  - **Metadata** (JSON-safe): `description`, `kind: "study" | "game"`, `renderer: "camera" | "blit"` (hint), `defaultMap`, `defaultView` — so the viewer hosts a system correctly instead of guessing.
+  - **Metadata** (JSON-safe): `description`, `kind: "study" | "game"`, `defaultMap`, `defaultView` — so the viewer hosts a system correctly instead of guessing.
   - **`input`** — a TS hook mapping pointer/keyboard gestures (already camera-transformed to tile coords) to actions: stamp a declared brush, or write the local player's intent fields. Replaces the viewer's hardcoded pointer→paint / pointer→pan handling.
   - **`ai`** — a TS hook (`decide(ctx)`, on a `cadenceTicks` schedule) that reads scalars/tick/rng and writes each non-human player's intent fields. Replaces `FieldViewerBase.writeBots`.
   - The `input`/`ai` hooks are deliberately TS (not JSON-safe) for maximum flexibility; the rest of the manifest (layers, params, scalars, views, brushes, players, metadata) stays JSON-safe, so a hook is a clean "this system needs custom code" boundary.
@@ -31,7 +31,7 @@ To "create plenty of different systems to try out a bunch of different mechanics
 
 ### New Capabilities
 
-- `game-system-contract`: the codified System contract — self-describing metadata (`kind`/`renderer`/`defaultMap`/`defaultView`/`description`), a system-owned `input` hook binding gestures to brushes/player-intents, and a system-owned `ai` hook driving non-human players; the viewer drives both and no longer hardcodes bots or input.
+- `game-system-contract`: the codified System contract — self-describing metadata (`kind`/`defaultMap`/`defaultView`/`description`), a system-owned `input` hook binding gestures to brushes/player-intents, and a system-owned `ai` hook driving non-human players; the viewer drives both and no longer hardcodes bots or input.
 - `shared-wesl-library`: a cross-system WESL library linked as the `shared::` package (plus shared TS fragments), holding only game-agnostic primitives (growth, diffusion, palette); system-specific mechanics (a game's combat/conquest, its attack encoding) stay in that system's `lib/`.
 
 ### Modified Capabilities
@@ -40,9 +40,9 @@ To "create plenty of different systems to try out a bunch of different mechanics
 
 ## Impact
 
-- `src/client/webgpu/FieldDynamics.ts` — `FieldSystem` gains `description`/`kind`/`renderer`/`defaultMap`/`defaultView`/`input`/`ai`; the compiler links the `shared::` package into every system.
+- `src/client/webgpu/FieldDynamics.ts` — `FieldSystem` gains `description`/`kind`/`defaultMap`/`defaultView`/`input`/`ai`; the compiler links the `shared::` package into every system.
 - `src/client/viewer/FieldViewerBase.ts` — call `system.input` on pointer/key and `system.ai.decide` on cadence via `writePlayers`; remove the hardcoded `writeBots`.
-- `src/client/GameShellPage.ts` / `src/client/FieldLabPage.ts` — pointer handling delegates to the mounted system's `input` hook (falling back to pan/zoom/hover for systems with none); read `renderer`/`defaultMap`/`defaultView`.
+- `src/client/GameShellPage.ts` / `src/client/FieldLabPage.ts` — pointer handling delegates to the mounted system's `input` hook (falling back to pan/zoom/hover for systems with none); read `defaultMap`/`defaultView`.
 - New `src/client/lab/shared/**` — the shared WESL modules + the shared TS fragments; a `shared` index feeding the compiler.
 - `src/client/lab/systems/empire/`, `territory/` — keep their own `lib/combat.wesl` (system-specific); gain `kind`/metadata, `players: playerIntent(...)`, and an `ai` hook (the bot driver, now per-system).
 - `docs/FieldDynamics.md` — the "System = self-contained game" section.

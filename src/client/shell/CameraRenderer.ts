@@ -5,8 +5,6 @@
 // framebuffer pixels to map coordinates, so later shell steps can composite
 // sim view textures under the exact same transform.
 
-import type { ViewerRenderer } from "../viewer/ViewerRenderer";
-
 const BUFFER_USAGE = { COPY_DST: 0x8, UNIFORM: 0x40 } as const;
 const TEXTURE_USAGE = {
   COPY_DST: 0x2,
@@ -57,7 +55,7 @@ fn fs(@builtin(position) position: vec4f) -> @location(0) vec4f {
 }
 `;
 
-export class CameraRenderer implements ViewerRenderer {
+export class CameraRenderer {
   private constructor(
     readonly device: GPUDevice,
     private readonly context: GPUCanvasContext,

@@ -24,7 +24,6 @@ export const terrain: FieldSystem = {
   id: "terrain",
   name: "Terrain",
   kind: "study",
-  renderer: "camera",
   defaultMap: "EarthXL",
   defaultView: "terrain",
   views: {},

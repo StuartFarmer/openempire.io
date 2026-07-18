@@ -14,7 +14,6 @@ export const settlement = defineFieldSystem({
   id: "settlement",
   name: "Settlement",
   kind: "study",
-  renderer: "blit",
   defaultMap: "Verdantia",
   defaultView: "life",
 

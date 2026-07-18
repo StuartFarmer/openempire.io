@@ -5,10 +5,9 @@
 ### Requirement: A system self-describes how it is hosted
 
 A `FieldSystem` SHALL support optional, JSON-safe metadata that the viewer uses
-to host it: `description`, `kind` (`"study"` | `"game"`), `renderer`
-(`"camera"` | `"blit"`, a preference hint), `defaultMap`, and `defaultView`.
-The viewer SHALL honor these when mounting a system (initial map, initial view,
-renderer preference) instead of hardcoding them.
+to host it: `description`, `kind` ("study" | "game"), `defaultMap`, and
+`defaultView`. The viewer SHALL honor these when mounting a system (initial map,
+initial view) instead of hardcoding them.
 
 #### Scenario: A system opens on its declared defaults
 
@@ -42,7 +41,7 @@ default gesture handling when absent.
 #### Scenario: Systems without input keep the viewer default
 
 - **WHEN** a system declares no `input` hook
-- **THEN** the viewer applies its default gesture handling (camera pan/zoom/hover under the camera renderer; brush paint under the blit renderer), so existing systems are unchanged
+- **THEN** the viewer applies its default gesture handling (camera pan/zoom/hover, with a plain drag stamping the active brush when one is selected), so existing systems are unchanged
 
 ### Requirement: A system owns its AI
 

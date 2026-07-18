@@ -9,7 +9,6 @@ export const world = defineFieldSystem({
   id: "world",
   name: "World",
   kind: "study",
-  renderer: "blit",
   defaultMap: "Verdantia",
   defaultView: "world",
 

@@ -9,21 +9,21 @@
 
 ## 2. The System contract
 
-- [x] 2.1 `FieldSystem` gains JSON-safe metadata: `description`, `kind`, `renderer`, `defaultMap`, `defaultView`. `CompiledFieldSystem` surfaces them.
+- [x] 2.1 `FieldSystem` gains JSON-safe metadata: `description`, `kind`, `defaultMap`, `defaultView` (accessible via `compiled.system`). (No `renderer` hint — every page uses the shared pan/zoom camera.)
 - [x] 2.2 `FieldSystem.input?: SystemInput` (`onTile`/`onKey`/`cursor`) + the `InputContext` (`stamp`/`setPlayer`/`localPlayer`/dims/running); typed, additive.
 - [x] 2.3 `FieldSystem.ai?: SystemAI` (`cadenceTicks`, `decide(ctx)`) + the `AIContext` (`scalars`/`tick`/`rand`/`setPlayer`/`localPlayer`/dims); typed, additive.
 
 ## 3. Viewer drives the hooks
 
 - [x] 3.1 `FieldViewerBase`: remove the hardcoded `writeBots`; add an AI scheduler that builds an `AIContext`, calls `system.ai.decide` on `cadenceTicks`, and flushes accumulated intents via `writePlayers`.
-- [x] 3.2 `FieldViewerBase`: route pointer/key events to `system.input` when present (camera-transformed tile coords via an `InputContext`); default to today's pan/zoom/hover (camera) / brush-paint (blit) when absent. The hook signals whether it consumed the gesture (so unhandled drags still pan).
-- [x] 3.3 Read `renderer`/`defaultMap`/`defaultView` on mount.
+- [x] 3.2 `FieldViewerBase`: route pointer/key events to `system.input` when present (camera-transformed tile coords via an `InputContext`); default to camera pan/zoom/hover (a plain drag stamps the active brush) when absent. The hook signals whether it consumed the gesture (so unhandled drags still pan).
+- [x] 3.3 Read `defaultMap`/`defaultView` on system switch. Camera pan/zoom + tile hover live in `FieldViewerBase` (every page), with a `hoverRows` override for rich readouts (terrain's lat/lon/temp/biome).
 
 ## 4. Adopt in the existing systems
 
-- [x] 4.1 empire + territory: import `shared::combat`/`shared::pack`; delete their private `combat.wesl`; confirm identical behavior (screenshot the fronts).
-- [x] 4.2 empire + territory: add `kind: "game"`, `players: PLAYER_INTENT`, an `ai` hook (the relocated toy bot, now per-system), and an `input` hook (click a tile → set the local player's target/attack).
-- [x] 4.3 terrain/world/settlement/grazing: set `kind`/`renderer`/`defaultMap`/`defaultView` metadata; confirm no behavior change.
+- [x] 4.1 `shared::` holds only generic primitives (growth/diffusion/palette); empire + territory KEEP their own `lib/combat.wesl` (system-specific — see the shared-wesl-library spec). Confirmed both run on their own combat.
+- [x] 4.2 empire + territory: add `kind: "game"` + metadata, `players: playerIntent(5)`, and an `ai` hook (`nearestEnemyAI`, per-system; reproduces the old bots for slots 1..4). Click-to-paint uses the default brush gesture (no bespoke input hook needed).
+- [x] 4.3 terrain/world/settlement/grazing: set `kind`/`defaultMap`/`defaultView` metadata; confirm no behavior change.
 
 ## 5. Docs + verification
 

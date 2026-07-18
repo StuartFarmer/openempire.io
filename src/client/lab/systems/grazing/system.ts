@@ -7,7 +7,6 @@ export const grazing = defineFieldSystem({
   id: "grazing",
   name: "Grazing",
   kind: "study",
-  renderer: "blit",
   defaultMap: "Verdantia",
   defaultView: "herds",
 

@@ -237,7 +237,7 @@ device. Cross-device bit-parity is explicitly not a goal.
 
 A `FieldSystem` is a plain object conforming to one interface — **there are no
 per-system classes.** `compileFieldSystem` is the single compiler and
-`FieldViewerBase` (the `#lab` blit preset, the `#shell` camera preset) is the
+`FieldViewerBase` (shared by `#lab` and `#shell`, both under a pan/zoom camera) is the
 single host; a system is data + WESL + at most two closures. Beyond the
 mechanics/layers/views/params above, a system self-describes and owns its
 inputs and AI:
@@ -247,7 +247,6 @@ export const raiders = defineFieldSystem({
   id: "raiders", name: "Raiders",
   description: "Click a tile to send troops.",
   kind: "game",                 // "study" | "game" — viewer chrome hint (JSON-safe)
-  renderer: "camera",           // "camera" | "blit" preference (hint)
   defaultMap: "EarthXL",
   defaultView: "territory",
 

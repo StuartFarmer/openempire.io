@@ -164,8 +164,6 @@ export interface FieldSystem {
   /** "study" (a field/CA experiment) or "game" (players + ai + win state).
    * Informs default viewer chrome; default "study". */
   kind?: "study" | "game";
-  /** Preferred renderer when hosted standalone (a hint). */
-  renderer?: "camera" | "blit";
   /** Initial map (GameMapType key) and view when the system is selected. */
   defaultMap?: string;
   defaultView?: string;

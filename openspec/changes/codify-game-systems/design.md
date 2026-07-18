@@ -19,7 +19,6 @@ gains:
 ```ts
 description?: string;
 kind?: "study" | "game";          // default "study"; "game" ⇒ players/ai/input chrome
-renderer?: "camera" | "blit";     // preferred renderer (hint); default per kind
 defaultMap?: string;              // e.g. "EarthXL"
 defaultView?: string;             // initial view name
 ```
@@ -58,9 +57,9 @@ interface InputContext {
 }
 ```
 
-Systems with no `input` fall back to the viewer default: pan/zoom/hover under
-the camera, or brush-paint in the lab (exactly today's behavior), so existing
-systems are unaffected.
+Systems with no `input` fall back to the viewer default on every page: camera
+pan/zoom/hover, with a plain drag stamping the active brush when one is
+selected. So existing systems are unaffected.
 
 ### `ai` — the bot driver (TS)
 
@@ -181,11 +180,11 @@ A small `src/client/lab/shared/index.ts` surface for manifest reuse:
 - Routes pointer/key events to `system.input` when present (via an
   `InputContext` whose `onTile` receives camera-transformed tile coords, and
   whose `stamp`/`setPlayer` wrap the existing brush + players plumbing). With no
-  `input`, keep today's defaults (camera pan/zoom/hover in the shell; brush
-  paint in the lab).
-- Reads `renderer`/`defaultMap`/`defaultView` when mounting a system.
+  `input`, keep the viewer default (camera pan/zoom/hover; a plain drag stamps
+  the active brush when one is selected).
+- Reads `defaultMap`/`defaultView` when mounting a system.
 
-The shell's current camera pan/zoom/hover becomes the *default* input for
+The camera pan/zoom/hover (now shared by every page) is the *default* input for
 systems without an `input` hook; a game system's `input` can still opt into pan
 by calling nothing on plain drag (the viewer pans when the hook does not
 consume the gesture) — the hook returns whether it handled the event.

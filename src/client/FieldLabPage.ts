@@ -1,16 +1,15 @@
 import { html } from "lit";
 import { customElement } from "lit/decorators.js";
 import { GameMapType } from "../core/game/Game";
-import { BlitRenderer } from "./viewer/BlitRenderer";
+import { CameraRenderer } from "./shell/CameraRenderer";
 import { FieldViewerBase } from "./viewer/FieldViewerBase";
-import type { ViewerRenderer } from "./viewer/ViewerRenderer";
 import type { FieldSystem } from "./webgpu/FieldDynamics";
 
 // #lab — the Field Dynamics playground (docs/FieldDynamics.md): pick a map and
 // a system; params become sliders, views the dropdown, brushes the tool
 // palette. A thin subclass of FieldViewerBase — the shared machinery (headless
-// kernel, tick loop, turbo, brushes, panels) lives in the base; the lab adds
-// the 1:1 blit presentation and Vite hot-swap.
+// kernel, tick loop, turbo, brushes, camera pan/zoom/hover, panels) lives in
+// the base; the lab adds Vite hot-swap.
 
 @customElement("field-lab-page")
 export class FieldLabPage extends FieldViewerBase {
@@ -23,28 +22,8 @@ export class FieldLabPage extends FieldViewerBase {
     return "lab-canvas";
   }
 
-  protected async createRenderer(
-    canvas: HTMLCanvasElement,
-  ): Promise<ViewerRenderer> {
-    return BlitRenderer.create(canvas);
-  }
-
-  protected async onSystemMounted(): Promise<void> {
-    if (this.renderer && this.kernel?.outView) {
-      this.renderer.setLiveTexture(
-        this.kernel.outView,
-        this.mapWidth,
-        this.mapHeight,
-      );
-    }
-  }
-
-  protected present(): void {
-    this.renderer?.render();
-  }
-
   firstUpdated(): void {
-    if (!BlitRenderer.isSupported()) {
+    if (!CameraRenderer.isSupported()) {
       this.status = "WebGPU is not supported in this browser.";
       return;
     }
@@ -78,7 +57,7 @@ export class FieldLabPage extends FieldViewerBase {
   }
 
   render() {
-    if (!BlitRenderer.isSupported()) {
+    if (!CameraRenderer.isSupported()) {
       return html`<section
         class="w-full h-full bg-neutral-950 text-white overflow-auto"
       >
@@ -153,15 +132,23 @@ ${this.status}</pre
                 >`
               : null}
 
-            <canvas
-              id="lab-canvas"
-              class="w-full max-w-[900px] [image-rendering:pixelated] border border-white/15 bg-black touch-none cursor-crosshair"
-              @pointerdown=${this.onPointerDown}
-              @pointermove=${this.onPointerMove}
-              @pointerup=${this.onPointerUp}
-              @pointercancel=${this.onPointerUp}
-              aria-label="Field lab simulation"
-            ></canvas>
+            <div class="relative w-full max-w-[900px]">
+              <canvas
+                id="lab-canvas"
+                class="w-full aspect-[2/1] border border-white/15 bg-black touch-none ${this
+                  .brush
+                  ? "cursor-crosshair"
+                  : "cursor-grab active:cursor-grabbing"}"
+                @pointerdown=${this.onPointerDown}
+                @pointermove=${this.onPointerMove}
+                @pointerup=${this.onPointerUp}
+                @pointercancel=${this.onPointerUp}
+                @pointerleave=${this.onPointerLeave}
+                @wheel=${this.onWheel}
+                aria-label="Field lab simulation"
+              ></canvas>
+              ${this.renderHover()}
+            </div>
           </div>
 
           <aside class="flex flex-col gap-4 text-sm">
@@ -305,24 +292,6 @@ ${this.status}</pre
       </section>
     `;
   }
-
-  private onPointerDown = (event: PointerEvent): void => {
-    (event.currentTarget as HTMLCanvasElement).setPointerCapture(
-      event.pointerId,
-    );
-    this.painting = true;
-    this.stamp(event);
-  };
-
-  private onPointerMove = (event: PointerEvent): void => {
-    if (this.painting) this.stamp(event);
-  };
-
-  private onPointerUp = (): void => {
-    this.painting = false;
-  };
-
-  private painting = false;
 }
 
 // Grouped (per-player) scalars decode as arrays; show the first few slots.

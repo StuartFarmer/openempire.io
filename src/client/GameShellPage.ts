@@ -8,7 +8,7 @@ import {
 } from "../games/alternative/world/WorldEngineElevation";
 import { LAB_SYSTEMS } from "./lab/systems";
 import { terrain as terrainSystem } from "./lab/systems/terrain/system";
-import { CameraRenderer, type CameraState } from "./shell/CameraRenderer";
+import { CameraRenderer } from "./shell/CameraRenderer";
 import {
   buildViewBitmap,
   SHELL_VIEWS,
@@ -22,7 +22,6 @@ import {
   type WorldgenSeasonalParams,
 } from "./webgpu/WebGpuWorldEngine";
 import { FieldViewerBase } from "./viewer/FieldViewerBase";
-import type { ViewerRenderer } from "./viewer/ViewerRenderer";
 
 /** User-tuned shell defaults (2026-07-17): override the manifest's
  * generation-time climate values for the derived view. River thresholds now
@@ -48,7 +47,6 @@ const SHELL_CLIMATE_DEFAULTS = {
 // base kernel, and the terrain-specific panels. Baked terrain-colors.png (via
 // MapLayerViews) is the fallback when the derivation is unavailable.
 
-const MAX_SCALE = 32;
 /** Ticks per in-world year — drives the terrain seasonal clock. */
 const YEAR_TICKS = 520;
 
@@ -119,7 +117,6 @@ export class GameShellPage extends FieldViewerBase {
   // Terrain-mode view (the derived-color modes + baked layer bitmaps), separate
   // from the base `view` (a sim system's declared views).
   @state() private shellView: ShellViewKey = "terrain";
-  @state() private zoomReadout = 1;
   @state() private weekReadout = 0;
   @state() private derivedOk = false;
   /** Sticky fallback notice — unlike status, applyView never clears it. */
@@ -132,7 +129,6 @@ export class GameShellPage extends FieldViewerBase {
   @state() private useClimateBase = true;
   @state() private snowBand = 0.075;
   @state() private biomeBlend = 0.05;
-  @state() private hoverTile: { x: number; y: number } | null = null;
 
   /** CPU copies of the derived source fields, for the hover readout. */
   private hoverFields: {
@@ -147,11 +143,6 @@ export class GameShellPage extends FieldViewerBase {
   } | null = null;
   private seasonActive = false;
   private tickCount = 0;
-  private camera: CameraState = { cx: 0, cy: 0, scale: 1 };
-  private dragging = false;
-  private painting = false;
-  private lastPointer = { x: 0, y: 0 };
-  private pendingFit = false;
   private recolorBusy = false;
   private recolorDirty = false;
   private deriveBusy = false;
@@ -185,12 +176,6 @@ export class GameShellPage extends FieldViewerBase {
     return "shell-canvas";
   }
 
-  protected async createRenderer(
-    canvas: HTMLCanvasElement,
-  ): Promise<ViewerRenderer> {
-    return CameraRenderer.create(canvas);
-  }
-
   async firstUpdated(): Promise<void> {
     // Outrank the page footer/header stacking contexts — fullscreen surface.
     this.style.zIndex = "9999";
@@ -206,22 +191,19 @@ export class GameShellPage extends FieldViewerBase {
   /** After a system mounts: derive (terrain) or point the camera at the sim's
    * out texture, then fit the camera on the next frame. */
   protected async onSystemMounted(mapData: MapData): Promise<void> {
+    this.clearViewCache();
+    this.tickCount = 0;
     if (this.isTerrain()) {
       await this.deriveTerrain(mapData);
       await this.applyTerrainView(this.shellView);
-    } else if (this.renderer && this.kernel?.outView) {
-      this.derivedOk = false;
-      this.derivedNote = "";
-      this.hoverFields = null;
-      this.renderer.setLiveTexture(
-        this.kernel.outView,
-        this.mapWidth,
-        this.mapHeight,
-      );
+      this.pendingFit = true;
+      return;
     }
-    this.clearViewCache();
-    this.tickCount = 0;
-    this.pendingFit = true;
+    // Sim system: base points the camera at the sim's out texture and fits.
+    this.derivedOk = false;
+    this.derivedNote = "";
+    this.hoverFields = null;
+    await super.onSystemMounted(mapData);
   }
 
   /**
@@ -412,25 +394,6 @@ export class GameShellPage extends FieldViewerBase {
     return !this.isTerrain();
   }
 
-  /** The camera presents every display frame regardless of sim/season cadence. */
-  protected present(): void {
-    const r = this.renderer;
-    if (!r) return;
-    r.syncSize();
-    if (this.pendingFit && r.mapWidth > 0) {
-      this.pendingFit = false;
-      this.camera = {
-        cx: this.mapWidth / 2,
-        cy: this.mapHeight / 2,
-        scale: r.fitScale() * 0.95,
-      };
-    }
-    this.clampCamera();
-    r.render(this.camera);
-    const zoom = Math.round(this.camera.scale * 100) / 100;
-    if (zoom !== this.zoomReadout) this.zoomReadout = zoom;
-  }
-
   // --- views ------------------------------------------------------------------
 
   /** Terrain view: derived color mode (repaint) or a baked layer bitmap. */
@@ -505,126 +468,13 @@ export class GameShellPage extends FieldViewerBase {
     }
   };
 
-  private framebufferPoint(event: PointerEvent | WheelEvent): {
-    x: number;
-    y: number;
-  } {
-    const canvas = event.currentTarget as HTMLCanvasElement;
-    const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    return {
-      x: (event.clientX - rect.left) * dpr,
-      y: (event.clientY - rect.top) * dpr,
-    };
-  }
+  // --- hover readout (terrain) — overrides the base's generic rows ------------
 
-  private cursorToMap(event: PointerEvent): { x: number; y: number } {
-    const canvas = event.currentTarget as HTMLCanvasElement;
-    const p = this.framebufferPoint(event);
-    return {
-      x: this.camera.cx + (p.x - canvas.width / 2) / this.camera.scale,
-      y: this.camera.cy + (p.y - canvas.height / 2) / this.camera.scale,
-    };
-  }
-
-  private onPointerDown = (event: PointerEvent): void => {
-    (event.currentTarget as HTMLCanvasElement).setPointerCapture(
-      event.pointerId,
-    );
-    // A plain drag first offers the tile to the system (input hook / brush);
-    // shift-drag always pans, and an unconsumed gesture falls back to pan.
-    if (!event.shiftKey) {
-      const { x, y } = this.cursorToMap(event);
-      if (this.onTileGesture(Math.floor(x), Math.floor(y), event)) {
-        this.painting = true;
-        return;
-      }
-    }
-    this.dragging = true;
-    this.lastPointer = this.framebufferPoint(event);
-  };
-
-  private onPointerMove = (event: PointerEvent): void => {
-    this.updateHover(event);
-    if (this.painting) {
-      const { x, y } = this.cursorToMap(event);
-      this.onTileGesture(Math.floor(x), Math.floor(y), event);
-      return;
-    }
-    if (!this.dragging) return;
-    const point = this.framebufferPoint(event);
-    this.camera.cx -= (point.x - this.lastPointer.x) / this.camera.scale;
-    this.camera.cy -= (point.y - this.lastPointer.y) / this.camera.scale;
-    this.lastPointer = point;
-  };
-
-  private onPointerUp = (): void => {
-    this.dragging = false;
-    this.painting = false;
-  };
-
-  private onPointerLeave = (): void => {
-    this.hoverTile = null;
-  };
-
-  private updateHover(event: PointerEvent): void {
-    const { x: mapX, y: mapY } = this.cursorToMap(event);
-    const x = Math.floor(mapX);
-    const y = Math.floor(mapY);
-    if (x < 0 || y < 0 || x >= this.mapWidth || y >= this.mapHeight) {
-      if (this.hoverTile !== null) this.hoverTile = null;
-      return;
-    }
-    if (this.hoverTile?.x !== x || this.hoverTile?.y !== y) {
-      this.hoverTile = { x, y };
-    }
-  }
-
-  private onWheel = (event: WheelEvent): void => {
-    event.preventDefault();
-    if (!this.renderer) return;
-    const point = this.framebufferPoint(event);
-    const canvas = event.currentTarget as HTMLCanvasElement;
-    const mapX =
-      this.camera.cx + (point.x - canvas.width / 2) / this.camera.scale;
-    const mapY =
-      this.camera.cy + (point.y - canvas.height / 2) / this.camera.scale;
-    const factor = Math.exp(-event.deltaY * 0.0015);
-    const minScale = this.renderer.fitScale() * 0.5;
-    const scale = Math.min(
-      MAX_SCALE,
-      Math.max(minScale, this.camera.scale * factor),
-    );
-    this.camera = {
-      scale,
-      cx: mapX - (point.x - canvas.width / 2) / scale,
-      cy: mapY - (point.y - canvas.height / 2) / scale,
-    };
-  };
-
-  private clampCamera(): void {
-    if (!this.renderer || this.renderer.mapWidth === 0) return;
-    const minScale = this.renderer.fitScale() * 0.5;
-    this.camera.scale = Math.min(
-      MAX_SCALE,
-      Math.max(minScale, this.camera.scale),
-    );
-    this.camera.cx = Math.min(
-      this.renderer.mapWidth,
-      Math.max(0, this.camera.cx),
-    );
-    this.camera.cy = Math.min(
-      this.renderer.mapHeight,
-      Math.max(0, this.camera.cy),
-    );
-  }
-
-  // --- hover readout (terrain) ------------------------------------------------
-
-  private hoverReadout(): { rows: [string, string][] } | null {
-    const tile = this.hoverTile;
+  protected hoverRows(hx: number, hy: number): [string, string][] {
+    const tile = { x: hx, y: hy };
     const f = this.hoverFields;
-    if (!tile || !f || !this.isTerrain()) return null;
+    // Sim systems (or no derivation) fall back to the base's generic readout.
+    if (!f || !this.isTerrain() || !this.derivedOk) return super.hoverRows(hx, hy);
     const i = tile.y * this.mapWidth + tile.x;
     const lon = ((tile.x + 0.5) / this.mapWidth) * 360 - 180;
     const lat = 90 - ((tile.y + 0.5) / this.mapHeight) * 180;
@@ -714,7 +564,7 @@ export class GameShellPage extends FieldViewerBase {
     } else {
       rows.push(["biome", biomeName(tempNorm, humidity, snow >= 1)]);
     }
-    return { rows };
+    return rows;
   }
 
   // --- render -----------------------------------------------------------------
@@ -894,25 +744,6 @@ export class GameShellPage extends FieldViewerBase {
           ? this.renderKnobs(this.derivedConfig)
           : null}
       </section>
-    `;
-  }
-
-  private renderHover() {
-    const info = this.hoverReadout();
-    if (!info) return null;
-    return html`
-      <div
-        class="absolute bottom-3 left-3 text-xs text-white bg-black/70 backdrop-blur px-3 py-2 rounded font-mono leading-5 min-w-[13rem]"
-      >
-        ${info.rows.map(
-          ([label, value]) => html`
-            <div class="flex justify-between gap-4">
-              <span class="text-white/50">${label}</span>
-              <span class="text-white/90">${value}</span>
-            </div>
-          `,
-        )}
-      </div>
     `;
   }
 

@@ -12,7 +12,6 @@ export const territory = defineFieldSystem({
   name: "Territory",
   description: "Cellular territory combat: empires push fronts over the map.",
   kind: "game",
-  renderer: "camera",
   defaultMap: "EarthXL",
   defaultView: "territory",
 

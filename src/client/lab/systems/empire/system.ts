@@ -16,7 +16,6 @@ export const empire = defineFieldSystem({
   name: "Empire",
   description: "4X vertical slice: empires grow over the ecology and fight.",
   kind: "game",
-  renderer: "camera",
   defaultMap: "EarthXL",
   defaultView: "empire",
 
