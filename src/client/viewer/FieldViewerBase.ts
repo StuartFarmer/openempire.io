@@ -15,15 +15,14 @@ import { FieldKernel } from "../webgpu/FieldKernel";
 import { uploadMapLayers } from "../webgpu/MapLayerUpload";
 import { CameraRenderer, type CameraState } from "../shell/CameraRenderer";
 
-// Shared machinery for the field viewers (unify-field-viewer / codify-game-
+// Shared machinery for the field viewer (unify-field-viewer / codify-game-
 // systems): a LitElement base that owns the device + a pan/zoom CameraRenderer,
 // the headless FieldKernel, the compiled system, the fixed-clock tick loop, and
-// the shared input (drag-to-pan, wheel-zoom, tile hover, brushes, AI) —
-// everything both the #lab playground and the #shell world view need. A
-// FieldKernel runs HEADLESS on `renderer.device`; the camera is pointed at the
-// kernel's `outView`. Subclasses add only their bespoke layer: the lab adds
-// Vite HMR; the shell adds the terrain derivation, climate knobs, and a rich
-// hover readout (via `hoverRows`).
+// the shared input (drag-to-pan, wheel-zoom, tile hover, click-to-stamp/command,
+// AI). A FieldKernel runs HEADLESS on `renderer.device`; the camera is pointed
+// at the kernel's `outView`. `#shell` (GameShellPage) is the concrete viewer;
+// it adds the terrain derivation, climate knobs, and a rich hover readout (via
+// `hoverRows`).
 
 // Fixed-clock death-spiral clamp: at most this many catch-up ticks per frame.
 export const MAX_TICKS_PER_FRAME = 8;
@@ -63,7 +62,8 @@ export abstract class FieldViewerBase extends LitElement {
   protected camera: CameraState = { cx: 0, cy: 0, scale: 1 };
   protected pendingFit = false;
   private dragging = false;
-  private painting = false;
+  private pointerMoved = false;
+  private downPoint = { x: 0, y: 0 };
   private lastPointer = { x: 0, y: 0 };
 
   private raf = 0;
@@ -374,36 +374,37 @@ export abstract class FieldViewerBase extends LitElement {
     (event.currentTarget as HTMLCanvasElement).setPointerCapture(
       event.pointerId,
     );
-    // A plain drag offers the tile to the system (input hook / brush); shift-
-    // drag always pans, and an unconsumed gesture falls back to pan.
-    if (!event.shiftKey) {
-      const { x, y } = this.cursorToMap(event);
-      if (this.onTileGesture(Math.floor(x), Math.floor(y), event)) {
-        this.painting = true;
-        return;
-      }
-    }
+    // Drag always pans (every system). A tile action — stamp a brush / command
+    // via the input hook — fires on a CLICK (pointerup with no drag), below.
     this.dragging = true;
-    this.lastPointer = this.framebufferPoint(event);
+    this.pointerMoved = false;
+    this.downPoint = this.framebufferPoint(event);
+    this.lastPointer = this.downPoint;
   };
 
   protected onPointerMove = (event: PointerEvent): void => {
     this.updateHover(event);
-    if (this.painting) {
-      const { x, y } = this.cursorToMap(event);
-      this.onTileGesture(Math.floor(x), Math.floor(y), event);
-      return;
-    }
     if (!this.dragging) return;
     const point = this.framebufferPoint(event);
+    if (
+      Math.abs(point.x - this.downPoint.x) +
+        Math.abs(point.y - this.downPoint.y) >
+      4
+    ) {
+      this.pointerMoved = true;
+    }
     this.camera.cx -= (point.x - this.lastPointer.x) / this.camera.scale;
     this.camera.cy -= (point.y - this.lastPointer.y) / this.camera.scale;
     this.lastPointer = point;
   };
 
-  protected onPointerUp = (): void => {
+  protected onPointerUp = (event: PointerEvent): void => {
+    // A click (no meaningful drag) is a tile action; a drag was a pan.
+    if (this.dragging && !this.pointerMoved) {
+      const { x, y } = this.cursorToMap(event);
+      this.onTileGesture(Math.floor(x), Math.floor(y), event);
+    }
     this.dragging = false;
-    this.painting = false;
   };
 
   protected onPointerLeave = (): void => {

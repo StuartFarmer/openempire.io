@@ -9,8 +9,8 @@ passes and a per-tick dispatch program. Swap the folder, get a different game.
 - Step 1 (done): `src/client/webgpu/FieldKernel.ts` — layers + pass runtime.
 - Step 2 (done): `src/client/webgpu/FieldDynamics.ts` — system folder →
   compiled system (tests: `tests/FieldDynamics.test.ts`).
-- Step 3 (done, v1): `src/client/FieldLabPage.ts` — the `#lab` page. Systems
-  live in `src/client/lab/systems/<id>/`.
+- Step 3 (done): `src/client/GameShellPage.ts` — the `#shell` viewer (was the
+  `#lab` page, since removed). Systems live in `src/client/lab/systems/<id>/`.
 
 Decisions taken (2026-07-16): **TS-literal manifest** (JSON-safe shape for a
 later graph editor); **WESL files, one per dynamic layer** — shader code lives
@@ -210,7 +210,7 @@ to upload), `writeParams`/`encodeBrush`/`decodeScalars` codecs, and
 ## 5. The developer experience loop
 
 1. Copy a system folder, register it in `src/client/lab/systems/index.ts`.
-2. Open `#lab`: pick a map and the system. Params become sliders, views the
+2. Open `#shell`: pick a map and the system. Params become sliders, views the
    dropdown, brushes the palette; play / pause / step / reset from the
    harness. **Play runs a fixed game clock** (default 10 ticks/s — matching
    OpenFront's 100 ms tick — adjustable, with a catch-up clamp so an
@@ -237,7 +237,7 @@ device. Cross-device bit-parity is explicitly not a goal.
 
 A `FieldSystem` is a plain object conforming to one interface — **there are no
 per-system classes.** `compileFieldSystem` is the single compiler and
-`FieldViewerBase` (shared by `#lab` and `#shell`, both under a pan/zoom camera) is the
+`FieldViewerBase` (the `#shell` viewer, under a pan/zoom camera) is the
 single host; a system is data + WESL + at most two closures. Beyond the
 mechanics/layers/views/params above, a system self-describes and owns its
 inputs and AI:

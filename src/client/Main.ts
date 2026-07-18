@@ -4,7 +4,6 @@ import { EventBus } from "../core/EventBus";
 import { GameInfo, GameRecord, GameStartInfo } from "../core/Schemas";
 import { joinLobby, type JoinLobbyResult } from "./ClientGameRunner";
 import "./EarthPage";
-import "./FieldLabPage";
 import "./GameShellPage";
 import { GameStartingModal } from "./GameStartingModal";
 import "./GeneratorPage";
@@ -184,10 +183,6 @@ class Client {
         window.showPage?.("page-webgpu");
         return;
       }
-      if (window.location.hash === "#lab") {
-        window.showPage?.("page-lab");
-        return;
-      }
       if (window.location.hash === "#shell") {
         window.showPage?.("page-shell");
         return;
@@ -280,11 +275,6 @@ class Client {
 
     if (decodedHash === "#webgpu") {
       window.showPage?.("page-webgpu");
-      return;
-    }
-
-    if (decodedHash === "#lab") {
-      window.showPage?.("page-lab");
       return;
     }
 
