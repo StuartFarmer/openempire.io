@@ -17,7 +17,12 @@ import {
   SHELL_VIEWS,
   type ShellView,
 } from "./shell/MapLayerViews";
-import { buildWaterMask, TerrainDerivation } from "./shell/TerrainDerivation";
+import {
+  buildWaterMask,
+  TerrainDerivation,
+  type DerivationFields,
+} from "./shell/TerrainDerivation";
+import { TerrainSystemRunner } from "./shell/TerrainSystemRunner";
 import { terrainMapFileLoader } from "./TerrainMapFileLoader";
 import {
   compileFieldSystem,
@@ -157,6 +162,10 @@ export class GameShellPage extends LitElement {
   private kernel: FieldKernel | null = null;
   private compiled: CompiledFieldSystem | null = null;
   private derivation: TerrainDerivation | null = null;
+  private systemRunner: TerrainSystemRunner | null = null;
+  /** Parity toggle ('y'): render the `terrain` system's derivation instead. */
+  private useSystemDerivation = false;
+  private lastDeriveFields: DerivationFields | null = null;
   private recolorBusy = false;
   private recolorDirty = false;
   /** CPU copies of the derived source fields, for the hover readout. */
@@ -204,6 +213,8 @@ export class GameShellPage extends LitElement {
     cancelAnimationFrame(this.raf);
     this.clearViewCache();
     this.derivation?.destroy();
+    this.systemRunner?.destroy();
+    this.systemRunner = null;
     this.derivation = null;
     this.kernel?.destroy();
     this.kernel = null;
@@ -238,6 +249,9 @@ export class GameShellPage extends LitElement {
         device: this.renderer.device,
       });
       this.derivation = await TerrainDerivation.create(this.renderer.device);
+      // Parity harness: the same derivation through the `terrain` FieldDynamics
+      // system. Press 'y' to A/B it against the hand-wired path.
+      this.systemRunner = await TerrainSystemRunner.create(this.renderer.device);
       await this.loadMap();
     } catch (error) {
       this.status = (error as Error).message;
@@ -382,21 +396,32 @@ export class GameShellPage extends LitElement {
         seasonAmp,
         seasonPhase,
       };
+      const deriveFields: DerivationFields = {
+        elevation,
+        waterMask,
+        tempBase,
+        humidityBase,
+        lakeBase,
+        riverBase,
+        ...(seasonAmp && seasonPhase ? { seasonAmp, seasonPhase } : {}),
+      };
+      this.lastDeriveFields = deriveFields;
       await this.derivation.derive(
-        {
-          elevation,
-          waterMask,
-          tempBase,
-          humidityBase,
-          lakeBase,
-          riverBase,
-          ...(seasonAmp && seasonPhase ? { seasonAmp, seasonPhase } : {}),
-        },
+        deriveFields,
         this.derivedConfig,
         DERIVED_VIEWS[this.viewKey] ?? "terrain",
         this.seasonal(),
         this.runtime(),
       );
+      if (this.useSystemDerivation && this.systemRunner) {
+        await this.systemRunner.derive(
+          deriveFields,
+          this.derivedConfig,
+          DERIVED_VIEWS[this.viewKey] ?? "terrain",
+          this.seasonal(),
+          this.runtime(),
+        );
+      }
       this.derivedOk = true;
       this.status = "";
     } catch (error) {
@@ -428,22 +453,38 @@ export class GameShellPage extends LitElement {
     if (!this.renderer) return;
     this.viewKey = view;
     const derivedMode = this.derivedOk ? DERIVED_VIEWS[view] : undefined;
-    if (derivedMode && this.derivation?.outView && this.derivedConfig) {
+    // Parity toggle: point the camera at whichever derivation is active.
+    const activeOutView =
+      this.useSystemDerivation && this.systemRunner?.outView
+        ? this.systemRunner.outView
+        : this.derivation?.outView;
+    if (derivedMode && activeOutView && this.derivedConfig) {
       // Live derived view: the worldgen kernel's out texture; repaint the
       // color pass with this view mode.
       this.renderer.setLiveTexture(
-        this.derivation.outView,
+        activeOutView,
         this.mapWidth,
         this.mapHeight,
       );
       try {
-        await this.derivation.repaint(
-          this.derivedConfig,
-          derivedMode,
-          this.seasonal(),
-          this.runtime(),
-        );
-        this.status = "";
+        if (this.useSystemDerivation && this.systemRunner && this.lastDeriveFields) {
+          // System path re-runs the full derivation for the view mode.
+          await this.systemRunner.derive(
+            this.lastDeriveFields,
+            this.derivedConfig,
+            derivedMode,
+            this.seasonal(),
+            this.runtime(),
+          );
+        } else if (this.derivation) {
+          await this.derivation.repaint(
+            this.derivedConfig,
+            derivedMode,
+            this.seasonal(),
+            this.runtime(),
+          );
+          this.status = "";
+        }
       } catch (error) {
         this.status = (error as Error).message;
       }
@@ -493,7 +534,32 @@ export class GameShellPage extends LitElement {
     if (event.key === "n" || event.key === "N") {
       this.cycleView(event.shiftKey ? -1 : 1);
     }
+    if (event.key === "y" || event.key === "Y") {
+      void this.toggleSystemDerivation();
+    }
   };
+
+  /** Parity A/B: run the current derivation through the `terrain` system and
+   * point the camera at its output (or back to the hand-wired one). */
+  private async toggleSystemDerivation(): Promise<void> {
+    if (!this.systemRunner || !this.derivedConfig || !this.lastDeriveFields) {
+      return;
+    }
+    this.useSystemDerivation = !this.useSystemDerivation;
+    if (this.useSystemDerivation) {
+      this.status = "terrain SYSTEM derivation (y to toggle)";
+      await this.systemRunner.derive(
+        this.lastDeriveFields,
+        this.derivedConfig,
+        DERIVED_VIEWS[this.viewKey] ?? "terrain",
+        this.seasonal(),
+        this.runtime(),
+      );
+    } else {
+      this.status = "";
+    }
+    await this.applyView(this.viewKey);
+  }
 
   private loop = (time: number): void => {
     this.raf = requestAnimationFrame(this.loop);

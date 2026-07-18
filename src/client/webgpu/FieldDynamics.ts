@@ -1162,10 +1162,16 @@ ${oceanMask ? "  if (land[i] == 0.0) { color = vec3f(0.055, 0.13, 0.20); }" : ""
   }
 
   // --- buffers ------------------------------------------------------------------------
+  // Map-layer inputs the layer/view passes reference — but NOT names a
+  // derivation owns (a `derive` field may legitimately be called "elevation";
+  // it is its own buffer, not the map-plane upload).
+  const derivedNameSet = new Set(derivedFields.map(([name]) => name));
   const mapLayers = [
     ...new Set(
       passes.flatMap((pass) =>
-        pass.binds.filter((bind) => MAP_LAYER_NAMES.includes(bind)),
+        pass.binds.filter(
+          (bind) => MAP_LAYER_NAMES.includes(bind) && !derivedNameSet.has(bind),
+        ),
       ),
     ),
   ].sort();
