@@ -1,5 +1,7 @@
 {
   "categories": ["new", "world"],
+  "elevation": true,
+  "hydro": true,
   "id": "EarthMini",
   "layers": true,
   "map": {
@@ -976,6 +978,26 @@
       "name": "New Zealand"
     }
   ],
+  "season": true,
   "terrain_colors": true,
-  "translation_key": "map.earthmini"
+  "translation_key": "map.earthmini",
+  "world_engine": {
+    "coastFalloff": 0.78,
+    "coastRoughness": 0.42,
+    "continentScale": 0.92,
+    "elevationCooling": 0.35,
+    "height": 512,
+    "lakeElevationRange": 0.03,
+    "lakeWaterThreshold": 1.2,
+    "latitudeEffect": 0.72,
+    "mountainStrength": 0.56,
+    "rainNoise": 0.62,
+    "riverFlowRetention": 0.82,
+    "riverStrongThreshold": 0.48,
+    "riverWeakThreshold": 0.28,
+    "seaLevel": 0.46,
+    "seed": 572183,
+    "warmthRainfall": 0.42,
+    "width": 1024
+  }
 }

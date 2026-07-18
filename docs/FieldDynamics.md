@@ -1,246 +1,246 @@
 # Field Dynamics — spec
 
-A systems-dynamics layer on top of FieldKernel. A **system definition** (a
-typed TS literal: stocks, params, reduces, brushes, views — with raw WGSL
-bodies) compiles to generated compute passes and a per-tick dispatch program.
-Swap the definition, get a different game.
+A systems-dynamics layer on top of FieldKernel. **Everything per-tile is a
+layer, and every layer has the same interface.** A system is a folder: a typed
+TS manifest (params, scalars, brushes, views — pure data) plus one WESL file
+per _dynamic_ layer. The compiler links everything into generated compute
+passes and a per-tick dispatch program. Swap the folder, get a different game.
 
 - Step 1 (done): `src/client/webgpu/FieldKernel.ts` — layers + pass runtime.
-- Step 2 (done): `src/client/webgpu/FieldDynamics.ts` — `FieldSystem` → compiled
-  system (tests: `tests/FieldDynamics.test.ts`).
+- Step 2 (done): `src/client/webgpu/FieldDynamics.ts` — system folder →
+  compiled system (tests: `tests/FieldDynamics.test.ts`).
 - Step 3 (done, v1): `src/client/FieldLabPage.ts` — the `#lab` page. Systems
-  live in `src/client/lab/systems/`.
+  live in `src/client/lab/systems/<id>/`.
 
-Decisions taken (2026-07-16): **TS-literal authoring** (JSON-safe shape for a
-later graph editor), **raw WGSL expressions everywhere** (no transpiler — the
-compiler's job is name scanning, code assembly, and struct/bind generation;
-WGSL itself is the expression language), **state preserved across recompiles**
-(always-reset is the free degenerate case behind a toggle), **grazing ecology**
-as the first proof system.
+Decisions taken (2026-07-16): **TS-literal manifest** (JSON-safe shape for a
+later graph editor); **WESL files, one per dynamic layer** — shader code lives
+in real `.wesl` files linked with [wesl-js](https://wesl-lang.dev), and **the
+import list is the dependency declaration** (no name-scanning of shader
+bodies, no by-convention strings); **one unified layer concept** — map planes
+and dynamic state expose the identical module API; **state preserved across
+recompiles**; **grazing ecology** as the first proof system.
 
 ---
 
 ## 1. Mental model
 
-Classic stocks-and-flows, lifted from scalars to per-tile fields:
+Classic stocks-and-flows, lifted from scalars to per-tile layers:
 
-| Concept          | Meaning                                 | GPU realization                                                                                        |
-| ---------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| **field stock**  | one f32 per tile, evolves each tick     | ping-pong layer + one generated compute pass                                                           |
-| **scalar stock** | one global f32 (later: per-player)      | slot in a GPU-resident `Sim` struct, written by reduce passes                                          |
-| **param**        | designer-tunable constant               | uniform member → automatic slider on the lab page, live (no recompile)                                 |
-| **map field**    | read-only terrain input                 | `layers.bin` planes (`crop metal oil temperature humidity water`, 0..1) + `land` from the terrain bits |
-| **brush**        | pointer input stamped into a field      | generated stamp pass driven by a small uniform                                                         |
-| **reduce**       | field expression → scalar (sum/max/min) | atomic reduction pass (fixed-point integers → order-independent, deterministic)                        |
-| **view**         | expression → color ramp                 | generated colorizer pass → FieldKernel's present path                                                  |
+| Concept           | Meaning                                        | GPU realization                                                                                  |
+| ----------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| **layer**         | one f32 per tile, uniform read API             | storage buffer + a generated state module per pass                                               |
+| — _dynamic_ layer | evolves each tick                              | its own `layers/<name>.wesl` file → ping-pong buffer + linked init/update passes                 |
+| — _map_ layer     | read-only terrain input, no file               | `layers.bin` planes (`crop metal oil temperature humidity water`) + `land` from the terrain bits |
+| **scalar**        | one global f32 (later: per-player)             | slot in a GPU-resident `Sim` struct, written by reduce passes                                    |
+| **param**         | designer-tunable constant                      | uniform member → automatic slider, live (no recompile)                                           |
+| **brush**         | pointer input stamped into a dynamic layer     | generated stamp pass driven by a small uniform                                                   |
+| **reduce**        | any layer → scalar (sum/max/min)               | atomic reduction pass (fixed-point integers → order-independent, deterministic)                  |
+| **view**          | any layer or a `.wesl` expression → color ramp | generated colorizer pass → FieldKernel's present path                                            |
 
-**Update semantics (the one rule that matters):** every tick is synchronous.
-All stock update bodies read the _previous_ tick's values — including their
-own — then all stocks commit at once (Jacobi step, classic CA semantics).
-Mechanically: stock passes read `.read` facets and write `.write`, carry **no
-`advances`**, and the tick program swaps every stock afterward in a commit
-phase. No evaluation-order dependence between stocks, ever; cross-stock
-feedback loops are legal and simply delayed one tick.
+**Update semantics (the one rule that matters):** by default every tick is
+synchronous. `update` returns the layer's next value; every read — including
+of the layer being updated — sees the _previous_ tick (Jacobi step, classic
+CA semantics), so update order is meaningless and cross-layer feedback loops
+are legal, simply delayed one tick. Mechanically: stock passes read `.read`
+facets and write `.write`, carry no `advances`, and the tick program swaps
+all dynamic layers at once in a commit phase.
 
-## 2. A complete system definition
+**Staged ordering (opt-in):** when order should matter, declare `phases` in
+the manifest — `phases: [["food"], ["population", "labor"]]`. Each phase
+commits before the next runs, so later phases read earlier phases'
+**current-tick** values (Gauss-Seidel staging); within a phase, updates stay
+synchronous. Updated layers not listed run in a final implicit phase. A
+layer's own reads always see its previous value (it commits after its own
+update).
+
+## 2. A complete system
+
+```
+src/client/lab/systems/grazing/
+  system.ts             ← manifest (pure data)
+  layers/grass.wesl     ← one file per dynamic layer
+  layers/herd.wesl
+  views/pressure.wesl   ← optional custom views
+  lib/…                 ← optional shared WESL, importable as package::lib::…
+```
+
+A layer file defines the layer's **transition functions** — it is not the
+layer's state. State lives in two registries imported whole — `params` and
+`layers` — and every layer in the registry has the identical class-like API:
+
+```wgsl
+// layers/herd.wesl
+import package::params;
+import package::layers;
+
+fn init(x: i32, y: i32, i: u32) -> f32 {
+  return 0.0;
+}
+
+fn update(x: i32, y: i32, i: u32) -> f32 {
+  var v = layers::herd::val(i);
+  v += params::herdBirth() * v * layers::grass::val(i);
+  v -= params::herdDeath() * v;
+  v += params::herdSpread() * (layers::herd::avg8(x, y) - v);
+  return select(0.0, clamp(v, 0.0, 1.0), layers::land::val(i) != 0.0);
+}
+```
+
+Reading it: `layers::land` (a map plane) and `layers::grass` (another dynamic
+layer) are accessed exactly the same way; the layer's own previous-tick state
+is `layers::herd` like anywhere else (alias it if you prefer:
+`import package::layers::herd as prev;` → `prev::val(i)`). `update` returns
+the next value — no output buffers, no ping-pong knowledge, no binding
+declarations. The layer's name is its filename.
+
+The manifest wires the data-shaped parts. Note map layers are first-class
+everywhere a layer is expected (the `fertility` view shows the raw crop
+plane):
 
 ```ts
-// src/client/lab/systems/grazing.ts
-import type { FieldSystem } from "../../webgpu/FieldDynamics";
-
-export const grazing: FieldSystem = {
+// system.ts
+export const grazing = defineFieldSystem({
   id: "grazing",
   name: "Grazing",
-
   params: {
     grassGrowth: { value: 0.04, min: 0, max: 0.2 },
-    grazeRate: { value: 0.3, min: 0, max: 1 },
-    herdBirth: { value: 0.12, min: 0, max: 0.5 },
-    herdDeath: { value: 0.05, min: 0, max: 0.5 },
-    herdSpread: { value: 0.15, min: 0, max: 0.5 },
+    // …
   },
-
-  fields: {
-    grass: {
-      init: "crop[i]", // seeded from the map's crop plane
-      update: /* wgsl */ `
-        let regrow = P.grassGrowth * crop[i] * (1.0 - grass_in[i]);
-        let grazed = P.grazeRate * herd_in[i] * grass_in[i];
-        grass_out[i] = clamp(grass_in[i] + regrow - grazed, 0.0, 1.0);
-      `,
-    },
-    herd: {
-      init: "0.0",
-      update: /* wgsl */ `
-        var v = herd_in[i];
-        v += P.herdBirth * v * grass_in[i];
-        v -= P.herdDeath * v;
-        v += P.herdSpread * (avg8_herd(x, y) - v);
-        herd_out[i] = select(0.0, clamp(v, 0.0, 1.0), land[i] != 0.0);
-      `,
-    },
-  },
-
   scalars: {
-    totalHerd: { reduce: "sum", of: "herd_in[i]" },
+    totalHerd: { reduce: "sum", layer: "herd" },
+    peakGrass: { reduce: "max", layer: "grass" },
   },
-
   brushes: {
     seedHerds: { target: "herd", mode: "set", value: 1, radius: 4 },
   },
-
   views: {
-    grass: { expr: "grass_in[i]", ramp: ["#1a140b", "#6fae4e"] },
-    herds: { expr: "herd_in[i]", ramp: ["#0b1220", "#f0c86e"] },
-    pressure: {
-      expr: "P.grazeRate * herd_in[i] * grass_in[i]",
-      ramp: ["#101418", "#e05555"],
-    },
+    herds: { layer: "herd", ramp: ["#0b1220", "#f0c86e"] },
+    fertility: { layer: "crop", ramp: ["#141414", "#b9e08a"] },
+    pressure: { source: "views/pressure.wesl", ramp: ["#101418", "#e05555"] },
   },
-};
+  modules: import.meta.glob("./**/*.wesl", {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  }) as Record<string, string>,
+});
 ```
 
-Reading it: grass regrows toward the map's crop fertility and is eaten by
-herds; herds grow where they eat, die at a base rate, diffuse toward
-neighboring tiles, and can't exist off land. Two coupled stocks, one spatial
-helper, one reduction, one brush, three views. Everything inside the strings
-is plain WGSL — there is no second language to learn, and the `/* wgsl */`
-comment turns on editor highlighting.
+A custom view is a `.wesl` file exporting `fn value(x, y, i) -> f32`, with the
+same imports available as layer files.
 
-## 3. What's in scope inside the WGSL
+## 3. The layer API (and the other imports)
 
-The compiler assembles each pass from: FieldKernel's prelude (`GRID`, `refOf`,
-`inBounds`, `clamp01`, the `OFF` neighbor table) + generated structs +
-generated binding declarations + generated helpers + your code. Names you can
-use:
+Four registries, imported whole and used through qualified paths:
 
-| Name                                                                                | Type            | Meaning                                                                           |
-| ----------------------------------------------------------------------------------- | --------------- | --------------------------------------------------------------------------------- |
-| `x`, `y`, `i`                                                                       | `i32, i32, u32` | tile coords and row-major index (args of the generated `fn tile`)                 |
-| `GRID.size`                                                                         | `vec2u`         | map dimensions                                                                    |
-| `<field>_in[i]`                                                                     | `f32`           | any stock's **previous-tick** value (including the stock being updated)           |
-| `<field>_out[i]`                                                                    | `f32`           | the updated stock's write target — every update body must assign it on every path |
-| `crop[i] metal[i] oil[i] temperature[i] humidity[i] water[i] land[i]`               | `f32`           | map fields, 0..1 (`land` is 0/1)                                                  |
-| `P.<param>`                                                                         | `f32`           | params; `P.seed: i32` is always present                                           |
-| `S.tick`                                                                            | `u32`           | tick counter (lives in the Sim buffer so multi-tick batches stay correct)         |
-| `scalar_<name>()`                                                                   | `f32`           | previous-tick value of a reduce (decodes fixed-point for you)                     |
-| `rand(x, y)`                                                                        | `f32`           | deterministic per-tile per-tick white noise (`hash01(P.seed + tick, x, y)`)       |
-| `noise(x, y, freq, octaves)`                                                        | `f32`           | the worldgen's seeded fbm value-noise                                             |
-| `sum8_<field>(x, y)` `avg8_<field>(x, y)` `max8_<field>(x, y)` `min8_<field>(x, y)` | `f32`           | generated neighbor reductions over `<field>_in` (bounds-safe)                     |
+| Registry                   | Usage                                                                                                                                                                                                                                                                                                                              |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `import package::layers;`  | `layers::<name>::val(i)` — value at a tile index (previous tick); `layers::<name>::at(x, y)` — clamped read by coordinates. **f32 layers** add `sum8/avg8/max8/min8(x, y)` neighbor reductions; **id (u32/i32) layers** add `count8_eq(x, y, id)` and `any8_ne(x, y, id)` (front detection). Identical for dynamic and map layers. |
+| `import package::params;`  | `params::<name>() -> f32` — tunable param (live slider, no recompile); `params::seed() -> i32`. Unknown names are compile diagnostics.                                                                                                                                                                                             |
+| `import package::players;` | `players::val(p)` — the per-player input struct (fields from the manifest's `players` block, CPU-written each frame via `writePlayers`); `players::count() -> u32`.                                                                                                                                                                |
+| `import package::sim;`     | `sim::tick() -> u32`; deterministic per-tile/per-tick `sim::rand(x, y)`; seeded fbm `sim::noise(x, y, freq, octaves)`; reduce values `sim::scalar_<name>()` — or `sim::scalar_<name>(p)` for `groupBy` scalars.                                                                                                                    |
 
-**Bind inference:** you never write binding declarations. The compiler scans
-each body for the identifiers above and binds exactly what it finds —
-`herd_in` → `herd.read`, `herd_out` → `herd.write`, `crop` → the crop layer,
-`P.` → the params uniform, `rand(`/`S.` → the Sim buffer, `avg8_herd(` →
-injects that helper and binds `herd.read`. Referencing an unknown `*_in`/
-`*_out` name is a compile-time diagnostic before WGSL ever sees it.
+**Layer types:** a dynamic layer's type is the return type of its `fn init` —
+`fn init(x, y, i) -> u32` makes a u32 layer (e.g. `owner` holding player
+ids). Map layers are f32.
 
-**Error surface:** since the expression language _is_ WGSL, the WGSL compiler
-is the type checker. FieldKernel runs `getCompilationInfo()` on every module
-and reports errors as `pass-name:line:col message` against the numbered,
-assembled source — so a typo in `fields.herd.update` fails fast with the
-generated code visible, not as a silent black map.
+**Per-player scalars:** `scalars: { food: { reduce: "sum", layer: "food",
+groupBy: "owner" } }` turns the scalar into an array of `players.count`
+values, accumulated by the group id read from the (u32/i32) `groupBy` layer;
+`decodeScalars` returns it as a `number[]`. The `count` reduce op tallies
+tiles (`{ reduce: "count", groupBy: "owner" }` = tiles owned per player).
+
+Registries alias (`import package::layers as L;`) and specific modules import
+directly (`import package::layers::herd as prev;` → `prev::val(i)`) — both
+standard WESL. Also available:
+
+| Import                                                                        | Provides                                          |
+| ----------------------------------------------------------------------------- | ------------------------------------------------- |
+| `import package::kernel::{GRID, OFF, inBounds, refOf, clamp01, hash01, fbm};` | grid helpers + the worldgen's noise stack         |
+| `package::lib::…`, `super::…`                                                 | your own shared WESL modules in the system folder |
+
+The only dynamic/map layer difference is writability: `update`, brushes, and
+init apply to dynamic layers; targeting a map layer is a compile diagnostic
+("read-only").
+
+**How it works:** the compiler scans each file's `import` statements and
+qualified registry references (nothing else), derives the pass's bindings
+from them, generates the registry modules with the assigned binding indices,
+wraps the transition in a dispatch root, and links with wesl —
+identically-named members across layer modules are mangled correctly by the
+linker, and item-level tree-shaking keeps each pass minimal. Two error
+surfaces, both precise:
+
+- unknown layers/params/scalars → compiler diagnostics before linking, e.g.
+  `layers/herd.wesl: "gras" is not a layer (dynamic: grass, herd; map: crop, …)`;
+- WESL/WGSL errors → link errors with file/line/caret, and any surviving WGSL
+  issue is reported by FieldKernel against the numbered assembled source,
+  tagged with the pass name.
 
 ## 4. What the compiler emits
 
-For the grazing system above:
+For grazing: per dynamic layer an `init/<name>` and `stock/<name>` pass (fully
+linked WGSL, `raw: true` to FieldKernel — binds derived from the imports, e.g.
+`["P", "grass.read", "herd.read", "land", "herd.write"]`); plus generated
+`sim/zero` (tick++, zero reduce slots, in-stream so multi-tick batching
+works), `reduce/*` (fixed-point/bitcast atomics), `brush/*` (stamp), and
+`view/*` passes. Structs (`Params`, `Sim`/`SimAtomic`, `Brush`) are generated
+from the manifest.
 
-**Generated structs** (sizes and layout are the compiler's problem):
-
-```wgsl
-struct Params {
-  grassGrowth: f32,
-  grazeRate: f32,
-  herdBirth: f32,
-  herdDeath: f32,
-  herdSpread: f32,
-  seed: i32,
-  pad0: u32, pad1: u32,
-}
-struct Sim { tick: u32, totalHerd_fx: i32 }          // read view
-struct SimAtomic { tick: u32, totalHerd_fx: atomic<i32> } // reduce-write view
-```
-
-**Generated passes** (FieldKernel specs — binds inferred, `fn tile` wrapping
-and dispatch are FieldKernel's):
-
-| Pass               | Binds                                         | Body                                                                               |
-| ------------------ | --------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `init/grass`       | `P?, crop, grass.write`                       | `grass_out[i] = (crop[i]);`                                                        |
-| `init/herd`        | `herd.write`                                  | `herd_out[i] = (0.0);`                                                             |
-| `sim/zero`         | `S:SimAtomic!` _(single)_                     | `S.tick += 1; totalHerd_fx = 0;`                                                   |
-| `stock/grass`      | `P, crop, grass.read, herd.read, grass.write` | your update body                                                                   |
-| `stock/herd`       | `P, land, grass.read, herd.read, herd.write`  | helper `avg8_herd` + your update body                                              |
-| `reduce/totalHerd` | `herd.read, S:SimAtomic!`                     | `atomicAdd(&S.totalHerd_fx, i32(clamp(herd_in[i], -32768.0, 32767.0) * 65536.0));` |
-| `brush/seedHerds`  | `B, herd.read, herd.write` _(advances herd)_  | stamp-within-radius copy                                                           |
-| `view/*`           | inferred + `out`                              | ramp interpolation + `textureStore`                                                |
-
-Sums/counts accumulate in **fixed point** (×2^16 integer atomics), max/min via
-the bitcast-u32 trick the worldgen already uses — reductions are
-order-independent, so runs are deterministic on a given device.
-
-**The tick program** — no `advances` on stock passes; the commit phase is the
-synchronous semantics:
+The tick program (synchronous commit):
 
 ```ts
 compiled.runTick(kernel, frame);
-// = frame.pass("sim/zero")            tick += 1, zero reduce slots (in-stream → multi-tick batching works)
-//   frame.pass("stock/grass")         reads *.read, writes grass.write
-//   frame.pass("stock/herd")          reads *.read, writes herd.write
+// = frame.pass("sim/zero")
+//   frame.pass("stock/grass")   reads *.read → writes grass.write
+//   frame.pass("stock/herd")    reads *.read → writes herd.write
 //   kernel.swap("grass"); kernel.swap("herd")   // commit
-//   frame.pass("reduce/totalHerd")
+//   frame.pass("reduce/totalHerd"); frame.pass("reduce/peakGrass")
 ```
 
-Budget: ~5 dispatches/tick here; the worldgen runs ~800 dispatches in 13–20 ms
-on this machine, so even hundreds of ticks per second is headroom, at 1024².
+Budget: ~6 dispatches/tick; measured ~1.5 ms/frame at 240 ticks/sec on
+Verdantia (512×256, Apple Metal).
 
-**The compiled object** the lab page consumes:
-
-```ts
-interface CompiledFieldSystem {
-  kernelConfig: FieldKernelConfig; // hand to FieldKernel.create
-  paramList: { name; value; min; max; step }[]; // → sliders
-  viewNames: string[]; // → view dropdown
-  brushNames: string[]; // → tool palette
-  fieldNames: string[]; // → state preserve/migration
-  mapFields: string[]; // which planes to upload
-  writeParams(values, seed): ArrayBuffer;
-  encodeBrush(name, x, y, radiusOverride?): ArrayBuffer;
-  decodeScalars(bytes): { tick: number } & Record<string, number>;
-  runInit(kernel, frame): void; // init passes + commit swaps
-  runTick(kernel, frame): void;
-  runView(kernel, frame, view): void; // view pass (page calls present)
-}
-```
+The compiled object the lab page consumes: `kernelConfig` (hand to
+`FieldKernel.create`), `paramList` → sliders, `viewNames`/`brushNames` →
+dropdowns, `layerNames` (dynamic, for state migration) / `mapLayers` (planes
+to upload), `writeParams`/`encodeBrush`/`decodeScalars` codecs, and
+`runInit`/`runTick`/`runView` programs.
 
 ## 5. The developer experience loop
 
-1. Create `src/client/lab/systems/mygame.ts` exporting a `FieldSystem`;
-   register it in the systems index.
-2. Open `#lab`: pick a **map** (any baked map — its `layers.bin` planes are
-   the map fields) and your **system**. Params become sliders (live, no
-   recompile), views populate the dropdown, brushes the tool palette;
-   play / pause / step / tick-rate / reset come from the harness.
-3. Paint with a brush, watch stocks evolve, flip between views to debug —
-   the view dropdown is the pass-graph debugger, same as the worldgen page.
-4. Edit the file → Vite HMR hands the new definition to the page →
-   recompile in milliseconds → **state is preserved**: surviving fields keep
-   their values (read back + re-uploaded across the kernel swap), new fields
-   run `init`, deleted ones drop. Reset reruns all inits (that's the
-   "always reset" mode for free).
-5. WGSL mistakes surface in a diagnostics panel with `pass:line:col` against
-   the assembled source; the last good compile keeps ticking underneath.
+1. Copy a system folder, register it in `src/client/lab/systems/index.ts`.
+2. Open `#lab`: pick a map and the system. Params become sliders, views the
+   dropdown, brushes the palette; play / pause / step / reset from the
+   harness. **Play runs a fixed game clock** (default 10 ticks/s — matching
+   OpenFront's 100 ms tick — adjustable, with a catch-up clamp so an
+   overloaded GPU dilates sim time instead of freezing). **Turbo** is
+   GPU-bound fast-forward: command buffers submit back to back with the
+   batch size adapting toward ~25 ms of GPU time each, so throughput is
+   whatever the hardware gives (~20k ticks/s on Verdantia, ~60/s on the
+   4096×2048 EarthXL) while pause/brush latency stays ~one batch.
+3. Paint, watch, flip views to debug — the view dropdown is the pass-graph
+   debugger.
+4. Edit a `.wesl` file → Vite HMR → recompile in milliseconds → **state is
+   preserved** for dynamic layers whose names survive (read back and
+   re-uploaded across the kernel swap); new layers run `init`; Reset reruns
+   all inits.
+5. `.wesl` files are real files: WESL editor tooling (syntax highlighting,
+   the WESL VS Code extension) applies. The generated `package::layer`/
+   `params`/`sim` modules exist only at compile time, so a vanilla LSP shows
+   their imports as unresolved — a generated stub package can fix that later.
 
-Determinism: same definition + map + seed + brush log ⇒ same run on a given
+Determinism: same folder + map + seed + brush log ⇒ same run on a given
 device. Cross-device bit-parity is explicitly not a goal.
 
 ## 6. Out of scope for v1 (named so we don't design into a corner)
 
-- **Integer/id fields** (`field<u32>`) — territory ownership, faction ids.
-- **Per-player scalars** — reduces with `groupBy(owner)` → scalar arrays;
-  the bridge to real win conditions.
 - **Iterate blocks** — N-pass relaxations (the worldgen's fill/flow pattern)
   as a first-class construct.
-- **Entities** — sparse units stamping into fields (CPU list + brush
+- **Entities** — sparse units stamping into layers (CPU list + brush
   mechanism covers the near term).
-- **Node-graph editor** — the definition shape is already JSON-safe for it.
+- **Node-graph editor** — the manifest shape is already JSON-safe for it.
+
+(Shipped since v1: typed `u32`/`i32` layers, per-player `groupBy` scalars,
+and the `players` input registry — the substrate for territory/game
+mechanics.)

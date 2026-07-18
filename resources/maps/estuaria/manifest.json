@@ -1,5 +1,7 @@
 {
   "categories": ["new", "fictional"],
+  "elevation": true,
+  "hydro": true,
   "id": "Estuaria",
   "layers": true,
   "map": {
@@ -16,5 +18,24 @@
   "name": "Estuaria",
   "nations": [],
   "terrain_colors": true,
-  "translation_key": "map.estuaria"
+  "translation_key": "map.estuaria",
+  "world_engine": {
+    "coastFalloff": 0.78,
+    "coastRoughness": 0.42,
+    "continentScale": 0.92,
+    "elevationCooling": 0.35,
+    "height": 384,
+    "lakeElevationRange": 0.03,
+    "lakeWaterThreshold": 1.2,
+    "latitudeEffect": 0.72,
+    "mountainStrength": 0.56,
+    "rainNoise": 0.62,
+    "riverFlowRetention": 0.82,
+    "riverStrongThreshold": 0.48,
+    "riverWeakThreshold": 0.28,
+    "seaLevel": 0.46,
+    "seed": 23,
+    "warmthRainfall": 0.42,
+    "width": 384
+  }
 }

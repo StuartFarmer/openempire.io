@@ -57,6 +57,15 @@ export class BinaryLoaderGameMapLoader implements GameMapLoader {
       layersBin: this.createLazyLoader(() =>
         loadBinary(mapAssetUrl("layers.bin")),
       ),
+      elevationBin: this.createLazyLoader(() =>
+        loadBinary(mapAssetUrl("elevation.bin")),
+      ),
+      hydroBin: this.createLazyLoader(() =>
+        loadBinary(mapAssetUrl("hydro.bin")),
+      ),
+      seasonBin: this.createLazyLoader(() =>
+        loadBinary(mapAssetUrl("season.bin")),
+      ),
     } satisfies MapData;
 
     this.maps.set(map, mapData);

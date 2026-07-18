@@ -190,6 +190,83 @@ func processMap(ctx context.Context, name string, isTest bool) error {
 		delete(manifest, "layers")
 	}
 
+	// elevation.bin sidecar: one u16 little-endian plane (width × height × 2
+	// bytes) — the primary field runtime terrain derivation starts from. See
+	// src/core/game/ElevationMap.ts for the format. The baker only copies and
+	// size-checks; it never parses the plane. The world_engine render config
+	// travels from info.json into manifest.json via the manifest passthrough.
+	elevationPath := filepath.Join(inputMapDir, name, "elevation.bin")
+	elevationData, err := os.ReadFile(elevationPath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("failed to read elevation sidecar for %s: %w", name, err)
+		}
+		if !isTest {
+			// Shipped maps must carry the elevation sidecar. Retrofit with:
+			// npx tsx map-generator/derive-layers.ts
+			return fmt.Errorf("map %s has no elevation.bin (required; run derive-layers.ts to retrofit)", name)
+		}
+		delete(manifest, "elevation")
+	} else {
+		expectedElevationSize := 2 * result.Map.Width * result.Map.Height
+		if len(elevationData) != expectedElevationSize {
+			return fmt.Errorf("map %s elevation.bin size mismatch: got %d bytes, expected %d",
+				name, len(elevationData), expectedElevationSize)
+		}
+		if err := os.WriteFile(filepath.Join(mapDir, "elevation.bin"), elevationData, 0644); err != nil {
+			return fmt.Errorf("failed to write elevation sidecar for %s: %w", name, err)
+		}
+		manifest["elevation"] = true
+	}
+
+	// hydro.bin sidecar: two Uint8 planes (lake, river) at full resolution —
+	// see src/core/game/HydroMap.ts (HYDRO_PLANE_NAMES). Keeps lakes and
+	// rivers distinct for rendering. Copy + size-check only.
+	hydroPath := filepath.Join(inputMapDir, name, "hydro.bin")
+	hydroData, err := os.ReadFile(hydroPath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("failed to read hydro sidecar for %s: %w", name, err)
+		}
+		if !isTest {
+			return fmt.Errorf("map %s has no hydro.bin (required; run derive-layers.ts to retrofit)", name)
+		}
+		delete(manifest, "hydro")
+	} else {
+		expectedHydroSize := 2 * result.Map.Width * result.Map.Height
+		if len(hydroData) != expectedHydroSize {
+			return fmt.Errorf("map %s hydro.bin size mismatch: got %d bytes, expected %d",
+				name, len(hydroData), expectedHydroSize)
+		}
+		if err := os.WriteFile(filepath.Join(mapDir, "hydro.bin"), hydroData, 0644); err != nil {
+			return fmt.Errorf("failed to write hydro sidecar for %s: %w", name, err)
+		}
+		manifest["hydro"] = true
+	}
+
+	// season.bin sidecar: OPTIONAL two Uint8 planes (amplitude, phase) — the
+	// real seasonal cycle fit from monthly data (see src/core/game/SeasonMap.ts).
+	// Only real-data maps carry it; generated maps use the latitude model, so
+	// absence is fine (no error). Copy + size-check only.
+	seasonPath := filepath.Join(inputMapDir, name, "season.bin")
+	seasonData, err := os.ReadFile(seasonPath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("failed to read season sidecar for %s: %w", name, err)
+		}
+		delete(manifest, "season")
+	} else {
+		expectedSeasonSize := 2 * result.Map.Width * result.Map.Height
+		if len(seasonData) != expectedSeasonSize {
+			return fmt.Errorf("map %s season.bin size mismatch: got %d bytes, expected %d",
+				name, len(seasonData), expectedSeasonSize)
+		}
+		if err := os.WriteFile(filepath.Join(mapDir, "season.bin"), seasonData, 0644); err != nil {
+			return fmt.Errorf("failed to write season sidecar for %s: %w", name, err)
+		}
+		manifest["season"] = true
+	}
+
 	// Serialize the updated manifest to JSON
 	updatedManifest, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {

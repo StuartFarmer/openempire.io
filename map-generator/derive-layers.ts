@@ -1,5 +1,6 @@
 /**
- * derive-layers.ts — retrofit the layers.bin and terrain-colors.png sidecars
+ * derive-layers.ts — retrofit the layers.bin, terrain-colors.png, and
+ * elevation.bin sidecars (plus the world_engine render config in info.json)
  * onto a generated map whose engine state is gone (only the baked image.png
  * survives, e.g. maps exported from the #generator page before layers
  * existed).
@@ -16,14 +17,22 @@
  * Usage:
  *   npx tsx map-generator/derive-layers.ts --map majormenor [--seed 123]
  *   # then: npm run gen-maps
+ *
+ * --elevation-only skips layers.bin and terrain-colors.png — for maps whose
+ * shipped sidecars come from a DIFFERENT pipeline (the earth/bake.ts real-data
+ * maps) that must not be clobbered by this reconstruction.
  */
 import { createCanvas, ImageData, loadImage } from "canvas";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { encodeElevation } from "../src/core/game/ElevationMap";
 import { encodeLayers, LAYER_NAMES } from "../src/core/game/MapLayers";
 import { simpleHash } from "../src/core/Util";
-import { buildFreshwaterPlane } from "../src/games/alternative/world/GeneratorMapExport";
+import {
+  buildFreshwaterPlane,
+  buildGeneratorHydroBlob,
+} from "../src/games/alternative/world/GeneratorMapExport";
 import {
   buildWorldEngineTerrainColors,
   deriveFoundationWorldEngineResourceConfig,
@@ -63,6 +72,7 @@ const seed =
   arg("seed") !== undefined
     ? Number(arg("seed"))
     : simpleHash(`layers:${mapName}`) % 1_000_000;
+const elevationOnly = process.argv.includes("--elevation-only");
 
 const img = await loadImage(imagePath);
 const canvas = createCanvas(img.width, img.height);
@@ -92,6 +102,45 @@ for (let i = 0; i < total; i++) {
   } else {
     const magnitude = Math.max(0, Math.min(30, (data[off] - 140) / 2));
     elevation[i] = magnitude / 30;
+  }
+}
+
+// Break the 31-level quantization: flat plateaus give the drainage solver
+// zero gradient, which shows up as diagonal flow artifacts downstream. A
+// small land-only blur restores gradients between steps; a deterministic
+// sub-step dither breaks what ties remain. Same seed ⇒ same field.
+{
+  const src = elevation.slice();
+  const hash01 = (i: number): number => {
+    let h = (i ^ seed) >>> 0;
+    h = Math.imul(h, 2654435761) >>> 0;
+    h ^= h >>> 13;
+    h = Math.imul(h, 1274126177) >>> 0;
+    return (h >>> 8) / 16777216;
+  };
+  const radius = 2;
+  const step = 1 / 30;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = y * width + x;
+      if (isWater[i] === 1) continue;
+      let sum = 0;
+      let count = 0;
+      for (let dy = -radius; dy <= radius; dy++) {
+        const ny = y + dy;
+        if (ny < 0 || ny >= height) continue;
+        for (let dx = -radius; dx <= radius; dx++) {
+          const nx = x + dx;
+          if (nx < 0 || nx >= width) continue;
+          const ni = ny * width + nx;
+          if (isWater[ni] === 1) continue;
+          sum += src[ni];
+          count++;
+        }
+      }
+      const dither = (hash01(i) - 0.5) * step * 0.6;
+      elevation[i] = Math.min(1, Math.max(0, sum / count + dither));
+    }
   }
 }
 
@@ -135,10 +184,46 @@ for (let i = 0; i < total; i++) {
   }
   for (let i = 0; i < total; i++) {
     if (isWater[i] === 0) continue;
-    const d = dist[i] === -1 ? 30 : Math.min(dist[i], 30);
-    // shore (d=1) ≈ 0.95·seaLevel, deep ocean (d≥30) ≈ 0.15·seaLevel.
-    elevation[i] = cfg.seaLevel * (0.95 - (d / 30) * 0.8);
+    const d = dist[i] === -1 ? 64 : Math.min(dist[i], 64);
+    // Shore (d=1) ≈ 0.94·seaLevel down to abyss (d≥64) ≈ 0.05·seaLevel. The
+    // sqrt profile front-loads the slope near shore and flattens toward the
+    // deep, so the runtime depth ramp reads as shelf → slope → plain instead
+    // of a constant-width glow ring around every coast.
+    elevation[i] = cfg.seaLevel * (0.95 - 0.9 * Math.sqrt(d / 64));
   }
+}
+
+// ── elevation.bin + the render config runtime derivation replays ──
+// Written before the climate pipeline so --elevation-only can stop here.
+//
+// The export uses a seaLevel-ANCHORED land mapping: the pipeline's raw
+// magnitude/30 land field puts low-magnitude land below cfg.seaLevel, which
+// the runtime derivation's ocean flood would read as submerged. Exported
+// land maps into (seaLevel, 1] — coast just above sea level, magnitude 30 at
+// 1.0 — while water keeps the synthetic shelf (already below seaLevel), so
+// the field is self-consistent with the recorded config.
+const elevationExport = new Float32Array(total);
+for (let i = 0; i < total; i++) {
+  elevationExport[i] =
+    isWater[i] === 1
+      ? elevation[i]
+      : cfg.seaLevel + 0.01 + elevation[i] * (0.99 - cfg.seaLevel);
+}
+fs.writeFileSync(
+  path.join(mapDir, "elevation.bin"),
+  encodeElevation(elevationExport, width, height),
+);
+{
+  const infoPath = path.join(mapDir, "info.json");
+  const info = JSON.parse(fs.readFileSync(infoPath, "utf8"));
+  info.world_engine = cfg;
+  fs.writeFileSync(infoPath, `${JSON.stringify(info, null, 2)}\n`);
+}
+console.log(
+  `wrote ${mapDir}/elevation.bin (u16 plane) + world_engine config in info.json`,
+);
+if (elevationOnly) {
+  process.exit(0);
 }
 
 // ── The engine's real pipeline, from reconstructed elevation ──
@@ -198,6 +283,10 @@ const blob = encodeLayers(
   height,
 );
 fs.writeFileSync(path.join(mapDir, "layers.bin"), blob);
+fs.writeFileSync(
+  path.join(mapDir, "hydro.bin"),
+  buildGeneratorHydroBlob({ normalizedWatermap, lakes }, width, height),
+);
 
 // ── Terrain colors: the engine's real palette over the reconstructed fields ──
 const biome = generateWorldEngineBiome(ocean, temperature, humidity);

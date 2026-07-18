@@ -1,7 +1,6 @@
 import { LitElement, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { GameMapType } from "../core/game/Game";
-import { layerPlaneOffset, type LayerName } from "../core/game/MapLayers";
 import { LAB_SYSTEMS } from "./lab/systems";
 import { terrainMapFileLoader } from "./TerrainMapFileLoader";
 import {
@@ -10,14 +9,21 @@ import {
   type FieldSystem,
 } from "./webgpu/FieldDynamics";
 import { FieldKernel } from "./webgpu/FieldKernel";
+import { uploadMapLayers } from "./webgpu/MapLayerUpload";
 
 // #lab — the Field Dynamics playground (docs/FieldDynamics.md): pick a map
 // and a system; params become sliders, views the dropdown, brushes the tool
 // palette. The sim runs as compiled FieldKernel passes; painting is a stamp
 // pass; scalars read back asynchronously.
 
-const TERRAIN_LAND_BIT = 0x80;
+// Fixed-clock mode: at most this many catch-up ticks per display frame (the
+// death-spiral clamp — if the GPU can't keep the requested rate, sim time
+// dilates instead of freezing the page).
 const MAX_TICKS_PER_FRAME = 8;
+// Turbo mode: adapt the ticks-per-command-buffer so one batch costs roughly
+// this much GPU time — keeps presents/pause/brushes responsive on huge maps
+// while staying GPU-bound.
+const TURBO_TARGET_MS = 25;
 
 @customElement("field-lab-page")
 export class FieldLabPage extends LitElement {
@@ -27,11 +33,14 @@ export class FieldLabPage extends LitElement {
   @state() private brush = "";
   @state() private paramValues: Record<string, number> = {};
   @state() private running = false;
-  @state() private ticksPerSecond = 30;
+  // Game clock: OpenFront ticks every 100ms, so 10/s is the default.
+  @state() private ticksPerSecond = 10;
+  @state() private turbo = false;
   @state() private status = "";
-  @state() private scalarReadout: Record<string, number> = {};
+  @state() private scalarReadout: Record<string, number | number[]> = {};
   @state() private tickReadout = 0;
   @state() private gpuMs = 0;
+  @state() private ticksPerSec = 0;
 
   private systems: readonly FieldSystem[] = LAB_SYSTEMS;
   private compiled: CompiledFieldSystem | null = null;
@@ -45,7 +54,11 @@ export class FieldLabPage extends LitElement {
   private inFlight = false;
   private needsRedraw = false;
   private readbackTimer = 0;
+  private botTimer = 0;
   private painting = false;
+  private pumpActive = false;
+  private lastPresent = 0;
+  private turboBatch = 8;
 
   createRenderRoot() {
     return this;
@@ -54,6 +67,12 @@ export class FieldLabPage extends LitElement {
   connectedCallback(): void {
     super.connectedCallback();
     this.readbackTimer = window.setInterval(() => void this.readScalars(), 500);
+    // Toy bot driver: while running, re-roll every player's attack target
+    // periodically. A real game shell replaces this with actual player/AI
+    // intents through the same writePlayers channel.
+    this.botTimer = window.setInterval(() => {
+      if (this.running) this.writeBots();
+    }, 4000);
     this.raf = requestAnimationFrame(this.loop);
     this.installHotSwap();
   }
@@ -61,9 +80,29 @@ export class FieldLabPage extends LitElement {
   disconnectedCallback(): void {
     super.disconnectedCallback();
     window.clearInterval(this.readbackTimer);
+    window.clearInterval(this.botTimer);
     cancelAnimationFrame(this.raf);
     this.kernel?.destroy();
     this.kernel = null;
+  }
+
+  private writeBots(): void {
+    if (!this.kernel || !this.compiled) return;
+    if (this.compiled.playerCount === 0) return;
+    const bots = Array.from(
+      { length: this.compiled.playerCount },
+      (_, p): Record<string, number> => ({
+        alive: p === 0 ? 0 : 1, // slot 0 = neutral
+        attacking: 1,
+        commit: 0.4 + Math.random() * 0.6,
+        targetX: Math.random() * this.mapWidth,
+        targetY: Math.random() * this.mapHeight,
+      }),
+    );
+    this.kernel.writeBuffer(
+      "PL",
+      new Uint8Array(this.compiled.writePlayers(bots)),
+    );
   }
 
   firstUpdated(): void {
@@ -85,7 +124,7 @@ export class FieldLabPage extends LitElement {
     this.running = false;
     this.status = "Loading…";
     try {
-      const compiled = compileFieldSystem(system);
+      const compiled = await compileFieldSystem(system);
       const mapType = GameMapType[this.mapKey as keyof typeof GameMapType];
       const mapData = terrainMapFileLoader.getMapData(mapType);
       const manifest = await mapData.manifest();
@@ -97,26 +136,7 @@ export class FieldLabPage extends LitElement {
       const kernel = await FieldKernel.create(canvas, compiled.kernelConfig);
       kernel.resize(width, height);
 
-      const area = width * height;
-      for (const name of compiled.mapFields) {
-        const plane = new Float32Array(area);
-        if (name === "land") {
-          const terrain = await mapData.mapBin();
-          for (let i = 0; i < area; i += 1) {
-            plane[i] = (terrain[i] & TERRAIN_LAND_BIT) !== 0 ? 1 : 0;
-          }
-        } else {
-          if (!mapData.layersBin) {
-            throw new Error(`Map "${this.mapKey}" has no layers.bin`);
-          }
-          const layers = await mapData.layersBin();
-          const offset = layerPlaneOffset(name as LayerName, width, height);
-          for (let i = 0; i < area; i += 1) {
-            plane[i] = layers[offset + i] / 255;
-          }
-        }
-        kernel.writeBuffer(name, plane);
-      }
+      await uploadMapLayers(kernel, compiled.mapLayers, mapData, width, height);
 
       this.compiled = compiled;
       this.kernel = kernel;
@@ -138,13 +158,15 @@ export class FieldLabPage extends LitElement {
         "P",
         compiled.writeParams(this.paramValues, this.seed),
       );
+      this.turboBatch = 8; // re-learn the map's cost profile
+      this.writeBots();
       await this.resetState();
 
       // State migration: restore fields that survived a hot-swap.
       if (preserved) {
-        for (const name of compiled.fieldNames) {
+        for (const name of compiled.layerNames) {
           const data = preserved.get(name);
-          if (data && data.byteLength === area * 4) {
+          if (data && data.byteLength === width * height * 4) {
             kernel.writeBuffer(name, new Float32Array(data));
           }
         }
@@ -168,12 +190,57 @@ export class FieldLabPage extends LitElement {
     await frame.finish();
   }
 
+  // Turbo (fast-forward): GPU-bound batches submitted back to back, paced
+  // only by GPU completion. The batch size adapts toward TURBO_TARGET_MS of
+  // GPU time so presents, pause, and brushes stay responsive even on huge
+  // maps; a view+present rides along roughly once per display frame.
+  private async pump(): Promise<void> {
+    if (this.pumpActive) return;
+    this.pumpActive = true;
+    try {
+      while (this.turbo && this.running && this.kernel && this.compiled) {
+        const kernel = this.kernel;
+        const compiled = this.compiled;
+        const batch = this.turboBatch;
+        const frame = kernel.beginFrame();
+        for (let t = 0; t < batch; t += 1) {
+          compiled.runTick(kernel, frame);
+        }
+        const now = performance.now();
+        if (now - this.lastPresent > 16) {
+          compiled.runView(frame, this.view);
+          frame.present();
+          this.lastPresent = now;
+        }
+        const result = await frame.finish();
+        if (this.kernel !== kernel) break;
+        this.tickReadout += batch;
+        this.ticksPerSec = Math.round((batch / result.gpuMs) * 1000);
+        this.gpuMs = result.gpuMs;
+        // Blend toward the batch size that would cost TURBO_TARGET_MS.
+        const ideal = (batch * TURBO_TARGET_MS) / Math.max(0.5, result.gpuMs);
+        this.turboBatch = Math.round(
+          Math.min(1024, Math.max(1, batch * 0.5 + ideal * 0.5)),
+        );
+      }
+    } catch (error) {
+      this.status = (error as Error).message;
+    } finally {
+      this.pumpActive = false;
+    }
+  }
+
+  // The default game clock: fixed-rate ticks paced by wall time (10/s
+  // matches OpenFront's 100ms tick step), clamped so an overloaded GPU
+  // dilates sim time instead of freezing the page. Also handles redraws
+  // while paused. Turbo hands the queue to the pump instead.
   private loop = (time: number): void => {
     this.raf = requestAnimationFrame(this.loop);
     const dt =
       this.lastTime === 0 ? 0 : Math.min(0.25, (time - this.lastTime) / 1000);
     this.lastTime = time;
     if (!this.kernel || !this.compiled || this.inFlight) return;
+    if (this.turbo && this.running) return; // the pump owns the queue
     let ticks = 0;
     if (this.running) {
       this.accumulator = Math.min(
@@ -283,7 +350,7 @@ export class FieldLabPage extends LitElement {
   private async hotSwap(): Promise<void> {
     const preserved = new Map<string, ArrayBuffer>();
     if (this.kernel && this.compiled) {
-      for (const name of this.compiled.fieldNames) {
+      for (const name of this.compiled.layerNames) {
         try {
           preserved.set(name, await this.kernel.readBuffer(name));
         } catch {
@@ -321,10 +388,25 @@ export class FieldLabPage extends LitElement {
                   @click=${() => {
                     this.running = !this.running;
                     this.accumulator = 0;
+                    if (this.running && this.turbo) void this.pump();
                   }}
                 >
                   ${this.running ? "Pause" : "Play"}
                 </button>
+                <label
+                  class="px-3 py-2 border border-white/30 text-sm font-medium flex items-center gap-2 cursor-pointer select-none"
+                >
+                  <input
+                    type="checkbox"
+                    .checked=${this.turbo}
+                    @change=${(e: Event) => {
+                      this.turbo = (e.target as HTMLInputElement).checked;
+                      this.accumulator = 0;
+                      if (this.running && this.turbo) void this.pump();
+                    }}
+                  />
+                  Turbo
+                </label>
                 <button
                   class="px-3 py-2 border border-white/30 text-sm font-medium"
                   @click=${() => this.encodeFrame(1)}
@@ -345,10 +427,12 @@ export class FieldLabPage extends LitElement {
 
             <div class="text-sm text-white/70 flex gap-4 flex-wrap">
               <span>tick ${this.tickReadout}</span>
-              <span>${this.gpuMs.toFixed(1)} ms/frame</span>
+              ${this.running && this.turbo
+                ? html`<span>${this.ticksPerSec} ticks/s (turbo)</span>`
+                : html`<span>${this.gpuMs.toFixed(1)} ms/frame</span>`}
               ${Object.entries(this.scalarReadout).map(
                 ([name, value]) =>
-                  html`<span>${name}: ${value.toFixed(1)}</span>`,
+                  html`<span>${name}: ${formatScalar(value)}</span>`,
               )}
             </div>
 
@@ -453,12 +537,13 @@ ${this.status}</pre
 
             <label class="grid gap-1">
               <span class="text-white/70"
-                >Ticks per second: ${this.ticksPerSecond}</span
+                >Game clock: ${this.ticksPerSecond} ticks/s
+                ${this.turbo ? "(overridden by Turbo)" : ""}</span
               >
               <input
                 type="range"
                 min="1"
-                max="240"
+                max="60"
                 step="1"
                 .value=${String(this.ticksPerSecond)}
                 @input=${(e: Event) => {
@@ -511,6 +596,16 @@ ${this.status}</pre
       </section>
     `;
   }
+}
+
+// Grouped (per-player) scalars decode as arrays; show the first few slots.
+function formatScalar(value: number | number[]): string {
+  if (typeof value === "number") return value.toFixed(1);
+  const head = value
+    .slice(0, 4)
+    .map((v) => v.toFixed(1))
+    .join(", ");
+  return value.length > 4 ? `[${head}, …]` : `[${head}]`;
 }
 
 interface ViteHotContext {

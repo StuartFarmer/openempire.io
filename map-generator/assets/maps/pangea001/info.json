@@ -4,5 +4,24 @@
   "translation_key": "map.pangea001",
   "categories": ["new", "fictional"],
   "multiplayer_frequency": 0,
-  "nations": []
+  "nations": [],
+  "world_engine": {
+    "seed": 854003,
+    "width": 256,
+    "height": 256,
+    "seaLevel": 0.46,
+    "continentScale": 0.92,
+    "mountainStrength": 0.56,
+    "coastFalloff": 0.78,
+    "coastRoughness": 0.42,
+    "latitudeEffect": 0.72,
+    "elevationCooling": 0.35,
+    "rainNoise": 0.62,
+    "warmthRainfall": 0.42,
+    "riverFlowRetention": 0.82,
+    "lakeWaterThreshold": 1.2,
+    "lakeElevationRange": 0.03,
+    "riverWeakThreshold": 0.28,
+    "riverStrongThreshold": 0.48
+  }
 }

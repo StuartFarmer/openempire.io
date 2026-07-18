@@ -82,6 +82,7 @@ export function initNavigation() {
     if (window.location.hash === "#generator") return "page-generator";
     if (window.location.hash === "#webgpu") return "page-webgpu";
     if (window.location.hash === "#lab") return "page-lab";
+    if (window.location.hash === "#shell") return "page-shell";
     return "page-play";
   };
 

@@ -1,4 +1,6 @@
+import { link } from "wesl";
 import { LAYER_NAMES } from "../../core/game/MapLayers";
+import { linkDerivation, type DerivationPass } from "./FieldDerivation";
 import type {
   FieldBufferSpec,
   FieldFrame,
@@ -6,17 +8,44 @@ import type {
   FieldKernelConfig,
   FieldPassSpec,
 } from "./FieldKernel";
-import { NOISE_WGSL } from "./WgslNoise";
+import { KERNEL_WESL } from "./WeslKernel";
 
-// FieldDynamics: compiles a FieldSystem definition (stocks, params, reduces,
-// brushes, views — with raw WGSL bodies) into a FieldKernel config plus the
-// per-tick dispatch programs. See docs/FieldDynamics.md.
+// FieldDynamics: everything per-tile is a LAYER, and every layer has the same
+// interface. See docs/FieldDynamics.md.
 //
-// There is no expression transpiler by design: WGSL is the expression
-// language. The compiler's job is name scanning (bind inference), helper
-// injection, struct/layout generation, and program assembly. WGSL compile
-// errors surface through FieldKernel's getCompilationInfo path, tagged with
-// the generated pass name.
+// A system is a folder: a TS manifest (params, scalars, brushes, views,
+// players — pure data) plus one WESL file per DYNAMIC layer under `layers/`.
+// Map planes (crop, metal, oil, temperature, humidity, water, land) are
+// read-only f32 layers that exist without a file. A module imports the
+// registries it uses —
+//
+//   import package::params;
+//   import package::layers;
+//   import package::players;
+//   import package::sim;
+//
+// — and reads through qualified paths with one uniform, class-like API:
+//
+//   params::herdBirth()                      tunable param (live slider)
+//   layers::grass::val(i)                    value at a tile index
+//   layers::grass::at(x, y)                  clamped read by coordinates
+//   layers::grass::sum8/avg8/max8/min8(x, y) neighbor reductions (f32 layers)
+//   layers::owner::count8_eq(x, y, id)       id-layer neighbor helpers
+//   layers::owner::any8_ne(x, y, id)         (u32/i32 layers)
+//   players::val(p).targetX / players::count()  per-player CPU-written inputs
+//   sim::tick() / sim::rand(x, y) / sim::noise(x, y, f, o)
+//   sim::scalar_<name>() / sim::scalar_<name>(p)  reduce values (p = grouped)
+//
+// A dynamic layer's TYPE is the return type of its `fn init` (f32, u32, or
+// i32) — an `owner` layer is `fn init(...) -> u32`. All layer reads are
+// previous-tick; `update` returns the next value. The imports + qualified
+// references are the dependency declaration: the compiler scans them (nothing
+// else) to derive bindings, generates the registry modules with the assigned
+// binding indices, wraps the transition in a dispatch root, and links with
+// wesl.
+//
+// Update semantics are synchronous (Jacobi) by default; the manifest's
+// `phases` opts into staged (Gauss-Seidel) commits.
 
 export interface FieldParamSpec {
   value: number;
@@ -25,26 +54,24 @@ export interface FieldParamSpec {
   step?: number;
 }
 
-export interface FieldStockSpec {
-  /** WGSL expression for the initial value; `x`, `y`, `i` are in scope. */
-  init: string;
-  /**
-   * WGSL statements updating the stock; must assign `<name>_out[i]` on every
-   * path. Reads (`*_in`) see the previous tick — including this stock's own.
-   * Omit for a field that only changes via init/brushes.
-   */
-  update?: string;
-}
+export type FieldLayerType = "f32" | "u32" | "i32";
 
-export type FieldReduceOp = "sum" | "max" | "min";
+export type FieldReduceOp = "sum" | "max" | "min" | "count";
 
 export interface FieldReduceSpec {
   reduce: FieldReduceOp;
-  /** WGSL f32 expression reduced over all tiles; `x`, `y`, `i` in scope. */
-  of: string;
+  /** Layer whose values reduce. Required for sum/max/min; absent for count. */
+  layer?: string;
+  /**
+   * Group the reduce per player: the named u32/i32 dynamic layer holds the
+   * group id per tile (e.g. "owner"), and the scalar becomes an array of
+   * `players.count` values. Requires the `players` block.
+   */
+  groupBy?: string;
 }
 
 export interface FieldBrushSpec {
+  /** Must be a dynamic layer (map layers are read-only). */
   target: string;
   mode: "set" | "add";
   value: number;
@@ -52,24 +79,123 @@ export interface FieldBrushSpec {
 }
 
 export interface FieldViewSpec {
-  /** WGSL f32 expression, clamped to 0..1 and mapped through the ramp. */
-  expr: string;
-  /** Hex color stops, evenly spaced. */
-  ramp: readonly string[];
+  /** Show any layer directly… */
+  layer?: string;
+  /**
+   * …or a `.wesl` module. Export `fn value(x, y, i) -> f32` (mapped through
+   * the ramp) or `fn color(x, y, i) -> vec4f` (full-color view — you own the
+   * pixels; ramp/oceanMask don't apply; alpha is yours to carry flags in).
+   */
+  source?: string;
+  /** Hex color stops, evenly spaced. Required unless the source exports fn color. */
+  ramp?: readonly string[];
   /** Paint non-land tiles a fixed water color (default true). */
   oceanMask?: boolean;
+}
+
+export interface FieldPlayersSpec {
+  /** Number of player slots (group ids run 0..count-1). */
+  count: number;
+  /** Per-player input fields, CPU-written via writePlayers(). */
+  fields: Record<string, "f32" | "u32">;
 }
 
 export interface FieldSystem {
   id: string;
   name: string;
-  /** Extra WGSL shared by every generated pass. */
-  prelude?: string;
   params?: Record<string, FieldParamSpec>;
-  fields: Record<string, FieldStockSpec>;
   scalars?: Record<string, FieldReduceSpec>;
   brushes?: Record<string, FieldBrushSpec>;
   views: Record<string, FieldViewSpec>;
+  players?: FieldPlayersSpec;
+  /**
+   * Optional staged update ordering. Default (omitted): every layer updates
+   * in one synchronous step — all reads see the previous tick, order is
+   * meaningless (Jacobi). With phases, each group commits before the next
+   * runs, so later phases read earlier phases' CURRENT-tick values
+   * (Gauss-Seidel staging): `phases: [["food"], ["population", "labor"]]`.
+   * Within a phase, updates stay synchronous. Updated layers not listed run
+   * in a final implicit phase.
+   */
+  phases?: readonly (readonly string[])[];
+  /**
+   * Optional ON-DEMAND derivation pipeline (unify-field-viewer): an algorithm
+   * — not a per-tick sim — run at load (and re-run on parameter change) that
+   * produces derived fields from map inputs. Expresses the worldgen and any
+   * one-shot GPU pipeline via `iterate`, single-dispatch passes, atomic global
+   * reductions, and scratch buffers. Absent = a pure per-tick system (the lab
+   * default). See `runDerive` on the compiled system.
+   */
+  derive?: FieldDeriveSpec;
+  /**
+   * WESL sources keyed by system-relative path. Dynamic layers are discovered
+   * from `layers/<name>.wesl`; `lib/**` and `views/**` are importable as
+   * `package::lib::…` / `package::views::…`. Derivation pass bodies live under
+   * `passes/<name>.wesl` (imported as `package::passes::<name>`).
+   */
+  modules: Record<string, string>;
+}
+
+/** A field produced or consumed by the derivation: a scratch/derived buffer
+ * (default grid-sized f32) or a fixed-size accumulator (e.g. a 256-bin
+ * histogram, a Globals struct). Cleared before each derivation run so the
+ * pipeline is reproducible. */
+export interface FieldDerivedSpec {
+  type: FieldLayerType;
+  /** Element count. Default: the grid (width×height). Set for fixed-size
+   * accumulators/globals (e.g. 256 histogram bins, 4-word globals). */
+  count?: number;
+  /** Ping-pong for iterated passes; inferred true when a step advances it. */
+  pingPong?: boolean;
+}
+
+/** One step of the derivation pipeline — a linked WESL pass (grid or single),
+ * optionally iterated to convergence. Binds use FieldDerivation's grammar
+ * (`name`, `name!`, `name.read`/`.write`, `x:Type!`, `P`, `out`). */
+export interface FieldDeriveStep {
+  /** Pass body module: `package::passes::<pass>`. */
+  pass: string;
+  /** Dispatch name (defaults to `pass`); referenced by the derivation program. */
+  name?: string;
+  binds: readonly string[];
+  kind?: "grid" | "single";
+  /** Repeat this pass N times (ping-pong) — flood/fill/flow convergence. */
+  iterate?: number;
+  /** Ping-pong buffers advanced after the pass runs. */
+  advances?: readonly string[];
+}
+
+export interface FieldDeriveSpec {
+  /** All derivation buffers — map inputs (uploaded), scratch, and derived. */
+  fields: Record<string, FieldDerivedSpec>;
+  /** The ordered pipeline. */
+  steps: readonly FieldDeriveStep[];
+  /** WESL import line for the shared struct types the passes reference
+   * (e.g. `import package::types::{Params, Globals, GlobalsAtomic};`). */
+  typeImports: string;
+  /** Custom `P` uniform layout, when the derivation passes own their own
+   * Params struct (via typeImports) instead of the manifest-generated one —
+   * e.g. reusing the worldgen's Params. The system encodes `P` externally
+   * (kernel.writeUniform("P", …)); `bytes` sizes the buffer, `wgslType` names
+   * the struct. Omit to use the generated Params from the manifest `params`. */
+  uniform?: { wgslType: string; bytes: number };
+}
+
+/** Normalize an import.meta.glob record (keys like "./layers/x.wesl") into a system's modules. */
+export function defineFieldSystem(
+  system: Omit<FieldSystem, "modules"> & {
+    modules: Record<string, string>;
+  },
+): FieldSystem {
+  return {
+    ...system,
+    modules: Object.fromEntries(
+      Object.entries(system.modules).map(([path, source]) => [
+        path.replace(/^\.\//, ""),
+        source,
+      ]),
+    ),
+  };
 }
 
 export interface CompiledFieldSystem {
@@ -85,21 +211,32 @@ export interface CompiledFieldSystem {
   viewNames: readonly string[];
   brushNames: readonly string[];
   scalarNames: readonly string[];
-  fieldNames: readonly string[];
-  /** Map planes referenced by any pass — the page uploads exactly these. */
-  mapFields: readonly string[];
+  /** Dynamic layers (state migrates across recompiles). */
+  layerNames: readonly string[];
+  /** Map-plane layers referenced by any pass — the page uploads exactly these. */
+  mapLayers: readonly string[];
+  /** Player slots (0 when the system has no players block). */
+  playerCount: number;
   writeParams(
     values: Readonly<Record<string, number>>,
     seed: number,
   ): ArrayBuffer;
+  /** Encode per-player inputs; upload with kernel.writeBuffer("PL", …). */
+  writePlayers(
+    players: ReadonlyArray<Readonly<Record<string, number>>>,
+  ): ArrayBuffer;
   encodeBrush(name: string, x: number, y: number, radius?: number): ArrayBuffer;
   decodeScalars(data: ArrayBuffer): {
     tick: number;
-    values: Record<string, number>;
+    values: Record<string, number | number[]>;
   };
+  /** Derivation buffer fields (empty when the system has no `derive`). */
+  derivedNames: readonly string[];
   runInit(frame: FieldFrame): void;
   runTick(kernel: FieldKernel, frame: FieldFrame): void;
   runView(frame: FieldFrame, view: string): void;
+  /** Run the on-demand derivation pipeline (no-op without `derive`). */
+  runDerive(frame: FieldFrame): void;
   brushPass(name: string): string;
 }
 
@@ -110,27 +247,299 @@ export class FieldDynamicsError extends Error {
   }
 }
 
-/** Map planes every system can read; `land` derives from the terrain bits. */
-export const MAP_FIELD_NAMES: readonly string[] = [...LAYER_NAMES, "land"];
+/** Read-only layers provided by the map; `land` derives from the terrain bits. */
+// `land` derives from the terrain bit; `elevation` from the terrain
+// magnitude bits (altitude on land, depth in water, both 0..1).
+export const MAP_LAYER_NAMES: readonly string[] = [
+  ...LAYER_NAMES,
+  "land",
+  "elevation",
+];
 
 // Fixed-point scale for sum reduces: ±8M range with 1/256 resolution keeps
 // 1024²·value sums inside i32 while atomicAdd stays order-independent.
 const SUM_FX = 256;
 const IDENT = /^[A-Za-z_]\w*$/;
-const NEIGHBOR_OPS = ["sum8", "avg8", "max8", "min8"] as const;
+const SIM_ITEMS = ["tick", "rand", "noise"];
+const RESERVED_LAYER_NAMES = new Set([
+  ...MAP_LAYER_NAMES, // a dynamic layer may not shadow a map layer
+  "P",
+  "S",
+  "B",
+  "PL",
+  "GRID",
+  "PARAMS",
+  "PLAYERS",
+  "out",
+  "out_field",
+  "main",
+  "init",
+  "update",
+  "value",
+  "seed",
+]);
 
-export function compileFieldSystem(system: FieldSystem): CompiledFieldSystem {
+// The user's transition files live in `layers/` on disk, but the generated
+// per-layer STATE modules own the pretty `package::layers::<name>` path — so
+// transitions are remapped to `dyn/` inside the link and error messages are
+// mapped back.
+const DYN_PREFIX = "dyn/";
+
+// The uniform layer interface. Every layer gets a module differing only in
+// element type and which buffer binding `data` points at: numeric (f32)
+// layers get neighbor reductions; id (u32/i32) layers get equality helpers.
+// Unused accessors are tree-shaken per pass.
+function layerStateModule(binding: number, type: FieldLayerType): string {
+  const decl = `
+import package::kernel::{GRID, OFF, inBounds, refOf};
+
+@group(0) @binding(${binding}) var<storage, read> data: array<${type}>;
+
+fn val(i: u32) -> ${type} { return data[i]; }
+
+fn at(px: i32, py: i32) -> ${type} {
+  return data[refOf(clamp(px, 0, i32(GRID.size.x) - 1), clamp(py, 0, i32(GRID.size.y) - 1))];
+}
+`;
+  if (type !== "f32") {
+    return `${decl}
+fn count8_eq(px: i32, py: i32, v: ${type}) -> u32 {
+  var n = 0u;
+  for (var k = 0; k < 8; k += 1) {
+    let q = vec2i(px, py) + OFF[k];
+    if (!inBounds(q.x, q.y)) { continue; }
+    if (data[refOf(q.x, q.y)] == v) { n += 1u; }
+  }
+  return n;
+}
+
+fn any8_ne(px: i32, py: i32, v: ${type}) -> bool {
+  for (var k = 0; k < 8; k += 1) {
+    let q = vec2i(px, py) + OFF[k];
+    if (!inBounds(q.x, q.y)) { continue; }
+    if (data[refOf(q.x, q.y)] != v) { return true; }
+  }
+  return false;
+}
+`;
+  }
+  const neighbor = (
+    name: string,
+    init: string,
+    accumulate: string,
+    result: string,
+  ): string => `
+fn ${name}(px: i32, py: i32) -> f32 {
+  var total = 0.0;
+  var best = ${init};
+  var n = 0.0;
+  for (var k = 0; k < 8; k += 1) {
+    let q = vec2i(px, py) + OFF[k];
+    if (!inBounds(q.x, q.y)) { continue; }
+    ${accumulate}
+    n += 1.0;
+  }
+  return ${result};
+}`;
+  return `${decl}
+${neighbor("sum8", "0.0", "total += data[refOf(q.x, q.y)];", "total")}
+${neighbor("avg8", "0.0", "total += data[refOf(q.x, q.y)];", "select(0.0, total / n, n > 0.0)")}
+${neighbor("max8", "-3.40282e38", "best = max(best, data[refOf(q.x, q.y)]);", "select(0.0, best, n > 0.0)")}
+${neighbor("min8", "3.40282e38", "best = min(best, data[refOf(q.x, q.y)]);", "select(0.0, best, n > 0.0)")}
+`;
+}
+
+/** One Sim buffer slot group: an ungrouped scalar (1 word) or a per-player array. */
+interface ScalarSlot {
+  name: string;
+  spec: FieldReduceSpec;
+  member: string;
+  base: "i32" | "u32";
+  offsetWords: number;
+  words: number;
+}
+
+/** What a wesl module uses, from its imports and qualified references. */
+interface ImportsUse {
+  params: boolean;
+  players: boolean;
+  simItems: Set<string>; // tick | rand | noise | scalar_<name>
+  layers: Set<string>;
+}
+
+export async function compileFieldSystem(
+  system: FieldSystem,
+): Promise<CompiledFieldSystem> {
   const diagnostics: string[] = [];
   const params = Object.entries(system.params ?? {});
-  const fields = Object.entries(system.fields);
   const scalars = Object.entries(system.scalars ?? {});
   const brushes = Object.entries(system.brushes ?? {});
   const views = Object.entries(system.views);
-  const fieldNames = new Set(fields.map(([name]) => name));
+  const playersSpec = system.players ?? null;
+  const playerCount = playersSpec?.count ?? 0;
+  const playerFields = Object.entries(playersSpec?.fields ?? {});
 
-  validateNames(system, diagnostics);
+  // --- discover dynamic layers (type = fn init return type) -----------------
+  const layerFiles = Object.keys(system.modules)
+    .map((path) => /^layers\/([^/]+)\.wesl$/.exec(path))
+    .filter((match): match is RegExpExecArray => match !== null)
+    .map((match) => {
+      const path = match[0];
+      const source = system.modules[path];
+      const initType = /fn\s+init\s*\([^)]*\)\s*->\s*(\w+)/.exec(source)?.[1];
+      const updateType = /fn\s+update\s*\([^)]*\)\s*->\s*(\w+)/.exec(
+        source,
+      )?.[1];
+      return {
+        path,
+        name: match[1],
+        type: (initType ?? "f32") as FieldLayerType,
+        initType,
+        updateType,
+        hasUpdate: /\bfn\s+update\b/.test(source),
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const dynamicLayers = new Map(layerFiles.map((f) => [f.name, f.type]));
+  const isLayer = (name: string): boolean =>
+    dynamicLayers.has(name) || MAP_LAYER_NAMES.includes(name);
+  const typeOf = (name: string): FieldLayerType =>
+    dynamicLayers.get(name) ?? "f32"; // map layers are f32
+  /** Bind ref for reading a layer: ping-pong facet for dynamic, static for map. */
+  const readBind = (name: string): string =>
+    dynamicLayers.has(name) ? `${name}.read` : name;
+  const updatedSet = new Set(
+    layerFiles.filter((f) => f.hasUpdate).map((f) => f.name),
+  );
 
-  // --- generated structs -------------------------------------------------
+  // --- validation -------------------------------------------------------------
+  for (const file of layerFiles) {
+    if (!IDENT.test(file.name) || RESERVED_LAYER_NAMES.has(file.name)) {
+      diagnostics.push(
+        `${file.path}: layer name "${file.name}" is invalid or reserved`,
+      );
+    }
+    if (file.initType === undefined) {
+      diagnostics.push(
+        `${file.path}: must define "fn init(x: i32, y: i32, i: u32) -> <f32|u32|i32>" — the return type is the layer's type`,
+      );
+    } else if (!["f32", "u32", "i32"].includes(file.initType)) {
+      diagnostics.push(
+        `${file.path}: init returns "${file.initType}" — layers are f32, u32, or i32`,
+      );
+    }
+    if (
+      file.hasUpdate &&
+      file.updateType !== undefined &&
+      file.initType !== undefined &&
+      file.updateType !== file.initType
+    ) {
+      diagnostics.push(
+        `${file.path}: update returns "${file.updateType}" but init returns "${file.initType}" — a layer has one type`,
+      );
+    }
+  }
+  if (layerFiles.length === 0 && system.derive === undefined) {
+    diagnostics.push(
+      'system has no layers or derivation — add "layers/<name>.wesl" files or a "derive" block',
+    );
+  }
+  for (const name of Object.keys(system.params ?? {})) {
+    if (!IDENT.test(name) || ["seed", "PARAMS", "Params"].includes(name)) {
+      diagnostics.push(`params.${name}: invalid or reserved name`);
+    }
+  }
+  if (playersSpec) {
+    if (playerCount < 1 || playerCount > 256) {
+      diagnostics.push("players.count must be 1..256");
+    }
+    if (playerFields.length === 0) {
+      diagnostics.push("players.fields must declare at least one field");
+    }
+    for (const [name] of playerFields) {
+      if (!IDENT.test(name) || ["val", "count"].includes(name)) {
+        diagnostics.push(`players.fields.${name}: invalid or reserved name`);
+      }
+    }
+  }
+  for (const [name, spec] of scalars) {
+    if (!IDENT.test(name) || name === "tick") {
+      diagnostics.push(`scalars.${name}: invalid or reserved name`);
+    }
+    if (spec.reduce === "count") {
+      if (spec.layer !== undefined) {
+        diagnostics.push(
+          `scalars.${name}: "count" reduces tiles, not a layer — drop "layer"`,
+        );
+      }
+    } else if (spec.layer === undefined || !isLayer(spec.layer)) {
+      diagnostics.push(
+        `scalars.${name}: "${spec.layer ?? ""}" is not a layer (sum/max/min need one)`,
+      );
+    }
+    if (spec.groupBy !== undefined) {
+      if (!playersSpec) {
+        diagnostics.push(
+          `scalars.${name}: groupBy requires the "players" block (it sizes the per-player array)`,
+        );
+      }
+      const groupType = dynamicLayers.get(spec.groupBy);
+      if (groupType === undefined || groupType === "f32") {
+        diagnostics.push(
+          `scalars.${name}: groupBy "${spec.groupBy}" must be a u32/i32 dynamic layer (group ids)`,
+        );
+      }
+    }
+  }
+  for (const [name, spec] of brushes) {
+    if (!dynamicLayers.has(spec.target)) {
+      diagnostics.push(
+        MAP_LAYER_NAMES.includes(spec.target)
+          ? `brushes.${name}: "${spec.target}" is a map layer (read-only)`
+          : `brushes.${name}: target "${spec.target}" is not a dynamic layer`,
+      );
+    }
+  }
+
+  // --- staged update ordering -------------------------------------------------
+  const declaredPhases = system.phases ?? [];
+  const phased = new Set<string>();
+  declaredPhases.forEach((phase, index) => {
+    for (const name of phase) {
+      if (!updatedSet.has(name)) {
+        diagnostics.push(
+          dynamicLayers.has(name)
+            ? `phases[${index}]: "${name}" has no update function`
+            : `phases[${index}]: "${name}" is not a dynamic layer`,
+        );
+        continue;
+      }
+      if (phased.has(name)) {
+        diagnostics.push(`phases[${index}]: "${name}" appears more than once`);
+        continue;
+      }
+      phased.add(name);
+    }
+  });
+  // Updated layers not listed run together in a final implicit phase.
+  const updatePhases: string[][] = [
+    ...declaredPhases.map((phase) => phase.filter((name) => phased.has(name))),
+    [...updatedSet].filter((name) => !phased.has(name)).sort(),
+  ].filter((phase) => phase.length > 0);
+  // Inits run in phase order (static layers first) so later phases' inits can
+  // read earlier layers' initialized values.
+  const phaseIndex = new Map(
+    updatePhases.flatMap((phase, index) =>
+      phase.map((name) => [name, index] as const),
+    ),
+  );
+  const initOrder = [...layerFiles].sort((a, b) => {
+    const pa = phaseIndex.get(a.name) ?? -1;
+    const pb = phaseIndex.get(b.name) ?? -1;
+    return pa - pb || a.name.localeCompare(b.name);
+  });
+
+  // --- generated structs --------------------------------------------------------
   const paramMembers = [
     ...params.map(([name]) => `  ${name}: f32,`),
     "  seed: i32,",
@@ -139,34 +548,53 @@ export function compileFieldSystem(system: FieldSystem): CompiledFieldSystem {
     paramMembers.push(`  pad${paramMembers.length}: u32,`);
   }
   const paramsBytes = paramMembers.length * 4;
+  const paramsStruct = `struct Params {\n${paramMembers.join("\n")}\n}`;
 
-  const scalarSlot = (name: string, op: FieldReduceOp): string =>
-    op === "sum" ? `${name}_fx` : `${name}_bits`;
-  const simMembers = scalars.map(([name, spec]) =>
-    spec.reduce === "sum"
-      ? `  ${scalarSlot(name, "sum")}: i32,`
-      : `  ${scalarSlot(name, spec.reduce)}: u32,`,
-  );
-  const simAtomicMembers = scalars.map(([name, spec]) =>
-    spec.reduce === "sum"
-      ? `  ${scalarSlot(name, "sum")}: atomic<i32>,`
-      : `  ${scalarSlot(name, spec.reduce)}: atomic<u32>,`,
-  );
+  // Sim slots: ungrouped scalars take one word; grouped take playerCount.
+  let offsetWords = 1; // word 0 = tick
+  const scalarSlots: ScalarSlot[] = scalars.map(([name, spec]) => {
+    const grouped = spec.groupBy !== undefined;
+    const base =
+      spec.reduce === "sum" || spec.reduce === "count" ? "i32" : "u32";
+    const member = base === "i32" ? `${name}_fx` : (`${name}_bits` as string);
+    const slot: ScalarSlot = {
+      name,
+      spec,
+      member,
+      base,
+      offsetWords,
+      words: grouped ? Math.max(1, playerCount) : 1,
+    };
+    offsetWords += slot.words;
+    return slot;
+  });
+  const simWords = offsetWords;
 
-  const structsWgsl = `
-struct Params {
-${paramMembers.join("\n")}
-}
+  const simStruct = (atomic: boolean): string =>
+    `struct ${atomic ? "SimAtomic" : "Sim"} {\n  tick: u32,\n${scalarSlots
+      .map((slot) => {
+        const element = atomic ? `atomic<${slot.base}>` : slot.base;
+        const type =
+          slot.spec.groupBy !== undefined
+            ? `array<${element}, ${slot.words}>`
+            : element;
+        return `  ${slot.member}: ${type},`;
+      })
+      .join("\n")}\n}`;
 
-struct Sim {
-  tick: u32,
-${simMembers.join("\n")}
-}
+  const playerStruct = playersSpec
+    ? `struct Player {\n${playerFields
+        .map(([name, type]) => `  ${name}: ${type},`)
+        .join("\n")}\n}`
+    : "";
 
-struct SimAtomic {
-  tick: u32,
-${simAtomicMembers.join("\n")}
-}
+  // Prelude for the generated (non-WESL) passes: zero/reduce/brush/view.
+  const generatedPrelude = `
+${paramsStruct}
+
+${simStruct(false)}
+
+${simStruct(true)}
 
 struct Brush {
   x: f32,
@@ -180,175 +608,436 @@ struct Brush {
 }
 `;
 
-  const prelude = [structsWgsl, NOISE_WGSL, system.prelude ?? ""].join("\n");
+  // --- import + reference scanning -----------------------------------------------
+  const parseImports = (path: string): ImportsUse => {
+    const use: ImportsUse = {
+      params: false,
+      players: false,
+      simItems: new Set(),
+      layers: new Set(),
+    };
+    const stripped = system.modules[path]
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/[^\n]*/g, "");
+    const namespaceAliases = new Map<
+      string,
+      "layers" | "params" | "sim" | "players"
+    >();
 
-  // --- bind inference ----------------------------------------------------
-  // Scan a WGSL body for the names in scope and return the bind list plus
-  // any generated helper functions it needs.
-  interface Scan {
-    binds: string[];
-    helpers: string;
-  }
-  const scan = (code: string, node: string): Scan => {
-    const binds = new Set<string>();
-    const helpers: string[] = [];
+    const registerItem = (
+      registry: "layers" | "params" | "sim" | "players",
+      item: string,
+    ): void => {
+      switch (registry) {
+        case "layers": {
+          if (!isLayer(item)) {
+            diagnostics.push(
+              `${path}: "${item}" is not a layer (dynamic: ${[...dynamicLayers.keys()].join(", ") || "none"}; map: ${MAP_LAYER_NAMES.join(", ")})`,
+            );
+            return;
+          }
+          use.layers.add(item);
+          return;
+        }
+        case "params": {
+          if (item !== "seed" && !params.some(([name]) => name === item)) {
+            diagnostics.push(
+              `${path}: "params::${item}" is not a declared param (${[...params.map(([n]) => n), "seed"].join(", ")})`,
+            );
+            return;
+          }
+          use.params = true;
+          return;
+        }
+        case "players": {
+          if (!playersSpec) {
+            diagnostics.push(
+              `${path}: package::players requires the "players" block in the manifest`,
+            );
+            return;
+          }
+          if (!["val", "count"].includes(item)) {
+            diagnostics.push(
+              `${path}: players has no item "${item}" (val, count)`,
+            );
+            return;
+          }
+          use.players = true;
+          return;
+        }
+        case "sim": {
+          const scalarMatch = /^scalar_(\w+)$/.exec(item);
+          if (scalarMatch && !system.scalars?.[scalarMatch[1]]) {
+            diagnostics.push(
+              `${path}: "sim::${item}" — "${scalarMatch[1]}" is not a declared scalar`,
+            );
+            return;
+          }
+          if (!scalarMatch && !SIM_ITEMS.includes(item)) {
+            diagnostics.push(
+              `${path}: sim has no item "${item}" (${SIM_ITEMS.join(", ")}, scalar_<name>)`,
+            );
+            return;
+          }
+          use.simItems.add(item);
+          if (item === "rand" || item === "noise") use.params = true;
+          return;
+        }
+      }
+    };
 
-    const usesWord = (word: string): boolean =>
-      new RegExp(`\\b${word}\\b`).test(code);
-
-    let usesP = /\bP\./.test(code);
-    let usesS = /\bS\./.test(code);
-
-    // Stock reads/writes.
-    for (const match of code.matchAll(/\b([A-Za-z_]\w*)_(in|out)\b/g)) {
-      const [, base, facet] = match;
-      if (NEIGHBOR_OPS.some((op) => base.startsWith(`${op}_`))) continue;
-      if (!fieldNames.has(base)) {
+    let body = stripped;
+    for (const statement of stripped.matchAll(/\bimport\s+([^;]+);/g)) {
+      body = body.replace(statement[0], "");
+      const text = statement[1].replace(/\s+/g, " ").trim();
+      const namespaced =
+        /^package::(layers|params|sim|players|layer|param|api)(?:::(.+))?(?:\s+as\s+\w+)?$/.exec(
+          text,
+        );
+      if (!namespaced) continue; // kernel/lib/views/super: wesl handles it
+      const [, registryRaw, rest] = namespaced;
+      if (["layer", "param", "api"].includes(registryRaw)) {
         diagnostics.push(
-          `${node}: references "${base}_${facet}" but "${base}" is not a declared field`,
+          `${path}: package::${registryRaw} is gone — import package::layers / package::params / package::sim / package::players and use qualified paths`,
         );
         continue;
       }
-      binds.add(facet === "in" ? `${base}.read` : `${base}.write`);
-    }
-
-    // Neighbor helpers: sum8_<field>(x, y) etc.
-    const seenHelpers = new Set<string>();
-    for (const match of code.matchAll(
-      /\b(sum8|avg8|max8|min8)_([A-Za-z_]\w*)\s*\(/g,
-    )) {
-      const [, op, field] = match;
-      const key = `${op}_${field}`;
-      if (seenHelpers.has(key)) continue;
-      seenHelpers.add(key);
-      if (!fieldNames.has(field)) {
-        diagnostics.push(
-          `${node}: neighbor helper "${key}" — "${field}" is not a declared field`,
-        );
+      const registry = registryRaw as "layers" | "params" | "sim" | "players";
+      if (rest === undefined || /^as \w+$/.test(rest.trim())) {
+        const aliasMatch = /\bas\s+(\w+)\s*$/.exec(text);
+        namespaceAliases.set(aliasMatch?.[1] ?? registry, registry);
         continue;
       }
-      binds.add(`${field}.read`);
-      helpers.push(neighborHelper(op as (typeof NEIGHBOR_OPS)[number], field));
-    }
-
-    // Scalar getters.
-    for (const match of code.matchAll(/\bscalar_([A-Za-z_]\w*)\s*\(/g)) {
-      const name = match[1];
-      const spec = system.scalars?.[name];
-      if (!spec) {
-        diagnostics.push(
-          `${node}: scalar getter "scalar_${name}()" — "${name}" is not a declared scalar`,
-        );
-        continue;
+      const itemsText = rest.replace(/\s+as\s+\w+\s*$/, "");
+      const items = itemsText.startsWith("{")
+        ? itemsText.replace(/[{}]/g, "").split(",")
+        : [itemsText];
+      for (const rawItem of items) {
+        const item = rawItem
+          .trim()
+          .split(/\s+as\s+/)[0]
+          .trim()
+          .split("::")[0];
+        if (item === "") continue;
+        if (item === "*") {
+          diagnostics.push(
+            `${path}: wildcard imports from package::${registry} are not supported`,
+          );
+          continue;
+        }
+        registerItem(registry, item);
       }
-      usesS = true;
-      helpers.push(scalarGetter(name, spec.reduce, scalarSlot));
     }
 
-    // rand()/noise() builtins.
-    if (/\brand\s*\(/.test(code)) {
-      usesP = true;
-      usesS = true;
-      helpers.push(`
-fn rand(px: i32, py: i32) -> f32 {
-  return hash01(P.seed + i32(S.tick), px, py);
-}`);
+    const scanQualified = (
+      alias: string,
+      registry: "layers" | "params" | "sim" | "players",
+    ): void => {
+      const pattern =
+        registry === "layers"
+          ? new RegExp(`\\b${alias}::(\\w+)::`, "g")
+          : new RegExp(`\\b${alias}::(\\w+)`, "g");
+      for (const match of body.matchAll(pattern)) {
+        registerItem(registry, match[1]);
+      }
+    };
+    for (const [alias, registry] of namespaceAliases) {
+      scanQualified(alias, registry);
     }
-    if (/\bnoise\s*\(/.test(code)) {
-      usesP = true;
-      helpers.push(`
-fn noise(px: i32, py: i32, freq: f32, octaves: i32) -> f32 {
-  return fbm(P.seed, f32(px) / f32(GRID.size.x), f32(py) / f32(GRID.size.y), freq, octaves, 0.5);
-}`);
-    }
+    scanQualified("package::layers", "layers");
+    scanQualified("package::params", "params");
+    scanQualified("package::sim", "sim");
+    scanQualified("package::players", "players");
 
-    // Map fields.
-    const mapUsed = MAP_FIELD_NAMES.filter((name) => usesWord(name));
-
-    const ordered: string[] = [];
-    if (usesP) ordered.push("P");
-    if (usesS) ordered.push("S:Sim");
-    ordered.push(...mapUsed.sort());
-    ordered.push(
-      ...[...binds].filter((b) => b.endsWith(".read")).sort(),
-      ...[...binds].filter((b) => b.endsWith(".write")).sort(),
-    );
-    return { binds: ordered, helpers: helpers.join("\n") };
+    return use;
   };
 
-  // --- generated passes ---------------------------------------------------
-  const passes: FieldPassSpec[] = [];
+  // --- generated registry modules per linked pass -----------------------------------
+  const needsSimBinding = (use: ImportsUse): boolean =>
+    [...use.simItems].some((item) => item !== "noise");
 
-  for (const [name, spec] of fields) {
-    const initCode = `fn tile(x: i32, y: i32, i: u32) {\n  ${name}_out[i] = (${spec.init});\n}`;
-    const initScan = scan(initCode, `fields.${name}.init`);
-    passes.push({
-      name: `init/${name}`,
-      binds: initScan.binds,
-      advances: [name],
-      code: `${initScan.helpers}\n${initCode}`,
-    });
+  // Canonical binding order: GRID(0), P, S, PL, layers sorted by name, then
+  // the pass-specific write/out targets appended by the root builder.
+  const bindsFor = (use: ImportsUse): string[] => [
+    ...(use.params ? ["P"] : []),
+    ...(needsSimBinding(use) ? ["S:Sim"] : []),
+    ...(use.players ? ["PL"] : []),
+    ...[...use.layers].sort().map(readBind),
+  ];
 
-    if (spec.update === undefined) continue;
-    if (!new RegExp(`\\b${name}_out\\b`).test(spec.update)) {
-      diagnostics.push(
-        `fields.${name}.update: never assigns "${name}_out[i]" — the stock would not change`,
+  const generatedModulesFor = (use: ImportsUse): Record<string, string> => {
+    const binds = bindsFor(use);
+    const indexOf = (ref: string): number => binds.indexOf(ref) + 1;
+    const modules: Record<string, string> = {};
+
+    if (use.params) {
+      modules["params.wesl"] = [
+        paramsStruct,
+        `@group(0) @binding(${indexOf("P")}) var<uniform> PARAMS: Params;`,
+        `fn seed() -> i32 { return PARAMS.seed; }`,
+        ...params.map(
+          ([name]) => `fn ${name}() -> f32 { return PARAMS.${name}; }`,
+        ),
+      ].join("\n");
+    }
+
+    if (use.players && playersSpec) {
+      modules["players.wesl"] = [
+        playerStruct,
+        `@group(0) @binding(${indexOf("PL")}) var<storage, read> PLAYERS: array<Player, ${playerCount}>;`,
+        `fn val(p: u32) -> Player { return PLAYERS[min(p, ${playerCount - 1}u)]; }`,
+        `fn count() -> u32 { return ${playerCount}u; }`,
+      ].join("\n");
+    }
+
+    if (use.simItems.size > 0) {
+      const parts: string[] = ["import package::kernel::{GRID, hash01, fbm};"];
+      if (use.params) parts.push("import package::params::seed;");
+      if (needsSimBinding(use)) {
+        parts.push(
+          simStruct(false),
+          `@group(0) @binding(${indexOf("S:Sim")}) var<storage, read> S: Sim;`,
+        );
+      }
+      for (const item of use.simItems) {
+        if (item === "tick") {
+          parts.push("fn tick() -> u32 { return S.tick; }");
+        } else if (item === "rand") {
+          parts.push(
+            "fn rand(px: i32, py: i32) -> f32 { return hash01(seed() + i32(S.tick), px, py); }",
+          );
+        } else if (item === "noise") {
+          parts.push(
+            "fn noise(px: i32, py: i32, freq: f32, octaves: i32) -> f32 { return fbm(seed(), f32(px) / f32(GRID.size.x), f32(py) / f32(GRID.size.y), freq, octaves, 0.5); }",
+          );
+        } else {
+          const name = item.slice("scalar_".length);
+          const slot = scalarSlots.find((s) => s.name === name)!;
+          const decode =
+            slot.base === "i32"
+              ? (expr: string) => `f32(${expr}) / ${SUM_FX}.0`
+              : (expr: string) => `bitcast<f32>(${expr})`;
+          parts.push(
+            slot.spec.groupBy !== undefined
+              ? `fn ${item}(p: u32) -> f32 { return ${decode(`S.${slot.member}[min(p, ${slot.words - 1}u)]`)}; }`
+              : `fn ${item}() -> f32 { return ${decode(`S.${slot.member}`)}; }`,
+          );
+        }
+      }
+      modules["sim.wesl"] = parts.join("\n");
+    }
+
+    for (const layer of use.layers) {
+      modules[`layers/${layer}.wesl`] = layerStateModule(
+        indexOf(readBind(layer)),
+        typeOf(layer),
       );
     }
-    const updateCode = `fn tile(x: i32, y: i32, i: u32) {\n${spec.update}\n}`;
-    const updateScan = scan(updateCode, `fields.${name}.update`);
-    passes.push({
-      name: `stock/${name}`,
-      binds: updateScan.binds,
-      // No advances: the tick program swaps all stocks together (synchronous
-      // Jacobi commit — every update reads the previous tick).
-      code: `${updateScan.helpers}\n${updateCode}`,
+
+    return modules;
+  };
+
+  // User modules enter the link with transition files remapped out of the
+  // layers/ path (the generated state modules own it).
+  const userModules = Object.fromEntries(
+    Object.entries(system.modules).map(([path, source]) => [
+      path.replace(/^layers\//, DYN_PREFIX),
+      source,
+    ]),
+  );
+  const undynPath = (message: string): string =>
+    message.replace(/(\.\/)?dyn\//g, "$1layers/");
+
+  // --- linked (WESL) passes -----------------------------------------------------
+  interface PendingLink {
+    pass: Omit<FieldPassSpec, "code">;
+    root: string;
+    generated: Record<string, string>;
+    sourcePath: string;
+  }
+  const pendingLinks: PendingLink[] = [];
+
+  for (const file of layerFiles) {
+    const use = parseImports(file.path);
+    const binds = bindsFor(use);
+    const generated = generatedModulesFor(use);
+    const writeBinding = binds.length + 1;
+    const rootFor = (entry: "init" | "update"): string => `
+import package::dyn::${file.name}::${entry};
+import package::kernel::{GRID, refOf};
+
+@group(0) @binding(${writeBinding}) var<storage, read_write> out_field: array<${file.type}>;
+
+@compute @workgroup_size(8, 8)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  if (gid.x >= GRID.size.x || gid.y >= GRID.size.y) { return; }
+  let x = i32(gid.x);
+  let y = i32(gid.y);
+  out_field[refOf(x, y)] = ${entry}(x, y, refOf(x, y));
+}
+`;
+    pendingLinks.push({
+      pass: {
+        name: `init/${file.name}`,
+        binds: [...binds, `${file.name}.write`],
+        advances: [file.name],
+        raw: true,
+      },
+      root: rootFor("init"),
+      generated,
+      sourcePath: file.path,
+    });
+    if (file.hasUpdate) {
+      pendingLinks.push({
+        pass: {
+          name: `stock/${file.name}`,
+          binds: [...binds, `${file.name}.write`],
+          // No advances: phases commit via the tick program (synchronous
+          // Jacobi within a phase — every update reads the previous tick).
+          raw: true,
+        },
+        root: rootFor("update"),
+        generated,
+        sourcePath: file.path,
+      });
+    }
+  }
+
+  for (const [name, spec] of views) {
+    if (spec.source === undefined) continue;
+    if (!(spec.source in system.modules)) {
+      diagnostics.push(`views.${name}: source "${spec.source}" not found`);
+      continue;
+    }
+    // A source view exports either `fn value` (ramped) or `fn color`
+    // (full-color; the author owns the pixels).
+    const isColorView = /\bfn\s+color\b/.test(system.modules[spec.source]);
+    const use = parseImports(spec.source);
+    const wantsOceanMask = !isColorView && spec.oceanMask !== false;
+    if (wantsOceanMask) use.layers.add("land");
+    const binds = bindsFor(use);
+    const generated = generatedModulesFor(use);
+    const modulePath = `package::${spec.source
+      .replace(/\.wesl$/, "")
+      .replace(/\//g, "::")}`;
+    let root: string;
+    if (isColorView) {
+      root = `
+import ${modulePath}::color;
+import package::kernel::{GRID, refOf};
+
+@group(0) @binding(${binds.length + 1}) var out_tex: texture_storage_2d<rgba8unorm, write>;
+
+@compute @workgroup_size(8, 8)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  if (gid.x >= GRID.size.x || gid.y >= GRID.size.y) { return; }
+  let x = i32(gid.x);
+  let y = i32(gid.y);
+  textureStore(out_tex, vec2i(x, y), color(x, y, refOf(x, y)));
+}
+`;
+    } else {
+      const stops = rampStops(spec.ramp ?? [], `views.${name}`, diagnostics);
+      root = `
+import ${modulePath}::value;
+import package::kernel::{GRID, refOf, clamp01};
+${wantsOceanMask ? "import package::layers::land;" : ""}
+
+@group(0) @binding(${binds.length + 1}) var out_tex: texture_storage_2d<rgba8unorm, write>;
+
+var<private> RAMP: array<vec3f, ${stops.length}> = array<vec3f, ${stops.length}>(
+  ${stops.join(",\n  ")},
+);
+
+@compute @workgroup_size(8, 8)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  if (gid.x >= GRID.size.x || gid.y >= GRID.size.y) { return; }
+  let x = i32(gid.x);
+  let y = i32(gid.y);
+  let i = refOf(x, y);
+  let v = clamp01(value(x, y, i));
+  let t = v * ${stops.length - 1}.0;
+  let s = min(u32(t), ${stops.length - 2}u);
+  var color = mix(RAMP[s], RAMP[s + 1u], t - f32(s));
+${wantsOceanMask ? "  if (land::val(i) == 0.0) { color = vec3f(0.055, 0.13, 0.20); }" : ""}
+  textureStore(out_tex, vec2i(x, y), vec4f(color, 1.0));
+}
+`;
+    }
+    pendingLinks.push({
+      pass: { name: `view/${name}`, binds: [...binds, "out"], raw: true },
+      root,
+      generated,
+      sourcePath: spec.source,
     });
   }
 
-  const zeroBody = scalars
-    .map(([name, spec]) =>
-      spec.reduce === "sum"
-        ? `  atomicStore(&S.${scalarSlot(name, "sum")}, 0);`
-        : spec.reduce === "max"
-          ? `  atomicStore(&S.${scalarSlot(name, "max")}, 0u);`
-          : `  atomicStore(&S.${scalarSlot(name, "min")}, 0x7f7fffffu);`,
-    )
-    .join("\n");
+  // --- generated (non-WESL) passes -------------------------------------------------
+  const passes: FieldPassSpec[] = [];
+
   passes.push({
     name: "sim/zero",
     binds: ["S:SimAtomic!"],
     kind: "single",
-    code: `fn once() {\n  S.tick = S.tick + 1u;\n${zeroBody}\n}`,
+    code: `fn once() {\n  S.tick = S.tick + 1u;\n${scalarSlots
+      .map((slot) => {
+        const reset =
+          slot.spec.reduce === "min"
+            ? "0x7f7fffffu"
+            : slot.base === "i32"
+              ? "0"
+              : "0u";
+        return slot.spec.groupBy !== undefined
+          ? `  for (var g = 0u; g < ${slot.words}u; g += 1u) { atomicStore(&S.${slot.member}[g], ${reset}); }`
+          : `  atomicStore(&S.${slot.member}, ${reset});`;
+      })
+      .join("\n")}\n}`,
   });
 
-  for (const [name, spec] of scalars) {
-    const reduceExpr =
-      spec.reduce === "sum"
-        ? `atomicAdd(&S.${scalarSlot(name, "sum")}, i32(clamp((${spec.of}), -32768.0, 32767.0) * ${SUM_FX}.0));`
+  for (const slot of scalarSlots) {
+    const { name, spec } = slot;
+    if (
+      spec.reduce !== "count" &&
+      (spec.layer === undefined || !isLayer(spec.layer))
+    ) {
+      continue;
+    }
+    const readOf = (layer: string): string => {
+      const raw = dynamicLayers.has(layer) ? `${layer}_in[i]` : `${layer}[i]`;
+      return typeOf(layer) === "f32" ? raw : `f32(${raw})`;
+    };
+    const of = spec.reduce === "count" ? "1.0" : readOf(spec.layer!);
+    const target =
+      spec.groupBy !== undefined ? `S.${slot.member}[g]` : `S.${slot.member}`;
+    const accumulate =
+      spec.reduce === "sum" || spec.reduce === "count"
+        ? `atomicAdd(&${target}, i32(clamp(${of}, -32768.0, 32767.0) * ${SUM_FX}.0));`
         : spec.reduce === "max"
-          ? `atomicMax(&S.${scalarSlot(name, "max")}, bitcast<u32>(max((${spec.of}), 0.0)));`
-          : `atomicMin(&S.${scalarSlot(name, "min")}, bitcast<u32>(max((${spec.of}), 0.0)));`;
-    const code = `fn tile(x: i32, y: i32, i: u32) {\n  ${reduceExpr}\n}`;
-    const reduceScan = scan(code, `scalars.${name}.of`);
+          ? `atomicMax(&${target}, bitcast<u32>(max(${of}, 0.0)));`
+          : `atomicMin(&${target}, bitcast<u32>(max(${of}, 0.0)));`;
+    const grouped =
+      spec.groupBy !== undefined
+        ? `  let g = u32(${spec.groupBy}_in[i]);\n  if (g >= ${slot.words}u) { return; }\n`
+        : "";
+    const binds = [
+      ...(spec.reduce !== "count" ? [readBind(spec.layer!)] : []),
+      ...(spec.groupBy !== undefined && spec.groupBy !== spec.layer
+        ? [readBind(spec.groupBy)]
+        : []),
+      "S:SimAtomic!",
+    ];
     passes.push({
       name: `reduce/${name}`,
-      binds: dedupe([
-        ...reduceScan.binds.filter((b) => b !== "S:Sim"),
-        "S:SimAtomic!",
-      ]),
-      code: `${reduceScan.helpers}\n${code}`,
+      binds,
+      code: `fn tile(x: i32, y: i32, i: u32) {\n${grouped}  ${accumulate}\n}`,
     });
   }
 
   for (const [name, spec] of brushes) {
-    if (!fieldNames.has(spec.target)) {
-      diagnostics.push(
-        `brushes.${name}: target "${spec.target}" is not a declared field`,
-      );
-      continue;
-    }
+    if (!dynamicLayers.has(spec.target)) continue;
     const t = spec.target;
+    const type = typeOf(t);
+    const value = type === "f32" ? "B.value" : `${type}(B.value)`;
     passes.push({
       name: `brush/${name}`,
       binds: ["B", `${t}.read`, `${t}.write`],
@@ -358,7 +1047,7 @@ fn tile(x: i32, y: i32, i: u32) {
   var v = ${t}_in[i];
   let d = vec2f(f32(x) - B.x, f32(y) - B.y);
   if (dot(d, d) <= B.radius * B.radius) {
-    v = select(B.value, v + B.value, B.mode == 1u);
+    v = select(${value}, v + ${value}, B.mode == 1u);
   }
   ${t}_out[i] = v;
 }`,
@@ -366,37 +1055,39 @@ fn tile(x: i32, y: i32, i: u32) {
   }
 
   for (const [name, spec] of views) {
-    const stops = spec.ramp.map((hex) => {
-      const rgb = parseHex(hex);
-      if (!rgb) {
-        diagnostics.push(`views.${name}: invalid ramp color "${hex}"`);
-        return "vec3f(1.0, 0.0, 1.0)";
-      }
-      return `vec3f(${rgb.map((c) => (c / 255).toFixed(5)).join(", ")})`;
-    });
-    if (stops.length < 2) {
-      diagnostics.push(`views.${name}: ramp needs at least 2 colors`);
-      stops.push("vec3f(0.0)", "vec3f(1.0)");
+    if (spec.source !== undefined) continue;
+    if (spec.layer === undefined || !isLayer(spec.layer)) {
+      diagnostics.push(
+        `views.${name}: needs "layer" (any layer) or "source" (a .wesl module)`,
+      );
+      continue;
     }
+    const stops = rampStops(spec.ramp ?? [], `views.${name}`, diagnostics);
     const oceanMask = spec.oceanMask !== false;
-    const code = `
+    const raw = dynamicLayers.has(spec.layer)
+      ? `${spec.layer}_in[i]`
+      : `${spec.layer}[i]`;
+    const read = typeOf(spec.layer) === "f32" ? raw : `f32(${raw})`;
+    passes.push({
+      name: `view/${name}`,
+      binds: [
+        readBind(spec.layer),
+        ...(oceanMask && spec.layer !== "land" ? ["land"] : []),
+        "out",
+      ],
+      code: `
 var<private> RAMP: array<vec3f, ${stops.length}> = array<vec3f, ${stops.length}>(
   ${stops.join(",\n  ")},
 );
 
 fn tile(x: i32, y: i32, i: u32) {
-  let v = clamp01((${spec.expr}));
+  let v = clamp01(${read});
   let t = v * ${stops.length - 1}.0;
   let s = min(u32(t), ${stops.length - 2}u);
   var color = mix(RAMP[s], RAMP[s + 1u], t - f32(s));
-${oceanMask ? `  if (land[i] == 0.0) { color = vec3f(0.055, 0.13, 0.20); }` : ""}
+${oceanMask ? "  if (land[i] == 0.0) { color = vec3f(0.055, 0.13, 0.20); }" : ""}
   textureStore(out_tex, vec2i(x, y), vec4f(color, 1.0));
-}`;
-    const viewScan = scan(code, `views.${name}.expr`);
-    passes.push({
-      name: `view/${name}`,
-      binds: [...viewScan.binds, "out"],
-      code: `${viewScan.helpers}\n${code}`,
+}`,
     });
   }
 
@@ -404,49 +1095,140 @@ ${oceanMask ? `  if (land[i] == 0.0) { color = vec3f(0.055, 0.13, 0.20); }` : ""
     throw new FieldDynamicsError(diagnostics);
   }
 
-  // --- buffers -------------------------------------------------------------
-  const mapFields = dedupe(
-    passes.flatMap((pass) =>
-      pass.binds.filter((bind) => MAP_FIELD_NAMES.includes(bind)),
+  // --- link the WESL passes --------------------------------------------------------
+  const linkErrors: string[] = [];
+  const linkedPasses = await Promise.all(
+    pendingLinks.map(async ({ pass, root, generated, sourcePath }) => {
+      try {
+        const linked = await link({
+          weslSrc: {
+            "main.wesl": root,
+            "kernel.wesl": KERNEL_WESL,
+            ...generated,
+            ...userModules,
+          },
+          rootModuleName: "main",
+        });
+        return { ...pass, code: linked.dest } as FieldPassSpec;
+      } catch (error) {
+        linkErrors.push(
+          `${pass.name} (${sourcePath}): ${undynPath((error as Error).message)}`,
+        );
+        return null;
+      }
+    }),
+  );
+  if (linkErrors.length > 0) {
+    throw new FieldDynamicsError(linkErrors);
+  }
+  passes.push(...(linkedPasses as FieldPassSpec[]));
+
+  // --- derivation stage (on-demand pipeline) ---------------------------------------
+  // A system's `derive` block is an algorithm, not a per-tick sim: its passes
+  // link through the shared FieldDerivation machinery (grid/single, iterate,
+  // atomic globals) and its fields are plain buffers (inputs/scratch/derived),
+  // separate from the layer namespace. Absent = a pure per-tick system.
+  const derive = system.derive;
+  const derivedFields = derive ? Object.entries(derive.fields) : [];
+  const deriveAdvanced = new Set<string>(
+    derive?.steps.flatMap((step) => step.advances ?? []) ?? [],
+  );
+  if (derive) {
+    const bufferTypes: Record<string, "f32" | "u32"> = {};
+    for (const [name, spec] of derivedFields) {
+      // The array<> element type in generated bindings; explicit-type binds
+      // (structs, atomic arrays) bypass this via the bind grammar.
+      bufferTypes[name] = spec.type === "u32" ? "u32" : "f32";
+    }
+    const passTable: DerivationPass[] = derive.steps.map((step) => ({
+      name: step.name ?? step.pass,
+      module: step.pass,
+      binds: step.binds,
+      kind: step.kind,
+      advances: step.advances,
+    }));
+    let derivePasses: FieldPassSpec[];
+    try {
+      derivePasses = await linkDerivation({
+        passTable,
+        modules: system.modules,
+        bufferTypes,
+        typeImports: derive.typeImports,
+      });
+    } catch (error) {
+      throw new FieldDynamicsError([`derive: ${(error as Error).message}`]);
+    }
+    passes.push(...derivePasses);
+  }
+
+  // --- buffers ------------------------------------------------------------------------
+  const mapLayers = [
+    ...new Set(
+      passes.flatMap((pass) =>
+        pass.binds.filter((bind) => MAP_LAYER_NAMES.includes(bind)),
+      ),
     ),
-  ).sort();
+  ].sort();
   const buffers: FieldBufferSpec[] = [
-    ...fields.map(
-      ([name]): FieldBufferSpec => ({
-        name,
-        type: "f32",
+    ...layerFiles.map(
+      (file): FieldBufferSpec => ({
+        name: file.name,
+        type: file.type,
         pingPong: true,
         clearable: true, // state restore across recompiles
         readable: true, // state capture across recompiles
       }),
     ),
-    ...mapFields.map(
+    ...mapLayers.map(
       (name): FieldBufferSpec => ({ name, type: "f32", clearable: true }),
     ),
     {
       name: "S",
       type: "u32",
-      count: 1 + scalars.length,
+      count: simWords,
       clearable: true,
       readable: true,
     },
+    // Derivation buffers: inputs (uploaded), scratch, and derived fields.
+    ...derivedFields.map(
+      ([name, spec]): FieldBufferSpec => ({
+        name,
+        type: spec.type,
+        ...(spec.count !== undefined ? { count: spec.count } : {}),
+        pingPong: spec.pingPong ?? deriveAdvanced.has(name),
+        clearable: true, // uploaded inputs + cleared each derivation run
+      }),
+    ),
+    ...(playersSpec
+      ? [
+          {
+            name: "PL",
+            type: "u32",
+            count: playerCount * Math.max(1, playerFields.length),
+            clearable: true,
+          } satisfies FieldBufferSpec,
+        ]
+      : []),
   ];
 
+  // When the derivation owns its Params (custom uniform), size and name the P
+  // buffer from it — the derive passes read that struct (from typeImports); the
+  // system encodes P externally. Otherwise use the manifest-generated Params.
+  const pUniform = derive?.uniform ?? {
+    bytes: paramsBytes,
+    wgslType: "Params",
+  };
   const kernelConfig: FieldKernelConfig = {
-    prelude,
+    prelude: generatedPrelude,
     uniforms: [
-      { name: "P", bytes: paramsBytes, wgslType: "Params" },
+      { name: "P", bytes: pUniform.bytes, wgslType: pUniform.wgslType },
       { name: "B", bytes: 32, wgslType: "Brush" },
     ],
     buffers,
     passes,
   };
 
-  // --- programs & codecs ---------------------------------------------------
-  const updatedFields = fields
-    .filter(([, spec]) => spec.update !== undefined)
-    .map(([name]) => name);
-
+  // --- programs & codecs -------------------------------------------------------------
   return {
     system,
     kernelConfig,
@@ -460,8 +1242,10 @@ ${oceanMask ? `  if (land[i] == 0.0) { color = vec3f(0.055, 0.13, 0.20); }` : ""
     viewNames: views.map(([name]) => name),
     brushNames: brushes.map(([name]) => name),
     scalarNames: scalars.map(([name]) => name),
-    fieldNames: fields.map(([name]) => name),
-    mapFields,
+    layerNames: layerFiles.map(({ name }) => name),
+    derivedNames: derivedFields.map(([name]) => name),
+    mapLayers,
+    playerCount,
 
     writeParams(values, seed) {
       const data = new ArrayBuffer(paramsBytes);
@@ -470,6 +1254,24 @@ ${oceanMask ? `  if (land[i] == 0.0) { color = vec3f(0.055, 0.13, 0.20); }` : ""
         view.setFloat32(index * 4, values[name] ?? spec.value, true);
       });
       view.setInt32(params.length * 4, seed | 0, true);
+      return data;
+    },
+
+    writePlayers(playerValues) {
+      const stride = Math.max(1, playerFields.length) * 4;
+      const data = new ArrayBuffer(Math.max(1, playerCount) * stride);
+      const view = new DataView(data);
+      for (let p = 0; p < playerCount; p += 1) {
+        const values = playerValues[p] ?? {};
+        playerFields.forEach(([name, type], index) => {
+          const offset = p * stride + index * 4;
+          if (type === "f32") {
+            view.setFloat32(offset, values[name] ?? 0, true);
+          } else {
+            view.setUint32(offset, (values[name] ?? 0) >>> 0, true);
+          }
+        });
+      }
       return data;
     },
 
@@ -488,35 +1290,46 @@ ${oceanMask ? `  if (land[i] == 0.0) { color = vec3f(0.055, 0.13, 0.20); }` : ""
 
     decodeScalars(data) {
       const view = new DataView(data);
-      const values: Record<string, number> = {};
-      scalars.forEach(([name, spec], index) => {
-        const offset = 4 + index * 4;
-        if (spec.reduce === "sum") {
-          values[name] = view.getInt32(offset, true) / SUM_FX;
-        } else {
-          const raw = view.getFloat32(offset, true);
-          values[name] =
-            spec.reduce === "min" && view.getUint32(offset, true) === 0x7f7fffff
-              ? 0
-              : raw;
-        }
-      });
+      const values: Record<string, number | number[]> = {};
+      for (const slot of scalarSlots) {
+        const decode = (word: number): number => {
+          const offset = (slot.offsetWords + word) * 4;
+          if (slot.base === "i32") {
+            return view.getInt32(offset, true) / SUM_FX;
+          }
+          if (
+            slot.spec.reduce === "min" &&
+            view.getUint32(offset, true) === 0x7f7fffff
+          ) {
+            return 0;
+          }
+          return view.getFloat32(offset, true);
+        };
+        values[slot.name] =
+          slot.spec.groupBy !== undefined
+            ? Array.from({ length: slot.words }, (_, g) => decode(g))
+            : decode(0);
+      }
       return { tick: view.getUint32(0, true), values };
     },
 
     runInit(frame) {
-      for (const [name] of fields) {
+      for (const { name } of initOrder) {
         frame.pass(`init/${name}`);
       }
     },
 
     runTick(kernel, frame) {
       frame.pass("sim/zero");
-      for (const name of updatedFields) {
-        frame.pass(`stock/${name}`);
-      }
-      for (const name of updatedFields) {
-        kernel.swap(name); // synchronous commit
+      // Each phase commits before the next runs (Gauss-Seidel staging); the
+      // default is one phase — the fully synchronous Jacobi step.
+      for (const phase of updatePhases) {
+        for (const name of phase) {
+          frame.pass(`stock/${name}`);
+        }
+        for (const name of phase) {
+          kernel.swap(name);
+        }
       }
       for (const [name] of scalars) {
         frame.pass(`reduce/${name}`);
@@ -527,95 +1340,41 @@ ${oceanMask ? `  if (land[i] == 0.0) { color = vec3f(0.055, 0.13, 0.20); }` : ""
       frame.pass(`view/${view}`);
     },
 
+    runDerive(frame) {
+      for (const step of derive?.steps ?? []) {
+        const name = step.name ?? step.pass;
+        if (step.iterate !== undefined) {
+          frame.iterate(name, step.iterate);
+        } else {
+          frame.pass(name);
+        }
+      }
+    },
+
     brushPass(name) {
       return `brush/${name}`;
     },
   };
 }
 
-function validateNames(system: FieldSystem, diagnostics: string[]): void {
-  const reserved = new Set([
-    ...MAP_FIELD_NAMES,
-    "P",
-    "S",
-    "B",
-    "GRID",
-    "out",
-    "seed",
-    "tick",
-  ]);
-  for (const name of Object.keys(system.fields)) {
-    if (!IDENT.test(name)) {
-      diagnostics.push(`fields.${name}: not a valid WGSL identifier`);
+function rampStops(
+  ramp: readonly string[],
+  node: string,
+  diagnostics: string[],
+): string[] {
+  const stops = ramp.map((hex) => {
+    const match = /^#([0-9a-fA-F]{6})$/.exec(hex.trim());
+    if (!match) {
+      diagnostics.push(`${node}: invalid ramp color "${hex}"`);
+      return "vec3f(1.0, 0.0, 1.0)";
     }
-    if (reserved.has(name)) {
-      diagnostics.push(`fields.${name}: name is reserved`);
-    }
+    const value = Number.parseInt(match[1], 16);
+    const rgb = [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+    return `vec3f(${rgb.map((c) => (c / 255).toFixed(5)).join(", ")})`;
+  });
+  if (stops.length < 2) {
+    diagnostics.push(`${node}: ramp needs at least 2 colors`);
+    stops.push("vec3f(0.0)", "vec3f(1.0)");
   }
-  for (const name of Object.keys(system.params ?? {})) {
-    if (!IDENT.test(name) || name === "seed") {
-      diagnostics.push(`params.${name}: invalid or reserved name`);
-    }
-  }
-  for (const name of Object.keys(system.scalars ?? {})) {
-    if (!IDENT.test(name) || name === "tick") {
-      diagnostics.push(`scalars.${name}: invalid or reserved name`);
-    }
-  }
-}
-
-function neighborHelper(
-  op: (typeof NEIGHBOR_OPS)[number],
-  field: string,
-): string {
-  const acc =
-    op === "max8"
-      ? `best = max(best, ${field}_in[refOf(q.x, q.y)]);`
-      : op === "min8"
-        ? `best = min(best, ${field}_in[refOf(q.x, q.y)]);`
-        : `total += ${field}_in[refOf(q.x, q.y)];`;
-  const init =
-    op === "max8" ? "-3.40282e38" : op === "min8" ? "3.40282e38" : "0.0";
-  const result =
-    op === "sum8"
-      ? "total"
-      : op === "avg8"
-        ? "select(0.0, total / n, n > 0.0)"
-        : "select(0.0, best, n > 0.0)";
-  return `
-fn ${op}_${field}(px: i32, py: i32) -> f32 {
-  var total = 0.0;
-  var best = ${init};
-  var n = 0.0;
-  for (var k = 0; k < 8; k += 1) {
-    let q = vec2i(px, py) + OFF[k];
-    if (!inBounds(q.x, q.y)) { continue; }
-    ${acc}
-    n += 1.0;
-  }
-  return ${result};
-}`;
-}
-
-function scalarGetter(
-  name: string,
-  op: FieldReduceOp,
-  slot: (name: string, op: FieldReduceOp) => string,
-): string {
-  const body =
-    op === "sum"
-      ? `return f32(S.${slot(name, op)}) / ${SUM_FX}.0;`
-      : `return bitcast<f32>(S.${slot(name, op)});`;
-  return `\nfn scalar_${name}() -> f32 { ${body} }`;
-}
-
-function parseHex(hex: string): [number, number, number] | null {
-  const match = /^#([0-9a-fA-F]{6})$/.exec(hex.trim());
-  if (!match) return null;
-  const value = Number.parseInt(match[1], 16);
-  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
-}
-
-function dedupe(items: readonly string[]): string[] {
-  return [...new Set(items)];
+  return stops;
 }

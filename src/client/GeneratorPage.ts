@@ -6,6 +6,7 @@ import {
 } from "../games/alternative/world";
 import {
   buildGeneratedMapInfo,
+  buildGeneratorElevationBlob,
   buildGeneratorLayersBlob,
   buildGeneratorSourceImage,
   buildGeneratorTerrainColorImage,
@@ -14,6 +15,7 @@ import {
 } from "../games/alternative/world/GeneratorMapExport";
 import {
   DEFAULT_FOUNDATION_WORLD_ENGINE_MAP_CONFIG,
+  normalizeFoundationWorldEngineMapConfig,
   type FoundationWorldEngineMapConfig,
 } from "../games/alternative/world/WorldEngineElevation";
 import { buildBoardMapTerrainRGBA } from "./render/gl";
@@ -116,12 +118,26 @@ export class GeneratorPage extends LitElement {
     const info = buildGeneratedMapInfo({
       id: this.mapId,
       name: this.mapName,
+      worldEngine: normalizeFoundationWorldEngineMapConfig(this.config),
     });
     downloadBlob(
       new Blob([`${JSON.stringify(info, null, 2)}\n`], {
         type: "application/json",
       }),
       "info.json",
+    );
+  };
+
+  private downloadElevation = (): void => {
+    const blob = buildGeneratorElevationBlob(
+      this.generated.worldEngineLayers.elevation,
+      this.generated.map.width,
+      this.generated.map.height,
+    );
+    downloadBlob(
+      // Copy into a fresh ArrayBuffer-backed view — Blob rejects ArrayBufferLike.
+      new Blob([new Uint8Array(blob)], { type: "application/octet-stream" }),
+      "elevation.bin",
     );
   };
 
@@ -201,6 +217,12 @@ export class GeneratorPage extends LitElement {
                   @click=${this.downloadLayers}
                 >
                   layers.bin
+                </button>
+                <button
+                  class="px-3 py-2 border border-white/30 text-sm font-medium"
+                  @click=${this.downloadElevation}
+                >
+                  elevation.bin
                 </button>
                 <button
                   class="px-3 py-2 border border-white/30 text-sm font-medium"
@@ -312,7 +334,8 @@ export class GeneratorPage extends LitElement {
                 Folder: map-generator/assets/maps/${identity.folderName}
               </div>
               <div>
-                Files: image.png, terrain-colors.png, layers.bin, info.json
+                Files: image.png, terrain-colors.png, layers.bin, elevation.bin,
+                info.json
               </div>
               <div>Then run: npm run gen-maps</div>
               <div>Size: ${map.width}x${map.height}</div>

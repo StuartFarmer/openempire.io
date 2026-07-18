@@ -4,6 +4,8 @@ import { EventBus } from "../core/EventBus";
 import { GameInfo, GameRecord, GameStartInfo } from "../core/Schemas";
 import { joinLobby, type JoinLobbyResult } from "./ClientGameRunner";
 import "./EarthPage";
+import "./FieldLabPage";
+import "./GameShellPage";
 import { GameStartingModal } from "./GameStartingModal";
 import "./GeneratorPage";
 import { HelpModal } from "./HelpModal";
@@ -17,7 +19,6 @@ import { UserSettingModal } from "./UserSettingModal";
 import "./UsernameInput";
 import { genAnonUsername, UsernameInput } from "./UsernameInput";
 import { incrementGamesPlayed, translateText } from "./Utils";
-import "./FieldLabPage";
 import "./WebGpuGeneratorPage";
 import { installSafariPinchZoomBlocker } from "./utilities/DisableSafariPinchZoom";
 
@@ -187,6 +188,10 @@ class Client {
         window.showPage?.("page-lab");
         return;
       }
+      if (window.location.hash === "#shell") {
+        window.showPage?.("page-shell");
+        return;
+      }
 
       // Router-managed hash changes (#modal=...) are handled by the router
       // syncing in/out; we don't need to tear down the lobby state for them.
@@ -280,6 +285,11 @@ class Client {
 
     if (decodedHash === "#lab") {
       window.showPage?.("page-lab");
+      return;
+    }
+
+    if (decodedHash === "#shell") {
+      window.showPage?.("page-shell");
       return;
     }
 

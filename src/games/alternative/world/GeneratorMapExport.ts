@@ -1,6 +1,19 @@
 import type { BoardMap } from "../../../core/game/BoardMap";
+import { encodeElevation } from "../../../core/game/ElevationMap";
+import { encodeHydro, type HydroPlaneName } from "../../../core/game/HydroMap";
 import { encodeLayers, type LayerName } from "../../../core/game/MapLayers";
-import type { FoundationWorldEngineLayers } from "./WorldEngineElevation";
+import type { WorldEngineManifestConfig } from "../../../core/game/TerrainMapLoader";
+import type {
+  FoundationWorldEngineLayers,
+  FoundationWorldEngineMapConfig,
+} from "./WorldEngineElevation";
+
+// Compile-time drift guard: the engine config must satisfy the manifest
+// schema core declares (core cannot import this module, so the check lives
+// here on the producer side).
+const _configSatisfiesManifest: WorldEngineManifestConfig =
+  {} as FoundationWorldEngineMapConfig;
+void _configSatisfiesManifest;
 
 export interface GeneratedMapIdentity {
   id: string;
@@ -14,6 +27,8 @@ export interface GeneratedMapInfo {
   categories: string[];
   multiplayer_frequency: number;
   nations: [];
+  /** The render config runtime terrain derivation replays (export-primary-fields). */
+  world_engine?: WorldEngineManifestConfig;
 }
 
 export interface GeneratedMapSourceImage {
@@ -39,6 +54,7 @@ export function normalizeGeneratedMapIdentity(
 export function buildGeneratedMapInfo(input: {
   id: string;
   name: string;
+  worldEngine?: FoundationWorldEngineMapConfig;
 }): GeneratedMapInfo {
   const identity = normalizeGeneratedMapIdentity(input.id);
   return {
@@ -48,7 +64,21 @@ export function buildGeneratedMapInfo(input: {
     categories: ["new", "fictional"],
     multiplayer_frequency: 0,
     nations: [],
+    ...(input.worldEngine ? { world_engine: input.worldEngine } : {}),
   };
+}
+
+/**
+ * Serialize the engine's full-precision elevation into the elevation.bin
+ * sidecar (see core ElevationMap.ts for the format — u16 plane, the primary
+ * field runtime terrain derivation starts from).
+ */
+export function buildGeneratorElevationBlob(
+  elevation: ArrayLike<number>,
+  width: number,
+  height: number,
+): Uint8Array {
+  return encodeElevation(elevation, width, height);
 }
 
 export function buildGeneratorSourceImage(
@@ -129,6 +159,28 @@ export function buildGeneratorLayersBlob(
     water: buildFreshwaterPlane(layers, width, height),
   };
   return encodeLayers(planes, width, height);
+}
+
+/**
+ * Serialize the SEPARATE lake mask and river channel fields into the
+ * hydro.bin sidecar (see core HydroMap.ts). Unlike the merged freshwater
+ * plane, these stay distinct so runtime rendering can tell a lake from a
+ * river — the same two fields the world-engine colorizer uses.
+ */
+export function buildGeneratorHydroBlob(
+  layers: Pick<FoundationWorldEngineLayers, "normalizedWatermap" | "lakes">,
+  width: number,
+  height: number,
+): Uint8Array {
+  const { normalizedWatermap, lakes } = layers;
+  const planeSize = width * height;
+  const lake = new Float32Array(planeSize);
+  for (let i = 0; i < planeSize; i++) lake[i] = lakes[i] ? 1 : 0;
+  const planes: Record<HydroPlaneName, ArrayLike<number>> = {
+    lake,
+    river: normalizedWatermap,
+  };
+  return encodeHydro(planes, width, height);
 }
 
 /**

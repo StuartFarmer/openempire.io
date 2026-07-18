@@ -115,6 +115,14 @@ npx tsx bake.ts --name earth --fields global-2048x1024
 npx tsx bake.ts --name earthmini --fields global-2048x1024 --div 2 --title "Earth Mini"
 npx tsx bake.ts --name earthxl --fields global-4096x2048 --title "Earth XL"
 npx tsx bake.ts --name spqr --fields spqr-2048x1024 --title "SPQR"
+
+# season.bin (optional): the seasonal harmonic from monthly MODIS LST, same
+# --fields/--div grids as bake so they line up. Fills world-maps/surface_temp_data.
+.venv/bin/python season.py --name earth --fields global-2048x1024
+.venv/bin/python season.py --name earthmini --fields global-2048x1024 --div 2
+.venv/bin/python season.py --name earthxl --fields global-4096x2048
+.venv/bin/python season.py --name spqr --fields spqr-2048x1024
+
 npm run gen-maps
 ```
 

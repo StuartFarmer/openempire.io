@@ -28,6 +28,17 @@ await page.waitForFunction(
 );
 await page.waitForTimeout(1000);
 
+// World is the default system now; this check exercises Grazing.
+await page.selectOption("field-lab-page select >> nth=0", "grazing");
+await page.waitForFunction(
+  () => {
+    const text = document.querySelector("field-lab-page")?.textContent ?? "";
+    return text.includes("totalHerd") && !text.includes("Loading…");
+  },
+  { timeout: 60000 },
+);
+await page.waitForTimeout(800);
+
 const labText = () =>
   page.evaluate(() =>
     (document.querySelector("field-lab-page")?.textContent ?? "")
@@ -62,7 +73,7 @@ await canvas.screenshot({ path: "/tmp/openfront-run/lab-2-herds-painted.png" });
 console.log("after paint:", await labText());
 
 // Crank tick rate and run.
-await page.locator("field-lab-page input[type=range]").first().fill("240");
+await page.check("field-lab-page input[type=checkbox]");
 await page.click('field-lab-page button:has-text("Play")');
 await page.waitForTimeout(6000);
 await page.click('field-lab-page button:has-text("Pause")');

@@ -6,9 +6,13 @@
  * bakes to identical bytes here. (Same relationship as GeneratorPage <-> gen-world.ts.)
  *
  * Writes into map-generator/assets/maps/<name>/:
- *   image.png    — terrain (blue channel + alpha), read by map_generator.go
- *   layers.bin   — the six Uint8 planes, via the sim's own encodeLayers()
- *   info.json    — map metadata + nations[] (real capitals, the role-play hook)
+ *   image.png      — terrain (blue channel + alpha), read by map_generator.go
+ *   layers.bin     — the six Uint8 planes, via the sim's own encodeLayers()
+ *   elevation.bin  — full-precision elevation in world-engine space: real
+ *                    ETOPO bathymetry below seaLevel, the image's gamma ramp
+ *                    (unquantized) above — the primary field runtime terrain
+ *                    derivation replays (export-primary-fields)
+ *   info.json      — map metadata + nations[] + the world_engine render config
  * then `npm run gen-maps` bakes it like any other map.
  *
  * Usage:
@@ -20,7 +24,10 @@ import { createCanvas } from "canvas";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { encodeElevation } from "../../src/core/game/ElevationMap";
+import { encodeHydro } from "../../src/core/game/HydroMap";
 import { encodeLayers, LayerName } from "../../src/core/game/MapLayers";
+import { simpleHash } from "../../src/core/Util";
 import { buildMap } from "../../src/games/alternative/earth/BuildLayers";
 import { buildEarthTerrainColors } from "../../src/games/alternative/earth/EarthColors";
 import { Field, RawFields } from "../../src/games/alternative/earth/Normalize";
@@ -28,6 +35,7 @@ import {
   defaultTuning,
   Tuning,
 } from "../../src/games/alternative/earth/Tuning";
+import { normalizeFoundationWorldEngineMapConfig } from "../../src/games/alternative/world/WorldEngineElevation";
 import { dataRoot } from "./datasets";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -362,6 +370,84 @@ fs.writeFileSync(
   encodeLayers(planes, outW, outH),
 );
 
+// ── elevation.bin (world-engine space, full precision) ──
+// Land: the image magnitude's gamma ramp, unquantized, anchored into
+// (seaLevel, 1]. Water: real ETOPO bathymetry mapped below seaLevel, so the
+// runtime derivation's depth ramp shows true ocean relief instead of a
+// synthetic shore-distance shelf. The recorded world_engine config's seaLevel
+// is the anchor the runtime flood compares against.
+const worldEngine = {
+  ...normalizeFoundationWorldEngineMapConfig({
+    // Same name-derived seed rule as derive-layers.ts — it feeds the climate
+    // noise fields at runtime, nothing else.
+    seed: simpleHash(`layers:${name}`) % 1_000_000,
+  }),
+  width: outW,
+  height: outH,
+};
+{
+  const t = tuning.terrain;
+  const elevM = scaled["elevation"];
+  const gamma = t.elevationGamma > 0 ? t.elevationGamma : 1;
+  const seaLevel = worldEngine.seaLevel;
+  // Normalize land by the map's TRUE maximum, not the image ramp's
+  // maxElevationM magnitude cap — clamping at 4000 m flattens the
+  // Himalaya/Tibet into a saturated plateau with no relief.
+  let maxLandM = t.maxElevationM;
+  for (let i = 0; i < elevM.data.length; i++) {
+    if (built.land.data[i] > 0 && elevM.data[i] > maxLandM) {
+      maxLandM = elevM.data[i];
+    }
+  }
+  const span = Math.max(1, maxLandM - t.seaLevelM);
+  // Abyssal plains sit at 4–6 km; 6.5 km with a sub-linear curve spreads
+  // shelf → slope → plain across the visible depth range.
+  const maxDepthM = 6500;
+  const out = new Float32Array(outW * outH);
+  for (let i = 0; i < out.length; i++) {
+    if (built.land.data[i] > 0) {
+      const h = Math.max(0, elevM.data[i] - t.seaLevelM);
+      const norm = Math.pow(Math.min(1, h / span), gamma);
+      out[i] = seaLevel + 0.01 + norm * (0.99 - seaLevel);
+    } else {
+      const depth = Math.max(0, t.seaLevelM - elevM.data[i]);
+      const norm = Math.pow(Math.min(1, depth / maxDepthM), 0.72);
+      out[i] = seaLevel * (0.95 - 0.9 * norm);
+    }
+  }
+  fs.writeFileSync(
+    path.join(outDir, "elevation.bin"),
+    encodeElevation(out, outW, outH),
+  );
+}
+
+// ── hydro.bin (lakes + rivers, SEPARATE — see core HydroMap.ts) ──
+// From the real HydroLAKES presence and HydroRIVERS discharge fields, kept
+// distinct so the shell renders lakes as lakes and rivers as rivers. River
+// discharge is wildly skewed (creek 25 m³/s … Amazon 205,000), so log-
+// normalize against a fixed Amazon-scale reference; the shell's river
+// thresholds then pick which show. Lakes are a hard presence mask.
+{
+  const riverM = scaled["river"];
+  const lakeM = scaled["lake"];
+  const n = outW * outH;
+  const lake = new Float32Array(n);
+  const river = new Float32Array(n);
+  const refDischarge = Math.log1p(200000);
+  for (let i = 0; i < n; i++) {
+    if (built.land.data[i] <= 0) continue;
+    lake[i] = lakeM.data[i] > 0 ? 1 : 0;
+    river[i] = Math.min(
+      1,
+      Math.log1p(Math.max(0, riverM.data[i])) / refDischarge,
+    );
+  }
+  fs.writeFileSync(
+    path.join(outDir, "hydro.bin"),
+    encodeHydro({ lake, river }, outW, outH),
+  );
+}
+
 // ── info.json ──
 const nations = loadNations(outW, outH, built.land, bbox);
 const displayName = title ?? name.charAt(0).toUpperCase() + name.slice(1);
@@ -374,6 +460,7 @@ const info = {
   categories: ["new", "world"],
   multiplayer_frequency: 0,
   nations,
+  world_engine: worldEngine,
 };
 fs.writeFileSync(
   path.join(outDir, "info.json"),

@@ -20,6 +20,34 @@ export interface MapMetadata {
   num_land_tiles: number;
 }
 
+/**
+ * World-engine render config recorded in the manifest at generation (or
+ * retrofit) time — everything runtime terrain derivation needs to replay the
+ * worldgen passes over elevation.bin without out-of-band knowledge
+ * (export-primary-fields). Mirrors FoundationWorldEngineMapConfig in
+ * src/games/alternative/world; the exporter types its output against this
+ * interface so the two cannot drift (core cannot import games code).
+ */
+export interface WorldEngineManifestConfig {
+  seed: number;
+  width: number;
+  height: number;
+  seaLevel: number;
+  continentScale: number;
+  mountainStrength: number;
+  coastFalloff: number;
+  coastRoughness: number;
+  latitudeEffect: number;
+  elevationCooling: number;
+  rainNoise: number;
+  warmthRainfall: number;
+  riverFlowRetention: number;
+  lakeWaterThreshold: number;
+  lakeElevationRange: number;
+  riverWeakThreshold: number;
+  riverStrongThreshold: number;
+}
+
 export interface MapManifest {
   name: string;
   map: MapMetadata;
@@ -33,6 +61,14 @@ export interface MapManifest {
   teamGameSpawnAreas?: TeamGameSpawnAreas;
   terrain_colors?: boolean;
   layers?: boolean;
+  // Set by the baker when elevation.bin shipped with the map.
+  elevation?: boolean;
+  // Set by the baker when hydro.bin (lake + river planes) shipped.
+  hydro?: boolean;
+  // Set by the baker when season.bin (seasonal amplitude + phase) shipped —
+  // optional, real-data maps only.
+  season?: boolean;
+  world_engine?: WorldEngineManifestConfig;
 }
 
 export interface Nation {

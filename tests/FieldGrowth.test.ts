@@ -1,9 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { farmTick } from "../src/core/execution/utils/FarmGrowth";
-import {
-  foodShedField,
-  isFallow,
-} from "../src/core/execution/utils/FoodShed";
+import { foodShedField, isFallow } from "../src/core/execution/utils/FoodShed";
 import { supplyField } from "../src/core/execution/utils/SupplyField";
 import { growUrbanArea } from "../src/core/execution/utils/UrbanGrowth";
 import {

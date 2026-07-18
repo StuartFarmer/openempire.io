@@ -1,11 +1,11 @@
 /**
  * Headless world authoring — the CLI twin of the #generator page.
  *
- * Runs the world engine for a seed/config and writes the four map source
- * files (image.png, terrain-colors.png, layers.bin, info.json) into
- * map-generator/assets/maps/<name>/ (or assets/test_maps/<name>/ with
- * --test, which gen-maps bakes into tests/testdata/maps/). Follow with
- * `npm run gen-maps` to bake.
+ * Runs the world engine for a seed/config and writes the six map source
+ * files (image.png, terrain-colors.png, layers.bin, elevation.bin, hydro.bin,
+ * info.json) into map-generator/assets/maps/<name>/ (or
+ * assets/test_maps/<name>/ with --test, which gen-maps bakes into
+ * tests/testdata/maps/). Follow with `npm run gen-maps` to bake.
  *
  * Usage:
  *   npx tsx map-generator/gen-world.ts --name verdantia --seed 42 \
@@ -18,12 +18,15 @@ import { fileURLToPath } from "url";
 import { createAlternativeWorldEngineMap } from "../src/games/alternative/world";
 import {
   buildGeneratedMapInfo,
+  buildGeneratorElevationBlob,
+  buildGeneratorHydroBlob,
   buildGeneratorLayersBlob,
   buildGeneratorSourceImage,
   buildGeneratorTerrainColorImage,
   normalizeGeneratedMapIdentity,
   type GeneratedMapSourceImage,
 } from "../src/games/alternative/world/GeneratorMapExport";
+import { normalizeFoundationWorldEngineMapConfig } from "../src/games/alternative/world/WorldEngineElevation";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -75,8 +78,32 @@ fs.writeFileSync(
   buildGeneratorLayersBlob(worldEngineLayers, map.width, map.height),
 );
 fs.writeFileSync(
+  path.join(outDir, "elevation.bin"),
+  buildGeneratorElevationBlob(
+    worldEngineLayers.elevation,
+    map.width,
+    map.height,
+  ),
+);
+fs.writeFileSync(
+  path.join(outDir, "hydro.bin"),
+  buildGeneratorHydroBlob(worldEngineLayers, map.width, map.height),
+);
+fs.writeFileSync(
   path.join(outDir, "info.json"),
-  `${JSON.stringify(buildGeneratedMapInfo({ id: identity.id, name: display }), null, 2)}\n`,
+  `${JSON.stringify(
+    buildGeneratedMapInfo({
+      id: identity.id,
+      name: display,
+      worldEngine: normalizeFoundationWorldEngineMapConfig({
+        seed,
+        width,
+        height,
+      }),
+    }),
+    null,
+    2,
+  )}\n`,
 );
 
 console.log(

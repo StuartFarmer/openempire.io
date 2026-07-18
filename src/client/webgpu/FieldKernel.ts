@@ -46,6 +46,12 @@ export interface FieldPassSpec {
   advances?: readonly string[];
   /** "grid" (default): one thread per tile via `fn tile(x,y,i)`; "single": one thread via `fn once()`. */
   kind?: "grid" | "single";
+  /**
+   * The code is complete WGSL (own binding declarations, own entry point) —
+   * e.g. output of a WESL link. The kernel skips prelude/declaration/main
+   * generation and uses `binds` only to build the layout and bind groups.
+   */
+  raw?: boolean;
   code: string;
 }
 
@@ -156,10 +162,11 @@ interface PassRuntime {
 export class FieldKernel {
   private constructor(
     readonly device: GPUDevice,
-    private readonly context: GPUCanvasContext,
-    private readonly canvas: HTMLCanvasElement,
+    private readonly context: GPUCanvasContext | null,
+    private readonly canvas: HTMLCanvasElement | null,
     private readonly config: FieldKernelConfig,
     public readonly adapterInfo: string,
+    private readonly ownsDevice: boolean,
   ) {}
 
   private readonly uniformBuffers = new Map<string, GPUBuffer>();
@@ -184,40 +191,69 @@ export class FieldKernel {
     return this.heightValue;
   }
 
+  /** The view pass target, for sampling by an external renderer (headless mode). */
+  get outView(): GPUTextureView | null {
+    return this.outTextureView;
+  }
+
   static isSupported(): boolean {
     return typeof navigator !== "undefined" && !!navigator.gpu;
   }
 
+  /**
+   * Create a kernel. With `canvas` null the kernel runs headless — no canvas
+   * context and no present pipeline; sample `outView` from your own renderer
+   * instead. With `options.device` the kernel joins an existing device (so
+   * its textures are shareable) and destroy() leaves that device alone.
+   */
   static async create(
-    canvas: HTMLCanvasElement,
+    canvas: HTMLCanvasElement | null,
     config: FieldKernelConfig,
+    options: { device?: GPUDevice } = {},
   ): Promise<FieldKernel> {
     if (!navigator.gpu) {
       throw new Error("WebGPU is not supported in this browser");
     }
-    const adapter = await navigator.gpu.requestAdapter();
-    if (!adapter) {
-      throw new Error("No WebGPU adapter available");
+    let device = options.device ?? null;
+    let adapterInfo = "shared device";
+    if (!device) {
+      const adapter = await navigator.gpu.requestAdapter();
+      if (!adapter) {
+        throw new Error("No WebGPU adapter available");
+      }
+      device = await adapter.requestDevice({
+        label: "field-kernel",
+        // Wide passes (the worldgen colorizer) bind more storage buffers
+        // than the default limit of 8.
+        requiredLimits: {
+          maxStorageBuffersPerShaderStage: Math.min(
+            adapter.limits.maxStorageBuffersPerShaderStage,
+            16,
+          ),
+        },
+      });
+      device.addEventListener("uncapturederror", (event) => {
+        console.error("WebGPU uncaptured error:", event.error.message);
+      });
+      const info = adapter.info;
+      adapterInfo =
+        [info?.description, info?.vendor, info?.architecture]
+          .filter((part) => !!part)
+          .join(" · ") || "unknown adapter";
     }
-    const device = await adapter.requestDevice({ label: "field-kernel" });
-    device.addEventListener("uncapturederror", (event) => {
-      console.error("WebGPU uncaptured error:", event.error.message);
-    });
-    // The TS dom lib's getContext overloads don't know "webgpu" yet.
-    const context = canvas.getContext(
-      "webgpu",
-    ) as unknown as GPUCanvasContext | null;
-    if (!context) {
-      throw new Error("Could not create a WebGPU canvas context");
-    }
-    const format = navigator.gpu.getPreferredCanvasFormat();
-    context.configure({ device, format, alphaMode: "opaque" });
 
-    const info = adapter.info;
-    const adapterInfo =
-      [info?.description, info?.vendor, info?.architecture]
-        .filter((part) => !!part)
-        .join(" · ") || "unknown adapter";
+    let context: GPUCanvasContext | null = null;
+    const format = navigator.gpu.getPreferredCanvasFormat();
+    if (canvas) {
+      // The TS dom lib's getContext overloads don't know "webgpu" yet.
+      context = canvas.getContext(
+        "webgpu",
+      ) as unknown as GPUCanvasContext | null;
+      if (!context) {
+        throw new Error("Could not create a WebGPU canvas context");
+      }
+      context.configure({ device, format, alphaMode: "opaque" });
+    }
 
     const kernel = new FieldKernel(
       device,
@@ -225,13 +261,16 @@ export class FieldKernel {
       canvas,
       config,
       adapterInfo,
+      options.device === undefined,
     );
     await kernel.build(format);
     return kernel;
   }
 
   destroy(): void {
-    this.device.destroy();
+    if (this.ownsDevice) {
+      this.device.destroy();
+    }
   }
 
   private async build(canvasFormat: GPUTextureFormat): Promise<void> {
@@ -295,7 +334,9 @@ export class FieldKernel {
         throw new Error(
           `WGSL errors in pass "${spec.name}":\n` +
             wgslErrors
-              .map((m) => `  ${spec.name}:${m.lineNum}:${m.linePos} ${m.message}`)
+              .map(
+                (m) => `  ${spec.name}:${m.lineNum}:${m.linePos} ${m.message}`,
+              )
               .join("\n") +
             `\n\nAssembled source:\n${numbered}`,
         );
@@ -333,21 +374,25 @@ export class FieldKernel {
       ] as const;
     });
 
-    const renderModule = this.device.createShaderModule({
-      label: "field-present",
-      code: RENDER_WGSL,
-    });
-    const renderPipelinePromise = this.device.createRenderPipelineAsync({
-      label: "field-present",
-      layout: "auto",
-      vertex: { module: renderModule, entryPoint: "vs" },
-      fragment: {
-        module: renderModule,
-        entryPoint: "fs",
-        targets: [{ format: canvasFormat }],
-      },
-      primitive: { topology: "triangle-list" },
-    });
+    // Headless kernels have no canvas to present to.
+    let renderPipelinePromise: Promise<GPURenderPipeline> | null = null;
+    if (this.canvas) {
+      const renderModule = this.device.createShaderModule({
+        label: "field-present",
+        code: RENDER_WGSL,
+      });
+      renderPipelinePromise = this.device.createRenderPipelineAsync({
+        label: "field-present",
+        layout: "auto",
+        vertex: { module: renderModule, entryPoint: "vs" },
+        fragment: {
+          module: renderModule,
+          entryPoint: "fs",
+          targets: [{ format: canvasFormat }],
+        },
+        primitive: { topology: "triangle-list" },
+      });
+    }
 
     const entries = await Promise.all(pipelinePromises);
     for (const [name, runtime] of entries) {
@@ -356,7 +401,9 @@ export class FieldKernel {
       }
       this.passes.set(name, runtime);
     }
-    this.renderPipeline = await renderPipelinePromise;
+    this.renderPipeline = renderPipelinePromise
+      ? await renderPipelinePromise
+      : null;
   }
 
   private parseBind(passName: string, ref: string): ParsedBind {
@@ -458,6 +505,7 @@ export class FieldKernel {
     spec: FieldPassSpec,
     binds: readonly ParsedBind[],
   ): string {
+    if (spec.raw) return spec.code;
     const decls = binds
       .map((bind, index) => {
         const binding = index + 1;
@@ -529,11 +577,13 @@ export class FieldKernel {
       usage: TEXTURE_USAGE.STORAGE_BINDING | TEXTURE_USAGE.TEXTURE_BINDING,
     });
     this.outTextureView = this.outTexture.createView();
-    this.renderBindGroup = this.device.createBindGroup({
-      label: "field-present",
-      layout: this.renderPipeline!.getBindGroupLayout(0),
-      entries: [{ binding: 0, resource: this.outTextureView }],
-    });
+    if (this.renderPipeline) {
+      this.renderBindGroup = this.device.createBindGroup({
+        label: "field-present",
+        layout: this.renderPipeline.getBindGroupLayout(0),
+        entries: [{ binding: 0, resource: this.outTextureView }],
+      });
+    }
   }
 
   writeUniform(name: string, data: ArrayBuffer | ArrayBufferView): void {
@@ -662,6 +712,9 @@ export class FieldKernel {
 
   /** @internal */
   presentEncode(encoder: GPUCommandEncoder): void {
+    if (!this.canvas || !this.context || !this.renderPipeline) {
+      throw new Error("present() is unavailable on a headless FieldKernel");
+    }
     this.canvas.width = this.widthValue;
     this.canvas.height = this.heightValue;
     const pass = encoder.beginRenderPass({

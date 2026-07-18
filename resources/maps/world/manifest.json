@@ -1,6 +1,8 @@
 {
   "categories": ["featured", "world"],
+  "elevation": true,
   "featured_rank": 1,
+  "hydro": true,
   "id": "World",
   "layers": true,
   "map": {
@@ -378,5 +380,24 @@
     }
   ],
   "terrain_colors": true,
-  "translation_key": "map.world"
+  "translation_key": "map.world",
+  "world_engine": {
+    "coastFalloff": 0.78,
+    "coastRoughness": 0.42,
+    "continentScale": 0.92,
+    "elevationCooling": 0.35,
+    "height": 1000,
+    "lakeElevationRange": 0.03,
+    "lakeWaterThreshold": 1.2,
+    "latitudeEffect": 0.72,
+    "mountainStrength": 0.56,
+    "rainNoise": 0.62,
+    "riverFlowRetention": 0.82,
+    "riverStrongThreshold": 0.48,
+    "riverWeakThreshold": 0.28,
+    "seaLevel": 0.46,
+    "seed": 237466,
+    "warmthRainfall": 0.42,
+    "width": 2000
+  }
 }

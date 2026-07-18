@@ -31,6 +31,8 @@ export class NodeGameMapLoader implements GameMapLoader {
       webpPath: path.join(dir, "thumbnail.webp"),
       terrainColorsPath: path.join(dir, "terrain-colors.png"),
       layersBin: readBin("layers.bin"),
+      elevationBin: readBin("elevation.bin"),
+      hydroBin: readBin("hydro.bin"),
     };
   }
 }
