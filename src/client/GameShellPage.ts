@@ -207,6 +207,7 @@ export class GameShellPage extends FieldViewerBase {
   protected async onSystemMounted(mapData: MapData): Promise<void> {
     this.clearViewCache();
     this.tickCount = 0;
+    this.tool = "pan"; // start in pan; the brush tool is opt-in per game
     await this.deriveTerrain(mapData);
     // Default to a terrain view; the game overlay is opt-in via the picker.
     if (!VIEW_KEYS.includes(this.shellView)) this.shellView = "terrain";
@@ -622,8 +623,8 @@ export class GameShellPage extends FieldViewerBase {
       <section class="fixed inset-0 z-[9000] bg-neutral-950 overflow-hidden">
         <canvas
           id="shell-canvas"
-          class="absolute inset-0 w-full h-full touch-none ${compiled?.system
-            .input?.onTile || (game && this.brush)
+          class="absolute inset-0 w-full h-full touch-none ${this.tool ===
+            "brush" && this.canBrush()
             ? "cursor-crosshair"
             : "cursor-grab active:cursor-grabbing"}"
           @pointerdown=${this.onPointerDown}
@@ -747,10 +748,34 @@ export class GameShellPage extends FieldViewerBase {
                 climate
               </button>`
             : null}
-          ${game && (compiled?.brushNames.length ?? 0) > 0
+          ${this.canBrush()
+            ? html`<div class="flex items-center gap-1">
+                <button
+                  class="border border-white/20 px-2 py-1 hover:bg-white/10 ${this
+                    .tool === "pan"
+                    ? "bg-white/15"
+                    : ""}"
+                  title="Pan tool (drag to move the map)"
+                  @click=${() => (this.tool = "pan")}
+                >
+                  ✋ pan
+                </button>
+                <button
+                  class="border border-white/20 px-2 py-1 hover:bg-white/10 ${this
+                    .tool === "brush"
+                    ? "bg-white/15"
+                    : ""}"
+                  title="Brush tool (drag on the map to paint)"
+                  @click=${() => (this.tool = "brush")}
+                >
+                  🖌 brush
+                </button>
+              </div>`
+            : null}
+          ${this.tool === "brush" && (compiled?.brushNames.length ?? 0) > 0
             ? html`<select
                 class="bg-black/40 border border-white/20 px-2 py-1 text-white"
-                title="Brush (click on map to stamp)"
+                title="Active brush"
                 @change=${(e: Event) => {
                   this.brush = (e.target as HTMLSelectElement).value;
                 }}
@@ -758,7 +783,7 @@ export class GameShellPage extends FieldViewerBase {
                 ${(compiled?.brushNames ?? []).map(
                   (name) =>
                     html`<option value=${name} ?selected=${name === this.brush}>
-                      🖌 ${name}
+                      ${name}
                     </option>`,
                 )}
               </select>`

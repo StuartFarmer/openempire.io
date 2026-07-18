@@ -61,9 +61,10 @@ export abstract class FieldViewerBase extends LitElement {
   // Shared pan/zoom camera — every page gets drag-to-pan, wheel-zoom, hover.
   protected camera: CameraState = { cx: 0, cy: 0, scale: 1 };
   protected pendingFit = false;
+  /** Pointer tool: "pan" drags the camera, "brush" drags to stamp/command. */
+  @state() protected tool: "pan" | "brush" = "pan";
   private dragging = false;
-  private pointerMoved = false;
-  private downPoint = { x: 0, y: 0 };
+  private painting = false;
   private lastPointer = { x: 0, y: 0 };
 
   private raf = 0;
@@ -372,41 +373,51 @@ export abstract class FieldViewerBase extends LitElement {
     this.camera.cy = Math.min(r.mapHeight, Math.max(0, this.camera.cy));
   }
 
+  /** Whether the pointer is currently painting (brush tool available + on). */
+  private brushActive(): boolean {
+    return this.tool === "brush" && this.canBrush();
+  }
+
+  /** Whether the mounted system offers a tile interaction (brush or onTile). */
+  protected canBrush(): boolean {
+    return (
+      (this.compiled?.brushNames.length ?? 0) > 0 ||
+      !!this.compiled?.system.input?.onTile
+    );
+  }
+
   protected onPointerDown = (event: PointerEvent): void => {
     (event.currentTarget as HTMLCanvasElement).setPointerCapture(
       event.pointerId,
     );
-    // Drag always pans (every system). A tile action — stamp a brush / command
-    // via the input hook — fires on a CLICK (pointerup with no drag), below.
-    this.dragging = true;
-    this.pointerMoved = false;
-    this.downPoint = this.framebufferPoint(event);
-    this.lastPointer = this.downPoint;
+    // The tool decides: brush drags to stamp/command, pan drags the camera.
+    if (this.brushActive()) {
+      this.painting = true;
+      const { x, y } = this.cursorToMap(event);
+      this.onTileGesture(Math.floor(x), Math.floor(y), event);
+    } else {
+      this.dragging = true;
+      this.lastPointer = this.framebufferPoint(event);
+    }
   };
 
   protected onPointerMove = (event: PointerEvent): void => {
     this.updateHover(event);
+    if (this.painting) {
+      const { x, y } = this.cursorToMap(event);
+      this.onTileGesture(Math.floor(x), Math.floor(y), event);
+      return;
+    }
     if (!this.dragging) return;
     const point = this.framebufferPoint(event);
-    if (
-      Math.abs(point.x - this.downPoint.x) +
-        Math.abs(point.y - this.downPoint.y) >
-      4
-    ) {
-      this.pointerMoved = true;
-    }
     this.camera.cx -= (point.x - this.lastPointer.x) / this.camera.scale;
     this.camera.cy -= (point.y - this.lastPointer.y) / this.camera.scale;
     this.lastPointer = point;
   };
 
-  protected onPointerUp = (event: PointerEvent): void => {
-    // A click (no meaningful drag) is a tile action; a drag was a pan.
-    if (this.dragging && !this.pointerMoved) {
-      const { x, y } = this.cursorToMap(event);
-      this.onTileGesture(Math.floor(x), Math.floor(y), event);
-    }
+  protected onPointerUp = (): void => {
     this.dragging = false;
+    this.painting = false;
   };
 
   protected onPointerLeave = (): void => {
