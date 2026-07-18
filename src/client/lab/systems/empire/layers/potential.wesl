@@ -14,7 +14,7 @@ fn update(x: i32, y: i32, i: u32) -> f32 {
   if (layers::land::val(i) == 0.0) {
     return 0.0;
   }
-  let tempC = layers::temp::val(i) * 65.0 - 30.0;
+  let tempC = layers::temperature::val(i) * 65.0 - 30.0;
   // Warmth and moisture are GATES, not fractions: they open toward 1 on
   // habitable land rather than multiplying it down. So fertile temperate soil
   // reads near its full fertility, while frost and desert cut it to 0.

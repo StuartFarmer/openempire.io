@@ -11,7 +11,7 @@ fn init(x: i32, y: i32, i: u32) -> f32 {
 }
 
 fn update(x: i32, y: i32, i: u32) -> f32 {
-  let tempC = layers::temp::val(i) * 65.0 - 30.0;
+  let tempC = layers::temperature::val(i) * 65.0 - 30.0;
   if (tempC < 0.0) {
     return 0.0; // frost ends the season
   }

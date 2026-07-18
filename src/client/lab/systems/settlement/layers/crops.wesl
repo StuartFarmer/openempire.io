@@ -11,7 +11,7 @@ fn init(x: i32, y: i32, i: u32) -> f32 {
 }
 
 fn update(x: i32, y: i32, i: u32) -> f32 {
-  let tempC = layers::temp::val(i) * 65.0 - 30.0;
+  let tempC = layers::temperature::val(i) * 65.0 - 30.0;
   let warmth = clamp((tempC - params::baseTempC()) / params::warmSpanC(), 0.0, 1.0);
   // Moisture is a hard requirement: below the dry threshold nothing grows
   // (real deserts), saturating to full above the wet threshold. A smoothstep,

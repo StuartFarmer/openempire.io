@@ -18,10 +18,8 @@ export const settlement = defineFieldSystem({
   defaultView: "life",
 
   params: {
-    // Seasonal temperature (same model as the world system).
-    tilt: { value: 23.4, min: 0, max: 45, step: 0.1 },
-    yearTicks: { value: 520, min: 120, max: 36000, step: 10 },
-    seasonStrength: { value: 1.0, min: 0, max: 3 },
+    // Seasonal temperature now comes from the terrain base (layers::temperature)
+    // — real continentality + seasons, advanced by the viewer's season tier.
 
     // Growing season: warmth accounting.
     baseTempC: { value: 5, min: 0, max: 15, step: 0.5 },
@@ -68,7 +66,10 @@ export const settlement = defineFieldSystem({
     crops: { layer: "crops", ramp: ["#141210", "#3f8f34"] },
     food: { layer: "food", ramp: ["#141008", "#e8b84b"] },
     growingDegreeDays: { layer: "gdd", ramp: ["#101418", "#d98b3a"] },
-    temperature: { layer: "temp", ramp: ["#2850a0", "#e8dc78", "#c83c32"] },
+    temperature: {
+      layer: "temperature",
+      ramp: ["#2850a0", "#e8dc78", "#c83c32"],
+    },
   },
 
   modules: import.meta.glob("./**/*.wesl", {

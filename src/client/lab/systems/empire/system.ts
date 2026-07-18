@@ -24,10 +24,8 @@ export const empire = defineFieldSystem({
   ai: { decide: (ctx) => nearestEnemyAI(ctx) },
 
   params: {
-    // Seasonal temperature.
-    tilt: { value: 23.4, min: 0, max: 45, step: 0.1 },
-    yearTicks: { value: 520, min: 120, max: 36000, step: 10 },
-    seasonStrength: { value: 1.0, min: 0, max: 3 },
+    // Seasonal temperature comes from the terrain base (layers::temperature) —
+    // real continentality + seasons, advanced by the viewer's season tier.
 
     // Carrying capacity (potential).
     baseTempC: { value: 5, min: 0, max: 15, step: 0.5 },

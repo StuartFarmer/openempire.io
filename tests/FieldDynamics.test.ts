@@ -41,12 +41,15 @@ describe("compileFieldSystem (unified layers)", () => {
   });
 
   test("derives binds from the qualified registry references, layers sorted by name", () => {
-    // grass.wesl references params:: plus layers::{crop, grass, herd}.
+    // grass.wesl references params:: plus layers::{crop, grass, herd,
+    // temperature} (temperature is the terrain field, or the raw plane when
+    // grazing is compiled standalone).
     expect(passByName(compiled, "stock/grass").binds).toEqual([
       "P",
       "crop",
       "grass.read",
       "herd.read",
+      "temperature",
       "grass.write",
     ]);
     // herd.wesl references params:: plus layers::{grass, herd, land}.
@@ -93,7 +96,9 @@ describe("compileFieldSystem (unified layers)", () => {
   });
 
   test("collects only the referenced map layers", () => {
-    expect(compiled.mapLayers).toEqual(["crop", "land"]);
+    // Standalone grazing reads the raw temperature plane; composed on terrain
+    // that same read resolves to the derived field instead.
+    expect(compiled.mapLayers).toEqual(["crop", "land", "temperature"]);
   });
 
   test("params pack in declaration order with trailing seed", () => {
@@ -557,9 +562,10 @@ describe("compileFieldSystem — derivation stage", () => {
         "color",
       ]),
     );
-    // Custom Params uniform (worldgen layout), not the manifest-generated one.
-    const p = compiled.kernelConfig.uniforms?.find((u) => u.name === "P");
-    expect(p?.bytes).toBe(96);
+    // Terrain owns a named uniform (TP) with the worldgen Params layout, so a
+    // composed game keeps P for its own params.
+    const tp = compiled.kernelConfig.uniforms?.find((u) => u.name === "TP");
+    expect(tp?.bytes).toBe(96);
     // Fixed-count accumulators and ping-pong scratch survive.
     const buf = (n: string) =>
       compiled.kernelConfig.buffers.find((b) => b.name === n);
@@ -737,5 +743,29 @@ fn update(x: i32, y: i32, i: u32) -> f32 {
         }),
       ),
     ).rejects.toThrow(/heat/);
+  });
+});
+
+describe("games composed on terrain compile", () => {
+  test("grazing / settlement / empire link on the terrain base", async () => {
+    const { composeTerrain } = await import(
+      "../src/client/lab/systems/terrain/system"
+    );
+    const { grazing } = await import("../src/client/lab/systems/grazing/system");
+    const { settlement } = await import(
+      "../src/client/lab/systems/settlement/system"
+    );
+    const { empire } = await import("../src/client/lab/systems/empire/system");
+    for (const game of [grazing, settlement, empire]) {
+      const c = await compileFieldSystem(composeTerrain(game));
+      // The terrain derivation is present (climate pass) AND the game ticks.
+      const names = c.kernelConfig.passes.map((p) => p.name);
+      expect(names).toContain("climate"); // terrain derive
+      expect(names.some((n) => n.startsWith("stock/"))).toBe(true); // game sim
+      // Both uniforms: game P + terrain TP.
+      expect((c.kernelConfig.uniforms ?? []).map((u) => u.name)).toEqual(
+        expect.arrayContaining(["P", "TP"]),
+      );
+    }
   });
 });

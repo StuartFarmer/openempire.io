@@ -29,7 +29,9 @@ export const terrain: FieldSystem = {
   views: {},
   derive: {
     typeImports: "import package::types::{Params, Globals, GlobalsAtomic};",
-    uniform: { wgslType: "Params", bytes: PARAMS_BYTES },
+    // Terrain owns its uniform ("TP") so a composed game keeps "P" for its own
+    // params. The pass bodies still read it as `P` (bound by index).
+    uniform: { wgslType: "Params", bytes: PARAMS_BYTES, name: "TP" },
     // Declared map inputs (phase 3): which sidecar plane fills each input
     // field. loadMapInputs reproduces the shell's hand-decode from this.
     inputs: {
@@ -60,8 +62,9 @@ export const terrain: FieldSystem = {
       return out;
     },
     fields: {
-      // Map inputs (uploaded by the page/loader before deriving).
-      elevation: { type: "f32" },
+      // Map inputs (uploaded by the page/loader before deriving). `elevation`
+      // is exposed so games can read raw altitude.
+      elevation: { type: "f32", exposed: true },
       waterMask: { type: "u32" },
       lakeBase: { type: "f32" },
       riverBase: { type: "f32" },
@@ -69,15 +72,16 @@ export const terrain: FieldSystem = {
       humidityBase: { type: "f32" },
       seasonAmp: { type: "f32" },
       seasonPhase: { type: "f32" },
-      // Derived + scratch (pingPong inferred from `advances`).
-      flags: { type: "u32" },
-      temperature: { type: "f32" },
-      precipitation: { type: "f32" },
-      fill: { type: "f32" },
+      // Derived + scratch (pingPong inferred from `advances`). The rich climate
+      // outputs a GAME reads are `exposed` to the layer registry.
+      flags: { type: "u32", exposed: true },
+      temperature: { type: "f32", exposed: true },
+      precipitation: { type: "f32", exposed: true },
+      fill: { type: "f32", exposed: true },
       dir: { type: "u32" },
-      water: { type: "f32" },
+      water: { type: "f32", exposed: true },
       irrigation: { type: "f32" },
-      humidity: { type: "f32" },
+      humidity: { type: "f32", exposed: true },
       // Fixed-size accumulators for the reduce-to-uniform (histogram → quantile).
       hist: { type: "u32", count: 256 },
       G: { type: "u32", count: 4 },
@@ -112,7 +116,7 @@ export const terrain: FieldSystem = {
       {
         pass: "climate",
         binds: [
-          "P",
+          "TP",
           "elevation",
           "flags",
           "G:Globals",
@@ -127,7 +131,7 @@ export const terrain: FieldSystem = {
       },
       {
         pass: "fill_init",
-        binds: ["P", "elevation", "flags", "fill.write"],
+        binds: ["TP", "elevation", "flags", "fill.write"],
         advances: ["fill"],
       },
       {
@@ -136,7 +140,7 @@ export const terrain: FieldSystem = {
         advances: ["fill"],
         iterate: 320,
       },
-      { pass: "flow_dir", binds: ["P", "fill.read", "flags", "dir!"] },
+      { pass: "flow_dir", binds: ["TP", "fill.read", "flags", "dir!"] },
       {
         pass: "water_init",
         binds: ["flags", "precipitation", "water.write"],
@@ -145,7 +149,7 @@ export const terrain: FieldSystem = {
       {
         pass: "water_step",
         binds: [
-          "P",
+          "TP",
           "flags",
           "precipitation",
           "dir",
@@ -182,7 +186,7 @@ export const terrain: FieldSystem = {
       {
         pass: "humidity_biome",
         binds: [
-          "P",
+          "TP",
           "temperature",
           "precipitation",
           "irrigation.read",
@@ -195,7 +199,7 @@ export const terrain: FieldSystem = {
       {
         pass: "color",
         binds: [
-          "P",
+          "TP",
           "elevation",
           "flags",
           "temperature",
@@ -213,3 +217,17 @@ export const terrain: FieldSystem = {
   },
   modules: WORLDGEN_MODULES,
 };
+
+// Compose a game ruleset onto the shared terrain base (add-games-on-terrain):
+// the game gains terrain's derivation (the `TP` uniform, inputs, prep, and the
+// exposed climate fields its layers read via `layers::…`) plus the worldgen
+// pass modules. The game keeps its own layers/views/params/players/ai/input and
+// its own `P` uniform. `composeTerrain(game)` is what the viewer mounts; a
+// game manifest never references terrain itself.
+export function composeTerrain(game: FieldSystem): FieldSystem {
+  return {
+    ...game,
+    derive: terrain.derive,
+    modules: { ...terrain.modules, ...game.modules },
+  };
+}

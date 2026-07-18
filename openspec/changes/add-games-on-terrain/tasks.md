@@ -7,8 +7,8 @@
 
 ## 2. The shared terrain base
 
-- [ ] 2.1 Extract `TERRAIN_DERIVE` (the terrain derive block) into a reusable spec: uniform `name: "TP"`; mark `temperature`/`precipitation`/`humidity`/`water`/`fill`/`flags` (+ raw inputs) `exposed`.
-- [ ] 2.2 `composeTerrain(game): FieldSystem` — merge `TERRAIN_DERIVE` into a game manifest (derive stage + exposed fields + `TP` uniform + modules + inputs/prepare). Name collisions error. `composeTerrain({})` = terrain alone. Test: composed grazing compiles; a game layer named `temperature` errors.
+- [x] 2.1 Extract `TERRAIN_DERIVE` (the terrain derive block) into a reusable spec: uniform `name: "TP"`; mark `temperature`/`precipitation`/`humidity`/`water`/`fill`/`flags` (+ raw inputs) `exposed`.
+- [x] 2.2 `composeTerrain(game): FieldSystem` — merge `TERRAIN_DERIVE` into a game manifest (derive stage + exposed fields + `TP` uniform + modules + inputs/prepare). Name collisions error. `composeTerrain({})` = terrain alone. Test: composed grazing compiles; a game layer named `temperature` errors.
 
 ## 3. Viewer: terrain always-on, game picker
 
@@ -18,9 +18,9 @@
 
 ## 4. Recreate the games on terrain
 
-- [ ] 4.1 `grazing`: grass growth reads `layers::temperature`/`layers::crop`; drop any re-derived climate. Verify herds spread on real fertile land.
-- [ ] 4.2 `settlement`: crops/pop read `layers::temperature` + `layers::water` + `layers::humidity`; delete `temp`/`gdd` crude layers. Verify life pools in fertile, watered, frost-free regions.
-- [ ] 4.3 `empire`: `potential` reads terrain `temperature`(seasonal)/`water`(drainage)/`humidity`; delete `temp.wesl` (fake swing). pop/troops/owner/combat unchanged. Verify empires grow over the real opportunity map + AI/combat still run.
+- [x] 4.1 `grazing`: grass growth reads `layers::temperature`/`layers::crop`; drop any re-derived climate. Verify herds spread on real fertile land.
+- [x] 4.2 `settlement`: crops/pop read `layers::temperature` + `layers::water` + `layers::humidity`; delete `temp`/`gdd` crude layers. Verify life pools in fertile, watered, frost-free regions.
+- [x] 4.3 `empire`: `potential` reads terrain `temperature`(seasonal)/`water`(drainage)/`humidity`; delete `temp.wesl` (fake swing). pop/troops/owner/combat unchanged. Verify empires grow over the real opportunity map + AI/combat still run.
 
 ## 5. Verify + clean up
 
