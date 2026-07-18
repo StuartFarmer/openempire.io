@@ -27,7 +27,7 @@
 
 ## 4. The unified `FieldViewer` runtime
 
-- [~] 4.1 Renderers DONE: `ViewerRenderer` interface (`src/client/viewer/ViewerRenderer.ts`) with `BlitRenderer` (the #lab 1:1 pixelated blit, extracted from the kernel's built-in present, device-owning) + `CameraRenderer` now implementing it. The `FieldViewer` mount(system, renderer, panels) component that ties them to a headless kernel + loop is the remaining half.
+- [x] 4.1 `ViewerRenderer` interface (`src/client/viewer/ViewerRenderer.ts`) with `BlitRenderer` (the #lab 1:1 pixelated blit, extracted from the kernel's built-in present, device-owning) + `CameraRenderer` implementing it. `FieldViewerBase` (`src/client/viewer/FieldViewerBase.ts`) is the mount: it ties a compiled system + renderer + headless kernel + the fixed-clock/turbo loop + brushes/params/scalars together. `#lab` is now a thin subclass (BlitRenderer + HMR) — verified running Grazing through the base.
 - [ ] 4.2 Generic panels from declarations: system/map pickers, view/brush selectors, param sliders, scalar readouts, hover readout (reading declared views/params/brushes/scalars/inputs)
 - [ ] 4.3 Baked `terrain-colors.png` fallback as a viewer-level concern (renderer shows the bitmap when derivation inputs are absent/failed, with status)
 - [ ] 4.4 `#lab` preset: sim systems under blit + brush/scalar panels; `#shell` preset: `terrain` (+ resident sim) under camera + hover/param panels
