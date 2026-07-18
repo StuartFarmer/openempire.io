@@ -34,7 +34,7 @@
 
 ## 5. Flip and delete
 
-- [ ] 5.1 Flip `#shell` to the `terrain` system under the camera; verify parity (export-primary-fields screenshots: EarthXL derived terrain, latitude/season live, hover, fallback) and the `#lab` regressions (world, settlement, empire, grazing, territory)
-- [ ] 5.2 Delete `src/client/shell/TerrainDerivation.ts`, `WebGpuWorldEngine`'s `PASS_TABLE`/dispatch program (WESL passes now live in the `terrain` system), the shell's explicit decode/`waterMask`/view-routing, and the `MapLayerViews` CPU colorizer
+- [x] 5.1 `#shell` flipped to the `terrain` system under the camera: `TerrainSystemRunner` is the shell's sole derivation, inputs + hover from `loadMapInputs`. Verified (EarthXL/Verdantia/MajorMenor derive full terrain, knobs drive the recolor tier, seasonal temp + hover intact, no page errors).
+- [x] 5.2 Deleted `src/client/shell/TerrainDerivation.ts` and the shell's explicit sidecar decode / `buildWaterMask` call / parity `y`-toggle view-routing (the terrain system + `loadMapInputs` own all of it). **Kept** `WebGpuWorldEngine`/`PASS_TABLE` (the `#webgpu` procedural generator) and `MapLayerViews` (the shell's baked layer-view bitmaps): PASS_TABLE is NOT duplicated shell code — it shares the WESL pass bodies (`WORLDGEN_MODULES`) and linking machinery with the terrain system; only its procedural ocean-flood dispatch (`scanX,scanY` alternated ×12) is hand-listed, which the linear derive-step model can't express. Converging the generator/baked views into the FieldViewer is folded into phase 4.
 - [ ] 5.3 Fold `FieldLabPage`/`GameShellPage` into the `FieldViewer` presets (or thin wrappers); remove the duplicated tick-loop/turbo/upload code
 - [ ] 5.4 Full tsc + lint clean; `#webgpu` generator page still works (or is re-pointed at the `terrain` system); all lab systems and both presets verified
