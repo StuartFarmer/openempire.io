@@ -79,8 +79,17 @@ export const terrain: FieldSystem = {
       hist: { type: "u32", count: 256 },
       G: { type: "u32", count: 4 },
     },
+    // Tiers (two-tier reactivity): "recolor" re-runs every cheap pass over the
+    // settled fill/flow buffers (climate/color knob change); "season" is the
+    // per-tick sweep (year phase → temperature → ice line → color); "repaint"
+    // is a view-mode switch (color only). Untagged steps (fill/flow/water) run
+    // only in the full derivation (load time). Matches TerrainDerivation.
     steps: [
-      { pass: "flags_from_mask", binds: ["waterMask", "lakeBase", "flags!"] },
+      {
+        pass: "flags_from_mask",
+        binds: ["waterMask", "lakeBase", "flags!"],
+        tiers: ["recolor"],
+      },
       {
         pass: "histogram",
         binds: [
@@ -89,11 +98,13 @@ export const terrain: FieldSystem = {
           "hist:array<atomic<u32>, 256>!",
           "G:GlobalsAtomic!",
         ],
+        tiers: ["recolor"],
       },
       {
         pass: "quantile",
         binds: ["hist:array<u32, 256>", "G:Globals!"],
         kind: "single",
+        tiers: ["recolor"],
       },
       {
         pass: "climate",
@@ -109,6 +120,7 @@ export const terrain: FieldSystem = {
           "temperature!",
           "precipitation!",
         ],
+        tiers: ["recolor", "season"],
       },
       {
         pass: "fill_init",
@@ -140,11 +152,16 @@ export const terrain: FieldSystem = {
         advances: ["water"],
         iterate: 320,
       },
-      { pass: "water_max", binds: ["flags", "water.read", "G:GlobalsAtomic!"] },
+      {
+        pass: "water_max",
+        binds: ["flags", "water.read", "G:GlobalsAtomic!"],
+        tiers: ["recolor"],
+      },
       {
         pass: "irrigation_init",
         binds: ["flags", "water.read", "G:Globals", "irrigation.write"],
         advances: ["irrigation"],
+        tiers: ["recolor"],
       },
       {
         pass: "irrigation_step",
@@ -157,6 +174,7 @@ export const terrain: FieldSystem = {
         ],
         advances: ["irrigation"],
         iterate: 8,
+        tiers: ["recolor"],
       },
       {
         pass: "humidity_biome",
@@ -169,6 +187,7 @@ export const terrain: FieldSystem = {
           "humidity!",
           "flags!",
         ],
+        tiers: ["recolor", "season"],
       },
       {
         pass: "color",
@@ -185,6 +204,7 @@ export const terrain: FieldSystem = {
           "G:Globals",
           "out",
         ],
+        tiers: ["recolor", "season", "repaint"],
       },
     ],
   },

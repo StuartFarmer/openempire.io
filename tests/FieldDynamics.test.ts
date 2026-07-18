@@ -578,6 +578,43 @@ describe("compileFieldSystem — derivation stage", () => {
     expect(calls[calls.length - 1]).toBe("p:color");
   });
 
+  test("runDerive tiers filter to the tagged steps (two-tier reactivity)", async () => {
+    const compiled = await compileFieldSystem(terrain);
+    const run = (tier?: string): string[] => {
+      const calls: string[] = [];
+      compiled.runDerive(
+        {
+          pass: (n: string) => calls.push(n),
+          iterate: (n: string) => calls.push(n),
+        } as unknown as Parameters<typeof compiled.runDerive>[0],
+        tier,
+      );
+      return calls;
+    };
+    // recolor skips the expensive drainage (fill/flow/water) but keeps the
+    // cheap climate → biome → color chain over the settled buffers.
+    const recolor = run("recolor");
+    expect(recolor).not.toContain("fill_step");
+    expect(recolor).not.toContain("flow_dir");
+    expect(recolor).not.toContain("water_step");
+    expect(recolor).toEqual([
+      "flags_from_mask",
+      "histogram",
+      "quantile",
+      "climate",
+      "water_max",
+      "irrigation_init",
+      "irrigation_step",
+      "humidity_biome",
+      "color",
+    ]);
+    // season is the per-tick sweep; repaint is color only.
+    expect(run("season")).toEqual(["climate", "humidity_biome", "color"]);
+    expect(run("repaint")).toEqual(["color"]);
+    // no tier → the full pipeline (includes drainage).
+    expect(run()).toContain("fill_step");
+  });
+
   test("a system without a derivation has none and runDerive is a no-op", async () => {
     const plain = await compileFieldSystem({
       id: "p",

@@ -1,14 +1,7 @@
 import { html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import { decodeElevation } from "../core/game/ElevationMap";
 import { GameMapType } from "../core/game/Game";
 import type { MapData } from "../core/game/GameMapLoader";
-import { HYDRO_PLANE_NAMES } from "../core/game/HydroMap";
-import { LAYER_NAMES } from "../core/game/MapLayers";
-import {
-  SEASON_AMPLITUDE_MAX_C,
-  SEASON_PLANE_NAMES,
-} from "../core/game/SeasonMap";
 import type { FoundationWorldEngineMapConfig } from "../games/alternative/world/WorldEngineElevation";
 import { terrain as terrainSystem } from "./lab/systems/terrain/system";
 import { world } from "./lab/systems/world/system";
@@ -18,11 +11,6 @@ import {
   SHELL_VIEWS,
   type ShellView,
 } from "./shell/MapLayerViews";
-import {
-  buildWaterMask,
-  TerrainDerivation,
-  type DerivationFields,
-} from "./shell/TerrainDerivation";
 import { TerrainSystemRunner } from "./shell/TerrainSystemRunner";
 import { terrainMapFileLoader } from "./TerrainMapFileLoader";
 import {
@@ -163,12 +151,12 @@ export class GameShellPage extends LitElement {
   private renderer: CameraRenderer | null = null;
   private kernel: FieldKernel | null = null;
   private compiled: CompiledFieldSystem | null = null;
-  private derivation: TerrainDerivation | null = null;
-  private systemRunner: TerrainSystemRunner | null = null;
-  /** Parity toggle ('y'): render the `terrain` system's derivation instead. */
-  private useSystemDerivation = false;
+  /** The runtime terrain derivation — the `terrain` FieldDynamics system run
+   * on the shared device (climate → drainage → biome → color from the map's
+   * primary fields). */
+  private derivation: TerrainSystemRunner | null = null;
   /** The declared-loader field record (loadMapInputs) for the last map — what
-   * the `terrain` system derives from; the parity toggle re-runs it. */
+   * the `terrain` system derives from; re-run on a view-mode switch. */
   private lastDeriveFields: Record<string, Float32Array | Uint32Array> | null =
     null;
   private recolorBusy = false;
@@ -218,8 +206,6 @@ export class GameShellPage extends LitElement {
     cancelAnimationFrame(this.raf);
     this.clearViewCache();
     this.derivation?.destroy();
-    this.systemRunner?.destroy();
-    this.systemRunner = null;
     this.derivation = null;
     this.kernel?.destroy();
     this.kernel = null;
@@ -253,10 +239,7 @@ export class GameShellPage extends LitElement {
       this.kernel = await FieldKernel.create(null, this.compiled.kernelConfig, {
         device: this.renderer.device,
       });
-      this.derivation = await TerrainDerivation.create(this.renderer.device);
-      // Parity harness: the same derivation through the `terrain` FieldDynamics
-      // system. Press 'y' to A/B it against the hand-wired path.
-      this.systemRunner = await TerrainSystemRunner.create(this.renderer.device);
+      this.derivation = await TerrainSystemRunner.create(this.renderer.device);
       await this.loadMap();
     } catch (error) {
       this.status = (error as Error).message;
@@ -333,11 +316,6 @@ export class GameShellPage extends LitElement {
         return;
       }
       this.status = "Deriving terrain…";
-      const elevation = decodeElevation(
-        await mapData.elevationBin(),
-        this.mapWidth,
-        this.mapHeight,
-      );
       this.derivedConfig = {
         ...this.derivation.normalizeConfig(
           manifest.world_engine,
@@ -346,106 +324,47 @@ export class GameShellPage extends LitElement {
         ),
         ...SHELL_CLIMATE_DEFAULTS,
       };
-      // The shipped water truth: connected components over map.bin water,
-      // sea vs lake decided by the ocean bit + real bathymetry.
-      const terrain = await mapData.mapBin();
-      const waterMask = buildWaterMask(
-        terrain,
-        elevation,
-        this.derivedConfig.seaLevel,
-        this.mapWidth,
-        this.mapHeight,
-      );
-      // The baked temperature/humidity planes — real measurements on earth
-      // maps — are the climate base.
-      const layers = await mapData.layersBin();
-      const planeSize = this.mapWidth * this.mapHeight;
-      const plane = (bytes: Uint8Array, index: number): Float32Array => {
-        const out = new Float32Array(planeSize);
-        for (let i = 0; i < planeSize; i += 1) {
-          out[i] = bytes[index * planeSize + i] / 255;
-        }
-        return out;
-      };
-      const tempBase = plane(layers, LAYER_NAMES.indexOf("temperature"));
-      const humidityBase = plane(layers, LAYER_NAMES.indexOf("humidity"));
-      // hydro.bin keeps lakes and rivers DISTINCT (the merged layers.bin
-      // "water" plane can't tell them apart — both saturate it).
-      const hydro = await mapData.hydroBin();
-      const lakeBase = plane(hydro, HYDRO_PLANE_NAMES.indexOf("lake"));
-      const riverBase = plane(hydro, HYDRO_PLANE_NAMES.indexOf("river"));
-      // season.bin (optional, real-data maps): the seasonal harmonic —
-      // amplitude (°C, stored /SEASON_AMPLITUDE_MAX_C) and phase. Amplitude
-      // uploads in NORMALIZED temp units (°C / 65, the plane's −30..35 span).
-      let seasonAmp: Float32Array | null = null;
-      let seasonPhase: Float32Array | null = null;
-      this.seasonActive = false;
-      if (manifest.season && mapData.seasonBin) {
-        const season = await mapData.seasonBin();
-        const rawAmp = plane(season, SEASON_PLANE_NAMES.indexOf("amplitude"));
-        seasonAmp = new Float32Array(planeSize);
-        for (let i = 0; i < planeSize; i += 1) {
-          seasonAmp[i] = (rawAmp[i] * SEASON_AMPLITUDE_MAX_C) / 65;
-        }
-        seasonPhase = plane(season, SEASON_PLANE_NAMES.indexOf("phase"));
-        this.seasonActive = true;
-      }
-      // Keep the source fields for the hover readout (no GPU readback).
-      this.hoverFields = {
-        elevation,
-        waterMask,
-        tempBase,
-        humidityBase,
-        lakeBase,
-        riverBase,
-        seasonAmp,
-        seasonPhase,
-      };
-      const deriveFields: DerivationFields = {
-        elevation,
-        waterMask,
-        tempBase,
-        humidityBase,
-        lakeBase,
-        riverBase,
-        ...(seasonAmp && seasonPhase ? { seasonAmp, seasonPhase } : {}),
-      };
-      // Phase 3.3: also source the system's input fields through the DECLARED
-      // loader (loadMapInputs) from the raw sidecar bytes — the same fields the
-      // shell just decoded by hand. The y-toggle A/B proves the declaration
-      // reaches the derivation identically. Stored so the toggle can re-run.
+      // Decode every terrain input through the DECLARED loader: each sidecar
+      // plane → its derive-field, plus the terrain system's prepare hook
+      // building the connected-components water mask from map.bin + elevation.
+      // These are exactly the fields the terrain system derives from.
+      const hasSeason = Boolean(manifest.season && mapData.seasonBin);
       const bundle: MapInputBundle = {
         width: this.mapWidth,
         height: this.mapHeight,
         sidecars: {
           elevation: await mapData.elevationBin(),
-          layers,
-          hydro,
+          layers: await mapData.layersBin(),
+          hydro: await mapData.hydroBin(),
           season:
-            manifest.season && mapData.seasonBin
+            hasSeason && mapData.seasonBin
               ? await mapData.seasonBin()
               : undefined,
-          map: terrain,
+          map: await mapData.mapBin(),
         },
         config: this.derivedConfig,
       };
-      this.lastDeriveFields = loadMapInputs(terrainSystem.derive!, bundle).fields;
+      const fields = loadMapInputs(terrainSystem.derive!, bundle).fields;
+      this.lastDeriveFields = fields;
+      this.seasonActive = hasSeason;
+      // Keep the source fields for the hover readout (no GPU readback).
+      this.hoverFields = {
+        elevation: fields.elevation as Float32Array,
+        waterMask: fields.waterMask as Uint32Array,
+        tempBase: fields.tempBase as Float32Array,
+        humidityBase: fields.humidityBase as Float32Array,
+        lakeBase: fields.lakeBase as Float32Array,
+        riverBase: fields.riverBase as Float32Array,
+        seasonAmp: (fields.seasonAmp as Float32Array) ?? null,
+        seasonPhase: (fields.seasonPhase as Float32Array) ?? null,
+      };
       await this.derivation.derive(
-        deriveFields,
+        fields,
         this.derivedConfig,
         DERIVED_VIEWS[this.viewKey] ?? "terrain",
         this.seasonal(),
         this.runtime(),
       );
-      if (this.useSystemDerivation && this.systemRunner) {
-        await this.systemRunner.derive(
-          this.lastDeriveFields,
-          this.derivedConfig,
-          DERIVED_VIEWS[this.viewKey] ?? "terrain",
-          this.seasonal(),
-          this.runtime(),
-        );
-      }
       this.derivedOk = true;
       this.status = "";
     } catch (error) {
@@ -477,38 +396,22 @@ export class GameShellPage extends LitElement {
     if (!this.renderer) return;
     this.viewKey = view;
     const derivedMode = this.derivedOk ? DERIVED_VIEWS[view] : undefined;
-    // Parity toggle: point the camera at whichever derivation is active.
-    const activeOutView =
-      this.useSystemDerivation && this.systemRunner?.outView
-        ? this.systemRunner.outView
-        : this.derivation?.outView;
-    if (derivedMode && activeOutView && this.derivedConfig) {
-      // Live derived view: the worldgen kernel's out texture; repaint the
-      // color pass with this view mode.
+    if (derivedMode && this.derivation?.outView && this.derivedConfig) {
+      // Live derived view: the terrain kernel's out texture; repaint the color
+      // pass with this view mode.
       this.renderer.setLiveTexture(
-        activeOutView,
+        this.derivation.outView,
         this.mapWidth,
         this.mapHeight,
       );
       try {
-        if (this.useSystemDerivation && this.systemRunner && this.lastDeriveFields) {
-          // System path re-runs the full derivation for the view mode.
-          await this.systemRunner.derive(
-            this.lastDeriveFields,
-            this.derivedConfig,
-            derivedMode,
-            this.seasonal(),
-            this.runtime(),
-          );
-        } else if (this.derivation) {
-          await this.derivation.repaint(
-            this.derivedConfig,
-            derivedMode,
-            this.seasonal(),
-            this.runtime(),
-          );
-          this.status = "";
-        }
+        await this.derivation.repaint(
+          this.derivedConfig,
+          derivedMode,
+          this.seasonal(),
+          this.runtime(),
+        );
+        this.status = "";
       } catch (error) {
         this.status = (error as Error).message;
       }
@@ -558,32 +461,7 @@ export class GameShellPage extends LitElement {
     if (event.key === "n" || event.key === "N") {
       this.cycleView(event.shiftKey ? -1 : 1);
     }
-    if (event.key === "y" || event.key === "Y") {
-      void this.toggleSystemDerivation();
-    }
   };
-
-  /** Parity A/B: run the current derivation through the `terrain` system and
-   * point the camera at its output (or back to the hand-wired one). */
-  private async toggleSystemDerivation(): Promise<void> {
-    if (!this.systemRunner || !this.derivedConfig || !this.lastDeriveFields) {
-      return;
-    }
-    this.useSystemDerivation = !this.useSystemDerivation;
-    if (this.useSystemDerivation) {
-      this.status = "terrain SYSTEM derivation (y to toggle)";
-      await this.systemRunner.derive(
-        this.lastDeriveFields,
-        this.derivedConfig,
-        DERIVED_VIEWS[this.viewKey] ?? "terrain",
-        this.seasonal(),
-        this.runtime(),
-      );
-    } else {
-      this.status = "";
-    }
-    await this.applyView(this.viewKey);
-  }
 
   private loop = (time: number): void => {
     this.raf = requestAnimationFrame(this.loop);

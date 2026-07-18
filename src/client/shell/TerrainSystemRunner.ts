@@ -1,3 +1,8 @@
+import type { WorldEngineManifestConfig } from "../../core/game/TerrainMapLoader";
+import {
+  normalizeFoundationWorldEngineMapConfig,
+  type FoundationWorldEngineMapConfig,
+} from "../../games/alternative/world/WorldEngineElevation";
 import { terrain } from "../lab/systems/terrain/system";
 import {
   compileFieldSystem,
@@ -11,12 +16,22 @@ import {
   type WorldgenSeasonalParams,
 } from "../webgpu/WebGpuWorldEngine";
 
-// Parity harness (unify-field-viewer phase 2.4): the SAME derivation as
-// TerrainDerivation, but run through the `terrain` FieldDynamics system —
-// compileFieldSystem → FieldKernel → runDerive — instead of the hand-wired
-// dispatch program. Feeds the identical inputs + Params, so its out texture
-// should match TerrainDerivation pixel-for-pixel. Once verified, this replaces
-// TerrainDerivation and the raw WebGpuWorldEngine (phase 5).
+// The shell's runtime terrain derivation, run through the `terrain`
+// FieldDynamics system (unify-field-viewer): compileFieldSystem → headless
+// FieldKernel → runDerive on the shell's shared device. A drop-in for the
+// hand-wired TerrainDerivation — same inputs, same Params, pixel-identical
+// output (verified in phase 2.4) — with the same re-run tiers driven by the
+// system's step `tiers` instead of hand-listed pass programs:
+//
+//   full     — the whole stack (load time); reuploads the input fields.
+//   recolor  — every cheap pass over the settled fill/flow buffers (a
+//              climate/color knob changed); skips the iterated drainage.
+//   season   — the per-tick sweep: climate → biome → color (year phase).
+//   repaint  — the color pass only (view-mode switch).
+//
+// Inputs arrive as the declared-field record from `loadMapInputs` (keyed by
+// derive-field name), so the system derives from exactly the fields the
+// declaration produced.
 export class TerrainSystemRunner {
   private width = 0;
   private height = 0;
@@ -42,21 +57,33 @@ export class TerrainSystemRunner {
     this.kernel.destroy();
   }
 
+  /** Merge the manifest config with the map's true dimensions (the
+   * normalizer clamps to the interactive generator's cap). */
+  normalizeConfig(
+    config: WorldEngineManifestConfig,
+    width: number,
+    height: number,
+  ): FoundationWorldEngineMapConfig {
+    return {
+      ...normalizeFoundationWorldEngineMapConfig(config),
+      width,
+      height,
+    };
+  }
+
   /**
-   * Full derivation through the system — mirrors TerrainDerivation.derive.
-   * Inputs come as the declared-field record from `loadMapInputs` (keyed by
-   * derive-field name); each present field is uploaded to its buffer, so the
-   * system derives from exactly the fields the declaration produced.
+   * Full tier: upload the primary fields and run the whole stack — mask flags,
+   * climate over the real base, depression fill, flow routing, river
+   * accumulation, biome, colors.
    */
   async derive(
     fields: Readonly<Record<string, Float32Array | Uint32Array>>,
-    config: Parameters<typeof buildWorldgenParams>[0],
+    config: FoundationWorldEngineMapConfig,
     view: WebGpuViewMode,
     seasonal: WorldgenSeasonalParams,
     runtime: WorldgenRuntimeParams,
   ): Promise<void> {
-    const width = config.width;
-    const height = config.height;
+    const { width, height } = config;
     if (width !== this.width || height !== this.height) {
       this.kernel.resize(width, height);
       this.width = width;
@@ -66,16 +93,82 @@ export class TerrainSystemRunner {
     for (const [name, data] of Object.entries(fields)) {
       this.kernel.writeBuffer(name, data);
     }
-    this.kernel.writeUniform(
-      "P",
-      buildWorldgenParams(config, view, seasonal, runtime),
-    );
-    // Atomic accumulators must start zeroed.
+    this.writeParams(config, view, seasonal, runtime);
+    // Atomic accumulators must start zeroed before the histogram/water reduce.
     this.kernel.clearBuffer("G");
     this.kernel.clearBuffer("hist");
 
     const frame = this.kernel.beginFrame();
     this.compiled.runDerive(frame);
     await frame.finish();
+  }
+
+  /**
+   * Recolor tier: re-run every cheap pass over the settled fill/flow buffers.
+   * Flags rebuild from the mask; rivers keep the last computed watermap
+   * (precipitation knobs fully land on the next map load).
+   */
+  async recolor(
+    config: FoundationWorldEngineMapConfig,
+    view: WebGpuViewMode,
+    seasonal: WorldgenSeasonalParams,
+    runtime: WorldgenRuntimeParams,
+  ): Promise<void> {
+    this.assertDerived();
+    this.writeParams(config, view, seasonal, runtime);
+    this.kernel.clearBuffer("G");
+    this.kernel.clearBuffer("hist");
+    const frame = this.kernel.beginFrame();
+    this.compiled.runDerive(frame, "recolor");
+    await frame.finish();
+  }
+
+  /**
+   * Seasonal tier: the per-tick sweep — temperature, temperature-dependent
+   * biome bits (including the ice line), colors.
+   */
+  tickSeasons(
+    config: FoundationWorldEngineMapConfig,
+    view: WebGpuViewMode,
+    seasonal: WorldgenSeasonalParams,
+    runtime: WorldgenRuntimeParams,
+  ): Promise<void> {
+    this.assertDerived();
+    this.writeParams(config, view, seasonal, runtime);
+    const frame = this.kernel.beginFrame();
+    this.compiled.runDerive(frame, "season");
+    return frame.finish().then(() => undefined);
+  }
+
+  /** Re-render only the color pass — switching debug view modes. */
+  async repaint(
+    config: FoundationWorldEngineMapConfig,
+    view: WebGpuViewMode,
+    seasonal: WorldgenSeasonalParams,
+    runtime: WorldgenRuntimeParams,
+  ): Promise<void> {
+    this.assertDerived();
+    this.writeParams(config, view, seasonal, runtime);
+    const frame = this.kernel.beginFrame();
+    this.compiled.runDerive(frame, "repaint");
+    await frame.finish();
+  }
+
+  private writeParams(
+    config: FoundationWorldEngineMapConfig,
+    view: WebGpuViewMode,
+    seasonal: WorldgenSeasonalParams,
+    runtime: WorldgenRuntimeParams,
+  ): void {
+    this.kernel.writeUniform(
+      "P",
+      buildWorldgenParams(config, view, seasonal, runtime),
+    );
+  }
+
+  private assertDerived(): void {
+    if (this.width === 0) {
+      throw new Error("TerrainSystemRunner: derive() has not run yet");
+    }
   }
 }

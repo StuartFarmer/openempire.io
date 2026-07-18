@@ -164,6 +164,13 @@ export interface FieldDeriveStep {
   iterate?: number;
   /** Ping-pong buffers advanced after the pass runs. */
   advances?: readonly string[];
+  /** Two-tier reactivity (unify-field-viewer 1.6/2.3): the named partial runs
+   * this step belongs to, for cheap re-derivation that reuses settled buffers.
+   * The full run (`runDerive(frame)` with no tier) always includes every step;
+   * `runDerive(frame, "recolor")` runs only steps whose `tiers` include
+   * "recolor" (skipping the expensive iterated fill/flow). A step in no tier is
+   * full-run-only (e.g. the depression fill). Order is the declared step order. */
+  tiers?: readonly string[];
 }
 
 export interface FieldDeriveSpec {
@@ -245,8 +252,10 @@ export interface CompiledFieldSystem {
   runInit(frame: FieldFrame): void;
   runTick(kernel: FieldKernel, frame: FieldFrame): void;
   runView(frame: FieldFrame, view: string): void;
-  /** Run the on-demand derivation pipeline (no-op without `derive`). */
-  runDerive(frame: FieldFrame): void;
+  /** Run the on-demand derivation pipeline (no-op without `derive`). With a
+   * `tier` name, runs only the steps whose `tiers` include it (cheap
+   * re-derivation reusing settled buffers); with no tier, the full pipeline. */
+  runDerive(frame: FieldFrame, tier?: string): void;
   brushPass(name: string): string;
 }
 
@@ -1356,8 +1365,11 @@ ${oceanMask ? "  if (land[i] == 0.0) { color = vec3f(0.055, 0.13, 0.20); }" : ""
       frame.pass(`view/${view}`);
     },
 
-    runDerive(frame) {
+    runDerive(frame, tier) {
       for (const step of derive?.steps ?? []) {
+        // Full run (no tier) includes every step; a named tier runs only the
+        // steps that opted into it.
+        if (tier !== undefined && !step.tiers?.includes(tier)) continue;
         const name = step.name ?? step.pass;
         if (step.iterate !== undefined) {
           frame.iterate(name, step.iterate);
