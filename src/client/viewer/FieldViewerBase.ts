@@ -233,7 +233,7 @@ export abstract class FieldViewerBase extends LitElement {
       this.lastTime === 0 ? 0 : Math.min(0.25, (time - this.lastTime) / 1000);
     this.lastTime = time;
     if (this.kernel && this.compiled && !this.inFlight) {
-      if (this.turbo && this.running) {
+      if (this.turbo && this.running && !this.isDeriveSystem()) {
         void this.pump();
       } else {
         let ticks = 0;

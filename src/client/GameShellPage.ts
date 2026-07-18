@@ -1,30 +1,28 @@
-import { html, LitElement } from "lit";
+import { html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { GameMapType } from "../core/game/Game";
 import type { MapData } from "../core/game/GameMapLoader";
-import type { FoundationWorldEngineMapConfig } from "../games/alternative/world/WorldEngineElevation";
+import {
+  normalizeFoundationWorldEngineMapConfig,
+  type FoundationWorldEngineMapConfig,
+} from "../games/alternative/world/WorldEngineElevation";
+import { LAB_SYSTEMS } from "./lab/systems";
 import { terrain as terrainSystem } from "./lab/systems/terrain/system";
-import { world } from "./lab/systems/world/system";
 import { CameraRenderer, type CameraState } from "./shell/CameraRenderer";
 import {
   buildViewBitmap,
   SHELL_VIEWS,
   type ShellView,
 } from "./shell/MapLayerViews";
-import { TerrainSystemRunner } from "./shell/TerrainSystemRunner";
-import { terrainMapFileLoader } from "./TerrainMapFileLoader";
-import {
-  compileFieldSystem,
-  type CompiledFieldSystem,
-} from "./webgpu/FieldDynamics";
-import { FieldKernel } from "./webgpu/FieldKernel";
 import { loadMapInputs, type MapInputBundle } from "./webgpu/MapInputs";
-import { uploadMapLayers } from "./webgpu/MapLayerUpload";
-import type {
-  WebGpuViewMode,
-  WorldgenRuntimeParams,
-  WorldgenSeasonalParams,
+import {
+  buildWorldgenParams,
+  type WebGpuViewMode,
+  type WorldgenRuntimeParams,
+  type WorldgenSeasonalParams,
 } from "./webgpu/WebGpuWorldEngine";
+import { FieldViewerBase } from "./viewer/FieldViewerBase";
+import type { ViewerRenderer } from "./viewer/ViewerRenderer";
 
 /** User-tuned shell defaults (2026-07-17): override the manifest's
  * generation-time climate values for the derived view. River thresholds now
@@ -35,34 +33,29 @@ const SHELL_CLIMATE_DEFAULTS = {
   elevationCooling: 0.37,
   rainNoise: 0.64,
   warmthRainfall: 0.55,
-  // Act on the SEPARATE hydro river plane now — rivers no longer leak
-  // through the lake path, so these genuinely gate rivers (1.0/1.0 = off).
   riverWeakThreshold: 0.5,
   riverStrongThreshold: 0.82,
 } as const;
 
-// #shell — the game shell: a fullscreen camera over the map, with the WESL
-// world simulation resident (headless FieldKernel on the camera's device,
-// ticked at the 10/s game clock). Terrain and temperature are LIVE derived
-// views (export-primary-fields): a worldgen kernel re-derives climate,
-// drainage, biomes, and colors from the map's elevation.bin + manifest
-// render config, the seasonal model sweeps the derived temperature, and the
-// climate knobs are runtime sliders. Baked terrain-colors.png remains the
-// fallback when the sidecar or derivation is unavailable. Mechanics
-// accumulate in the world system; intents and bots come later.
+// #shell — the unified field viewer (unify-field-viewer): a fullscreen camera
+// over the map. A system picker selects any FieldDynamics system — the terrain
+// derivation (climate → drainage → biome → colors from the map's primary
+// fields, with live climate knobs + seasons + a rich hover readout) or any sim
+// system (world, settlement, empire, grazing, territory), ticked at the game
+// clock with brushes and generic param/scalar panels. The shared machinery
+// (headless kernel on the camera's device, tick loop, turbo, brushes) lives in
+// FieldViewerBase; this page adds the camera, the terrain derivation on the
+// base kernel, and the terrain-specific panels. Baked terrain-colors.png (via
+// MapLayerViews) is the fallback when the derivation is unavailable.
 
 const MAX_SCALE = 32;
-const TICKS_PER_SECOND = 10; // OpenFront's 100ms tick
-const MAX_TICKS_PER_FRAME = 4;
+/** Ticks per in-world year — drives the terrain seasonal clock. */
+const YEAR_TICKS = 520;
 
 type ShellViewKey = ShellView;
 const VIEW_KEYS: readonly ShellViewKey[] = SHELL_VIEWS;
-/** The sim fallback live view when derivation is unavailable. */
-const LIVE_VIEW: ShellViewKey = "temperature";
-/** The world system's view pass rendered for it. */
-const LIVE_SIM_VIEW = "temperature";
 
-/** Shell views served by the derivation kernel when it is available. */
+/** Shell views served by the terrain derivation kernel. */
 const DERIVED_VIEWS: Partial<Record<ShellViewKey, WebGpuViewMode>> = {
   terrain: "terrain",
   temperature: "temperature",
@@ -106,11 +99,7 @@ function oceanBiome(depth: number, t: number, iceThreshold: number): string {
   return qualifier + band;
 }
 
-/** The climate/color knobs that re-derive live (recolor tier). Sea level
- * and lakes are NOT knobs — water classification comes straight from the
- * shipped map (100% faithful), never from thresholds. latitudeEffect /
- * elevationCooling only shape temperature in synthetic-model mode; they
- * always shape precipitation. */
+/** The climate/color knobs that re-derive live (recolor tier). */
 const CLIMATE_KNOBS: {
   key: keyof FoundationWorldEngineMapConfig;
   min: number;
@@ -126,10 +115,10 @@ const CLIMATE_KNOBS: {
 ];
 
 @customElement("game-shell-page")
-export class GameShellPage extends LitElement {
-  @state() private mapKey = "EarthXL";
-  @state() private viewKey: ShellViewKey = "terrain";
-  @state() private status = "";
+export class GameShellPage extends FieldViewerBase {
+  // Terrain-mode view (the derived-color modes + baked layer bitmaps), separate
+  // from the base `view` (a sim system's declared views).
+  @state() private shellView: ShellViewKey = "terrain";
   @state() private zoomReadout = 1;
   @state() private weekReadout = 0;
   @state() private derivedOk = false;
@@ -141,26 +130,10 @@ export class GameShellPage extends LitElement {
   @state() private seasonStrength = 0.7;
   @state() private iceThreshold = FREEZING_NORM;
   @state() private useClimateBase = true;
-  /** Partial snow cover band above the ice line. */
   @state() private snowBand = 0.075;
-  /** Smoothstep half-width across biome color band edges. */
   @state() private biomeBlend = 0.05;
+  @state() private hoverTile: { x: number; y: number } | null = null;
 
-  private yearTicks = 520;
-
-  private renderer: CameraRenderer | null = null;
-  private kernel: FieldKernel | null = null;
-  private compiled: CompiledFieldSystem | null = null;
-  /** The runtime terrain derivation — the `terrain` FieldDynamics system run
-   * on the shared device (climate → drainage → biome → color from the map's
-   * primary fields). */
-  private derivation: TerrainSystemRunner | null = null;
-  /** The declared-loader field record (loadMapInputs) for the last map — what
-   * the `terrain` system derives from; re-run on a view-mode switch. */
-  private lastDeriveFields: Record<string, Float32Array | Uint32Array> | null =
-    null;
-  private recolorBusy = false;
-  private recolorDirty = false;
   /** CPU copies of the derived source fields, for the hover readout. */
   private hoverFields: {
     elevation: Float32Array;
@@ -172,45 +145,31 @@ export class GameShellPage extends LitElement {
     seasonAmp: Float32Array | null;
     seasonPhase: Float32Array | null;
   } | null = null;
-  /** Whether the loaded map carries a real seasonal harmonic (season.bin). */
   private seasonActive = false;
-  /** Tile under the cursor (map coords), or null when off-map. */
-  @state() private hoverTile: { x: number; y: number } | null = null;
-  private camera: CameraState = { cx: 0, cy: 0, scale: 1 };
-  private raf = 0;
-  private lastTime = 0;
-  private accumulator = 0;
-  private simInFlight = false;
-  private simReady = false;
   private tickCount = 0;
+  private camera: CameraState = { cx: 0, cy: 0, scale: 1 };
   private dragging = false;
+  private painting = false;
   private lastPointer = { x: 0, y: 0 };
-  private mapWidth = 0;
-  private mapHeight = 0;
   private pendingFit = false;
-  private viewCache = new Map<ShellView, ImageBitmap>();
-
-  createRenderRoot() {
-    return this;
-  }
+  private recolorBusy = false;
+  private recolorDirty = false;
+  private deriveBusy = false;
+  private viewCache = new Map<ShellViewKey, ImageBitmap>();
 
   connectedCallback(): void {
+    // The shell picks terrain by default and the big Earth map.
+    this.systems = [terrainSystem, ...LAB_SYSTEMS];
+    this.systemId = terrainSystem.id;
+    this.mapKey = "EarthXL";
     super.connectedCallback();
     window.addEventListener("keydown", this.onKeyDown);
-    this.raf = requestAnimationFrame(this.loop);
   }
 
   disconnectedCallback(): void {
-    super.disconnectedCallback();
     window.removeEventListener("keydown", this.onKeyDown);
-    cancelAnimationFrame(this.raf);
     this.clearViewCache();
-    this.derivation?.destroy();
-    this.derivation = null;
-    this.kernel?.destroy();
-    this.kernel = null;
-    this.renderer?.destroy();
-    this.renderer = null;
+    super.disconnectedCallback();
   }
 
   private clearViewCache(): void {
@@ -218,81 +177,57 @@ export class GameShellPage extends LitElement {
     this.viewCache.clear();
   }
 
+  private isTerrain(): boolean {
+    return this.systemId === terrainSystem.id;
+  }
+
+  protected canvasId(): string {
+    return "shell-canvas";
+  }
+
+  protected async createRenderer(
+    canvas: HTMLCanvasElement,
+  ): Promise<ViewerRenderer> {
+    return CameraRenderer.create(canvas);
+  }
+
   async firstUpdated(): Promise<void> {
-    // Outrank the page footer/header stacking contexts — the shell is a
-    // fullscreen surface.
+    // Outrank the page footer/header stacking contexts — fullscreen surface.
     this.style.zIndex = "9999";
     if (!CameraRenderer.isSupported()) {
       this.status = "WebGPU is not supported in this browser.";
       return;
     }
-    const canvas = this.querySelector<HTMLCanvasElement>("#shell-canvas");
-    if (!canvas) return;
-    try {
-      this.renderer = await CameraRenderer.create(canvas);
-      // The resident sim: headless kernel sharing the camera's device, so
-      // its out texture renders under the camera without readbacks.
-      this.compiled = await compileFieldSystem(world);
-      this.yearTicks =
-        this.compiled.paramList.find((p) => p.name === "yearTicks")?.value ??
-        520;
-      this.kernel = await FieldKernel.create(null, this.compiled.kernelConfig, {
-        device: this.renderer.device,
-      });
-      this.derivation = await TerrainSystemRunner.create(this.renderer.device);
-      await this.loadMap();
-    } catch (error) {
-      this.status = (error as Error).message;
-    }
+    await this.loadWorld();
   }
 
-  private async loadMap(): Promise<void> {
-    if (!this.renderer || !this.kernel || !this.compiled) return;
-    this.simReady = false;
-    this.status = `Loading ${this.mapKey}…`;
-    try {
-      const mapType = GameMapType[this.mapKey as keyof typeof GameMapType];
-      const mapData = terrainMapFileLoader.getMapData(mapType);
-      const manifest = await mapData.manifest();
-      this.mapWidth = manifest.map.width;
-      this.mapHeight = manifest.map.height;
-      this.clearViewCache();
-      // Detach the camera before the kernels resize — a live-texture bind
-      // group must not outlive the texture it references.
-      this.renderer.clearSurface();
+  // --- mount ------------------------------------------------------------------
 
-      // Reset the sim onto this map.
-      this.kernel.resize(this.mapWidth, this.mapHeight);
-      await uploadMapLayers(
-        this.kernel,
-        this.compiled.mapLayers,
-        mapData,
+  /** After a system mounts: derive (terrain) or point the camera at the sim's
+   * out texture, then fit the camera on the next frame. */
+  protected async onSystemMounted(mapData: MapData): Promise<void> {
+    if (this.isTerrain()) {
+      await this.deriveTerrain(mapData);
+      await this.applyTerrainView(this.shellView);
+    } else if (this.renderer && this.kernel?.outView) {
+      this.derivedOk = false;
+      this.derivedNote = "";
+      this.hoverFields = null;
+      this.renderer.setLiveTexture(
+        this.kernel.outView,
         this.mapWidth,
         this.mapHeight,
       );
-      this.kernel.writeUniform("P", this.compiled.writeParams({}, 1337));
-      this.kernel.clearBuffer("S");
-      const frame = this.kernel.beginFrame();
-      this.compiled.runInit(frame);
-      this.compiled.runView(frame, LIVE_SIM_VIEW);
-      await frame.finish();
-      this.tickCount = 0;
-      this.simReady = true;
-
-      await this.deriveTerrain(mapData);
-      await this.applyView(this.viewKey);
-      // Fit on the next loop frame — the canvas may not be laid out yet.
-      this.pendingFit = true;
-    } catch (error) {
-      this.status = (error as Error).message;
     }
+    this.clearViewCache();
+    this.tickCount = 0;
+    this.pendingFit = true;
   }
 
   /**
-   * Runtime terrain derivation from elevation.bin + the manifest render
-   * config. A failure is not fatal — the baked terrain-colors.png remains
-   * the terrain view and the sim's temp layer the temperature view, with a
-   * visible status explaining the fallback.
+   * Runtime terrain derivation on the base kernel: decode every input through
+   * the declared loader, upload them, and run the full derivation. Non-fatal —
+   * a failure falls back to the baked terrain-colors bitmap with a note.
    */
   private async deriveTerrain(mapData: MapData): Promise<void> {
     this.derivedOk = false;
@@ -300,10 +235,7 @@ export class GameShellPage extends LitElement {
     this.derivedConfig = null;
     this.hoverFields = null;
     this.seasonActive = false;
-    if (!this.derivation) {
-      this.derivedNote = "no derivation kernel — baked terrain";
-      return;
-    }
+    if (!this.kernel || !this.compiled) return;
     try {
       const manifest = await mapData.manifest();
       if (
@@ -317,17 +249,11 @@ export class GameShellPage extends LitElement {
       }
       this.status = "Deriving terrain…";
       this.derivedConfig = {
-        ...this.derivation.normalizeConfig(
-          manifest.world_engine,
-          this.mapWidth,
-          this.mapHeight,
-        ),
+        ...normalizeFoundationWorldEngineMapConfig(manifest.world_engine),
+        width: this.mapWidth,
+        height: this.mapHeight,
         ...SHELL_CLIMATE_DEFAULTS,
       };
-      // Decode every terrain input through the DECLARED loader: each sidecar
-      // plane → its derive-field, plus the terrain system's prepare hook
-      // building the connected-components water mask from map.bin + elevation.
-      // These are exactly the fields the terrain system derives from.
       const hasSeason = Boolean(manifest.season && mapData.seasonBin);
       const bundle: MapInputBundle = {
         width: this.mapWidth,
@@ -345,9 +271,7 @@ export class GameShellPage extends LitElement {
         config: this.derivedConfig,
       };
       const fields = loadMapInputs(terrainSystem.derive!, bundle).fields;
-      this.lastDeriveFields = fields;
       this.seasonActive = hasSeason;
-      // Keep the source fields for the hover readout (no GPU readback).
       this.hoverFields = {
         elevation: fields.elevation as Float32Array,
         waterMask: fields.waterMask as Uint32Array,
@@ -358,13 +282,15 @@ export class GameShellPage extends LitElement {
         seasonAmp: (fields.seasonAmp as Float32Array) ?? null,
         seasonPhase: (fields.seasonPhase as Float32Array) ?? null,
       };
-      await this.derivation.derive(
-        fields,
-        this.derivedConfig,
-        DERIVED_VIEWS[this.viewKey] ?? "terrain",
-        this.seasonal(),
-        this.runtime(),
-      );
+      for (const [name, data] of Object.entries(fields)) {
+        this.kernel.writeBuffer(name, data);
+      }
+      this.writeP(this.currentViewMode());
+      this.kernel.clearBuffer("G");
+      this.kernel.clearBuffer("hist");
+      const frame = this.kernel.beginFrame();
+      this.compiled.runDerive(frame);
+      await frame.finish();
       this.derivedOk = true;
       this.status = "";
     } catch (error) {
@@ -373,10 +299,29 @@ export class GameShellPage extends LitElement {
     }
   }
 
+  // --- terrain derivation tiers (on the base kernel) --------------------------
+
+  private writeP(viewMode: WebGpuViewMode): void {
+    if (!this.kernel || !this.derivedConfig) return;
+    this.kernel.writeUniform(
+      "P",
+      buildWorldgenParams(
+        this.derivedConfig,
+        viewMode,
+        this.seasonal(),
+        this.runtime(),
+      ),
+    );
+  }
+
+  private currentViewMode(): WebGpuViewMode {
+    return DERIVED_VIEWS[this.shellView] ?? "terrain";
+  }
+
   private seasonal(): WorldgenSeasonalParams {
     return {
       tilt: this.tilt,
-      yearPhase: (this.tickCount % this.yearTicks) / this.yearTicks,
+      yearPhase: (this.tickCount % YEAR_TICKS) / YEAR_TICKS,
       seasonStrength: this.seasonStrength,
     };
   }
@@ -391,179 +336,29 @@ export class GameShellPage extends LitElement {
     };
   }
 
-  /** Show a view; the camera is untouched, so pan/zoom carries over. */
-  private async applyView(view: ShellViewKey): Promise<void> {
-    if (!this.renderer) return;
-    this.viewKey = view;
-    const derivedMode = this.derivedOk ? DERIVED_VIEWS[view] : undefined;
-    if (derivedMode && this.derivation?.outView && this.derivedConfig) {
-      // Live derived view: the terrain kernel's out texture; repaint the color
-      // pass with this view mode.
-      this.renderer.setLiveTexture(
-        this.derivation.outView,
-        this.mapWidth,
-        this.mapHeight,
-      );
-      try {
-        await this.derivation.repaint(
-          this.derivedConfig,
-          derivedMode,
-          this.seasonal(),
-          this.runtime(),
-        );
-        this.status = "";
-      } catch (error) {
-        this.status = (error as Error).message;
-      }
-      return;
+  /** Run a partial derivation tier over the settled buffers. */
+  private async runTier(tier: "recolor" | "season" | "repaint"): Promise<void> {
+    if (!this.kernel || !this.compiled || !this.derivedConfig) return;
+    this.writeP(this.currentViewMode());
+    if (tier === "recolor") {
+      this.kernel.clearBuffer("G");
+      this.kernel.clearBuffer("hist");
     }
-    if (view === LIVE_VIEW) {
-      // Fallback live view: the sim's seasonal temperature out texture.
-      if (this.kernel?.outView) {
-        this.renderer.setLiveTexture(
-          this.kernel.outView,
-          this.mapWidth,
-          this.mapHeight,
-        );
-        this.status = "";
-      }
-      return;
-    }
-    this.status = `Loading ${view}…`;
-    try {
-      let bitmap = this.viewCache.get(view);
-      if (!bitmap) {
-        const mapType = GameMapType[this.mapKey as keyof typeof GameMapType];
-        bitmap = await buildViewBitmap(
-          view,
-          terrainMapFileLoader.getMapData(mapType),
-          this.mapWidth,
-          this.mapHeight,
-        );
-        this.viewCache.set(view, bitmap);
-      }
-      await this.renderer.setMap(bitmap);
-      this.status = "";
-    } catch (error) {
-      this.status = (error as Error).message;
-    }
+    const frame = this.kernel.beginFrame();
+    this.compiled.runDerive(frame, tier);
+    await frame.finish();
   }
-
-  private cycleView(step: number): void {
-    const index = VIEW_KEYS.indexOf(this.viewKey);
-    const next =
-      VIEW_KEYS[(index + step + VIEW_KEYS.length) % VIEW_KEYS.length];
-    void this.applyView(next);
-  }
-
-  private onKeyDown = (event: KeyboardEvent): void => {
-    if (this.classList.contains("hidden")) return; // page not active
-    if (event.key === "n" || event.key === "N") {
-      this.cycleView(event.shiftKey ? -1 : 1);
-    }
-  };
-
-  private loop = (time: number): void => {
-    this.raf = requestAnimationFrame(this.loop);
-    if (!this.renderer) return;
-    // Hash navigation shows/hides this page without reconnecting it; while
-    // hidden the canvas has no size — don't tick, render, or consume the
-    // pending fit against a zero-sized layout.
-    if (this.classList.contains("hidden")) {
-      this.lastTime = 0;
-      return;
-    }
-
-    // Fixed game clock for the resident sim.
-    const dt =
-      this.lastTime === 0 ? 0 : Math.min(0.25, (time - this.lastTime) / 1000);
-    this.lastTime = time;
-    if (this.simReady && !this.simInFlight && this.kernel && this.compiled) {
-      this.accumulator = Math.min(
-        this.accumulator + dt * TICKS_PER_SECOND,
-        MAX_TICKS_PER_FRAME,
-      );
-      const ticks = Math.floor(this.accumulator);
-      this.accumulator -= ticks;
-      if (ticks > 0) {
-        this.simInFlight = true;
-        const frame = this.kernel.beginFrame();
-        for (let t = 0; t < ticks; t += 1) {
-          this.compiled.runTick(this.kernel, frame);
-        }
-        // Render the sim's texture only while it's being watched (and not
-        // superseded by the derived temperature).
-        const derivedMode = this.derivedOk
-          ? DERIVED_VIEWS[this.viewKey]
-          : undefined;
-        if (this.viewKey === LIVE_VIEW && derivedMode === undefined) {
-          this.compiled.runView(frame, LIVE_SIM_VIEW);
-        }
-        frame
-          .finish()
-          .then(() => {
-            this.tickCount += ticks;
-            const week = Math.floor(
-              ((this.tickCount % this.yearTicks) / this.yearTicks) * 52,
-            );
-            if (week !== this.weekReadout) this.weekReadout = week;
-            // Seasonal tier: sweep the derived temperature (and everything
-            // colored from it) with the advanced year phase.
-            if (
-              derivedMode !== undefined &&
-              this.derivation &&
-              this.derivedConfig &&
-              !this.recolorBusy
-            ) {
-              return this.derivation.tickSeasons(
-                this.derivedConfig,
-                derivedMode,
-                this.seasonal(),
-                this.runtime(),
-              );
-            }
-          })
-          .catch((error: unknown) => {
-            this.status = (error as Error).message;
-          })
-          .finally(() => {
-            this.simInFlight = false;
-          });
-      }
-    }
-
-    // The camera presents every display frame regardless of sim cadence.
-    this.renderer.syncSize();
-    if (this.pendingFit && this.renderer.mapWidth > 0) {
-      this.pendingFit = false;
-      this.camera = {
-        cx: this.mapWidth / 2,
-        cy: this.mapHeight / 2,
-        scale: this.renderer.fitScale() * 0.95,
-      };
-    }
-    this.clampCamera();
-    this.renderer.render(this.camera);
-    const zoom = Math.round(this.camera.scale * 100) / 100;
-    if (zoom !== this.zoomReadout) this.zoomReadout = zoom;
-  };
 
   /** Recolor tier, single-flight: a slider mid-drag can fire faster than the
    * GPU frame returns; collapse the backlog into one trailing rerun. */
   private queueRecolor(): void {
-    if (!this.derivedOk || !this.derivation || !this.derivedConfig) return;
+    if (!this.derivedOk || !this.isTerrain() || !this.derivedConfig) return;
     if (this.recolorBusy) {
       this.recolorDirty = true;
       return;
     }
     this.recolorBusy = true;
-    this.derivation
-      .recolor(
-        this.derivedConfig,
-        DERIVED_VIEWS[this.viewKey] ?? "terrain",
-        this.seasonal(),
-        this.runtime(),
-      )
+    this.runTier("recolor")
       .catch((error: unknown) => {
         this.status = (error as Error).message;
       })
@@ -582,6 +377,245 @@ export class GameShellPage extends LitElement {
     this.queueRecolor();
   }
 
+  // --- per-frame advance (base loop hooks) ------------------------------------
+
+  /** Terrain advances its season clock (and sweeps the derived temperature);
+   * sim systems tick their layers via the base. */
+  protected advance(ticks: number): void {
+    if (!this.isTerrain()) {
+      super.advance(ticks);
+      return;
+    }
+    if (ticks <= 0) return;
+    this.tickCount += ticks;
+    const week = Math.floor(((this.tickCount % YEAR_TICKS) / YEAR_TICKS) * 52);
+    if (week !== this.weekReadout) this.weekReadout = week;
+    if (
+      this.derivedOk &&
+      this.derivedConfig &&
+      !this.recolorBusy &&
+      !this.deriveBusy &&
+      DERIVED_VIEWS[this.shellView] !== undefined
+    ) {
+      this.deriveBusy = true;
+      this.runTier("season")
+        .catch((error: unknown) => {
+          this.status = (error as Error).message;
+        })
+        .finally(() => {
+          this.deriveBusy = false;
+        });
+    }
+  }
+
+  protected shouldRenderSimView(): boolean {
+    return !this.isTerrain();
+  }
+
+  /** The camera presents every display frame regardless of sim/season cadence. */
+  protected present(): void {
+    const r = this.renderer;
+    if (!r) return;
+    r.syncSize();
+    if (this.pendingFit && r.mapWidth > 0) {
+      this.pendingFit = false;
+      this.camera = {
+        cx: this.mapWidth / 2,
+        cy: this.mapHeight / 2,
+        scale: r.fitScale() * 0.95,
+      };
+    }
+    this.clampCamera();
+    r.render(this.camera);
+    const zoom = Math.round(this.camera.scale * 100) / 100;
+    if (zoom !== this.zoomReadout) this.zoomReadout = zoom;
+  }
+
+  // --- views ------------------------------------------------------------------
+
+  /** Terrain view: derived color mode (repaint) or a baked layer bitmap. */
+  private async applyTerrainView(view: ShellViewKey): Promise<void> {
+    this.shellView = view;
+    if (!this.renderer) return;
+    const derivedMode = this.derivedOk ? DERIVED_VIEWS[view] : undefined;
+    if (derivedMode && this.kernel?.outView && this.derivedConfig) {
+      this.renderer.setLiveTexture(
+        this.kernel.outView,
+        this.mapWidth,
+        this.mapHeight,
+      );
+      try {
+        await this.runTier("repaint");
+        this.status = "";
+      } catch (error) {
+        this.status = (error as Error).message;
+      }
+      return;
+    }
+    // Baked bitmap fallback (non-derived layer views, or derivation failed).
+    this.status = `Loading ${view}…`;
+    try {
+      let bitmap = this.viewCache.get(view);
+      if (!bitmap) {
+        bitmap = await buildViewBitmap(
+          view,
+          this.mapData(),
+          this.mapWidth,
+          this.mapHeight,
+        );
+        this.viewCache.set(view, bitmap);
+      }
+      await this.renderer.setMap(bitmap);
+      this.status = "";
+    } catch (error) {
+      this.status = (error as Error).message;
+    }
+  }
+
+  /** Sim view: switch the base's view pass and redraw. */
+  private applySimView(view: string): void {
+    this.view = view;
+    this.needsRedraw = true;
+  }
+
+  private cycleView(step: number): void {
+    if (this.isTerrain()) {
+      const index = VIEW_KEYS.indexOf(this.shellView);
+      void this.applyTerrainView(
+        VIEW_KEYS[(index + step + VIEW_KEYS.length) % VIEW_KEYS.length],
+      );
+    } else {
+      const views = this.compiled?.viewNames ?? [];
+      if (views.length === 0) return;
+      const index = views.indexOf(this.view);
+      this.applySimView(
+        views[(index + step + views.length) % views.length],
+      );
+    }
+  }
+
+  // --- input ------------------------------------------------------------------
+
+  private onKeyDown = (event: KeyboardEvent): void => {
+    if (this.classList.contains("hidden")) return;
+    if (event.key === "n" || event.key === "N") {
+      this.cycleView(event.shiftKey ? -1 : 1);
+    }
+  };
+
+  /** Whether a plain drag paints (sim system with a brush) vs pans. */
+  private paintMode(event: PointerEvent): boolean {
+    return (
+      !this.isTerrain() &&
+      this.brush !== "" &&
+      (this.compiled?.brushNames.length ?? 0) > 0 &&
+      !event.shiftKey
+    );
+  }
+
+  private framebufferPoint(event: PointerEvent | WheelEvent): {
+    x: number;
+    y: number;
+  } {
+    const canvas = event.currentTarget as HTMLCanvasElement;
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    return {
+      x: (event.clientX - rect.left) * dpr,
+      y: (event.clientY - rect.top) * dpr,
+    };
+  }
+
+  private cursorToMap(event: PointerEvent): { x: number; y: number } {
+    const canvas = event.currentTarget as HTMLCanvasElement;
+    const p = this.framebufferPoint(event);
+    return {
+      x: this.camera.cx + (p.x - canvas.width / 2) / this.camera.scale,
+      y: this.camera.cy + (p.y - canvas.height / 2) / this.camera.scale,
+    };
+  }
+
+  /** Stamp the active brush at the cursor, mapped through the camera. */
+  private stampCamera(event: PointerEvent): void {
+    if (!this.kernel || !this.compiled || this.brush === "") return;
+    const { x, y } = this.cursorToMap(event);
+    this.kernel.writeUniform("B", this.compiled.encodeBrush(this.brush, x, y));
+    const frame = this.kernel.beginFrame();
+    frame.pass(this.compiled.brushPass(this.brush));
+    if (!this.running) this.compiled.runView(frame, this.view);
+    void frame.finish();
+  }
+
+  private onPointerDown = (event: PointerEvent): void => {
+    (event.currentTarget as HTMLCanvasElement).setPointerCapture(
+      event.pointerId,
+    );
+    if (this.paintMode(event)) {
+      this.painting = true;
+      this.stampCamera(event);
+    } else {
+      this.dragging = true;
+      this.lastPointer = this.framebufferPoint(event);
+    }
+  };
+
+  private onPointerMove = (event: PointerEvent): void => {
+    this.updateHover(event);
+    if (this.painting) {
+      this.stampCamera(event);
+      return;
+    }
+    if (!this.dragging) return;
+    const point = this.framebufferPoint(event);
+    this.camera.cx -= (point.x - this.lastPointer.x) / this.camera.scale;
+    this.camera.cy -= (point.y - this.lastPointer.y) / this.camera.scale;
+    this.lastPointer = point;
+  };
+
+  private onPointerUp = (): void => {
+    this.dragging = false;
+    this.painting = false;
+  };
+
+  private onPointerLeave = (): void => {
+    this.hoverTile = null;
+  };
+
+  private updateHover(event: PointerEvent): void {
+    const { x: mapX, y: mapY } = this.cursorToMap(event);
+    const x = Math.floor(mapX);
+    const y = Math.floor(mapY);
+    if (x < 0 || y < 0 || x >= this.mapWidth || y >= this.mapHeight) {
+      if (this.hoverTile !== null) this.hoverTile = null;
+      return;
+    }
+    if (this.hoverTile?.x !== x || this.hoverTile?.y !== y) {
+      this.hoverTile = { x, y };
+    }
+  }
+
+  private onWheel = (event: WheelEvent): void => {
+    event.preventDefault();
+    if (!this.renderer) return;
+    const point = this.framebufferPoint(event);
+    const canvas = event.currentTarget as HTMLCanvasElement;
+    const mapX =
+      this.camera.cx + (point.x - canvas.width / 2) / this.camera.scale;
+    const mapY =
+      this.camera.cy + (point.y - canvas.height / 2) / this.camera.scale;
+    const factor = Math.exp(-event.deltaY * 0.0015);
+    const minScale = this.renderer.fitScale() * 0.5;
+    const scale = Math.min(
+      MAX_SCALE,
+      Math.max(minScale, this.camera.scale * factor),
+    );
+    this.camera = {
+      scale,
+      cx: mapX - (point.x - canvas.width / 2) / scale,
+      cy: mapY - (point.y - canvas.height / 2) / scale,
+    };
+  };
+
   private clampCamera(): void {
     if (!this.renderer || this.renderer.mapWidth === 0) return;
     const minScale = this.renderer.fitScale() * 0.5;
@@ -599,84 +633,20 @@ export class GameShellPage extends LitElement {
     );
   }
 
-  /** Pointer position in framebuffer pixels. */
-  private framebufferPoint(event: PointerEvent | WheelEvent): {
-    x: number;
-    y: number;
-  } {
-    const canvas = event.currentTarget as HTMLCanvasElement;
-    const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    return {
-      x: (event.clientX - rect.left) * dpr,
-      y: (event.clientY - rect.top) * dpr,
-    };
-  }
+  // --- hover readout (terrain) ------------------------------------------------
 
-  private onPointerDown = (event: PointerEvent): void => {
-    (event.currentTarget as HTMLCanvasElement).setPointerCapture(
-      event.pointerId,
-    );
-    this.dragging = true;
-    this.lastPointer = this.framebufferPoint(event);
-  };
-
-  private onPointerMove = (event: PointerEvent): void => {
-    this.updateHover(event);
-    if (!this.dragging) return;
-    const point = this.framebufferPoint(event);
-    this.camera.cx -= (point.x - this.lastPointer.x) / this.camera.scale;
-    this.camera.cy -= (point.y - this.lastPointer.y) / this.camera.scale;
-    this.lastPointer = point;
-  };
-
-  private onPointerUp = (): void => {
-    this.dragging = false;
-  };
-
-  private onPointerLeave = (): void => {
-    this.hoverTile = null;
-  };
-
-  /** Map the cursor to the tile under it (map coords), or null off-map. */
-  private updateHover(event: PointerEvent): void {
-    const canvas = event.currentTarget as HTMLCanvasElement;
-    const point = this.framebufferPoint(event);
-    const mapX =
-      this.camera.cx + (point.x - canvas.width / 2) / this.camera.scale;
-    const mapY =
-      this.camera.cy + (point.y - canvas.height / 2) / this.camera.scale;
-    const x = Math.floor(mapX);
-    const y = Math.floor(mapY);
-    if (x < 0 || y < 0 || x >= this.mapWidth || y >= this.mapHeight) {
-      if (this.hoverTile !== null) this.hoverTile = null;
-      return;
-    }
-    if (this.hoverTile?.x !== x || this.hoverTile?.y !== y) {
-      this.hoverTile = { x, y };
-    }
-  }
-
-  /** Everything known about the hovered tile, as label/value rows. */
-  private hoverReadout(): {
-    x: number;
-    y: number;
-    rows: [string, string][];
-  } | null {
+  private hoverReadout(): { rows: [string, string][] } | null {
     const tile = this.hoverTile;
     const f = this.hoverFields;
-    if (!tile || !f) return null;
+    if (!tile || !f || !this.isTerrain()) return null;
     const i = tile.y * this.mapWidth + tile.x;
     const lon = ((tile.x + 0.5) / this.mapWidth) * 360 - 180;
     const lat = 90 - ((tile.y + 0.5) / this.mapHeight) * 180;
     const seaLevel = this.derivedConfig?.seaLevel ?? 0.46;
 
-    // Live temperature: baked annual mean + the seasonal swing (the same
-    // model the climate pass runs). The plane is linear −30..35 °C.
-    const yearPhase = (this.tickCount % this.yearTicks) / this.yearTicks;
+    const yearPhase = (this.tickCount % YEAR_TICKS) / YEAR_TICKS;
     let seasonal: number;
     if (f.seasonAmp && f.seasonPhase) {
-      // Real harmonic (season.bin): amplitude already in normalized units.
       seasonal =
         f.seasonAmp[i] *
         Math.cos(2 * Math.PI * (yearPhase - f.seasonPhase[i])) *
@@ -693,18 +663,15 @@ export class GameShellPage extends LitElement {
     const tempNorm = Math.max(0, Math.min(1, f.tempBase[i] + seasonal));
     const humidity = f.humidityBase[i];
 
-    const water = f.waterMask[i]; // 0 land, 1 sea, 2 lake (map.bin)
+    const water = f.waterMask[i];
     const isOcean = water === 1;
     const isLake = water === 2 || f.lakeBase[i] > 0.5;
     const river = f.riverBase[i];
 
-    // Snow cover, matching the colorizer's smoothstep.
     const smoothstep = (a: number, b: number, x: number) => {
       const t = Math.max(0, Math.min(1, (x - a) / Math.max(1e-4, b - a)));
       return t * t * (3 - 2 * t);
     };
-    // iceThreshold is the freeze/melt pivot; snowBand is the half-width of
-    // the slush transition either side (matches snowCoverAt in color.wesl).
     const snow =
       this.iceThreshold > 0
         ? 1 -
@@ -718,7 +685,8 @@ export class GameShellPage extends LitElement {
     let surface = "land";
     if (isOcean) surface = "ocean";
     else if (isLake) surface = "lake";
-    else if (river > this.derivedConfig!.riverWeakThreshold) surface = "river";
+    else if (river > (this.derivedConfig?.riverWeakThreshold ?? 0.5))
+      surface = "river";
 
     const rows: [string, string][] = [
       ["tile", `${tile.x}, ${tile.y}`],
@@ -760,31 +728,10 @@ export class GameShellPage extends LitElement {
     } else {
       rows.push(["biome", biomeName(tempNorm, humidity, snow >= 1)]);
     }
-    return { x: tile.x, y: tile.y, rows };
+    return { rows };
   }
 
-  private onWheel = (event: WheelEvent): void => {
-    event.preventDefault();
-    if (!this.renderer) return;
-    const point = this.framebufferPoint(event);
-    const canvas = event.currentTarget as HTMLCanvasElement;
-    // Map point under the cursor stays fixed through the zoom.
-    const mapX =
-      this.camera.cx + (point.x - canvas.width / 2) / this.camera.scale;
-    const mapY =
-      this.camera.cy + (point.y - canvas.height / 2) / this.camera.scale;
-    const factor = Math.exp(-event.deltaY * 0.0015);
-    const minScale = this.renderer.fitScale() * 0.5;
-    const scale = Math.min(
-      MAX_SCALE,
-      Math.max(minScale, this.camera.scale * factor),
-    );
-    this.camera = {
-      scale,
-      cx: mapX - (point.x - canvas.width / 2) / scale,
-      cy: mapY - (point.y - canvas.height / 2) / scale,
-    };
-  };
+  // --- render -----------------------------------------------------------------
 
   render() {
     if (!CameraRenderer.isSupported()) {
@@ -797,12 +744,16 @@ export class GameShellPage extends LitElement {
         </div>
       </section>`;
     }
-
+    const terrainMode = this.isTerrain();
+    const compiled = this.compiled;
     return html`
       <section class="fixed inset-0 z-[9000] bg-neutral-950 overflow-hidden">
         <canvas
           id="shell-canvas"
-          class="absolute inset-0 w-full h-full touch-none cursor-grab active:cursor-grabbing"
+          class="absolute inset-0 w-full h-full touch-none ${terrainMode ||
+          !this.brush
+            ? "cursor-grab active:cursor-grabbing"
+            : "cursor-crosshair"}"
           @pointerdown=${this.onPointerDown}
           @pointermove=${this.onPointerMove}
           @pointerup=${this.onPointerUp}
@@ -815,13 +766,28 @@ export class GameShellPage extends LitElement {
         ${this.renderHover()}
 
         <div
-          class="absolute top-3 left-3 flex items-center gap-3 text-sm text-white bg-black/60 backdrop-blur px-3 py-2 rounded"
+          class="absolute top-3 left-3 flex items-center gap-3 text-sm text-white bg-black/60 backdrop-blur px-3 py-2 rounded flex-wrap max-w-[calc(100%-1.5rem)]"
         >
           <select
             class="bg-black/40 border border-white/20 px-2 py-1 text-white"
             @change=${(e: Event) => {
+              this.systemId = (e.target as HTMLSelectElement).value;
+              this.paramValues = {};
+              void this.loadWorld();
+            }}
+          >
+            ${this.systems.map(
+              (s) =>
+                html`<option value=${s.id} ?selected=${s.id === this.systemId}>
+                  ${s.name}
+                </option>`,
+            )}
+          </select>
+          <select
+            class="bg-black/40 border border-white/20 px-2 py-1 text-white"
+            @change=${(e: Event) => {
               this.mapKey = (e.target as HTMLSelectElement).value;
-              void this.loadMap();
+              void this.loadWorld();
             }}
           >
             ${Object.keys(GameMapType).map(
@@ -831,20 +797,36 @@ export class GameShellPage extends LitElement {
                 </option>`,
             )}
           </select>
-          <select
-            class="bg-black/40 border border-white/20 px-2 py-1 text-white"
-            @change=${(e: Event) =>
-              void this.applyView(
-                (e.target as HTMLSelectElement).value as ShellViewKey,
-              )}
-          >
-            ${VIEW_KEYS.map(
-              (view) =>
-                html`<option value=${view} ?selected=${view === this.viewKey}>
-                  ${view}
-                </option>`,
-            )}
-          </select>
+          ${terrainMode
+            ? html`<select
+                class="bg-black/40 border border-white/20 px-2 py-1 text-white"
+                @change=${(e: Event) =>
+                  void this.applyTerrainView(
+                    (e.target as HTMLSelectElement).value as ShellViewKey,
+                  )}
+              >
+                ${VIEW_KEYS.map(
+                  (view) =>
+                    html`<option
+                      value=${view}
+                      ?selected=${view === this.shellView}
+                    >
+                      ${view}
+                    </option>`,
+                )}
+              </select>`
+            : html`<select
+                class="bg-black/40 border border-white/20 px-2 py-1 text-white"
+                @change=${(e: Event) =>
+                  this.applySimView((e.target as HTMLSelectElement).value)}
+              >
+                ${(compiled?.viewNames ?? []).map(
+                  (view) =>
+                    html`<option value=${view} ?selected=${view === this.view}>
+                      ${view}
+                    </option>`,
+                )}
+              </select>`}
           <button
             class="border border-white/20 px-2 py-1 hover:bg-white/10"
             title="Cycle layer (n / shift+n)"
@@ -852,9 +834,28 @@ export class GameShellPage extends LitElement {
           >
             ⟳
           </button>
-          <span class="text-white/70">week ${this.weekReadout}</span>
+          <button
+            class="border border-white/20 px-2 py-1 hover:bg-white/10"
+            @click=${() => this.toggleRunning()}
+          >
+            ${this.running ? "Pause" : "Play"}
+          </button>
+          <label
+            class="flex items-center gap-1 cursor-pointer select-none text-white/80"
+          >
+            <input
+              type="checkbox"
+              .checked=${this.turbo}
+              @change=${(e: Event) =>
+                this.setTurbo((e.target as HTMLInputElement).checked)}
+            />
+            turbo
+          </label>
+          ${terrainMode
+            ? html`<span class="text-white/70">week ${this.weekReadout}</span>`
+            : html`<span class="text-white/70">tick ${this.tickReadout}</span>`}
           <span class="text-white/70">zoom ${this.zoomReadout}×</span>
-          ${this.derivedOk
+          ${terrainMode && this.derivedOk
             ? html`<button
                 class="border border-white/20 px-2 py-1 hover:bg-white/10 ${this
                   .showKnobs
@@ -865,9 +866,22 @@ export class GameShellPage extends LitElement {
                 climate
               </button>`
             : null}
-          <span class="text-white/50"
-            >drag to pan · wheel to zoom · n cycles layers</span
-          >
+          ${!terrainMode && (compiled?.brushNames.length ?? 0) > 0
+            ? html`<select
+                class="bg-black/40 border border-white/20 px-2 py-1 text-white"
+                title="Brush (drag on map; shift-drag pans)"
+                @change=${(e: Event) => {
+                  this.brush = (e.target as HTMLSelectElement).value;
+                }}
+              >
+                ${(compiled?.brushNames ?? []).map(
+                  (name) =>
+                    html`<option value=${name} ?selected=${name === this.brush}>
+                      🖌 ${name}
+                    </option>`,
+                )}
+              </select>`
+            : null}
           ${this.derivedNote
             ? html`<span class="text-amber-300/80">${this.derivedNote}</span>`
             : null}
@@ -876,7 +890,8 @@ export class GameShellPage extends LitElement {
             : null}
         </div>
 
-        ${this.showKnobs && this.derivedOk && this.derivedConfig
+        ${!terrainMode ? this.renderSimPanel() : null}
+        ${this.showKnobs && terrainMode && this.derivedOk && this.derivedConfig
           ? this.renderKnobs(this.derivedConfig)
           : null}
       </section>
@@ -896,6 +911,59 @@ export class GameShellPage extends LitElement {
               <span class="text-white/50">${label}</span>
               <span class="text-white/90">${value}</span>
             </div>
+          `,
+        )}
+      </div>
+    `;
+  }
+
+  /** Sim-system panel: scalar readouts + generic param sliders. */
+  private renderSimPanel() {
+    const compiled = this.compiled;
+    const scalars = Object.entries(this.scalarReadout);
+    const params = compiled?.paramList ?? [];
+    if (scalars.length === 0 && params.length === 0) return null;
+    return html`
+      <div
+        class="absolute top-16 right-3 flex flex-col gap-1.5 text-xs text-white bg-black/60 backdrop-blur px-3 py-3 rounded w-72 max-h-[80vh] overflow-auto"
+      >
+        ${scalars.length
+          ? html`<div class="flex flex-col gap-1 pb-1 border-b border-white/10">
+              ${scalars.map(
+                ([name, value]) => html`<div
+                  class="flex justify-between gap-3"
+                >
+                  <span class="text-white/50">${name}</span>
+                  <span class="text-white/90 tabular-nums"
+                    >${formatScalar(value)}</span
+                  >
+                </div>`,
+              )}
+            </div>`
+          : null}
+        ${params.map(
+          (param) => html`
+            <label class="flex items-center gap-2">
+              <span class="w-28 truncate text-white/70" title=${param.name}
+                >${param.name}</span
+              >
+              <input
+                type="range"
+                class="flex-1"
+                min=${param.min}
+                max=${param.max}
+                step=${param.step}
+                .value=${String(this.paramValues[param.name] ?? param.value)}
+                @input=${(e: Event) =>
+                  this.updateParam(
+                    param.name,
+                    (e.target as HTMLInputElement).valueAsNumber,
+                  )}
+              />
+              <span class="w-12 text-right text-white/90 tabular-nums"
+                >${(this.paramValues[param.name] ?? param.value).toFixed(2)}</span
+              >
+            </label>
           `,
         )}
       </div>
@@ -975,4 +1043,14 @@ export class GameShellPage extends LitElement {
       </div>
     `;
   }
+}
+
+// Grouped (per-player) scalars decode as arrays; show the first few slots.
+function formatScalar(value: number | number[]): string {
+  if (typeof value === "number") return value.toFixed(1);
+  const head = value
+    .slice(0, 4)
+    .map((v) => v.toFixed(1))
+    .join(", ");
+  return value.length > 4 ? `[${head}, …]` : `[${head}]`;
 }
