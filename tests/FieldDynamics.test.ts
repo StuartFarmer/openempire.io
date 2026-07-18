@@ -1,3 +1,4 @@
+import { SHARED_WESL } from "../src/client/lab/shared";
 import { grazing } from "../src/client/lab/systems/grazing/system";
 import { terrain } from "../src/client/lab/systems/terrain/system";
 import {
@@ -662,17 +663,20 @@ fn update(x: i32, y: i32, i: u32) -> f32 {
   });
 });
 
-describe("systems compile against shared::", () => {
-  test("empire + territory link with shared combat/pack (no private combat.wesl)", async () => {
+describe("system-specific mechanics stay in the system", () => {
+  // shared:: is game-agnostic primitives only; a game's combat/conquest rules
+  // live in its own lib/, not in shared (codify-game-systems).
+  test("empire + territory own their combat.wesl", async () => {
     const { empire } = await import("../src/client/lab/systems/empire/system");
     const { territory } = await import(
       "../src/client/lab/systems/territory/system"
     );
     const e = await compileFieldSystem(empire);
     const t = await compileFieldSystem(territory);
-    // The shared conquest helpers linked into the flip passes.
+    // Each system's own conquest rule linked into its flip pass.
     expect(passByName(e, "stock/owner").code).toContain("conquers");
-    expect(passByName(t, "stock/owner").code).toContain("conquersStochastic");
-    expect(passByName(t, "stock/owner").code).toContain("garrisonDefense");
+    expect(passByName(t, "stock/owner").code).toContain("conquers");
+    // shared:: carries no combat mechanic.
+    expect(Object.keys(SHARED_WESL.modules).join()).not.toContain("combat");
   });
 });

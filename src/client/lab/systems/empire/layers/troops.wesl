@@ -8,8 +8,7 @@
 import package::params;
 import package::layers;
 import package::players;
-import shared::pack::{attackerOf, pressureOf};
-import shared::combat::{defenseOf, conquers};
+import package::lib::combat::{attackerOf, pressureOf, defenseOf, conquers};
 
 fn init(x: i32, y: i32, i: u32) -> f32 {
   return 0.0;

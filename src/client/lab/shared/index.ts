@@ -1,12 +1,15 @@
 import type { AIContext, FieldPlayersSpec } from "../../webgpu/FieldDynamics";
 
-// The shared library (codify-game-systems): a cross-system WESL package plus
-// reusable TS manifest fragments. The WESL modules are linked into every
+// The shared library (codify-game-systems): a cross-system WESL package of
+// GAME-AGNOSTIC primitives (growth, diffusion, palette — math a system can
+// reuse), plus reusable TS manifest fragments. System-SPECIFIC mechanics
+// (a game's combat/defense/conquest rules, its attack encoding) stay in that
+// system's own `lib/`, never here. The WESL modules are linked into every
 // system's compile as the `shared::` package (see compileFieldSystem), so any
-// layer/view/pass can `import shared::combat::conquers;` without copying it.
+// layer/view/pass can `import shared::growth::logistic;` without copying it.
 
 /** The `shared::` WESL package — one WeslBundle linked into every system.
- * Keys are package-root-relative paths (`./combat.wesl` → `shared::combat`). */
+ * Keys are package-root-relative paths (`./growth.wesl` → `shared::growth`). */
 export const SHARED_WESL = {
   name: "shared",
   edition: "unstable_2025_1",

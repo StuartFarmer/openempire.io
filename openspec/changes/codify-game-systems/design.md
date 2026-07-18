@@ -111,8 +111,8 @@ Shared modules live in `src/client/lab/shared/**.wesl`, authored once and
 imported by any system:
 
 ```wgsl
-import shared::combat::{defenseOf, conquers};
 import shared::growth::logistic;
+import shared::diffusion::blend;
 ```
 
 Shared modules follow the established **lib convention**: pure functions that
@@ -129,7 +129,7 @@ expose `shared::`:
 
 1. **Preferred — a real linked package.** Register `shared` as a library
    package via wesl-js's library support (a named `{ name: "shared", weslSrc }`
-   lib passed to `link`), so `import shared::combat` resolves cross-package. The
+   lib passed to `link`), so `import shared::growth` resolves cross-package. The
    shared tree is loaded once (an `import.meta.glob` index) and passed on every
    compile.
 2. **Fallback — aliased into the package.** If the pinned wesl-js version does
@@ -141,29 +141,33 @@ The implementation verifies the wesl-js `link` API and takes (1) if available;
 this is the single open implementation detail (it does not affect the authored
 `shared::` spelling in (1)).
 
-### Seed modules (from real duplication + obvious reuse)
+### Seed modules — game-agnostic primitives ONLY
 
-| Module | Provides | Replaces |
+`shared::` holds generic math a system can reuse, never a system's own rules:
+
+| Module | Provides | For |
 | --- | --- | --- |
-| `shared::combat` | `defenseOf(troops, pop, elevation, isNeutral, …)`, `conquers(pressure, attacker, owner, defense, margin) -> bool` (deterministic, hysteresis margin) | the diverged `combat.wesl` in empire + territory |
-| `shared::pack` | `packClaim(attacker, pressure) -> u32`, `unpackAttacker`, `unpackPressure` (bits 24..31 / 0..23) | the incursion/attack encoding copied in both |
-| `shared::diffusion` | `blend(prev, neigh, rate)` spread/relax step (pairs with `avg8`) | grazing spread, supply diffusion |
 | `shared::growth` | `logistic(v, rate, cap)`, `decay(v, rate)`, `grow(v, rate, food)` | settlement/grazing/empire pop math |
-| `shared::palette` | ramp `lerp3`, biome color helpers | world `lib/palette.wesl`, ad-hoc ramps |
-| `shared::noise` | `hash01`, `fbm` re-exported under a stable name | scattered `package::kernel` noise imports |
+| `shared::diffusion` | `blend(prev, neigh, rate)` spread/relax step (pairs with `avg8`) | grazing spread, supply diffusion |
+| `shared::palette` | `lerp3`, `ramp3` color-ramp helpers | ad-hoc ramps |
 
-`shared::combat`/`pack` are the concrete de-duplication targets (empire and
-territory converge on them, each passing its own params); the rest are factored
-as systems adopt them — the library grows with demand, seeded from what already
-exists.
+(Noise/`fbm`/`hash01` stay in `package::kernel`, already available everywhere.)
+The library grows with demand as genuinely generic helpers appear.
+
+**What does NOT go in `shared::`:** a system's specific mechanics — combat
+resolution, defense/conquest rules, and the data encodings those rules use (the
+attacker+pressure `u32` packing). Empire and territory each keep their own
+`lib/combat.wesl` (empire: additive `defenseOf` + deterministic `conquers`;
+territory: multiplicative garrison defense + stochastic conquest). Two systems
+having *similar* combat is not a reason to promote it — similarity ≠ generic.
 
 ### Shared TS fragments
 
 A small `src/client/lab/shared/index.ts` surface for manifest reuse:
 
-- `PLAYER_INTENT` — the standard per-player intent field set (`alive`,
-  `attacking`, `commit`, `targetX`, `targetY`) so game systems declare
-  `players: PLAYER_INTENT` instead of re-listing it.
+- `PLAYER_INTENT_FIELDS` / `playerIntent(count)` — the standard per-player
+  intent field set (`alive`, `attacking`, `commit`, `targetX`, `targetY`) so
+  game systems declare `players: playerIntent(5)` instead of re-listing it.
 - Common param presets (e.g. a `GROWTH_PARAMS` block) and reusable AI helpers
   (`nearestEnemyAI(ctx, …)`) that systems compose.
 

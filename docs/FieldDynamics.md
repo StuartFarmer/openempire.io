@@ -286,24 +286,29 @@ boundary (the node-graph aspiration survives for the data).
 
 ### The shared library (`shared::`)
 
-Reusable WESL lives in `src/client/lab/shared/**.wesl`, linked into every
-system as the `shared::` package (a wesl-js `libs` bundle). Import it anywhere a
-registry import is legal:
+**Game-agnostic** WESL primitives live in `src/client/lab/shared/**.wesl`,
+linked into every system as the `shared::` package (a wesl-js `libs` bundle).
+Import them anywhere a registry import is legal:
 
 ```wgsl
-import shared::combat::{defenseOf, conquers};   // conquest resolution
-import shared::pack::{packAttack, attackerOf};  // attacker+pressure u32 packing
-import shared::growth::logistic;                // logistic / decay / grow
-import shared::diffusion::blend;                // one relax/spread step
-import shared::palette::{lerp3, ramp3};         // color ramps
+import shared::growth::logistic;        // logistic / decay / grow
+import shared::diffusion::blend;        // one relax/spread step
+import shared::palette::{lerp3, ramp3}; // color ramps
 ```
 
 Shared modules follow the **lib convention** — pure functions taking all values
 as arguments (no `layers::`/`params::` imports), so they are system-agnostic;
-each caller passes its own balance params. (Noise/`fbm`/`hash01` remain in
+each caller passes its own params. (Noise/`fbm`/`hash01` remain in
 `package::kernel`, already available everywhere.) Reusable **TS** fragments live
 in `src/client/lab/shared/index.ts`: `PLAYER_INTENT_FIELDS` / `playerIntent(n)`
 and AI helpers like `nearestEnemyAI`.
+
+**What stays out of `shared::`:** a system's *specific* mechanics — its combat
+resolution, defense/conquest rules, and the data encodings those use — live in
+that system's own `lib/` (empire and territory each keep their `lib/combat.wesl`,
+with different defense formulas and deterministic vs stochastic conquest). Two
+systems having similar mechanics is not a reason to promote them; `shared::` is
+for genuinely generic math, not shared *rules*.
 
 ## 7. Out of scope for v1 (named so we don't design into a corner)
 

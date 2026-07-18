@@ -6,7 +6,7 @@
 
 There SHALL be a shared WESL library at `src/client/lab/shared/**.wesl`, linked
 into every system's compilation and importable as the `shared::` package (e.g.
-`import shared::combat::conquers;`). Shared modules SHALL follow the lib
+`import shared::growth::logistic;`). Shared modules SHALL follow the lib
 convention — pure functions taking all values as arguments, with no
 `layers::`/`params::` registry imports — so they are system-agnostic. The
 compiler SHALL make `shared::` resolvable in every layer, view, and derivation
@@ -22,23 +22,26 @@ pass without per-system wiring.
 - **WHEN** a shared module needs a layer value
 - **THEN** it receives it as a function argument (the caller reads `layers::…` and passes it in), keeping the shared module free of system-specific registry references
 
-### Requirement: Common mechanics are de-duplicated into the shared library
+### Requirement: The shared library holds only game-agnostic primitives
 
-The shared library SHALL be seeded with the mechanics currently copy-pasted or
-obviously reusable across systems: at minimum `shared::combat` (deterministic
-`defenseOf` / `conquers` conquest with a hysteresis margin) and `shared::pack`
-(attacker+pressure `u32` bit-packing). The empire and territory systems SHALL
-import these from `shared::` rather than each carrying its own diverged copy.
+The shared library SHALL contain only GENERIC, game-agnostic primitives —
+reusable math and helpers that are not tied to any one system's rules (e.g.
+`shared::growth` logistic/decay, `shared::diffusion` a relax step,
+`shared::palette` color ramps). A system's SPECIFIC mechanics — its combat
+resolution, defense/conquest rules, and the data encodings those rules use —
+SHALL live in that system's own `lib/`, never in `shared::`, even when two
+systems have similar versions. Similarity between systems SHALL NOT be a reason
+to promote a mechanic into `shared::`.
 
-#### Scenario: Combat lives in one place
+#### Scenario: A system's combat rules stay in the system
 
-- **WHEN** empire and territory both need conquest resolution
-- **THEN** both import `shared::combat` (each passing its own parameters), and neither system folder contains a private `combat.wesl`
+- **WHEN** empire and territory each resolve conquest (with different defense formulas and deterministic vs stochastic rules)
+- **THEN** each keeps its own `lib/combat.wesl`, and `shared::` contains no combat/defense/conquest module
 
-#### Scenario: The bit-packing encoding is shared
+#### Scenario: Only generic math is promoted
 
-- **WHEN** a system packs an attacker id and pressure into one `u32`
-- **THEN** it uses `shared::pack`, so every system that reads/writes that encoding agrees on the bit layout
+- **WHEN** a helper is genuinely game-agnostic (logistic growth, a diffusion step, a color ramp)
+- **THEN** it MAY live in `shared::` and any system imports it, passing its own parameters
 
 ### Requirement: Reusable authoring fragments are shared in TS
 

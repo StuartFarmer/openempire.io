@@ -3,8 +3,8 @@
 ## 1. The shared WESL library (`shared::`)
 
 - [x] 1.1 Create `src/client/lab/shared/` with a WESL glob index; wire the compiler (`compileFieldSystem`) to link the shared tree as the `shared::` package for every layer/view/derivation pass. Verify the wesl-js `link` library API supports a named package; if not, fall back to `package::shared::*` aliasing (design §shared/linking). Add a compiler test: a system importing `shared::` links.
-- [x] 1.2 Seed `shared::combat` (`defenseOf`, `conquers` with hysteresis margin) and `shared::pack` (`packClaim`/`unpackAttacker`/`unpackPressure`) — the canonical, parameterized versions.
-- [x] 1.3 Seed `shared::diffusion` (`blend`/relax step), `shared::growth` (`logistic`/`decay`/`grow`), `shared::palette` (ramp/biome helpers), `shared::noise` (`hash01`/`fbm` re-export).
+- [x] 1.2 Seed `shared::` with GENERIC primitives only: `shared::growth` (`logistic`/`decay`/`grow`), `shared::diffusion` (`blend`), `shared::palette` (`lerp3`/`ramp3`). System-specific combat/defense/conquest + the attack encoding stay in each system's own `lib/` (empire and territory keep their `combat.wesl`) — similarity between systems is NOT a reason to promote a mechanic to `shared::`.
+- [x] 1.3 (folded into 1.2 — noise/`fbm`/`hash01` stay in `package::kernel`, already available to every system.)
 - [x] 1.4 Shared TS fragments (`src/client/lab/shared/index.ts`): the `PLAYER_INTENT` player-field set, common param presets, and reusable AI helpers (`nearestEnemyAI`).
 
 ## 2. The System contract
