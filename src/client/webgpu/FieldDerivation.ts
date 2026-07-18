@@ -42,14 +42,18 @@ export function bindingsModule(
   binds: readonly string[],
   bufferTypes: Record<string, "f32" | "u32">,
   typeImports: string,
+  uniform: { name: string; wgslType: string } = { name: "P", wgslType: "Params" },
 ): string {
   const decls = binds.map((ref, index) => {
     const binding = index + 1; // 0 is GRID (package::kernel)
     if (ref === "out") {
       return `@group(0) @binding(${binding}) var out_tex: texture_storage_2d<rgba8unorm, write>;`;
     }
-    if (ref === "P") {
-      return `@group(0) @binding(${binding}) var<uniform> P: Params;`;
+    // The uniform bind resolves to the WGSL var `P` regardless of its kernel
+    // name (pass bodies read `P`); the kernel binds by index, so a distinct
+    // kernel name (e.g. `TP`) lets a composed game keep `P` for its own params.
+    if (ref === uniform.name) {
+      return `@group(0) @binding(${binding}) var<uniform> P: ${uniform.wgslType};`;
     }
     let rest = ref;
     let readWrite = false;
@@ -91,10 +95,14 @@ export async function linkDerivation(opts: {
   modules: Record<string, string>;
   bufferTypes: Record<string, "f32" | "u32">;
   typeImports: string;
+  /** The uniform bind name + WGSL struct type (default `P`/`Params`). A
+   * distinct name lets a composed game keep `P` for its own params. */
+  uniform?: { name: string; wgslType: string };
   /** For error messages: how to name a pass's source file. */
   sourceLabel?: (pass: DerivationPass) => string;
 }): Promise<FieldPassSpec[]> {
   const { passTable, modules, bufferTypes, typeImports } = opts;
+  const uniform = opts.uniform ?? { name: "P", wgslType: "Params" };
   const label =
     opts.sourceLabel ??
     ((pass: DerivationPass) => `passes/${pass.module}.wesl`);
@@ -115,6 +123,7 @@ export async function linkDerivation(opts: {
               pass.binds,
               bufferTypes,
               typeImports,
+              uniform,
             ),
             ...modules,
           },

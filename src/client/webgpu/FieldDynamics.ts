@@ -215,6 +215,12 @@ export interface FieldDerivedSpec {
   count?: number;
   /** Ping-pong for iterated passes; inferred true when a step advances it. */
   pingPong?: boolean;
+  /** Expose this derived field to the per-tick layer registry as a READ-ONLY
+   * input (add-games-on-terrain): a composed game's `layers/*.wesl` read it via
+   * `layers::<name>`, exactly like a `layers.bin` plane. Shadows a same-named
+   * map plane (the rich derived value wins). Writing it from a game is an
+   * error. */
+  exposed?: boolean;
 }
 
 /** One step of the derivation pipeline — a linked WESL pass (grid or single),
@@ -248,12 +254,15 @@ export interface FieldDeriveSpec {
   /** WESL import line for the shared struct types the passes reference
    * (e.g. `import package::types::{Params, Globals, GlobalsAtomic};`). */
   typeImports: string;
-  /** Custom `P` uniform layout, when the derivation passes own their own
-   * Params struct (via typeImports) instead of the manifest-generated one —
-   * e.g. reusing the worldgen's Params. The system encodes `P` externally
-   * (kernel.writeUniform("P", …)); `bytes` sizes the buffer, `wgslType` names
-   * the struct. Omit to use the generated Params from the manifest `params`. */
-  uniform?: { wgslType: string; bytes: number };
+  /** Custom uniform layout, when the derivation passes own their own Params
+   * struct (via typeImports) instead of the manifest-generated one — e.g.
+   * reusing the worldgen's Params. `bytes` sizes the buffer, `wgslType` names
+   * the struct. `name` is the KERNEL uniform name (default "P"); set it to a
+   * distinct name (e.g. "TP") so a composed game keeps "P" for its own params —
+   * the derivation passes still read the uniform as `P` (bound by index). The
+   * system encodes it externally (`kernel.writeUniform(name, …)`). Omit the
+   * whole block to use the generated Params from the manifest `params`. */
+  uniform?: { wgslType: string; bytes: number; name?: string };
   /** Declared map inputs (unify-field-viewer phase 3): for each input field,
    * which sidecar plane fills it and how it decodes. `loadMapInputs` reads this
    * to reproduce the hand-written decode generically. Fields not listed here
@@ -487,13 +496,36 @@ export async function compileFieldSystem(
     })
     .sort((a, b) => a.name.localeCompare(b.name));
   const dynamicLayers = new Map(layerFiles.map((f) => [f.name, f.type]));
+  // Terrain-base fields exposed to the layer registry as read-only inputs
+  // (add-games-on-terrain). They SHADOW a same-named map plane. Ping-pong is
+  // inferred from the derive steps' `advances` (settled `.read` on read).
+  const deriveAdvancedEarly = new Set<string>(
+    system.derive?.steps.flatMap((s) => s.advances ?? []) ?? [],
+  );
+  const exposedDerive = new Map<string, { type: FieldLayerType; ping: boolean }>();
+  for (const [name, spec] of Object.entries(system.derive?.fields ?? {})) {
+    if (spec.exposed) {
+      exposedDerive.set(name, {
+        type: spec.type,
+        ping: spec.pingPong ?? deriveAdvancedEarly.has(name),
+      });
+    }
+  }
   const isLayer = (name: string): boolean =>
-    dynamicLayers.has(name) || MAP_LAYER_NAMES.includes(name);
+    dynamicLayers.has(name) ||
+    exposedDerive.has(name) ||
+    MAP_LAYER_NAMES.includes(name);
+  // Exposed terrain fields take precedence over a same-named map plane.
   const typeOf = (name: string): FieldLayerType =>
-    dynamicLayers.get(name) ?? "f32"; // map layers are f32
-  /** Bind ref for reading a layer: ping-pong facet for dynamic, static for map. */
-  const readBind = (name: string): string =>
-    dynamicLayers.has(name) ? `${name}.read` : name;
+    dynamicLayers.get(name) ?? exposedDerive.get(name)?.type ?? "f32";
+  /** Bind ref for reading a layer: ping-pong facet for dynamic + advanced
+   * terrain fields, static for map planes and single terrain fields. */
+  const readBind = (name: string): string => {
+    if (dynamicLayers.has(name)) return `${name}.read`;
+    const ex = exposedDerive.get(name);
+    if (ex) return ex.ping ? `${name}.read` : name;
+    return name;
+  };
   const updatedSet = new Set(
     layerFiles.filter((f) => f.hasUpdate).map((f) => f.name),
   );
@@ -503,6 +535,11 @@ export async function compileFieldSystem(
     if (!IDENT.test(file.name) || RESERVED_LAYER_NAMES.has(file.name)) {
       diagnostics.push(
         `${file.path}: layer name "${file.name}" is invalid or reserved`,
+      );
+    }
+    if (exposedDerive.has(file.name)) {
+      diagnostics.push(
+        `${file.path}: layer "${file.name}" shadows a read-only terrain field — rename it`,
       );
     }
     if (file.initType === undefined) {
@@ -1241,6 +1278,12 @@ ${oceanMask ? "  if (land[i] == 0.0) { color = vec3f(0.055, 0.13, 0.20); }" : ""
         modules: system.modules,
         bufferTypes,
         typeImports: derive.typeImports,
+        uniform: derive.uniform
+          ? {
+              name: derive.uniform.name ?? "P",
+              wgslType: derive.uniform.wgslType,
+            }
+          : undefined,
       });
     } catch (error) {
       throw new FieldDynamicsError([`derive: ${(error as Error).message}`]);
@@ -1304,17 +1347,23 @@ ${oceanMask ? "  if (land[i] == 0.0) { color = vec3f(0.055, 0.13, 0.20); }" : ""
       : []),
   ];
 
-  // When the derivation owns its Params (custom uniform), size and name the P
-  // buffer from it — the derive passes read that struct (from typeImports); the
-  // system encodes P externally. Otherwise use the manifest-generated Params.
-  const pUniform = derive?.uniform ?? {
-    bytes: paramsBytes,
-    wgslType: "Params",
-  };
+  // Uniforms. A game composed onto terrain has BOTH the generated game `Params`
+  // ("P") and the terrain derivation's own uniform (a distinct name, e.g.
+  // "TP"). When the derivation reuses "P" (terrain-only, back-compat), size "P"
+  // from it. Otherwise "P" is the generated game Params.
+  const du = derive?.uniform;
+  const derivedUniformName = du?.name ?? "P";
+  const separateTerrainUniform = du !== undefined && derivedUniformName !== "P";
+  const pUniform = separateTerrainUniform
+    ? { bytes: paramsBytes, wgslType: "Params" }
+    : (du ?? { bytes: paramsBytes, wgslType: "Params" });
   const kernelConfig: FieldKernelConfig = {
     prelude: generatedPrelude,
     uniforms: [
       { name: "P", bytes: pUniform.bytes, wgslType: pUniform.wgslType },
+      ...(separateTerrainUniform && du
+        ? [{ name: derivedUniformName, bytes: du.bytes, wgslType: du.wgslType }]
+        : []),
       { name: "B", bytes: 32, wgslType: "Brush" },
     ],
     buffers,

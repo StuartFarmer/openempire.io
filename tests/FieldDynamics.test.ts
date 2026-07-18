@@ -680,3 +680,62 @@ describe("system-specific mechanics stay in the system", () => {
     expect(Object.keys(SHARED_WESL.modules).join()).not.toContain("combat");
   });
 });
+
+describe("terrain-base composition (add-games-on-terrain)", () => {
+  // A derive field marked `exposed` is readable by a per-tick layer via
+  // `layers::<name>`, and the derive can carry its own uniform so the game
+  // keeps `P` for its params.
+  const gameOnBase = (extraLayer?: Record<string, string>): FieldSystem => ({
+    id: "g",
+    name: "g",
+    params: { growth: { value: 0.1, min: 0, max: 1 } },
+    views: { pop: { layer: "pop", ramp: ["#000000", "#ffffff"] } },
+    derive: {
+      typeImports: "struct Params { seaLevel: f32, }",
+      uniform: { name: "TP", wgslType: "Params", bytes: 16 },
+      fields: {
+        elev: { type: "f32" },
+        heat: { type: "f32", exposed: true },
+      },
+      steps: [{ pass: "climate", binds: ["TP", "elev", "heat!"] }],
+    },
+    modules: {
+      "passes/climate.wesl":
+        "import package::bindings::{P, elev, heat};\nfn tile(x: i32, y: i32, i: u32) { heat[i] = elev[i] + P.seaLevel; }",
+      "layers/pop.wesl": `import package::layers;
+import package::params;
+fn init(x: i32, y: i32, i: u32) -> f32 { return 0.0; }
+fn update(x: i32, y: i32, i: u32) -> f32 {
+  return layers::pop::val(i) + params::growth() * layers::heat::val(i);
+}`,
+      ...extraLayer,
+    },
+  });
+
+  test("a game layer reads an exposed terrain field; both uniforms exist", async () => {
+    const compiled = await compileFieldSystem(gameOnBase());
+    // The game keeps P (its params) AND the terrain gets its own TP uniform.
+    const uniforms = compiled.kernelConfig.uniforms ?? [];
+    expect(uniforms.map((u) => u.name)).toEqual(
+      expect.arrayContaining(["P", "TP", "B"]),
+    );
+    // The exposed field is a derive buffer, not a map-plane upload.
+    expect(compiled.derivedNames).toEqual(expect.arrayContaining(["heat"]));
+    expect(compiled.mapLayers).not.toContain("heat");
+    // pop's stock pass binds the terrain `heat` buffer (read-only, no facet).
+    const stock = passByName(compiled, "stock/pop");
+    expect(stock.binds).toContain("heat");
+    expect(stock.binds).toContain("P");
+  });
+
+  test("a game layer that shadows a terrain field is rejected", async () => {
+    await expect(
+      compileFieldSystem(
+        gameOnBase({
+          "layers/heat.wesl":
+            "fn init(x: i32, y: i32, i: u32) -> f32 { return 0.0; }",
+        }),
+      ),
+    ).rejects.toThrow(/heat/);
+  });
+});

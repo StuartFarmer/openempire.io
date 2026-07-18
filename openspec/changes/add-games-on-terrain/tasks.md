@@ -2,8 +2,8 @@
 
 ## 1. Compiler: exposed derive fields + named terrain uniform
 
-- [ ] 1.1 `FieldDerivedSpec.exposed?: boolean`. Exposed derive fields join the per-tick layer registry as read-only inputs (`layers::<name>` resolves to the derive buffer; ping-pong fields read `.read`). Writing an exposed field (layer/brush/init target) is a compile diagnostic. Test: a system with a derive field marked exposed + a layer reading it links; a layer writing it errors.
-- [ ] 1.2 `FieldDeriveSpec.uniform.name?` (default `"P"`). The kernel carries both the named terrain uniform and the generated `P` when a system has params + a named derive uniform. Test: a system with params + a `TP`-named derive uniform compiles both.
+- [x] 1.1 `FieldDerivedSpec.exposed?: boolean`. Exposed derive fields join the per-tick layer registry as read-only inputs (`layers::<name>` resolves to the derive buffer; ping-pong fields read `.read`). Writing an exposed field (layer/brush/init target) is a compile diagnostic. Test: a system with a derive field marked exposed + a layer reading it links; a layer writing it errors.
+- [x] 1.2 `FieldDeriveSpec.uniform.name?` (default `"P"`). The kernel carries both the named terrain uniform and the generated `P` when a system has params + a named derive uniform. Test: a system with params + a `TP`-named derive uniform compiles both.
 
 ## 2. The shared terrain base
 
