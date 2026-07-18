@@ -69,7 +69,7 @@ export abstract class FieldViewerBase extends LitElement {
   private raf = 0;
   private lastTime = 0;
   private accumulator = 0;
-  private inFlight = false;
+  protected inFlight = false;
   protected needsRedraw = false;
   private readbackTimer = 0;
   private pumpActive = false;
@@ -240,9 +240,11 @@ export abstract class FieldViewerBase extends LitElement {
         ]),
       );
       this.turboBatch = 8;
-      if (this.isDeriveSystem()) {
-        // A derive system (terrain) owns its own uniform + inputs + run — the
-        // subclass drives it in onSystemMounted; no sim init / generic P.
+      if (this.isDeriveSystem() && compiled.layerNames.length === 0) {
+        // A PURE derivation (terrain-only, no game layers) owns its uniform +
+        // inputs + run — the subclass drives it in onSystemMounted; no sim
+        // init / generic P. A composed game (derive + layers) takes the sim
+        // path below AND runs the derivation in onSystemMounted.
         await this.onSystemMounted(mapData);
         this.status = "";
         this.tickReadout = 0;

@@ -6,8 +6,13 @@ import {
   normalizeFoundationWorldEngineMapConfig,
   type FoundationWorldEngineMapConfig,
 } from "../games/alternative/world/WorldEngineElevation";
-import { LAB_SYSTEMS } from "./lab/systems";
-import { terrain as terrainSystem } from "./lab/systems/terrain/system";
+import { empire } from "./lab/systems/empire/system";
+import { grazing } from "./lab/systems/grazing/system";
+import { settlement } from "./lab/systems/settlement/system";
+import {
+  composeTerrain,
+  terrain as terrainSystem,
+} from "./lab/systems/terrain/system";
 import { CameraRenderer } from "./shell/CameraRenderer";
 import {
   buildViewBitmap,
@@ -117,6 +122,9 @@ export class GameShellPage extends FieldViewerBase {
   // Terrain-mode view (the derived-color modes + baked layer bitmaps), separate
   // from the base `view` (a sim system's declared views).
   @state() private shellView: ShellViewKey = "terrain";
+  /** True when a GAME view (the ruleset's overlay) is shown instead of a
+   * terrain view. The game still ticks in the background either way. */
+  @state() private showingGame = false;
   @state() private weekReadout = 0;
   @state() private derivedOk = false;
   /** Sticky fallback notice — unlike status, applyView never clears it. */
@@ -149,8 +157,14 @@ export class GameShellPage extends FieldViewerBase {
   private viewCache = new Map<ShellViewKey, ImageBitmap>();
 
   connectedCallback(): void {
-    // The shell picks terrain by default and the big Earth map.
-    this.systems = [terrainSystem, ...LAB_SYSTEMS];
+    // Terrain is the always-on base; the picker lists GAMES composed onto it
+    // (plus "terrain" alone). The default is terrain on the big Earth map.
+    this.systems = [
+      terrainSystem,
+      composeTerrain(grazing),
+      composeTerrain(settlement),
+      composeTerrain(empire),
+    ];
     this.systemId = terrainSystem.id;
     this.mapKey = "EarthXL";
     super.connectedCallback();
@@ -188,22 +202,17 @@ export class GameShellPage extends FieldViewerBase {
 
   // --- mount ------------------------------------------------------------------
 
-  /** After a system mounts: derive (terrain) or point the camera at the sim's
-   * out texture, then fit the camera on the next frame. */
+  /** After a system mounts, terrain ALWAYS derives (the base); a game's layers
+   * were already init'd by the base. Show a terrain view by default, then fit. */
   protected async onSystemMounted(mapData: MapData): Promise<void> {
     this.clearViewCache();
     this.tickCount = 0;
-    if (this.isTerrain()) {
-      await this.deriveTerrain(mapData);
-      await this.applyTerrainView(this.shellView);
-      this.pendingFit = true;
-      return;
-    }
-    // Sim system: base points the camera at the sim's out texture and fits.
-    this.derivedOk = false;
-    this.derivedNote = "";
-    this.hoverFields = null;
-    await super.onSystemMounted(mapData);
+    await this.deriveTerrain(mapData);
+    // Default to a terrain view; the game overlay is opt-in via the picker.
+    if (!VIEW_KEYS.includes(this.shellView)) this.shellView = "terrain";
+    this.showingGame = false;
+    await this.applyTerrainView(this.shellView);
+    this.pendingFit = true;
   }
 
   /**
@@ -267,7 +276,7 @@ export class GameShellPage extends FieldViewerBase {
       for (const [name, data] of Object.entries(fields)) {
         this.kernel.writeBuffer(name, data);
       }
-      this.writeP(this.currentViewMode());
+      this.writeTP(this.currentViewMode());
       this.kernel.clearBuffer("G");
       this.kernel.clearBuffer("hist");
       const frame = this.kernel.beginFrame();
@@ -283,10 +292,12 @@ export class GameShellPage extends FieldViewerBase {
 
   // --- terrain derivation tiers (on the base kernel) --------------------------
 
-  private writeP(viewMode: WebGpuViewMode): void {
+  /** Write the terrain worldgen Params to the terrain uniform "TP" (a composed
+   * game keeps "P" for its own params). */
+  private writeTP(viewMode: WebGpuViewMode): void {
     if (!this.kernel || !this.derivedConfig) return;
     this.kernel.writeUniform(
-      "P",
+      "TP",
       buildWorldgenParams(
         this.derivedConfig,
         viewMode,
@@ -294,6 +305,11 @@ export class GameShellPage extends FieldViewerBase {
         this.runtime(),
       ),
     );
+  }
+
+  /** Whether a game ruleset is loaded (the composed system has layers). */
+  private hasGame(): boolean {
+    return (this.compiled?.layerNames.length ?? 0) > 0;
   }
 
   private currentViewMode(): WebGpuViewMode {
@@ -321,7 +337,7 @@ export class GameShellPage extends FieldViewerBase {
   /** Run a partial derivation tier over the settled buffers. */
   private async runTier(tier: "recolor" | "season" | "repaint"): Promise<void> {
     if (!this.kernel || !this.compiled || !this.derivedConfig) return;
-    this.writeP(this.currentViewMode());
+    this.writeTP(this.currentViewMode());
     if (tier === "recolor") {
       this.kernel.clearBuffer("G");
       this.kernel.clearBuffer("hist");
@@ -334,7 +350,7 @@ export class GameShellPage extends FieldViewerBase {
   /** Recolor tier, single-flight: a slider mid-drag can fire faster than the
    * GPU frame returns; collapse the backlog into one trailing rerun. */
   private queueRecolor(): void {
-    if (!this.derivedOk || !this.isTerrain() || !this.derivedConfig) return;
+    if (!this.derivedOk || !this.derivedConfig) return;
     if (this.recolorBusy) {
       this.recolorDirty = true;
       return;
@@ -359,39 +375,46 @@ export class GameShellPage extends FieldViewerBase {
     this.queueRecolor();
   }
 
-  // --- per-frame advance (base loop hooks) ------------------------------------
+  // --- per-frame advance ------------------------------------------------------
 
-  /** Terrain advances its season clock (and sweeps the derived temperature);
-   * sim systems tick their layers via the base. */
+  /**
+   * One combined frame per step: the terrain season sweep (climate → biome →
+   * color, on TP) AND the game's layer tick (on P), then — if a GAME view is
+   * shown — the game's colorizer over the terrain color. Terrain is always the
+   * base; a game reads the fresh terrain fields. Runs on the shared kernel, so
+   * it's a single frame (no concurrency), gated by the base's inFlight.
+   */
   protected advance(ticks: number): void {
-    if (!this.isTerrain()) {
-      super.advance(ticks);
-      return;
-    }
-    if (ticks <= 0) return;
+    if (ticks <= 0 || !this.kernel || !this.compiled || this.recolorBusy) return;
     this.tickCount += ticks;
     const week = Math.floor(((this.tickCount % YEAR_TICKS) / YEAR_TICKS) * 52);
     if (week !== this.weekReadout) this.weekReadout = week;
-    if (
-      this.derivedOk &&
-      this.derivedConfig &&
-      !this.recolorBusy &&
-      !this.deriveBusy &&
-      DERIVED_VIEWS[this.shellView] !== undefined
-    ) {
-      this.deriveBusy = true;
-      this.runTier("season")
-        .catch((error: unknown) => {
-          this.status = (error as Error).message;
-        })
-        .finally(() => {
-          this.deriveBusy = false;
-        });
-    }
-  }
 
-  protected shouldRenderSimView(): boolean {
-    return !this.isTerrain();
+    this.inFlight = true;
+    this.writeTP(this.showingGame ? "terrain" : this.currentViewMode());
+    if (this.hasGame()) {
+      this.kernel.writeUniform(
+        "P",
+        this.compiled.writeParams(this.paramValues, this.seed),
+      );
+    }
+    const frame = this.kernel.beginFrame();
+    // Terrain climate + biome + color (writes the terrain image to outView).
+    if (this.derivedOk) this.compiled.runDerive(frame, "season");
+    // Game rules tick, reading the fresh terrain fields.
+    if (this.hasGame()) {
+      for (let t = 0; t < ticks; t += 1) this.compiled.runTick(this.kernel, frame);
+    }
+    // A game view overwrites the terrain color; a terrain view keeps it.
+    if (this.showingGame) this.compiled.runView(frame, this.view);
+    frame
+      .finish()
+      .catch((error: unknown) => {
+        this.status = (error as Error).message;
+      })
+      .finally(() => {
+        this.inFlight = false;
+      });
   }
 
   // --- views ------------------------------------------------------------------
@@ -399,6 +422,7 @@ export class GameShellPage extends FieldViewerBase {
   /** Terrain view: derived color mode (repaint) or a baked layer bitmap. */
   private async applyTerrainView(view: ShellViewKey): Promise<void> {
     this.shellView = view;
+    this.showingGame = false;
     if (!this.renderer) return;
     const derivedMode = this.derivedOk ? DERIVED_VIEWS[view] : undefined;
     if (derivedMode && this.kernel?.outView && this.derivedConfig) {
@@ -435,26 +459,38 @@ export class GameShellPage extends FieldViewerBase {
     }
   }
 
-  /** Sim view: switch the base's view pass and redraw. */
-  private applySimView(view: string): void {
+  /** Game view: show the ruleset's colorizer over the terrain (its overlay
+   * wins the shared out texture while it's selected). */
+  private async applyGameView(view: string): Promise<void> {
     this.view = view;
-    this.needsRedraw = true;
+    this.showingGame = true;
+    if (!this.renderer || !this.kernel?.outView || !this.compiled) return;
+    this.renderer.setLiveTexture(
+      this.kernel.outView,
+      this.mapWidth,
+      this.mapHeight,
+    );
+    // Render one game view frame so the overlay shows immediately (paused too).
+    const frame = this.kernel.beginFrame();
+    this.compiled.runView(frame, view);
+    await frame.finish();
+    this.status = "";
   }
 
   private cycleView(step: number): void {
-    if (this.isTerrain()) {
-      const index = VIEW_KEYS.indexOf(this.shellView);
-      void this.applyTerrainView(
-        VIEW_KEYS[(index + step + VIEW_KEYS.length) % VIEW_KEYS.length],
-      );
-    } else {
-      const views = this.compiled?.viewNames ?? [];
-      if (views.length === 0) return;
-      const index = views.indexOf(this.view);
-      this.applySimView(
-        views[(index + step + views.length) % views.length],
-      );
-    }
+    // Cycle through terrain views then the game's views, as one ring.
+    const gameViews = this.hasGame() ? (this.compiled?.viewNames ?? []) : [];
+    const ring: { game: boolean; name: string }[] = [
+      ...VIEW_KEYS.map((name) => ({ game: false, name })),
+      ...gameViews.map((name) => ({ game: true, name })),
+    ];
+    const current = this.showingGame ? this.view : this.shellView;
+    const index = ring.findIndex(
+      (e) => e.game === this.showingGame && e.name === current,
+    );
+    const next = ring[(index + step + ring.length) % ring.length];
+    if (next.game) void this.applyGameView(next.name);
+    else void this.applyTerrainView(next.name as ShellViewKey);
   }
 
   // --- input ------------------------------------------------------------------
@@ -580,15 +616,14 @@ export class GameShellPage extends FieldViewerBase {
         </div>
       </section>`;
     }
-    const terrainMode = this.isTerrain();
+    const game = this.hasGame();
     const compiled = this.compiled;
     return html`
       <section class="fixed inset-0 z-[9000] bg-neutral-950 overflow-hidden">
         <canvas
           id="shell-canvas"
           class="absolute inset-0 w-full h-full touch-none ${compiled?.system
-            .input?.onTile ||
-          (!terrainMode && this.brush)
+            .input?.onTile || (game && this.brush)
             ? "cursor-crosshair"
             : "cursor-grab active:cursor-grabbing"}"
           @pointerdown=${this.onPointerDown}
@@ -610,17 +645,11 @@ export class GameShellPage extends FieldViewerBase {
             @change=${(e: Event) => {
               this.systemId = (e.target as HTMLSelectElement).value;
               this.paramValues = {};
-              // Apply the newly-selected system's declared defaults.
+              // Apply the newly-selected game's default map; the view resets to
+              // a terrain view in onSystemMounted (the game overlay is opt-in).
               const sys = this.systems.find((s) => s.id === this.systemId);
               if (sys?.defaultMap && sys.defaultMap in GameMapType) {
                 this.mapKey = sys.defaultMap;
-              }
-              if (sys?.defaultView) {
-                if (VIEW_KEYS.includes(sys.defaultView as ShellViewKey)) {
-                  this.shellView = sys.defaultView as ShellViewKey;
-                } else {
-                  this.view = sys.defaultView;
-                }
               }
               void this.loadWorld();
             }}
@@ -646,36 +675,38 @@ export class GameShellPage extends FieldViewerBase {
                 </option>`,
             )}
           </select>
-          ${terrainMode
-            ? html`<select
-                class="bg-black/40 border border-white/20 px-2 py-1 text-white"
-                @change=${(e: Event) =>
-                  void this.applyTerrainView(
-                    (e.target as HTMLSelectElement).value as ShellViewKey,
+          <select
+            class="bg-black/40 border border-white/20 px-2 py-1 text-white"
+            @change=${(e: Event) => {
+              const v = (e.target as HTMLSelectElement).value;
+              const name = v.slice(v.indexOf(":") + 1);
+              if (v.startsWith("game:")) void this.applyGameView(name);
+              else void this.applyTerrainView(name as ShellViewKey);
+            }}
+          >
+            ${VIEW_KEYS.map(
+              (view) =>
+                html`<option
+                  value="terrain:${view}"
+                  ?selected=${!this.showingGame && view === this.shellView}
+                >
+                  ${view}
+                </option>`,
+            )}
+            ${game
+              ? html`<optgroup label=${compiled?.system.name ?? "game"}>
+                  ${(compiled?.viewNames ?? []).map(
+                    (view) =>
+                      html`<option
+                        value="game:${view}"
+                        ?selected=${this.showingGame && view === this.view}
+                      >
+                        ${view}
+                      </option>`,
                   )}
-              >
-                ${VIEW_KEYS.map(
-                  (view) =>
-                    html`<option
-                      value=${view}
-                      ?selected=${view === this.shellView}
-                    >
-                      ${view}
-                    </option>`,
-                )}
-              </select>`
-            : html`<select
-                class="bg-black/40 border border-white/20 px-2 py-1 text-white"
-                @change=${(e: Event) =>
-                  this.applySimView((e.target as HTMLSelectElement).value)}
-              >
-                ${(compiled?.viewNames ?? []).map(
-                  (view) =>
-                    html`<option value=${view} ?selected=${view === this.view}>
-                      ${view}
-                    </option>`,
-                )}
-              </select>`}
+                </optgroup>`
+              : null}
+          </select>
           <button
             class="border border-white/20 px-2 py-1 hover:bg-white/10"
             title="Cycle layer (n / shift+n)"
@@ -700,11 +731,12 @@ export class GameShellPage extends FieldViewerBase {
             />
             turbo
           </label>
-          ${terrainMode
-            ? html`<span class="text-white/70">week ${this.weekReadout}</span>`
-            : html`<span class="text-white/70">tick ${this.tickReadout}</span>`}
+          <span class="text-white/70">week ${this.weekReadout}</span>
+          ${game
+            ? html`<span class="text-white/70">tick ${this.tickReadout}</span>`
+            : null}
           <span class="text-white/70">zoom ${this.zoomReadout}×</span>
-          ${terrainMode && this.derivedOk
+          ${this.derivedOk
             ? html`<button
                 class="border border-white/20 px-2 py-1 hover:bg-white/10 ${this
                   .showKnobs
@@ -715,10 +747,10 @@ export class GameShellPage extends FieldViewerBase {
                 climate
               </button>`
             : null}
-          ${!terrainMode && (compiled?.brushNames.length ?? 0) > 0
+          ${game && (compiled?.brushNames.length ?? 0) > 0
             ? html`<select
                 class="bg-black/40 border border-white/20 px-2 py-1 text-white"
-                title="Brush (drag on map; shift-drag pans)"
+                title="Brush (click on map to stamp)"
                 @change=${(e: Event) => {
                   this.brush = (e.target as HTMLSelectElement).value;
                 }}
@@ -739,8 +771,8 @@ export class GameShellPage extends FieldViewerBase {
             : null}
         </div>
 
-        ${!terrainMode ? this.renderSimPanel() : null}
-        ${this.showKnobs && terrainMode && this.derivedOk && this.derivedConfig
+        ${game ? this.renderSimPanel() : null}
+        ${this.showKnobs && this.derivedOk && this.derivedConfig
           ? this.renderKnobs(this.derivedConfig)
           : null}
       </section>

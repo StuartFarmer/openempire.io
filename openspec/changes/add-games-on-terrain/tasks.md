@@ -12,9 +12,9 @@
 
 ## 3. Viewer: terrain always-on, game picker
 
-- [ ] 3.1 `GameShellPage`: the picker lists games (world/none + grazing/settlement/empire/…); mount `composeTerrain(selectedGame)`; always derive terrain.
-- [ ] 3.2 Write `TP` (worldgen Params, climate knobs + season tier) and `P` (game params) independently; terrain derivation tiers (full/recolor/season) on `TP`, game tick on `P`.
-- [ ] 3.3 Terrain views + the game's views/overlays over the same camera; game brushes/ai/input as today.
+- [x] 3.1 `GameShellPage`: the picker lists games (world/none + grazing/settlement/empire/…); mount `composeTerrain(selectedGame)`; always derive terrain.
+- [x] 3.2 Write `TP` (worldgen Params, climate knobs + season tier) and `P` (game params) independently; terrain derivation tiers (full/recolor/season) on `TP`, game tick on `P`.
+- [x] 3.3 Terrain views + the game's views/overlays over the same camera; game brushes/ai/input as today.
 
 ## 4. Recreate the games on terrain
 
@@ -24,5 +24,5 @@
 
 ## 5. Verify + clean up
 
-- [ ] 5.1 Full tsc + lint; FieldDynamics tests. `#shell`: terrain-only, then each game composed on terrain (climate-driven), no page errors.
+- [x] 5.1 Full tsc + lint; FieldDynamics tests. `#shell`: terrain-only, then each game composed on terrain (climate-driven), no page errors.
 - [ ] 5.2 Remove the deleted crude-climate layers + any now-dead re-derivation; update `docs/FieldDynamics.md` (terrain base + games).
