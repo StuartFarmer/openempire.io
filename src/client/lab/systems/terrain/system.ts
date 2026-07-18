@@ -82,6 +82,9 @@ export const terrain: FieldSystem = {
       water: { type: "f32", exposed: true },
       irrigation: { type: "f32" },
       humidity: { type: "f32", exposed: true },
+      // The FINAL terrain color (rgb8 packed) — games composite overlays over
+      // it (shared::palette::unpackTint). Written by pack_tint after color.
+      tint: { type: "u32", exposed: true },
       // Fixed-size accumulators for the reduce-to-uniform (histogram → quantile).
       hist: { type: "u32", count: 256 },
       G: { type: "u32", count: 4 },
@@ -210,6 +213,25 @@ export const terrain: FieldSystem = {
           "riverBase",
           "G:Globals",
           "out",
+        ],
+        tiers: ["recolor", "season", "repaint"],
+      },
+      // Pack the rendered terrain color into `tint` for game overlays. Same
+      // inputs as `color`, reusing layerColor; runs in the same color tiers.
+      {
+        pass: "pack_tint",
+        binds: [
+          "TP",
+          "elevation",
+          "flags",
+          "temperature",
+          "precipitation",
+          "water.read",
+          "fill.read",
+          "humidity",
+          "riverBase",
+          "G:Globals",
+          "tint!",
         ],
         tiers: ["recolor", "season", "repaint"],
       },

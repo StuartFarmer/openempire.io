@@ -29,7 +29,8 @@ export const grazing = defineFieldSystem({
   },
 
   views: {
-    herds: { layer: "herd", ramp: ["#0b1220", "#f0c86e"] },
+    // Herd density as an overlay on the rendered terrain (fn color).
+    herds: { source: "views/herds.wesl" },
     grass: { layer: "grass", ramp: ["#1a140b", "#6fae4e"] },
     fertility: { layer: "crop", ramp: ["#141414", "#b9e08a"] },
     pressure: { source: "views/pressure.wesl", ramp: ["#101418", "#e05555"] },

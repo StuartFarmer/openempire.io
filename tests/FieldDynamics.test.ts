@@ -1,6 +1,9 @@
 import { SHARED_WESL } from "../src/client/lab/shared";
 import { grazing } from "../src/client/lab/systems/grazing/system";
-import { terrain } from "../src/client/lab/systems/terrain/system";
+import {
+  composeTerrain,
+  terrain,
+} from "../src/client/lab/systems/terrain/system";
 import {
   compileFieldSystem,
   FieldDynamicsError,
@@ -17,7 +20,9 @@ function passByName(compiled: CompiledFieldSystem, name: string) {
 describe("compileFieldSystem (unified layers)", () => {
   let compiled: CompiledFieldSystem;
   beforeAll(async () => {
-    compiled = await compileFieldSystem(grazing);
+    // grazing is a terrain game (its herds overlay reads layers::tint); compile
+    // it composed on the terrain base, as the viewer mounts it.
+    compiled = await compileFieldSystem(composeTerrain(grazing));
   });
 
   test("discovers dynamic layers from layers/*.wesl and emits all pass kinds", () => {
@@ -96,9 +101,9 @@ describe("compileFieldSystem (unified layers)", () => {
   });
 
   test("collects only the referenced map layers", () => {
-    // Standalone grazing reads the raw temperature plane; composed on terrain
-    // that same read resolves to the derived field instead.
-    expect(compiled.mapLayers).toEqual(["crop", "land", "temperature"]);
+    // Composed on terrain, `temperature` resolves to the derived field (not a
+    // plane upload); only genuine planes remain.
+    expect(compiled.mapLayers).toEqual(["crop", "land"]);
   });
 
   test("params pack in declaration order with trailing seed", () => {
@@ -582,7 +587,8 @@ describe("compileFieldSystem — derivation stage", () => {
     expect(calls).toContain("i:fill_step:320");
     expect(calls).toContain("i:water_step:320");
     expect(calls).toContain("i:irrigation_step:8");
-    expect(calls[calls.length - 1]).toBe("p:color");
+    expect(calls).toContain("p:color");
+    expect(calls[calls.length - 1]).toBe("p:pack_tint");
   });
 
   test("runDerive tiers filter to the tagged steps (two-tier reactivity)", async () => {
@@ -614,10 +620,17 @@ describe("compileFieldSystem — derivation stage", () => {
       "irrigation_step",
       "humidity_biome",
       "color",
+      "pack_tint",
     ]);
-    // season is the per-tick sweep; repaint is color only.
-    expect(run("season")).toEqual(["climate", "humidity_biome", "color"]);
-    expect(run("repaint")).toEqual(["color"]);
+    // season is the per-tick sweep; repaint is color only. pack_tint follows
+    // color in every color tier (the game overlay reads its `tint`).
+    expect(run("season")).toEqual([
+      "climate",
+      "humidity_biome",
+      "color",
+      "pack_tint",
+    ]);
+    expect(run("repaint")).toEqual(["color", "pack_tint"]);
     // no tier → the full pipeline (includes drainage).
     expect(run()).toContain("fill_step");
   });
@@ -677,7 +690,9 @@ describe("system-specific mechanics stay in the system", () => {
     const { territory } = await import(
       "../src/client/lab/systems/territory/system"
     );
-    const e = await compileFieldSystem(empire);
+    // empire is a terrain game (its overlay reads tint); compose it. territory
+    // has no terrain-dependent view, so it compiles standalone.
+    const e = await compileFieldSystem(composeTerrain(empire));
     const t = await compileFieldSystem(territory);
     // Each system's own conquest rule linked into its flip pass.
     expect(passByName(e, "stock/owner").code).toContain("conquers");

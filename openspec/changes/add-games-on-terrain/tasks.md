@@ -22,6 +22,8 @@
 - [x] 4.2 `settlement`: crops/pop read `layers::temperature` + `layers::water` + `layers::humidity`; delete `temp`/`gdd` crude layers. Verify life pools in fertile, watered, frost-free regions.
 - [x] 4.3 `empire`: `potential` reads terrain `temperature`(seasonal)/`water`(drainage)/`humidity`; delete `temp.wesl` (fake swing). pop/troops/owner/combat unchanged. Verify empires grow over the real opportunity map + AI/combat still run.
 
+- [x] 4.4 Game views are OVERLAYS on the rendered terrain: the terrain color is packed into an exposed `tint` field (pack_tint reuses layerColor, runs in the color tiers) and `shared::palette::unpackTint` reads it; empire (ownership/population), settlement (crops/population), and grazing (herd heat) `fn color` views composite over `layers::tint`, so the world shows underneath the game layer.
+
 ## 5. Verify + clean up
 
 - [x] 5.1 Full tsc + lint; FieldDynamics tests. `#shell`: terrain-only, then each game composed on terrain (climate-driven), no page errors.
