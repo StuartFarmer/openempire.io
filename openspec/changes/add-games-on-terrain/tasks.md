@@ -25,4 +25,4 @@
 ## 5. Verify + clean up
 
 - [x] 5.1 Full tsc + lint; FieldDynamics tests. `#shell`: terrain-only, then each game composed on terrain (climate-driven), no page errors.
-- [ ] 5.2 Remove the deleted crude-climate layers + any now-dead re-derivation; update `docs/FieldDynamics.md` (terrain base + games).
+- [x] 5.2 Remove the deleted crude-climate layers + any now-dead re-derivation; update `docs/FieldDynamics.md` (terrain base + games).

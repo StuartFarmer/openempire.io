@@ -309,6 +309,27 @@ with different defense formulas and deterministic vs stochastic conquest). Two
 systems having similar mechanics is not a reason to promote them; `shared::` is
 for genuinely generic math, not shared *rules*.
 
+### Terrain is the base; a game is a ruleset (add-games-on-terrain)
+
+The `#shell` runs **one terrain, many games**. The terrain derivation
+(elevation → climate → drainage → biome/water) is the always-on world
+substrate; a *game* is a ruleset — its own layers/players/ai/input — whose
+per-tick layers READ the terrain fields. `composeTerrain(game)` merges the
+terrain derivation into a game; the viewer mounts that.
+
+- The terrain derivation marks its outputs `exposed` (`temperature`,
+  `precipitation`, `humidity`, `water`, filled `elevation`, biome/water
+  `flags`). A game layer reads them like any plane: `layers::temperature::val(i)`
+  — the real seasonal climate, not a re-derivation. (They shadow the same-named
+  raw `layers.bin` planes.)
+- The terrain carries its own uniform (`TP`) so the game keeps `P` for its
+  params. The viewer writes `TP` (climate knobs + the season tier) and `P` (the
+  game's sliders) independently, in one combined frame per tick.
+- So a game never re-derives climate: `grazing` grass greens with the terrain's
+  real seasonal `temperature`; `settlement`/`empire` read `temperature` (real
+  continentality), `water` (drainage-accumulated), and `humidity`. Swap the
+  ruleset, keep the world.
+
 ## 7. Out of scope for v1 (named so we don't design into a corner)
 
 - **Iterate blocks** — N-pass relaxations (the worldgen's fill/flow pattern)
