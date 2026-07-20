@@ -38,8 +38,11 @@ interface EconomyPlayer {
     isUnderConstruction(): boolean;
     level(): number;
   }>;
-  /** City area in tile-equivalents — the housing source (city-growth). */
+  /** Built urban area (Σ density) — the carrying capacity. */
   urbanArea(): number;
+  /** Extra housing from tile tenure (rework-settlement-ecology): old city
+   *  tiles hold more people than young ones. */
+  tenureCapacityBonus(): number;
 }
 
 declare global {
@@ -518,8 +521,9 @@ export class Config {
         break;
       case UnitType.Settlement:
         info = {
-          // Awarded, not purchased (restore-organic-growth): placing one
-          // consumes a banked seed from the ladder; it costs nothing.
+          // Awarded, not purchased (rework-settlement-ecology): placing one
+          // consumes a banked Settlement seed (peak-population ladder) and
+          // costs no food.
           cost: () => 0n,
           costResource: "food",
           // NOT upgradable: plots multiply, they don't level. An upgradable
@@ -530,15 +534,15 @@ export class Config {
         break;
       case UnitType.Farmland:
         info = {
-          // Awarded from the ladder; costs nothing (see Settlement).
+          // Awarded from peak territory; costs no food (see Settlement).
           cost: () => 0n,
           costResource: "food",
         };
         break;
       case UnitType.Barn:
         info = {
-          // Dormant (simplify-food-economy): storage is the granary formula,
-          // not a building. Stays defined like other gold-cost units.
+          // Unbuildable (rework-settlement-ecology 4.3): storage is grown
+          // from stable farmland; plotSpawn refuses the Barn outright.
           cost: () => 0n,
           costResource: "food",
         };
@@ -709,33 +713,27 @@ export class Config {
     defenderTroopLoss: number;
     tilesPerTickUsed: number;
   } {
-    if (gm.terrainType(tileToConquer) === TerrainType.Impassable) {
-      throw new Error(`impassable terrain cannot be attacked`);
+    let mag;
+    let speed;
+    const type = gm.terrainType(tileToConquer);
+    switch (type) {
+      case TerrainType.Plains:
+        mag = 80;
+        speed = 16.5;
+        break;
+      case TerrainType.Highland:
+        mag = 100;
+        speed = 20;
+        break;
+      case TerrainType.Mountain:
+        mag = 120;
+        speed = 25;
+        break;
+      case TerrainType.Impassable:
+        throw new Error(`impassable terrain cannot be attacked`);
+      default:
+        throw new Error(`terrain type ${type} not supported`);
     }
-    // Continuous terrain (simplify-food-economy, combat-terrain spec):
-    // slope and wetness replace the Plains/Highland/Mountain bands.
-    //   climb   — uphill-only magnitude delta vs the attacker's adjacent
-    //             owned tiles (magnitude bits ARE quantized elevation);
-    //             descending costs base rate. High ground defends itself.
-    //   wetness — mean of the humidity and water planes: dry steppe is a
-    //             highway, rainforest a quagmire.
-    // kSlope = kWet = 0 degrades to flat vanilla at base mag/speed.
-    // Slope input = absolute altitude + uphill climb (restore-organic-
-    // growth): generated maps are smooth at tile scale (81% of adjacent
-    // deltas are zero), so a delta-only term never fires.
-    const f = this.food();
-    const slope =
-      gm.map().magnitude(tileToConquer) / 31 +
-      this.attackClimb(gm, attacker, tileToConquer);
-    const terrainFactor =
-      (1 + f.kSlope * slope) *
-      (1 +
-        (f.kWet *
-          (gm.layer("humidity", tileToConquer) +
-            gm.layer("water", tileToConquer))) /
-          510);
-    let mag = f.baseCombatMag * terrainFactor;
-    let speed = f.baseCombatSpeed * terrainFactor;
     if (defender.isPlayer()) {
       for (const dp of gm.nearbyUnits(
         tileToConquer,
@@ -833,23 +831,6 @@ export class Config {
     }
   }
 
-  /** Uphill-only climb in [0,1]: the target's magnitude above the average
-   *  of the attacker's adjacent owned tiles, normalized by the 31-level
-   *  magnitude range. Local and deterministic — no pathfinding. */
-  private attackClimb(gm: Game, attacker: Player, target: TileRef): number {
-    const map = gm.map();
-    let sum = 0;
-    let n = 0;
-    for (const nb of gm.neighbors(target)) {
-      if (gm.owner(nb) === attacker && map.isLand(nb)) {
-        sum += map.magnitude(nb);
-        n++;
-      }
-    }
-    if (n === 0) return 0; // boat landing / no adjacent foothold: flat rate
-    return Math.max(0, (map.magnitude(target) - sum / n) / 31);
-  }
-
   attackTilesPerTick(
     attackTroops: number,
     attacker: Player,
@@ -936,6 +917,12 @@ export class Config {
     };
   }
 
+  /** Convert a built area in tiles to km² using the tileKm scale. */
+  urbanAreaKm2(areaTiles: number): number {
+    const km = this.food().tileKm;
+    return areaTiles * km * km;
+  }
+
   maxTroops(player: EconomyPlayer): number {
     if (
       player.type() === PlayerType.Human &&
@@ -943,13 +930,19 @@ export class Config {
     ) {
       return 1_000_000_000;
     }
-    // Housing (restore-organic-growth, city-growth spec): the grown city
-    // IS the ceiling — base + cityTiles × popPerDensity. AI capacity
-    // scales with difficulty; humans are always at multiplier 1.
+    // Carrying capacity is the built urban area — the self-growing density
+    // field — not territory (add-urban-core-growth). A bigger city houses
+    // more people; conquered-but-unbuilt land grants nothing until it
+    // urbanizes. AI capacity scales with difficulty (unify-layered-path);
+    // humans are always at multiplier 1.
     const f = this.food();
-    const housing =
-      f.housingBase + Math.round(player.urbanArea()) * f.popPerDensity;
-    return housing * this.aiDifficulty(player.type()).populationMultiplier;
+    // Tenure bonus (rework-settlement-ecology): old city tiles house more
+    // people than young ones, so a stable city outgrows its footprint.
+    const capacity =
+      f.basePopulation +
+      player.urbanArea() * f.popPerDensity +
+      player.tenureCapacityBonus();
+    return capacity * this.aiDifficulty(player.type()).populationMultiplier;
   }
 
   nukeMagnitudes(unitType: UnitType): NukeMagnitude {

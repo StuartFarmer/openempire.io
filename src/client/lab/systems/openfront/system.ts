@@ -16,6 +16,13 @@ export const openfront = defineFieldSystem({
   defaultMap: "Verdantia",
   defaultView: "openfront",
 
+  // A single legibility toggle: flip `supplyOverlay` to 1 to swap the normal
+  // territory view for the human's front→core supply-quality heatmap, so the
+  // logistics field that governs war attrition stops being invisible.
+  params: {
+    supplyOverlay: { value: 0, min: 0, max: 1, step: 1 },
+  },
+
   views: {
     openfront: { source: "views/openfront.wesl" },
   },

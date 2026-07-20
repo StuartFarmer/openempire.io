@@ -5,7 +5,15 @@
 // tint (mirroring the WebGL DensityPass/PlotPass). Neutral land and sea show the
 // terrain unchanged.
 import package::layers;
+import package::params;
 import shared::palette::unpackTint;
+
+// Supply-quality heatmap colour: low (front, out of reach) red → mid amber →
+// high (core, well-supplied) green. `q` is the 0..1 supply quality.
+fn supplyColor(q: f32) -> vec3f {
+  let lowMid = mix(vec3f(0.85, 0.16, 0.12), vec3f(0.95, 0.80, 0.20), clamp(q * 2.0, 0.0, 1.0));
+  return mix(lowMid, vec3f(0.18, 0.75, 0.35), clamp(q * 2.0 - 1.0, 0.0, 1.0));
+}
 
 fn hue2rgb(h: f32) -> vec3f {
   let r = abs(h * 6.0 - 3.0) - 1.0;
@@ -26,6 +34,19 @@ fn color(x: i32, y: i32, i: u32) -> vec4f {
   // Sea shows the terrain unchanged.
   if (layers::land::val(i) == 0.0) {
     return vec4f(base, 1.0);
+  }
+  // Supply overlay (legibility toggle): swap the territory view for the human's
+  // front→core supply-quality heatmap. Only the human's supplied land carries a
+  // nonzero byte, so this lights up exactly your logistical catchment; land the
+  // supply flood never reaches stays a desaturated terrain so the heatmap reads.
+  if (params::supplyOverlay() > 0.5) {
+    let sv = layers::supply::val(i);
+    if (sv != 0u) {
+      let q = (f32(sv) - 1.0) / 254.0;
+      return vec4f(supplyColor(q), 1.0);
+    }
+    let grey = dot(base, vec3f(0.299, 0.587, 0.114));
+    return vec4f(mix(base, vec3f(grey), 0.6), 1.0);
   }
   var col = base;
   // Territory wash (owner from the sim).

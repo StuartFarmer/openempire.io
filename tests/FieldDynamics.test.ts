@@ -806,15 +806,16 @@ describe("openfront-live bridge composes on terrain", () => {
     const names = c.kernelConfig.passes.map((p) => p.name);
     expect(names).toContain("climate"); // terrain base derives
     // Render conduits (CPU-written each tick): ownership + structure + damage +
-    // front fields (all init-only).
+    // front + supply fields (all init-only).
     expect(c.layerNames).toEqual([
       "damage",
       "density",
       "front",
       "owner",
       "plot",
+      "supply",
     ]);
-    for (const l of ["owner", "plot", "density", "damage", "front"]) {
+    for (const l of ["owner", "plot", "density", "damage", "front", "supply"]) {
       expect(names).toContain(`init/${l}`);
       // No per-tick sim pass: no `update`, so never GPU-ticked — the shell
       // overwrites each from the real sim every frame.

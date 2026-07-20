@@ -62,13 +62,20 @@ export function diffPlayerUpdate(
     prev.foodConsumption === next.foodConsumption,
   );
   setIfDifferent("foodStarved", prev.foodStarved === next.foodStarved);
+  setIfDifferent(
+    "foodPopulationShare",
+    prev.foodPopulationShare === next.foodPopulationShare,
+  );
   setIfDifferent("urbanArea", prev.urbanArea === next.urbanArea);
+  setIfDifferent(
+    "tenureCapacityBonus",
+    prev.tenureCapacityBonus === next.tenureCapacityBonus,
+  );
   setIfDifferent("farmSeeds", prev.farmSeeds === next.farmSeeds);
   setIfDifferent(
     "settlementSeeds",
     prev.settlementSeeds === next.settlementSeeds,
   );
-  setIfDifferent("nextSeedRung", prev.nextSeedRung === next.nextSeedRung);
   setIfDifferent("isTraitor", prev.isTraitor === next.isTraitor);
   setIfDifferent(
     "traitorRemainingTicks",
@@ -145,12 +152,14 @@ export function applyStateUpdate(target: PlayerState, pu: PlayerUpdate): void {
   if (pu.foodConsumption !== undefined)
     target.foodConsumption = pu.foodConsumption;
   if (pu.foodStarved !== undefined) target.foodStarved = pu.foodStarved;
+  if (pu.foodPopulationShare !== undefined)
+    target.foodPopulationShare = pu.foodPopulationShare;
   if (pu.urbanArea !== undefined) target.urbanArea = pu.urbanArea;
+  if (pu.tenureCapacityBonus !== undefined)
+    target.tenureCapacityBonus = pu.tenureCapacityBonus;
   if (pu.farmSeeds !== undefined) target.farmSeeds = pu.farmSeeds;
-  if (pu.settlementSeeds !== undefined) {
+  if (pu.settlementSeeds !== undefined)
     target.settlementSeeds = pu.settlementSeeds;
-  }
-  if (pu.nextSeedRung !== undefined) target.nextSeedRung = pu.nextSeedRung;
   if (pu.isTraitor !== undefined) target.isTraitor = pu.isTraitor;
   if (pu.traitorRemainingTicks !== undefined) {
     target.traitorRemainingTicks = Math.max(0, pu.traitorRemainingTicks);

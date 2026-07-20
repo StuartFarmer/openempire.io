@@ -181,6 +181,11 @@ export class GameShellPage extends FieldViewerBase {
   private plotU32: Uint32Array | null = null;
   private densityU32: Uint32Array | null = null;
   private frontU32: Uint32Array | null = null;
+  /** Combat-scar conduit (rework-settlement-ecology): 0..255 damage per tile. */
+  private damageU32: Uint32Array | null = null;
+  /** Human supply-quality conduit (add-supply-lines): 0 out of supply, else
+   *  1..255 quality — drives the toggleable supply overlay + hover readout. */
+  private supplyU32: Uint32Array | null = null;
   /** The sim's baked fertility plane (tile-fertility spec), shipped once by
    * the worker at ready — the hover readout shows the exact byte it reads. */
   private fertilityPlane: Uint8Array | null = null;
@@ -233,11 +238,11 @@ export class GameShellPage extends FieldViewerBase {
     troops: number;
     food: number;
     population: number;
+    starved: number;
     tiles: number;
     alive: boolean;
     farmSeeds: number;
     settlementSeeds: number;
-    nextSeedRung: number;
   } | null = null;
   /** Selected buildable placed on the next tile click (null = attack mode). */
   @state() private buildType: UnitType | null = null;
@@ -431,13 +436,12 @@ export class GameShellPage extends FieldViewerBase {
   }
 
   /**
-   * Placement preview (farm-growth spec): while a buildable is armed and the
-   * map is hovered, outline the site — the full (2·farmRadius+1)² footprint
-   * for Farmland, a single tile for Settlement — green when the sim's
-   * canBuild allows it, red otherwise (spacing, unowned, water). Farmland
-   * also shows the site's full-field potential fraction (the worker answers
-   * with farmPotentialMilli / farmOutputMilli — the sim's own formula). The
-   * box is camera-projected each frame like the labels, so it tracks pan/zoom.
+   * Placement preview (rework-settlement-ecology): while a buildable is armed
+   * and the map is hovered, outline the single-tile site — green when the sim's
+   * canBuild allows it, red otherwise (spacing, unowned, water). Farmland also
+   * shows the site's climate-suitability fraction (the worker answers with
+   * climateSuitability — the Gompertz ripening ceiling). The box is
+   * camera-projected each frame like the labels, so it tracks pan/zoom.
    */
   private updateBuildPreview(): void {
     const container = this.querySelector<HTMLDivElement>("#shell-labels");
@@ -468,9 +472,9 @@ export class GameShellPage extends FieldViewerBase {
       this.postWorker({ type: "preview", tile, unit: buildType });
     }
     const isFarm = buildType === UnitType.Farmland;
-    const r = isFarm
-      ? Math.max(0, Math.floor(this.foodValue("farmRadius")))
-      : 0;
+    // A Farmland occupies a single tile (it ripens + projects a food-shed);
+    // there is no square field footprint to outline.
+    const r = 0;
     const dpr = window.devicePixelRatio || 1;
     const cam = this.camera;
     const left = ((hover.x - r - cam.cx) * cam.scale + canvas.width / 2) / dpr;
@@ -559,6 +563,8 @@ export class GameShellPage extends FieldViewerBase {
     this.plotU32 = new Uint32Array(n);
     this.densityU32 = new Uint32Array(n);
     this.frontU32 = new Uint32Array(n);
+    this.damageU32 = new Uint32Array(n);
+    this.supplyU32 = new Uint32Array(n);
     this.dirtyTiles.clear();
     this.nameAnchors = {};
     this.myStats = null;
@@ -625,10 +631,14 @@ export class GameShellPage extends FieldViewerBase {
     this.applyPairs("plot", this.plotU32, f.plot);
     this.applyPairs("front", this.frontU32, f.front);
     this.applyByte24("density", this.densityU32, f.density);
+    this.applyByte24("damage", this.damageU32, f.damage);
+    this.applyByte24("supply", this.supplyU32, f.supply);
     this.flushDirty("owner", this.ownerScratch);
     this.flushDirty("plot", this.plotU32!);
     this.flushDirty("front", this.frontU32!);
     this.flushDirty("density", this.densityU32!);
+    this.flushDirty("damage", this.damageU32!);
+    this.flushDirty("supply", this.supplyU32!);
 
     // Summaries.
     this.mySmallID = f.mySmallID;
@@ -761,6 +771,8 @@ export class GameShellPage extends FieldViewerBase {
     this.plotU32 = null;
     this.densityU32 = null;
     this.frontU32 = null;
+    this.damageU32 = null;
+    this.supplyU32 = null;
     this.dirtyTiles.clear();
     this.playerName.clear();
     this.playerStat.clear();
@@ -846,7 +858,7 @@ export class GameShellPage extends FieldViewerBase {
   private async restartSim(): Promise<void> {
     if (!this.isOpenfront() || !this.kernel) return;
     this.running = false;
-    for (const b of ["owner", "plot", "density", "front"]) {
+    for (const b of ["owner", "plot", "density", "front", "damage", "supply"]) {
       this.kernel.clearBuffer(b);
     }
     await this.startWorker();
@@ -1318,6 +1330,16 @@ export class GameShellPage extends FieldViewerBase {
       if (this.suitabilityPlane) {
         rows.push(["suitability", (this.suitabilityPlane[i] / 255).toFixed(2)]);
       }
+      // Legibility conduits: the human's supply quality and combat scarring —
+      // the two fields the user asked to make visible (0 = none, so hidden).
+      const sup = this.supplyU32?.[i] ?? 0;
+      if (sup > 0) {
+        rows.push(["supply", ((sup - 1) / 254).toFixed(2)]);
+      }
+      const dmg = this.damageU32?.[i] ?? 0;
+      if (dmg > 0) {
+        rows.push(["damage", (dmg / 255).toFixed(2)]);
+      }
     }
     // Append the terrain detail (skip the duplicate tile / lat-lon rows).
     const terrain = this.terrainHoverRows(hx, hy);
@@ -1592,6 +1614,18 @@ export class GameShellPage extends FieldViewerBase {
         ${stat("troops", s ? s.troops : "—")}
         ${stat("pop", s ? s.population : "—")} ${stat("food", s ? s.food : "—")}
         ${stat("tiles", s ? s.tiles : "—")}
+        ${s && s.starved > 0
+          ? html`<div class="flex flex-col items-center px-2">
+              <span
+                class="text-red-400/70 text-[10px] uppercase tracking-wide"
+                title="Troops lost to starvation last tick — food ran short"
+                >starved</span
+              >
+              <span class="text-red-400 tabular-nums text-base"
+                >-${s.starved}</span
+              >
+            </div>`
+          : null}
         <div class="flex flex-col gap-0.5 pl-3 border-l border-white/15 w-40">
           <div class="flex justify-between text-[10px] text-white/60">
             <span>attack</span>
@@ -1635,9 +1669,6 @@ export class GameShellPage extends FieldViewerBase {
         class="absolute bottom-16 left-1/2 -translate-x-1/2 flex items-center gap-2 text-xs text-white bg-black/70 backdrop-blur px-3 py-1.5 rounded"
       >
         ${buildBtn(UnitType.Settlement)} ${buildBtn(UnitType.Farmland)}
-        <span class="text-white/60 tabular-nums px-1"
-          >next pair at ${compactNum(s.nextSeedRung)}</span
-        >
         ${this.buildType
           ? html`<span class="text-emerald-300 px-1"
               >placing ${this.buildType} — click a tile</span

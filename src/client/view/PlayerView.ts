@@ -85,10 +85,11 @@ function stateFromUpdate(pu: PlayerUpdate): PlayerState {
     foodConsumption: pu.foodConsumption ?? 0,
     foodStarved: pu.foodStarved ?? 0,
     foodCapacity: pu.foodCapacity ?? 0,
+    foodPopulationShare: pu.foodPopulationShare ?? 0,
     urbanArea: pu.urbanArea ?? 0,
+    tenureCapacityBonus: pu.tenureCapacityBonus ?? 0,
     farmSeeds: pu.farmSeeds ?? 0,
     settlementSeeds: pu.settlementSeeds ?? 0,
-    nextSeedRung: pu.nextSeedRung ?? 0,
     isTraitor: pu.isTraitor!,
     traitorRemainingTicks: Math.max(0, pu.traitorRemainingTicks ?? 0),
     inDoomsdayClock: pu.inDoomsdayClock ?? false,
@@ -535,9 +536,9 @@ export class PlayerView {
     return this.state.settlementSeeds;
   }
 
-  /** Peak population banking the next founding pair (seed-ladder spec). */
-  nextSeedRung(): number {
-    return this.state.nextSeedRung;
+  /** Extra housing from tile tenure (rework-settlement-ecology). */
+  tenureCapacityBonus(): number {
+    return this.state.tenureCapacityBonus;
   }
 
   totalUnitLevels(type: UnitType): number {

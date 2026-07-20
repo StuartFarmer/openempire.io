@@ -3,7 +3,11 @@
 // per-tick summary to GameShellPage. Owns EVERY Game read; the main thread has
 // no Game access.
 import { assetUrl } from "../../core/AssetUrls";
-import { farmPotentialMilli } from "../../core/execution/utils/FarmField";
+import { climateSuitability } from "../../core/execution/utils/FarmGrowth";
+import {
+  supplyField,
+  supplyQualityFromDistance,
+} from "../../core/execution/utils/SupplyField";
 import { FetchGameMapLoader } from "../../core/game/FetchGameMapLoader";
 import {
   Difficulty,
@@ -52,6 +56,11 @@ let plotState: Uint8Array | null = null;
  *  from packedFieldUpdates; worked tiles render as Farmland in `plot`. */
 let fieldState: Uint8Array | null = null;
 let frontState: Uint8Array | null = null;
+/** Last-shipped supply-quality byte per tile (human view): 0 = out of supply,
+ *  1..255 = quality. Rebuilt only when the human's supply field refreshes. */
+let supplyState: Uint8Array | null = null;
+let supplyPrevTiles: number[] = [];
+let supplyLastCalc = -2;
 let prevUnitTiles = new Set<number>();
 let prevFrontTiles: number[] = [];
 const knownNames = new Set<number>();
@@ -112,14 +121,16 @@ async function init(msg: Extract<ShellSimIn, { type: "init" }>): Promise<void> {
   plotState = new Uint8Array(n);
   fieldState = new Uint8Array(n);
   frontState = new Uint8Array(n);
-  // Ship the baked fertility + suitability planes once (tile-fertility /
-  // city-growth specs): the hover readout shows the exact bytes the sim
-  // reads, never an approximation.
+  supplyState = new Uint8Array(n);
+  // Ship the fertility + suitability hover planes once (rework-settlement-
+  // ecology): fertility is the raw `crop` layer the food tick reads;
+  // suitability is the static climate-suitability field (0..1 → byte) that
+  // gates farm ripening. Both are read-only hover readouts.
   const fertility = new Uint8Array(n);
   const suitability = new Uint8Array(n);
   for (let t = 0; t < n; t += 1) {
-    fertility[t] = game.fertility(t);
-    suitability[t] = game.suitability(t);
+    fertility[t] = game.layer("crop", t);
+    suitability[t] = Math.round(climateSuitability(game, t) * 255);
   }
   post({ type: "ready", popPerDensity, fertility, suitability }, [
     fertility.buffer,
@@ -231,6 +242,39 @@ function frontDelta(g: Game, labels: ShellFrontLabel[]): Uint32Array | null {
   return out.length ? Uint32Array.from(out) : null;
 }
 
+/** Human supply-quality deltas (add-supply-lines legibility): byte-pack the
+ *  human's supply field as `tile | (byte<<24)`, byte = 1 + round(quality·254)
+ *  on supplied land, 0 where supply doesn't reach. Rebuilt only when the field
+ *  refreshes on its cadence (the dist map is otherwise the cached same object),
+ *  so most ticks ship nothing. */
+function supplyDelta(g: Game): Uint32Array | null {
+  if (!supplyState) return null;
+  const me = myPlayer();
+  if (!me || !me.isAlive()) return null;
+  const s = supplyField(g, me);
+  if (s.lastCalcTick === supplyLastCalc) return null; // field unchanged
+  supplyLastCalc = s.lastCalcTick;
+  const f = g.config().food();
+  const out: number[] = [];
+  const nextTiles: number[] = [];
+  const touch = (t: number, byte: number) => {
+    if (supplyState![t] !== byte) {
+      supplyState![t] = byte;
+      out.push(t | (byte << 24));
+    }
+  };
+  for (const [tile, dist] of s.dist) {
+    const byte = 1 + Math.round(supplyQualityFromDistance(dist, f) * 254);
+    touch(tile, byte);
+    nextTiles.push(tile);
+  }
+  // Clear tiles that dropped out of supply since the last refresh.
+  const now = new Set(nextTiles);
+  for (const t of supplyPrevTiles) if (!now.has(t)) touch(t, 0);
+  supplyPrevTiles = nextTiles;
+  return out.length ? Uint32Array.from(out) : null;
+}
+
 /** Compact per-player stats + names for newly-seen players. */
 function playerSummary(g: Game): {
   stats: Int32Array;
@@ -263,6 +307,10 @@ function buildFrame(g: Game): {
   const plot = plotDelta(g);
   const front = frontDelta(g, labels);
   const density = pending?.packedDensityUpdates ?? null;
+  // Combat scarring conduit (rework-settlement-ecology): the sim already ships
+  // per-tile damage deltas (tile | byte<<24) — pass them straight through.
+  const damage = pending?.packedDamageUpdates ?? null;
+  const supply = supplyDelta(g);
   const { stats, names } = playerSummary(g);
   const me = myPlayer();
   const myStats = me
@@ -270,11 +318,11 @@ function buildFrame(g: Game): {
         troops: Math.round(me.troops()),
         food: Number(me.food()),
         population: Math.round(me.foodFlow().population),
+        starved: Math.round(me.foodFlow().starvedTroops),
         tiles: me.numTilesOwned(),
         alive: me.isAlive(),
         farmSeeds: me.farmSeeds(),
         settlementSeeds: me.settlementSeeds(),
-        nextSeedRung: me.nextSeedRung(),
       }
     : null;
   let spawnAnchor: number | null = null;
@@ -300,6 +348,8 @@ function buildFrame(g: Game): {
     plot,
     front,
     density,
+    damage,
+    supply,
     stats,
     names,
     myStats,
@@ -308,7 +358,7 @@ function buildFrame(g: Game): {
     spawnAnchor,
   };
   const transfer: Transferable[] = [stats.buffer];
-  for (const a of [owner, plot, front, density]) {
+  for (const a of [owner, plot, front, density, damage, supply]) {
     if (a) transfer.push(a.buffer);
   }
   return { frame, transfer };
@@ -376,19 +426,15 @@ ctx.onmessage = (e: MessageEvent<ShellSimIn>) => {
         stamp(msg.intent);
         break;
       case "preview": {
-        // Placement preview (farm-growth spec): the sim's own canBuild verdict
-        // + (Farmland) the site's FULL-FIELD potential fraction —
-        // farmPotentialMilli over farmOutputMilli (the grown-field output the
-        // site converges to; live production starts at the nucleus and ramps).
+        // Placement preview (rework-settlement-ecology): the sim's own canBuild
+        // verdict + (Farmland) the site's climate-suitability fraction (0..1) —
+        // the Gompertz ripening ceiling the plot will converge to.
         const me = myPlayer();
         if (!me || !game) break;
         const ok = me.canBuild(msg.unit, msg.tile) !== false;
         let fraction = 0;
         if (msg.unit === UnitType.Farmland) {
-          const f = game.config().food();
-          fraction =
-            farmPotentialMilli(game, me, msg.tile) /
-            Math.max(1, f.farmOutputMilli);
+          fraction = climateSuitability(game, msg.tile);
         }
         post({ type: "preview", tile: msg.tile, unit: msg.unit, ok, fraction });
         break;

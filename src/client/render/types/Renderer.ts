@@ -66,10 +66,12 @@ export interface PlayerState {
   foodConsumption: number;
   foodStarved: number;
   foodCapacity: number;
+  foodPopulationShare: number;
   urbanArea: number;
+  /** Extra housing from tile tenure (rework-settlement-ecology). */
+  tenureCapacityBonus: number;
   farmSeeds: number;
   settlementSeeds: number;
-  nextSeedRung: number;
   isTraitor: boolean;
   traitorRemainingTicks: number;
   inDoomsdayClock: boolean;

@@ -11,12 +11,13 @@ export interface ShellMyStats {
   troops: number;
   food: number;
   population: number;
+  /** Troops lost to starvation on the last food tick (supply legibility). */
+  starved: number;
   tiles: number;
   alive: boolean;
-  // Seed ladder (restore-organic-growth): banked seeds + the next rung.
+  // Peak-ratchet seed awards (rework-settlement-ecology): banked founding seeds.
   farmSeeds: number;
   settlementSeeds: number;
-  nextSeedRung: number;
 }
 
 /** A front-imbalance label: cluster tile(s) + signed troop delta (human view). */
@@ -59,6 +60,8 @@ export interface ShellSimFrame {
   plot: Uint32Array | null; // [tile, type] pairs
   front: Uint32Array | null; // [tile, byte] pairs
   density: Uint32Array | null; // tile | (byte<<24)
+  damage: Uint32Array | null; // tile | (byte<<24) — combat scarring, 0 = healed
+  supply: Uint32Array | null; // tile | (byte<<24) — human supply quality, 1..255
   stats: Int32Array | null; // [smallID, troops, tiles, alive] quads
   names: { id: number; name: string }[] | null; // newly-seen players
   myStats: ShellMyStats | null;
@@ -79,8 +82,8 @@ export type ShellSimOut =
     }
   | ShellSimFrame
   // Answer to a "preview" query: canBuild verdict for the queried tile, plus
-  // (Farmland only) the site's full-field potential fraction 0..1 — the sim's
-  // farmPotentialMilli over farmOutputMilli.
+  // (Farmland only) the site's climate-suitability fraction 0..1 — the sim's
+  // climateSuitability (the Gompertz ripening ceiling).
   | {
       type: "preview";
       tile: number;

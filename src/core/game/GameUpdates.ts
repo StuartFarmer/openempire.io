@@ -61,9 +61,16 @@ export interface GameUpdateViewData {
    */
   packedDensityUpdates?: Uint32Array;
   /**
-   * Worked-field deltas as `tile | (byte<<24)` uint32 words
-   * (restore-organic-growth): byte 255 = worked (tilled-soil paint),
-   * 0 = released. Absent when no field changed.
+   * Packed tile combat-damage deltas as `tile | (byte<<24)` uint32 words
+   * (rework-settlement-ecology), byte = round(damage/1000·255). Byte 0 means
+   * fully healed. Absent when no tile's damage changed.
+   */
+  packedDamageUpdates?: Uint32Array;
+  /**
+   * Packed field-maturity deltas as `tile | (byte<<24)` uint32 words
+   * (rework-settlement-ecology §1b), byte = round(maturity/1000·255). Byte 0
+   * means the tile left the field (reverted, razed, conquered). Absent when
+   * no tile's maturity byte changed.
    */
   packedFieldUpdates?: Uint32Array;
   /**
@@ -241,18 +248,20 @@ export interface PlayerUpdate {
   tilesOwned?: number;
   gold?: Gold;
   troops?: number;
-  // Food economy fields (simplify-food-economy). Display units; they churn
-  // per tick and travel via the partial diff.
+  // Food economy fields — present only on layered games (hasFoodEconomy).
+  // Display units; they churn per tick and travel via the partial diff.
   food?: number;
   foodProduction?: number;
   foodConsumption?: number;
   foodStarved?: number;
   foodCapacity?: number;
+  foodPopulationShare?: number;
   urbanArea?: number;
-  // Seed ladder (restore-organic-growth): banked seeds + the next rung.
+  /** Extra housing from tile tenure (rework-settlement-ecology). */
+  tenureCapacityBonus?: number;
+  /** Banked seeds (rework-settlement-ecology) — drive the BuildBar counters. */
   farmSeeds?: number;
   settlementSeeds?: number;
-  nextSeedRung?: number;
   allies?: number[];
   embargoes?: Set<PlayerID>;
   isTraitor?: boolean;

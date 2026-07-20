@@ -15,6 +15,7 @@ import { DonateTroopsExecution } from "./DonateTroopExecution";
 import { EmbargoAllExecution } from "./EmbargoAllExecution";
 import { EmbargoExecution } from "./EmbargoExecution";
 import { EmojiExecution } from "./EmojiExecution";
+import { FoodAllocationExecution } from "./FoodAllocationExecution";
 import { MarkDisconnectedExecution } from "./MarkDisconnectedExecution";
 import { MoveWarshipExecution } from "./MoveWarshipExecution";
 import { NationExecution } from "./NationExecution";
@@ -68,6 +69,8 @@ export class Executor {
       }
       case "cancel_attack":
         return new RetreatExecution(player, intent.attackID);
+      case "food_allocation":
+        return new FoodAllocationExecution(player, intent.populationShare);
       case "tune_food_config":
         return new TuneFoodConfigExecution(intent.key, intent.value);
       case "cancel_boat":

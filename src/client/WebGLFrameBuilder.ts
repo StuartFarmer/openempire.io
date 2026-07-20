@@ -12,9 +12,8 @@ import {
   TRAIL_EFFECT_TYPES,
   type TrailEffectAttributes,
 } from "../core/CosmeticSchemas";
-import { bakeFertility } from "../core/game/FertilityMap";
+import { climateSuitability } from "../core/execution/utils/FarmGrowth";
 import { PlayerType } from "../core/game/Game";
-import { bakeSuitability } from "../core/game/SuitabilityMap";
 import { decodePatternData } from "../core/PatternDecoder";
 import { uploadFrameData } from "./render/frame/Upload";
 // Type-only: a value import would pull GPURenderer and its `.glsl?raw` shader
@@ -222,23 +221,25 @@ export class WebGLFrameBuilder {
   }
 
   /**
-   * Bake + upload the active soil-overlay plane (fertility per
-   * simplify-food-economy; suitability per restore-organic-growth): the sim's
-   * own bake over the map layers, re-encoded so the shader can tell water
-   * (0, transparent) from genuinely barren land (clamped to 1). Each plane is
-   * static for the whole game, so it's computed lazily on the first tick its
-   * mode is cycled on and never again.
+   * Bake + upload the active soil-overlay plane (rework-settlement-ecology):
+   * fertility is the raw `crop` layer the food tick reads; suitability is the
+   * Liebig-min climate-suitability field (climateSuitability). Re-encoded so
+   * the shader can tell water (0, transparent) from genuinely barren land
+   * (clamped to 1). Each plane is static for the whole game, so it's computed
+   * lazily on the first tick its mode is cycled on and never again.
    */
   private syncFertilityOverlay(gameView: GameView): void {
     const mode = this.view.soilOverlayMode();
     if (mode === "off" || this.view.soilOverlayHasField(mode)) return;
-    const fertility = bakeFertility(gameView, gameView.config().food());
-    const plane =
-      mode === "fertility" ? fertility : bakeSuitability(gameView, fertility);
-    for (let ref = 0; ref < plane.length; ref++) {
-      if (gameView.isLand(ref) && !gameView.isImpassable(ref)) {
-        plane[ref] = Math.max(1, plane[ref]);
-      }
+    const n = gameView.width() * gameView.height();
+    const plane = new Uint8Array(n);
+    for (let ref = 0; ref < n; ref++) {
+      if (!gameView.isLand(ref) || gameView.isImpassable(ref)) continue;
+      const v =
+        mode === "fertility"
+          ? gameView.layer("crop", ref)
+          : Math.round(climateSuitability(gameView, ref) * 255);
+      plane[ref] = Math.max(1, v);
     }
     this.view.updateSoilOverlay(plane, mode);
   }

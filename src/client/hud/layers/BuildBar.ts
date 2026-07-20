@@ -94,11 +94,6 @@ export class BuildBar extends LitElement implements Controller {
         @contextmenu=${(e: MouseEvent) => e.preventDefault()}
       >
         ${BAR_ENTRIES.map((entry) => this.renderEntry(entry))}
-        <div class="text-[10px] text-gray-300 text-center leading-tight px-1">
-          ${translateText("build_menu.next_pair", {
-            n: renderNumber(myPlayer.nextSeedRung()),
-          })}
-        </div>
         ${this.renderSoilOverlayToggle()}
       </div>
     `;

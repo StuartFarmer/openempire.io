@@ -33,8 +33,12 @@ export class TestConfig extends Config {
     return {
       ...base,
       idleConsumptionMilli: 0,
-      popGrowthRate: 0,
-      popDeclineRate: 0,
+      moveConsumptionMilli: 0,
+      fightConsumptionMilli: 0,
+      warSupplyAttrition: 0,
+      decayNumer: 0,
+      avgLifespanTicks: Number.MAX_SAFE_INTEGER,
+      baseBirthRate: 0,
       urbanGrowthRate: 0,
     };
   }

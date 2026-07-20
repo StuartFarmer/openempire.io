@@ -1,10 +1,4 @@
-﻿import {
-  Execution,
-  Game,
-  Player,
-  Structures,
-  TribalStructures,
-} from "../game/Game";
+﻿import { Execution, Game, Player, Structures } from "../game/Game";
 import { PseudoRandom } from "../PseudoRandom";
 import { simpleHash } from "../Util";
 import { AllianceExtensionExecution } from "./alliance/AllianceExtensionExecution";
@@ -108,12 +102,6 @@ export class TribeExecution implements Execution {
     if (!this.tribe.canDeleteUnit()) return;
     for (const unit of this.tribe.units()) {
       if (!Structures.has(unit.type())) continue;
-      // Tribal structures ARE the tribe's economy (Settlement/Farmland) —
-      // this purge exists so captured vanilla structures (Cities, silos…)
-      // don't accumulate on primitive tribes. Deleting the tribe's own
-      // farms starved every bot to a husk (probe 2026-07-20: the kit farm
-      // died at t671 and capacity went to zero).
-      if (TribalStructures.has(unit.type())) continue;
       if (unit.isMarkedForDeletion()) continue;
       this.mg.addExecution(new DeleteUnitExecution(this.tribe, unit.id()));
       return;

@@ -14,7 +14,6 @@
       "settlement": "A city nucleus that adds housing, raising your population cap.",
       "warship": "Captures trade ships, destroys ships and boats"
     },
-    "next_pair": "Next founding pair at {n} peak population",
     "not_enough_food": "Not enough food",
     "not_enough_money": "Not enough money",
     "seeds": "{count, plural, one {# seed banked} other {# seeds banked}}"

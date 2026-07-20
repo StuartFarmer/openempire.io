@@ -16,7 +16,7 @@ import { simpleHash } from "../Util";
 import { PlayerExecution } from "./PlayerExecution";
 import { TribeExecution } from "./TribeExecution";
 import { getSpawnTiles } from "./Util";
-import { preGrowField } from "./utils/FarmField";
+import { climateSuitability } from "./utils/FarmGrowth";
 
 type Spawn = { center: TileRef; tiles: TileRef[] };
 
@@ -99,16 +99,16 @@ export class SpawnExecution implements Execution {
   }
 
   /**
-   * The spawn kit (simplify-food-economy, tribal-buildings spec): found the
-   * Core, place one Settlement (on the core tile) and one Farmland (on the
-   * best-fertility candidate a few tiles out), and reset the food stake to
-   * `startingFood` — the kit is free and identical for every player type.
-   * Re-spawns re-found at the new location, clearing the old kit.
+   * Settle (add-urban-core-growth / rework-settlement-ecology §1): found
+   * the urban Core AND one ripe farm NUCLEUS — the spawn kit is the same
+   * founding pair the award ladder banks. Both grow themselves from here:
+   * the city sprawls (UrbanGrowth) and the field spreads (FarmGrowth §1b).
+   * Re-spawns re-found at the new location, clearing the old field + kit.
    */
   private foundCore(player: Player, center: TileRef): void {
     const mg = this.mg;
 
-    // Re-spawn: clear any previous painted footprint and starter plots.
+    // Re-spawn: clear any previous density field and starter plots.
     for (const [tile] of Array.from(player.densityEntries())) {
       player.setDensity(tile, 0);
     }
@@ -130,19 +130,22 @@ export class SpawnExecution implements Execution {
       if (nearest !== undefined) coreTile = nearest;
     }
     player.setCore(coreTile);
-    // Seed the capital's paint (presentation only).
+    // Seed the capital as one full city tile (popPerDensity people); the
+    // demographic model grows or shrinks the footprint from there.
     player.setDensity(coreTile, mg.config().food().popPerDensity);
-    // The kit Settlement stands on the capital: housing from tick one.
-    if (mg.plotAt(coreTile) === undefined) {
-      player.buildUnit(UnitType.Settlement, coreTile, {});
-    }
 
-    // The kit Farmland a few tiles out, on the best-fertility candidate —
-    // the standoff leaves the paint room around the capital.
+    // Plant ONE starter farm nucleus (free) a few tiles OUT from the core —
+    // the field grows itself from here (§1b) and belongs near the village,
+    // not in it: the standoff leaves the young city a collar of wild land
+    // to grow into before the spreading field arrives (first claim holds
+    // between the automata). Sited on the BEST climate-suitability candidate:
+    // maturity settles AT suitability, so a kit farm on hostile ground would
+    // senesce below the claim threshold and never seed a field. It begins
+    // already ripe, so it feeds from tick one AND starts spreading.
     const cx = mg.x(coreTile);
     const cy = mg.y(coreTile);
     let kitTile: TileRef | null = null;
-    let kitFert = -1;
+    let kitSuit = -1;
     for (const [dx, dy] of [
       [3, 0],
       [0, 3],
@@ -160,18 +163,15 @@ export class SpawnExecution implements Execution {
       if (!mg.isValidCoord(cx + dx, cy + dy)) continue;
       const t = mg.ref(cx + dx, cy + dy);
       if (!valid(t) || mg.plotAt(t) !== undefined) continue;
-      const fert = mg.fertility(t);
-      if (fert > kitFert) {
-        kitFert = fert;
+      const suit = climateSuitability(mg, t);
+      if (suit > kitSuit) {
+        kitSuit = suit;
         kitTile = t;
       }
     }
     if (kitTile !== null) {
       player.buildUnit(UnitType.Farmland, kitTile, {});
-      // The starter field arrives sized to feed the villagers — without it,
-      // day-one capacity is one tile's yield and the population crashes
-      // before the field can grow (farm-growth spec / harness 2026-07-20).
-      preGrowField(mg, player, kitTile, mg.config().food().startPopulation);
+      player.setFarmMaturity(kitTile, 1000);
     }
 
     // Reset the opening food stake (the kit is free).
