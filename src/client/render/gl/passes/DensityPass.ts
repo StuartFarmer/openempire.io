@@ -6,7 +6,7 @@
  * untouched, density grading from a faint settlement tint to a bright core.
  *
  * One R8 texture at map resolution, drawn as a single map quad (like
- * TerrainPass / SupplyOverlayPass). Fed by full uploads (seek/first frame)
+ * TerrainPass). Fed by full uploads (seek/first frame)
  * and per-tile sub-uploads (the handful of tiles that change each tick).
  */
 

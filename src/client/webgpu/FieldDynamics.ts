@@ -502,7 +502,10 @@ export async function compileFieldSystem(
   const deriveAdvancedEarly = new Set<string>(
     system.derive?.steps.flatMap((s) => s.advances ?? []) ?? [],
   );
-  const exposedDerive = new Map<string, { type: FieldLayerType; ping: boolean }>();
+  const exposedDerive = new Map<
+    string,
+    { type: FieldLayerType; ping: boolean }
+  >();
   for (const [name, spec] of Object.entries(system.derive?.fields ?? {})) {
     if (spec.exposed) {
       exposedDerive.set(name, {

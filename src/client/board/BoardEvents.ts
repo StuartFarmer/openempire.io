@@ -130,11 +130,6 @@ export class CancelAttackIntentEvent implements GameEvent {
   constructor(public readonly attackID: string) {}
 }
 
-/** Food allocation slider (layered maps): population share of production. */
-export class SendFoodAllocationIntentEvent implements GameEvent {
-  constructor(public readonly populationShare: number) {}
-}
-
 /** In-game tuning panel (add-sim-tuning-panel): pin one FoodConfig knob. */
 export class SendTuneFoodConfigIntentEvent implements GameEvent {
   constructor(

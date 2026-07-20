@@ -12,7 +12,6 @@ export enum GameMapType {
   Pangea002 = "Pangea II", // map-generator/assets/maps/pangea002/info.json
   SPQR = "SPQR", // map-generator/assets/maps/spqr/info.json
   Verdantia = "Verdantia", // map-generator/assets/maps/verdantia/info.json
-  World = "World", // map-generator/assets/maps/world/info.json
 }
 
 export type GameMapName = keyof typeof GameMapType;
@@ -77,71 +76,72 @@ export const maps: readonly MapInfo[] = [
     id: "Earth",
     type: GameMapType.Earth,
     translationKey: "map.earth",
-    categories: ["new", "world"],
+    categories: ["featured", "new", "world"],
     multiplayerFrequency: 0,
+    featuredRank: 7,
   },
   {
     id: "EarthMini",
     type: GameMapType.EarthMini,
     translationKey: "map.earthmini",
-    categories: ["new", "world"],
+    categories: ["featured", "new", "world"],
     multiplayerFrequency: 0,
+    featuredRank: 6,
   },
   {
     id: "EarthXL",
     type: GameMapType.EarthXL,
     translationKey: "map.earthxl",
-    categories: ["new", "world"],
+    categories: ["featured", "new", "world"],
     multiplayerFrequency: 0,
+    featuredRank: 8,
   },
   {
     id: "Estuaria",
     type: GameMapType.Estuaria,
     translationKey: "map.estuaria",
-    categories: ["new", "fictional"],
+    categories: ["featured", "new", "fictional"],
     multiplayerFrequency: 0,
+    featuredRank: 2,
   },
   {
     id: "MajorMenor",
     type: GameMapType.MajorMenor,
     translationKey: "map.majormenor",
-    categories: ["new", "fictional"],
+    categories: ["featured", "new", "fictional"],
     multiplayerFrequency: 0,
+    featuredRank: 5,
   },
   {
     id: "Pangea001",
     type: GameMapType.Pangea001,
     translationKey: "map.pangea001",
-    categories: ["new", "fictional"],
+    categories: ["featured", "new", "fictional"],
     multiplayerFrequency: 0,
+    featuredRank: 3,
   },
   {
     id: "Pangea002",
     type: GameMapType.Pangea002,
     translationKey: "map.pangea002",
-    categories: ["new", "fictional"],
+    categories: ["featured", "new", "fictional"],
     multiplayerFrequency: 0,
+    featuredRank: 4,
   },
   {
     id: "SPQR",
     type: GameMapType.SPQR,
     translationKey: "map.spqr",
-    categories: ["new", "world"],
+    categories: ["featured", "new", "world"],
     multiplayerFrequency: 0,
+    featuredRank: 9,
   },
   {
     id: "Verdantia",
     type: GameMapType.Verdantia,
     translationKey: "map.verdantia",
-    categories: ["new", "fictional"],
+    categories: ["featured", "new", "fictional"],
     multiplayerFrequency: 0,
-  },
-  {
-    id: "World",
-    type: GameMapType.World,
-    translationKey: "map.world",
-    categories: ["featured", "world"],
-    multiplayerFrequency: 20,
     featuredRank: 1,
   },
 ];

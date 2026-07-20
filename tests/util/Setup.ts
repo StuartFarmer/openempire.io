@@ -100,7 +100,7 @@ export async function setup(
   const miniGameMap = await genTerrainFromBin(manifest.map4x, miniMapBinBuffer);
 
   const gameConfig: GameConfig = {
-    gameMap: GameMapType.World,
+    gameMap: GameMapType.Verdantia,
     gameMode: GameMode.FFA,
     gameType: GameType.Singleplayer,
     difficulty: Difficulty.Medium,

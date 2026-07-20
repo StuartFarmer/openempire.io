@@ -99,3 +99,12 @@ Claimed field tiles SHALL render with the **same tilled-soil plot pattern as the
 
 - **WHEN** a field grows
 - **THEN** each new claimed tile appears as a tilled-soil plot; fallow dieback removes plots one by one
+
+### Requirement: The soil effect on food production is a tunable exponent
+
+Normalized crop fertility (cropN) SHALL enter the food model through a configurable exponent `cropEffectExponent` (default 1 — raw fertility, today's behavior) wherever it affects production: the Liebig soil stave in climate suitability AND the per-tile yield factor (sim harvest and the planner's steady-yield mirrors alike). Because soil multiplies in at both sites, settled yield scales as ~cropN^(2·exponent) where soil is the binding stave — the exponent is THE lever for how life-and-death spawn soil quality is: below 1 it compresses the good-vs-bad-soil spread, at 0 soil is ignored entirely.
+
+#### Scenario: Compressing the spawn-site lottery
+
+- **WHEN** `cropEffectExponent` is lowered from 1 to 0.5
+- **THEN** the settled-yield ratio between a 0.9-fertility tile and a 0.3-fertility tile falls from ~9× to ~3×, in both the sim's harvest and the planner's estimates

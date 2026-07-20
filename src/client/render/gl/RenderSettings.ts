@@ -390,13 +390,27 @@ export interface RenderSettings {
     gridFontSize: number;
     recolorStructures: boolean;
   };
-  supplyOverlay: {
-    alphaLow: number; // mask opacity at quality 0 (unsupplied → dark)
-    alphaHigh: number; // mask opacity at quality 1 (0 = untouched)
-    lowR: number; // quality-0 tint (black)
+  // Baked-fertility tint (simplify-food-economy): green (lush) fading to
+  // brown/red (barren) over land, cycled from the BuildBar.
+  fertilityOverlay: {
+    alphaLow: number; // tint opacity at fertility 0
+    alphaHigh: number; // tint opacity at fertility 1
+    lowR: number; // fertility-0 tint (brown/red)
     lowG: number;
     lowB: number;
-    highR: number; // quality-1 tint (irrelevant at alpha 0)
+    highR: number; // fertility-1 tint (green)
+    highG: number;
+    highB: number;
+  };
+  // Baked city-suitability tint (restore-organic-growth): blue (prime town
+  // ground) fading to dun (poor site) over land — fertility's cycle-mate.
+  suitabilityOverlay: {
+    alphaLow: number; // tint opacity at suitability 0
+    alphaHigh: number; // tint opacity at suitability 1
+    lowR: number; // suitability-0 tint (dun)
+    lowG: number;
+    lowB: number;
+    highR: number; // suitability-1 tint (blue)
     highG: number;
     highB: number;
   };
@@ -407,19 +421,6 @@ export interface RenderSettings {
     lowG: number;
     lowB: number;
     highR: number; // dense-core tint
-    highG: number;
-    highB: number;
-  };
-  // Battle-worn ground (rework-settlement-ecology): brown wash over damaged
-  // tiles, alpha scaled by remaining damage. Same shape as densityOverlay —
-  // both are R8-field washes drawn by the DensityPass class.
-  damageOverlay: {
-    alphaLow: number; // wash opacity at barely-scarred
-    alphaHigh: number; // wash opacity at fully battle-worn
-    lowR: number; // the standard brown (low == high: one color, alpha ramps)
-    lowG: number;
-    lowB: number;
-    highR: number;
     highG: number;
     highB: number;
   };

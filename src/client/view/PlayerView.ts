@@ -85,11 +85,10 @@ function stateFromUpdate(pu: PlayerUpdate): PlayerState {
     foodConsumption: pu.foodConsumption ?? 0,
     foodStarved: pu.foodStarved ?? 0,
     foodCapacity: pu.foodCapacity ?? 0,
-    foodPopulationShare: pu.foodPopulationShare ?? 1,
     urbanArea: pu.urbanArea ?? 0,
-    tenureCapacityBonus: pu.tenureCapacityBonus ?? 0,
     farmSeeds: pu.farmSeeds ?? 0,
     settlementSeeds: pu.settlementSeeds ?? 0,
+    nextSeedRung: pu.nextSeedRung ?? 0,
     isTraitor: pu.isTraitor!,
     traitorRemainingTicks: Math.max(0, pu.traitorRemainingTicks ?? 0),
     inDoomsdayClock: pu.inDoomsdayClock ?? false,
@@ -522,24 +521,23 @@ export class PlayerView {
     };
   }
 
-  foodPopulationShare(): number {
-    return this.state.foodPopulationShare;
-  }
-
   urbanArea(): number {
     return this.state.urbanArea;
   }
 
-  tenureCapacityBonus(): number {
-    return this.state.tenureCapacityBonus;
-  }
-
+  /** Banked Farmland seeds (seed-ladder spec). */
   farmSeeds(): number {
     return this.state.farmSeeds;
   }
 
+  /** Banked Settlement seeds (seed-ladder spec). */
   settlementSeeds(): number {
     return this.state.settlementSeeds;
+  }
+
+  /** Peak population banking the next founding pair (seed-ladder spec). */
+  nextSeedRung(): number {
+    return this.state.nextSeedRung;
   }
 
   totalUnitLevels(type: UnitType): number {

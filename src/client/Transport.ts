@@ -34,7 +34,6 @@ import {
   SendEmbargoAllIntentEvent,
   SendEmbargoIntentEvent,
   SendEmojiIntentEvent,
-  SendFoodAllocationIntentEvent,
   SendHashEvent,
   SendKickPlayerIntentEvent,
   SendLiveStatsEvent,
@@ -105,9 +104,6 @@ export class Transport {
     );
     this.eventBus.on(SendTuneFoodConfigIntentEvent, (e) =>
       this.onSendTuneFoodConfigIntent(e),
-    );
-    this.eventBus.on(SendFoodAllocationIntentEvent, (e) =>
-      this.onSendFoodAllocationIntent(e),
     );
     this.eventBus.on(SendDonateTroopsIntentEvent, (e) =>
       this.onSendDonateTroopIntent(e),
@@ -406,13 +402,6 @@ export class Transport {
       type: "donate_gold",
       recipient: event.recipient.id(),
       gold: event.gold ? Number(event.gold) : null,
-    });
-  }
-
-  private onSendFoodAllocationIntent(event: SendFoodAllocationIntentEvent) {
-    this.sendIntent({
-      type: "food_allocation",
-      populationShare: event.populationShare,
     });
   }
 

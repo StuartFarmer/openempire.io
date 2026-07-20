@@ -39,6 +39,10 @@ import { DefenseCoveragePass } from "./passes/DefenseCoveragePass";
 import { DensityPass } from "./passes/DensityPass";
 import { FalloutBloomPass } from "./passes/FalloutBloomPass";
 import { FalloutLightPass } from "./passes/FalloutLightPass";
+import {
+  FertilityOverlayPass,
+  type SoilOverlayMode,
+} from "./passes/FertilityOverlayPass";
 import { FxPass } from "./passes/fx-pass";
 import { LightmapPass } from "./passes/LightmapPass";
 import { MoveIndicatorPass } from "./passes/MoveIndicatorPass";
@@ -58,7 +62,6 @@ import type { SpawnCenter } from "./passes/SpawnOverlayPass";
 import { SpawnOverlayPass } from "./passes/SpawnOverlayPass";
 import { StructureLevelPass } from "./passes/StructureLevelPass";
 import { StructurePass } from "./passes/StructurePass";
-import { SupplyOverlayPass } from "./passes/SupplyOverlayPass";
 import { TerrainPass } from "./passes/TerrainPass";
 import { TerritoryPass } from "./passes/TerritoryPass";
 import { TrailPass } from "./passes/TrailPass";
@@ -149,9 +152,8 @@ export class GPURenderer {
   private affiliationPalette: AffiliationPalette;
   private coordinateGridPass: CoordinateGridPass;
   private spawnOverlayPass: SpawnOverlayPass;
-  private supplyOverlayPass: SupplyOverlayPass;
+  private fertilityOverlayPass: FertilityOverlayPass;
   private densityPass: DensityPass;
-  private damagePass: DensityPass; // battle-worn brown wash (same field-wash pass)
   private inSpawnPhase = false;
 
   private paletteTex: WebGLTexture;
@@ -521,12 +523,13 @@ export class GPURenderer {
     this.plotPass = new PlotPass(gl, mapW, mapH, this.terrainPass.texture());
     this.plotFirePass = new PlotFirePass(gl, this.settings);
 
-    // --- Supply-lines heatmap (local player's supply quality) ---
-    this.supplyOverlayPass = new SupplyOverlayPass(
+    // --- Baked soil-plane tints (fertility + suitability, cycled) ---
+    this.fertilityOverlayPass = new FertilityOverlayPass(
       gl,
       mapW,
       mapH,
-      this.settings.supplyOverlay,
+      this.settings.fertilityOverlay,
+      this.settings.suitabilityOverlay,
     );
 
     // --- Urban density field (the self-growing city) ---
@@ -535,15 +538,6 @@ export class GPURenderer {
       mapW,
       mapH,
       this.settings.densityOverlay,
-    );
-
-    // --- Tile combat damage (battle-worn ground, rework-settlement-ecology):
-    // the same R8-field wash pass with a brown palette. ---
-    this.damagePass = new DensityPass(
-      gl,
-      mapW,
-      mapH,
-      this.settings.damageOverlay,
     );
 
     // --- Range circle (ghost preview radius) ---
@@ -1117,24 +1111,23 @@ export class GPURenderer {
     this.densityPass.applyDelta(refs, density);
   }
 
-  updateDamageField(damage: Uint8Array): void {
-    this.damagePass.update(damage);
+  setSoilOverlay(mode: SoilOverlayMode): void {
+    this.fertilityOverlayPass.setMode(mode);
   }
 
-  applyDamageDelta(refs: readonly number[], damage: Uint8Array): void {
-    this.damagePass.applyDelta(refs, damage);
+  soilOverlayMode(): SoilOverlayMode {
+    return this.fertilityOverlayPass.mode();
   }
 
-  setSupplyOverlay(active: boolean): void {
-    this.supplyOverlayPass.setEnabled(active);
+  soilOverlayHasField(plane: "fertility" | "suitability"): boolean {
+    return this.fertilityOverlayPass.hasField(plane);
   }
 
-  supplyOverlayOn(): boolean {
-    return this.supplyOverlayPass.isEnabled();
-  }
-
-  updateSupplyOverlay(quality: Uint8Array): void {
-    this.supplyOverlayPass.update(quality);
+  updateSoilOverlay(
+    plane: Uint8Array,
+    which: "fertility" | "suitability",
+  ): void {
+    this.fertilityOverlayPass.update(plane, which);
   }
 
   setSegmentHighlight(active: boolean): void {
@@ -1353,11 +1346,8 @@ export class GPURenderer {
     this.spawnOverlayPass.draw(cam);
     // The urban density field (the growing city) draws over territory.
     this.densityPass.draw(cam);
-    // Battle-worn ground draws over territory, city AND field: a scar reads
-    // brown whoever holds it, fading as it heals.
-    this.damagePass.draw(cam);
-    // Supply heatmap sits under borders/structures so plots stay readable.
-    this.supplyOverlayPass.draw(cam);
+    // Fertility tint sits under borders/structures so plots stay readable.
+    this.fertilityOverlayPass.draw(cam);
     // Borders draw here; the aimed concentrated-push segment is recoloured onto
     // the player's own border cells inside BorderStampPass.
     if (pe.borderStamp) this.borderStampPass.draw(cam);
@@ -1420,9 +1410,8 @@ export class GPURenderer {
     this.affiliationPalette.dispose();
     this.coordinateGridPass.dispose();
     this.spawnOverlayPass.dispose();
-    this.supplyOverlayPass.dispose();
+    this.fertilityOverlayPass.dispose();
     this.densityPass.dispose();
-    this.damagePass.dispose();
     this.railroadPass.dispose();
     this.plotPass.dispose();
     this.plotFirePass.dispose();

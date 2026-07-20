@@ -10,7 +10,7 @@ import {
 describe("TerrainMapLoader", () => {
   test("loads both sidecars: decoded layers and the terrain color path", async () => {
     const data = await loadTerrainMap(
-      GameMapType.World,
+      GameMapType.Verdantia,
       testLoader({ layers: true, terrain_colors: true }),
     );
     expect(data.terrainColorsPath).toBe("/maps/test/terrain-colors.png");
@@ -46,7 +46,7 @@ describe("TerrainMapLoader", () => {
   test("a corrupt-size layers.bin fails the load instead of downgrading", async () => {
     await expect(
       loadTerrainMap(
-        GameMapType.Verdantia,
+        GameMapType.Estuaria,
         testLoader({ layers: true, terrain_colors: true }, new Uint8Array(3)),
       ),
     ).rejects.toThrow(/undecodable/);

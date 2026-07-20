@@ -1,5 +1,17 @@
 # Proposal: rework-settlement-ecology
 
+> **SUPERSEDED (2026-07-20) by `simplify-food-economy`.** Playtesting showed
+> the assembled ecology (11 interlocking systems, 64 knobs) was illegible:
+> optimal play was unclear, battles stacked three invisible death channels,
+> and spawn soil quality was a hidden ~cropN² lottery. The whole stack —
+> seed awards, farm CA + labor coverage, food sheds/local storage, tile
+> stability, tile damage, supply attrition — was replaced by the simple
+> model (baked fertility, fixed-radius farms, one pool, one logistic,
+> vanilla combat with continuous terrain). The visual language (city
+> painting, tilled-soil plots) survives as presentation. See
+> `openspec/changes/simplify-food-economy/` for the replacement and its
+> per-mechanic rationale.
+
 ## Why
 
 `add-urban-core-growth` made the city grow itself, but the _economy of placement_ is still a shop: Settlement/Farmland/Barn are purchased with food and painted freely. That leaves food doing two jobs (feeding people AND funding construction), keeps a snowball channel open (food → plots → food), and makes land history-less — a tile conquered ten seconds ago is identical to one held all game.

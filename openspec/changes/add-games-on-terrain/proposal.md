@@ -12,7 +12,7 @@ whole separate world, and the good climate the terrain derivation produces is
 thrown away and badly re-approximated per system.
 
 We want the opposite: **one terrain, many games.** The terrain derivation is
-the always-on world substrate; a *game* is just a ruleset — its own layers,
+the always-on world substrate; a _game_ is just a ruleset — its own layers,
 players, AI, input — that READS the established terrain fields. Recreating the
 existing systems then means writing rules against `layers::temperature` /
 `layers::water` / `layers::biome`, not re-deriving climate. Swap the ruleset,
@@ -21,7 +21,7 @@ keep the world.
 ## What Changes
 
 - **Terrain becomes the always-on base.** The viewer always runs the terrain
-  derivation; the picker lists *games* (rulesets), not standalone systems.
+  derivation; the picker lists _games_ (rulesets), not standalone systems.
   Selecting a game composes it onto terrain in one kernel; "no game" is just
   the terrain world view.
 - **The terrain-derived fields are readable by a game's per-tick layers.** The

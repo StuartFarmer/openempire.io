@@ -607,13 +607,11 @@ export interface Player {
   addTroops(troops: number): void;
   removeTroops(troops: number): number;
 
-  // Food economy (see add-tribal-food-economy)
+  // Food economy (simplify-food-economy): one national pool.
   /** Food stock in display units. */
   food(): Gold;
   addFood(toAdd: Gold): void;
   removeFood(toRemove: Gold): Gold;
-  /** Sum of owned tiles' crop-layer bytes (production input). */
-  fertilitySum(): number;
   /** Last food tick's flow breakdown, display units. */
   foodFlow(): {
     production: number;
@@ -621,43 +619,38 @@ export interface Player {
     starvedTroops: number;
     /** Food-supported population = productionMilli / idleConsumptionMilli. */
     capacity: number;
-    /** Total living population (idle + deployed) after this tick's births and
-     *  deaths — drives the city footprint and the population-death loss. */
+    /** Total living population (idle + deployed) after this tick. */
     population: number;
   };
-  /** Allocation slider: production fraction fed to the population (0..1). */
-  foodPopulationShare(): number;
-  setFoodPopulationShare(share: number): void;
 
-  // Urban core growth (add-urban-core-growth): the city is a self-growing
-  // density field founded from a Core, replacing painted plots.
+  // The city (restore-organic-growth, city-growth spec): real sim state.
+  // Housing = housingBase + cityTiles × popPerDensity.
   core(): TileRef | null;
   setCore(tile: TileRef): void;
-  /** Urban density on a tile in milliunits (0..1000); absent = 0. */
+  /** City people on a tile (0..popPerDensity); absent = 0. */
   density(tile: TileRef): number;
   setDensity(tile: TileRef, milli: number): void;
   densityEntries(): IterableIterator<[TileRef, number]>;
-  /** Urban area in tile-equivalents (Σ density). */
+  /** City area in tile-equivalents (Σ density / popPerDensity). */
   urbanArea(): number;
-  /** Extra housing from tile tenure (rework-settlement-ecology): old city
-   *  tiles hold more people. Refreshed each tick by TileTenure.tenureTick. */
-  tenureCapacityBonus(): number;
-  /** Banked farm seeds — half of each founding pair awarded at
-   *  peak-population milestones, spent by placement
-   *  (rework-settlement-ecology). */
+
+  // Seed ladder (restore-organic-growth, seed-ladder spec).
+  /** Banked farm seeds (half of each founding pair). */
   farmSeeds(): number;
-  /** Banked Settlement seeds — the other half of each founding pair. */
+  /** Banked Settlement seeds (the other half). */
   settlementSeeds(): number;
-  /** Farm maturity M∈[0,1] on a Farmland tile in milliunits (0..1000). */
-  farmMaturity(tile: TileRef): number;
-  setFarmMaturity(tile: TileRef, milli: number): void;
-  farmMaturityEntries(): IterableIterator<[TileRef, number]>;
-  /** True when the tile is a CLAIMED field tile of this player (farm CA,
-   *  rework-settlement-ecology §1b): establishment ≥ fieldClaimMilli, or the
-   *  tile hosts one of this player's Farmland nuclei. Claimed field tiles are
-   *  invisible to the city CA and vice versa — first claim holds; a tile
-   *  merely establishing (below the threshold) counts as wild. */
+  /** Peak population required for the NEXT founding pair. */
+  nextSeedRung(): number;
+
+  // Worked farm fields (restore-organic-growth, farm-growth spec).
+  /** True when this player works the tile as part of a farm field. */
   isFieldTile(tile: TileRef): boolean;
+  /** The worked tiles of the farm at `nucleus` (empty set if none). */
+  fieldTiles(nucleus: TileRef): ReadonlySet<TileRef>;
+  addFieldTile(nucleus: TileRef, tile: TileRef): void;
+  removeFieldTile(tile: TileRef): void;
+  /** Drop a whole field (its Farmland died). */
+  clearField(nucleus: TileRef): void;
 
   // Units
   units(...types: UnitType[]): Unit[];
@@ -825,11 +818,7 @@ export interface Game extends GameMap {
   // `tile | (byte<<24)`, byte = round(density/1000·255).
   recordDensityUpdate(tile: TileRef, byte: number): void;
   drainPackedDensityUpdates(): Uint32Array | null;
-  // Tile combat-damage render deltas (rework-settlement-ecology): same
-  // packing, byte = round(damage/1000·255); byte 0 = fully healed.
-  drainPackedDamageUpdates(): Uint32Array | null;
-  /** Field-maturity render deltas (rework-settlement-ecology §1b): packed
-   *  `tile | (byte<<24)`, byte = round(maturity/1000·255). */
+  /** Worked-field render deltas: `tile | (byte<<24)`, 255 worked / 0 not. */
   drainPackedFieldUpdates(): Uint32Array | null;
   setWinner(winner: Player | Team, allPlayersStats: AllPlayersStats): void;
   getWinner(): Player | Team | null;
@@ -903,23 +892,13 @@ export interface Game extends GameMap {
   /** The tribal plot (if any) covering this tile. */
   plotAt(tile: TileRef): Unit | undefined;
 
-  // Tile combat damage (rework-settlement-ecology): battle-worn ground.
-  /** Remaining combat damage on a tile (milli, 0..1000; 0 = fully healed). */
-  tileDamage(tile: TileRef): number;
-  /** Add combat damage to a tile (milli, clamped to 1000). */
-  addTileDamage(tile: TileRef, milli: number): void;
-  /** All tiles with damage > 0 (sparse; deterministic insertion order). */
-  tileDamageEntries(): IterableIterator<[TileRef, number]>;
+  /** Baked tile fertility byte (0..255) — simplify-food-economy. Water and
+   *  impassable tiles are 0. Computed once at map load (FertilityMap). */
+  fertility(tile: TileRef): number;
 
-  // Tile stability (rework-settlement-ecology): the demand-gated tenure
-  // clock. Owner-agnostic — stability is the tile's continuous life; an
-  // ownership flip hard-resets it, vacancy decays it slowly.
-  /** Accrued tenure of a tile (milli-ticks; 0 = raw land). */
-  tileTenure(tile: TileRef): number;
-  /** Set a tile's tenure (milli-ticks; ≤0 deletes the entry). */
-  setTileTenure(tile: TileRef, milli: number): void;
-  /** All tiles with tenure > 0 (sparse; deterministic insertion order). */
-  tileTenureEntries(): IterableIterator<[TileRef, number]>;
+  /** Baked city-suitability byte (0..255) — restore-organic-growth. Water
+   *  and impassable tiles are 0 (SuitabilityMap). */
+  suitability(tile: TileRef): number;
 
   addUpdate(update: GameUpdate): void;
   railNetwork(): RailNetwork;

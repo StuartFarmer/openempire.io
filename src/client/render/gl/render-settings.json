@@ -340,15 +340,25 @@
     "gridFontSize": 24,
     "recolorStructures": true
   },
-  "supplyOverlay": {
-    "alphaLow": 0.8,
-    "alphaHigh": 0.0,
-    "lowR": 0.0,
-    "lowG": 0.0,
-    "lowB": 0.0,
-    "highR": 0.0,
-    "highG": 0.0,
-    "highB": 0.0
+  "fertilityOverlay": {
+    "alphaLow": 0.5,
+    "alphaHigh": 0.5,
+    "lowR": 0.58,
+    "lowG": 0.22,
+    "lowB": 0.1,
+    "highR": 0.12,
+    "highG": 0.75,
+    "highB": 0.25
+  },
+  "suitabilityOverlay": {
+    "alphaLow": 0.5,
+    "alphaHigh": 0.5,
+    "lowR": 0.5,
+    "lowG": 0.4,
+    "lowB": 0.24,
+    "highR": 0.15,
+    "highG": 0.45,
+    "highB": 0.9
   },
   "densityOverlay": {
     "alphaLow": 0.18,
@@ -359,16 +369,6 @@
     "highR": 1.0,
     "highG": 0.88,
     "highB": 0.55
-  },
-  "damageOverlay": {
-    "alphaLow": 0.12,
-    "alphaHigh": 0.72,
-    "lowR": 0.38,
-    "lowG": 0.26,
-    "lowB": 0.14,
-    "highR": 0.38,
-    "highG": 0.26,
-    "highB": 0.14
   },
   "tileDrip": {
     "bucketCount": 9

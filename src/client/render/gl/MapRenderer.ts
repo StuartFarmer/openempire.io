@@ -29,6 +29,7 @@ import type {
   TilePair,
   UnitState,
 } from "../types";
+import type { SoilOverlayMode } from "./passes/FertilityOverlayPass";
 import type { SpawnCenter } from "./passes/SpawnOverlayPass";
 import type { AttackTroopLabel } from "./passes/WorldTextPass";
 import { GPURenderer } from "./Renderer";
@@ -279,24 +280,23 @@ export class MapRenderer {
   applyDensityDelta(refs: readonly number[], density: Uint8Array): void {
     this.renderer?.applyDensityDelta(refs, density);
   }
-  /** Full upload of the tile combat-damage field (rework-settlement-ecology). */
-  updateDamageField(damage: Uint8Array): void {
-    this.renderer?.updateDamageField(damage);
+  /** Set the soil-overlay cycle state: off → fertility → suitability. */
+  setSoilOverlay(mode: SoilOverlayMode): void {
+    this.renderer?.setSoilOverlay(mode);
   }
-  /** Sub-upload the tiles whose combat damage changed this tick. */
-  applyDamageDelta(refs: readonly number[], damage: Uint8Array): void {
-    this.renderer?.applyDamageDelta(refs, damage);
+  soilOverlayMode(): SoilOverlayMode {
+    return this.renderer?.soilOverlayMode() ?? "off";
   }
-  /** Toggle the supply-lines heatmap (layered maps). */
-  setSupplyOverlay(active: boolean): void {
-    this.renderer?.setSupplyOverlay(active);
+  /** Whether a soil plane has been uploaded (each is baked once). */
+  soilOverlayHasField(plane: "fertility" | "suitability"): boolean {
+    return this.renderer?.soilOverlayHasField(plane) ?? false;
   }
-  supplyOverlayOn(): boolean {
-    return this.renderer?.supplyOverlayOn() ?? false;
-  }
-  /** Push a fresh supply-quality field (map-sized R8 bytes). */
-  updateSupplyOverlay(quality: Uint8Array): void {
-    this.renderer?.updateSupplyOverlay(quality);
+  /** Push a baked soil plane (map-sized R8 bytes; 0 = water). */
+  updateSoilOverlay(
+    plane: Uint8Array,
+    which: "fertility" | "suitability",
+  ): void {
+    this.renderer?.updateSoilOverlay(plane, which);
   }
   /** Concentrated-push aim preview: toggle + push a map-sized R8 segment mask. */
   setSegmentHighlight(active: boolean): void {

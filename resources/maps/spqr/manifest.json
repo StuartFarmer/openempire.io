@@ -1,6 +1,7 @@
 {
-  "categories": ["new", "world"],
+  "categories": ["featured", "new", "world"],
   "elevation": true,
+  "featured_rank": 9,
   "hydro": true,
   "id": "SPQR",
   "layers": true,

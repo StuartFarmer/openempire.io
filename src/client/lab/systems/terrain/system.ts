@@ -40,7 +40,11 @@ export const terrain: FieldSystem = {
       humidityBase: { from: "layers", plane: "humidity" },
       lakeBase: { from: "hydro", plane: "lake" },
       riverBase: { from: "hydro", plane: "river" },
-      seasonAmp: { from: "season", plane: "amplitude", scale: SEASON_AMP_SCALE },
+      seasonAmp: {
+        from: "season",
+        plane: "amplitude",
+        scale: SEASON_AMP_SCALE,
+      },
       seasonPhase: { from: "season", plane: "phase" },
       // The connected-components sea/lake mask — no single sidecar gives it.
       waterMask: { from: "prepare" },

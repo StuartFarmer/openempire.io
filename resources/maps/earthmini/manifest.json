@@ -1,6 +1,7 @@
 {
-  "categories": ["new", "world"],
+  "categories": ["featured", "new", "world"],
   "elevation": true,
+  "featured_rank": 6,
   "hydro": true,
   "id": "EarthMini",
   "layers": true,

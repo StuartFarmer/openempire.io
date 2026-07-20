@@ -1,6 +1,7 @@
 {
-  "categories": ["new", "fictional"],
+  "categories": ["featured", "new", "fictional"],
   "elevation": true,
+  "featured_rank": 1,
   "hydro": true,
   "id": "Verdantia",
   "layers": true,

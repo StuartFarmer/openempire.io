@@ -141,7 +141,7 @@ async function main(): Promise<void> {
 
   while (game.inSpawnPhase()) runTick();
 
-  const period = config.food().supplyRefreshTicks;
+  const period = 10; // legacy cadence bucketing (supply refresh is gone)
   const byPhase: number[][] = Array.from({ length: period }, () => []);
   const all: { tick: number; ms: number }[] = [];
   for (let i = 0; i < ticks; i++) {

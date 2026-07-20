@@ -16,84 +16,54 @@ const DEBOUNCE_MS = 300;
 /**
  * Knob groups for display. Any FoodConfig key not listed here lands in the
  * trailing "other" group automatically, so new knobs never go missing.
+ * Exported for the #shell's OpenFront-live tuning section, which renders the
+ * same knob set inside its climate panel.
  */
-const GROUPS: [labelKey: string, keys: (keyof FoodConfig)[]][] = [
-  [
-    "tuning_panel.group_consumption",
-    ["idleConsumptionMilli", "moveConsumptionMilli", "fightConsumptionMilli"],
-  ],
-  [
-    "tuning_panel.group_production",
-    [
-      "farmProductionMilli",
-      "fieldTileYieldMilli",
-      "landHarvestMilli",
-      "landHarvestExponent",
-    ],
-  ],
+export const TUNING_GROUPS: [labelKey: string, keys: (keyof FoodConfig)[]][] = [
   [
     "tuning_panel.group_farms",
     [
-      "farmGrowthRate",
-      "farmSenesceRate",
-      "farmSeedMilli",
-      "fieldClaimMilli",
-      "fieldPatchCostMilli",
-      "fieldPatchDriveCapMilli",
-      "wFieldWater",
-      "farmersPerFieldTile",
-      "tempBaseN",
-      "tempOptLoN",
-      "tempOptHiN",
-      "tempMaxN",
-      "waterWiltN",
-      "waterFullN",
-      "humidityWeight",
+      "fertilityBonus",
+      "fertilityTempOptN",
+      "fertilityTempWidthN",
+      "farmRadius",
+      "farmOutputMilli",
+    ],
+  ],
+  [
+    "tuning_panel.group_storage",
+    [
+      "granaryBase",
+      "granaryPerFarm",
+      "seedLadderBase",
+      "seedLadderGrowth",
+      "startingFood",
     ],
   ],
   [
     "tuning_panel.group_population",
     [
+      "idleConsumptionMilli",
+      "popGrowthRate",
+      "popDeclineRate",
+      "housingBase",
       "startPopulation",
-      "basePopulation",
-      "popPerDensity",
-      "populationPerSettlement",
-    ],
-  ],
-  [
-    "tuning_panel.group_demographics",
-    ["avgLifespanTicks", "baseBirthRate", "birthSurplusCap", "minFedForLife"],
-  ],
-  [
-    "tuning_panel.group_urban",
-    ["urbanGrowthRate", "wFood", "wWater", "wShore", "wLogi", "wCong"],
-  ],
-  [
-    "tuning_panel.group_storage",
-    [
-      "baseStorage",
-      "fieldTileStorageMilli",
-      "decayNumer",
-      "decayDenom",
-      "startingFood",
-      "defaultPopulationShare",
     ],
   ],
   [
     "tuning_panel.group_supply_war",
     [
-      "supplyRadius",
-      "supplyDecayPower",
-      "supplyRefreshTicks",
-      "warSupplyAttrition",
-      "maxWarShare",
+      "baseCombatMag",
+      "baseCombatSpeed",
+      "kSlope",
+      "kWet",
       "capturedPlotRazeChance",
-      "foodShedRadius",
-      "foodShedPower",
-      "wFoodShed",
     ],
   ],
-  ["tuning_panel.group_scale", ["tileKm"]],
+  [
+    "tuning_panel.group_urban",
+    ["popPerDensity", "urbanGrowthRate", "fieldGrowthRate"],
+  ],
 ];
 
 /**
@@ -128,9 +98,9 @@ export class TuningPanel extends LitElement implements Controller {
   }
 
   private groupedKeys(): [string, (keyof FoodConfig)[]][] {
-    const listed = new Set(GROUPS.flatMap(([, keys]) => keys));
+    const listed = new Set(TUNING_GROUPS.flatMap(([, keys]) => keys));
     const rest = FOOD_TUNABLE_KEYS.filter((k) => !listed.has(k));
-    const groups: [string, (keyof FoodConfig)[]][] = [...GROUPS];
+    const groups: [string, (keyof FoodConfig)[]][] = [...TUNING_GROUPS];
     if (rest.length > 0) groups.push(["tuning_panel.group_other", rest]);
     return groups;
   }

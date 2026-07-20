@@ -90,15 +90,10 @@ export class GameView implements GameMap {
   // Urban density field (add-urban-core-growth).
   private densityState!: Uint8Array;
   private densityChanged: TileRef[] = [];
-  // Tile combat-damage field (rework-settlement-ecology).
-  private damageState!: Uint8Array;
-  private damageChanged: TileRef[] = [];
-  // Field maturity plane (rework-settlement-ecology §1b).
-  private fieldState!: Uint8Array;
-  private fieldChanged: TileRef[] = [];
-  /** Tiles WE painted into the plot buffer as field ground (vs real plot
-   *  units, whose paint is owned by the unit add/remove events). */
-  private readonly fieldPainted = new Set<TileRef>();
+  /** Tiles WE painted as Farmland ground from packedFieldUpdates
+   *  (restore-organic-growth) — never real structure plots, so releases can
+   *  clear paint without erasing a standing unit's plot. */
+  private fieldPainted = new Set<TileRef>();
   /** Long-lived NameEntry map for the renderer's NamePass. */
   private _names = new Map<string, NameEntry>();
   /** Reusable scratch buffers for per-tick deltas. */
@@ -180,13 +175,6 @@ export class GameView implements GameMap {
     // Urban density field (add-urban-core-growth): per-tile built-up density
     // (0..255), applied from packedDensityUpdates and rendered by DensityPass.
     this.densityState = new Uint8Array(mapW * mapH);
-    // Tile combat damage (rework-settlement-ecology): per-tile battle-worn
-    // level (0..255), applied from packedDamageUpdates, rendered brown.
-    this.damageState = new Uint8Array(mapW * mapH);
-    // Field maturity (rework-settlement-ecology §1b): per-tile establishment
-    // (0..255), applied from packedFieldUpdates; claimed tiles are painted
-    // into the plot buffer as tilled Farmland ground.
-    this.fieldState = new Uint8Array(mapW * mapH);
 
     // Long-lived FrameData. Most fields are mutable references to long-lived
     // buffers (tileState, trailState, etc.); some (_changedTilesScratch,
@@ -323,36 +311,20 @@ export class GameView implements GameMap {
       }
     }
 
-    // Tile combat-damage deltas: same packing (byte 0 = fully healed).
-    this.damageChanged = [];
-    if (gu.packedDamageUpdates) {
-      const dmg = gu.packedDamageUpdates;
-      for (let i = 0; i < dmg.length; i++) {
-        const word = dmg[i];
-        const tile = word & 0xffffff;
-        this.damageState[tile] = word >>> 24;
-        this.damageChanged.push(tile);
-      }
-    }
-
-    // Field-maturity deltas (§1b): same packing (byte 0 = left the field).
-    // Claimed field tiles are painted with the Farmland plot pattern (the
-    // tilled-soil sprite the shader draws for every plot) — a field reads
-    // as brown tilled plots popping up one by one, not a color wash.
-    this.fieldChanged = [];
+    // Worked-field deltas (restore-organic-growth): word = `tile | (byte<<24)`,
+    // byte 255 = worked, 0 = released. Worked tiles are painted with the
+    // Farmland plot pattern (the tilled-soil sprite the shader draws for every
+    // plot) — a field reads as brown tilled plots popping up one by one. Only
+    // paint we added ourselves is ever cleared; real structure plots (tracked
+    // by the unit add/remove path below) are never touched.
     if (gu.packedFieldUpdates) {
-      const claimByte = Math.round(
-        (this.config().food().fieldClaimMilli * 255) / 1000,
-      );
       const fld = gu.packedFieldUpdates;
       for (let i = 0; i < fld.length; i++) {
         const word = fld[i];
         const tile = word & 0xffffff;
-        this.fieldState[tile] = word >>> 24;
-        this.fieldChanged.push(tile);
-        if (this.fieldState[tile] >= claimByte) {
+        if (word >>> 24 !== 0) {
           if (this.plotCache.plotStateAt(tile) === 0) {
-            this.plotCache.addPlot(tile, "Farmland");
+            this.plotCache.addPlot(tile, UnitType.Farmland);
             this.fieldPainted.add(tile);
           }
         } else if (this.fieldPainted.has(tile)) {
@@ -989,26 +961,6 @@ export class GameView implements GameMap {
   /** Tiles whose density changed this tick (for delta uploads). */
   recentlyUpdatedDensityTiles(): TileRef[] {
     return this.densityChanged;
-  }
-
-  /** Tile combat-damage buffer (0..255 per tile) — rework-settlement-ecology. */
-  damageStateBuffer(): Uint8Array {
-    return this.damageState;
-  }
-
-  /** Tiles whose combat damage changed this tick (for delta uploads). */
-  recentlyUpdatedDamageTiles(): TileRef[] {
-    return this.damageChanged;
-  }
-
-  /** Field-maturity buffer (0..255 per tile) — rework-settlement-ecology §1b. */
-  fieldStateBuffer(): Uint8Array {
-    return this.fieldState;
-  }
-
-  /** Tiles whose field maturity byte changed this tick (for delta uploads). */
-  recentlyUpdatedFieldTiles(): TileRef[] {
-    return this.fieldChanged;
   }
 
   recentlyUpdatedTerrainTiles(): TileRef[] {

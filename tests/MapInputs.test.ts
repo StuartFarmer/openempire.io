@@ -1,4 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { terrain } from "../src/client/lab/systems/terrain/system";
+import { buildWaterMask } from "../src/client/lab/systems/terrain/waterMask";
+import {
+  loadMapInputs,
+  SEASON_AMP_SCALE,
+  TEMP_SPAN_C,
+  type MapInputBundle,
+} from "../src/client/webgpu/MapInputs";
 import { encodeElevation } from "../src/core/game/ElevationMap";
 import { HYDRO_PLANE_NAMES } from "../src/core/game/HydroMap";
 import { LAYER_NAMES } from "../src/core/game/MapLayers";
@@ -6,14 +14,6 @@ import {
   SEASON_AMPLITUDE_MAX_C,
   SEASON_PLANE_NAMES,
 } from "../src/core/game/SeasonMap";
-import { terrain } from "../src/client/lab/systems/terrain/system";
-import {
-  loadMapInputs,
-  SEASON_AMP_SCALE,
-  TEMP_SPAN_C,
-  type MapInputBundle,
-} from "../src/client/webgpu/MapInputs";
-import { buildWaterMask } from "../src/client/lab/systems/terrain/waterMask";
 
 // The declared-input loader (phase 3) must reproduce the shell's hand-written
 // decode of every sidecar plane byte-for-byte, or the terrain system would
@@ -58,10 +58,7 @@ function makeBundle(withSeason: boolean): MapInputBundle {
 }
 
 /** The shell's hand-decode (GameShellPage.deriveTerrain), inlined. */
-function handDecodePlane(
-  bytes: Uint8Array,
-  planeIndex: number,
-): Float32Array {
+function handDecodePlane(bytes: Uint8Array, planeIndex: number): Float32Array {
   const out = new Float32Array(SIZE);
   for (let i = 0; i < SIZE; i += 1) out[i] = bytes[planeIndex * SIZE + i] / 255;
   return out;

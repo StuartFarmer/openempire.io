@@ -1,6 +1,6 @@
 {
   "name": "openfront-client",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "main": "electron/main.mjs",
   "exports": {
     ".": "./src/client/board/index.ts",

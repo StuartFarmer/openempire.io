@@ -12,7 +12,7 @@ import { Controller } from "../Controller";
 import {
   AlternateViewEvent,
   ToggleCoordinateGridEvent,
-  ToggleSupplyOverlayEvent,
+  ToggleFertilityOverlayEvent,
 } from "../InputHandler";
 import { MapRenderer } from "../render/gl";
 
@@ -29,9 +29,9 @@ export class ViewModeController implements Controller {
     this.eventBus.on(ToggleCoordinateGridEvent, (e) =>
       this.view.setGridView(e.enabled),
     );
-    // Supply-lines heatmap (layered maps; toggled from the BuildBar).
-    this.eventBus.on(ToggleSupplyOverlayEvent, (e) =>
-      this.view.setSupplyOverlay(e.enabled),
+    // Baked soil tints (fertility/suitability; cycled from the BuildBar).
+    this.eventBus.on(ToggleFertilityOverlayEvent, (e) =>
+      this.view.setSoilOverlay(e.mode),
     );
   }
 }

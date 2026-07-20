@@ -137,7 +137,7 @@ export function createGame(data: TestMapData): Game {
   );
 
   const gameConfig: GameConfig = {
-    gameMap: GameMapType.World,
+    gameMap: GameMapType.Verdantia,
     gameMode: GameMode.FFA,
     gameType: GameType.Singleplayer,
     difficulty: Difficulty.Medium,

@@ -12,9 +12,10 @@ import {
   TRAIL_EFFECT_TYPES,
   type TrailEffectAttributes,
 } from "../core/CosmeticSchemas";
+import { bakeFertility } from "../core/game/FertilityMap";
 import { PlayerType } from "../core/game/Game";
+import { bakeSuitability } from "../core/game/SuitabilityMap";
 import { decodePatternData } from "../core/PatternDecoder";
-import { SupplyOverlayComputer } from "./render/frame/derive/SupplyOverlay";
 import { uploadFrameData } from "./render/frame/Upload";
 // Type-only: a value import would pull GPURenderer and its `.glsl?raw` shader
 // imports into any non-Vite consumer (e.g. the Node perf harness).
@@ -143,8 +144,6 @@ export class WebGLFrameBuilder {
   private localPlayerSmallID = 0;
   // Scratch buffer for terrain-delta uploads (parallel to the refs list).
   private terrainDeltaBytes: Uint8Array = new Uint8Array(0);
-  // Supply-lines heatmap recompute (layered maps, only while toggled on).
-  private readonly supplyOverlay = new SupplyOverlayComputer();
 
   constructor(private readonly view: MapRenderer) {
     this.palette = new Float32Array(PALETTE_SIZE * 2 * 4);
@@ -198,8 +197,7 @@ export class WebGLFrameBuilder {
     this.syncSpawnOverlay(gameView);
     this.syncTerrainDeltas(gameView);
     this.syncDensityField(gameView);
-    this.syncDamageField(gameView);
-    this.syncSupplyOverlay(gameView);
+    this.syncFertilityOverlay(gameView);
     this.resolveDeadUnitExplosions(gameView);
     uploadFrameData(this.view, gameView.frameData());
   }
@@ -223,33 +221,26 @@ export class WebGLFrameBuilder {
     }
   }
 
-  private damageUploaded = false;
-
   /**
-   * Push the tile combat-damage field (rework-settlement-ecology): full
-   * upload on the first tick, then per-tile deltas as scars accrue and heal.
+   * Bake + upload the active soil-overlay plane (fertility per
+   * simplify-food-economy; suitability per restore-organic-growth): the sim's
+   * own bake over the map layers, re-encoded so the shader can tell water
+   * (0, transparent) from genuinely barren land (clamped to 1). Each plane is
+   * static for the whole game, so it's computed lazily on the first tick its
+   * mode is cycled on and never again.
    */
-  private syncDamageField(gameView: GameView): void {
-    if (!this.damageUploaded) {
-      this.view.updateDamageField(gameView.damageStateBuffer());
-      this.damageUploaded = true;
-      return;
+  private syncFertilityOverlay(gameView: GameView): void {
+    const mode = this.view.soilOverlayMode();
+    if (mode === "off" || this.view.soilOverlayHasField(mode)) return;
+    const fertility = bakeFertility(gameView, gameView.config().food());
+    const plane =
+      mode === "fertility" ? fertility : bakeSuitability(gameView, fertility);
+    for (let ref = 0; ref < plane.length; ref++) {
+      if (gameView.isLand(ref) && !gameView.isImpassable(ref)) {
+        plane[ref] = Math.max(1, plane[ref]);
+      }
     }
-    const changed = gameView.recentlyUpdatedDamageTiles();
-    if (changed.length > 0) {
-      this.view.applyDamageDelta(changed, gameView.damageStateBuffer());
-    }
-  }
-
-  /**
-   * Recompute + push the supply heatmap while the overlay is toggled on.
-   * Costs one owned-land BFS per tick (see SupplyOverlayComputer), so it
-   * runs only while the toggle is active.
-   */
-  private syncSupplyOverlay(gameView: GameView): void {
-    if (!this.view.supplyOverlayOn()) return;
-    const quality = this.supplyOverlay.compute(gameView);
-    if (quality !== null) this.view.updateSupplyOverlay(quality);
+    this.view.updateSoilOverlay(plane, mode);
   }
 
   /**

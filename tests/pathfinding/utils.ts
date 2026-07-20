@@ -263,7 +263,7 @@ export async function setupFromPath(
 
   const config = new TestConfig(
     {
-      gameMap: GameMapType.World,
+      gameMap: GameMapType.Verdantia,
       gameMode: GameMode.FFA,
       gameType: GameType.Singleplayer,
       difficulty: Difficulty.Medium,

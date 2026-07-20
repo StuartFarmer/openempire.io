@@ -15,17 +15,19 @@ describe("FetchGameMapLoader", () => {
     const loader = new FetchGameMapLoader(
       (path) => `/_assets/maps/${path}.hashed`,
     );
-    const mapData = loader.getMapData(GameMapType.World);
+    const mapData = loader.getMapData(GameMapType.Verdantia);
 
-    expect(mapData.webpPath).toBe("/_assets/maps/world/thumbnail.webp.hashed");
+    expect(mapData.webpPath).toBe(
+      "/_assets/maps/verdantia/thumbnail.webp.hashed",
+    );
     expect(mapData.terrainColorsPath).toBe(
-      "/_assets/maps/world/terrain-colors.png.hashed",
+      "/_assets/maps/verdantia/terrain-colors.png.hashed",
     );
 
     await mapData.manifest();
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/_assets/maps/world/manifest.json.hashed",
+      "/_assets/maps/verdantia/manifest.json.hashed",
     );
   });
 });

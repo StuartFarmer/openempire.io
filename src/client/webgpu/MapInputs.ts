@@ -1,5 +1,8 @@
 import { decodeElevation } from "../../core/game/ElevationMap";
-import { hydroPlaneOffset, type HydroPlaneName } from "../../core/game/HydroMap";
+import {
+  hydroPlaneOffset,
+  type HydroPlaneName,
+} from "../../core/game/HydroMap";
 import { layerPlaneOffset, type LayerName } from "../../core/game/MapLayers";
 import {
   SEASON_AMPLITUDE_MAX_C,

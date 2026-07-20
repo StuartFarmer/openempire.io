@@ -8,6 +8,7 @@ import { ATTACK_INDEX_SENT } from "../StatsSchemas";
 import { simpleHash } from "../Util";
 import { AllianceImpl } from "./AllianceImpl";
 import { AllianceRequestImpl } from "./AllianceRequestImpl";
+import { bakeFertility } from "./FertilityMap";
 import {
   Alliance,
   AllianceRequest,
@@ -48,6 +49,7 @@ import { RailNetwork } from "./RailNetwork";
 import { createRailNetwork } from "./RailNetworkImpl";
 import { Stats } from "./Stats";
 import { StatsImpl } from "./StatsImpl";
+import { bakeSuitability } from "./SuitabilityMap";
 import { assignTeams } from "./TeamAssignment";
 import { TerraNulliusImpl } from "./TerraNulliusImpl";
 import { UnitGrid, UnitPredicate } from "./UnitGrid";
@@ -99,13 +101,8 @@ export class GameImpl implements Game {
   // Urban density deltas (add-urban-core-growth): packed `tile | (byte<<24)`,
   // byte = round(density/1000·255). Drained to packedDensityUpdates each tick.
   private densityUpdatePairs: number[] = [];
-  // Tile combat-damage deltas (rework-settlement-ecology): same packing,
-  // byte = round(damage/1000·255). Drained to packedDamageUpdates each tick.
-  private damageUpdatePairs: number[] = [];
-  // Field maturity deltas (rework-settlement-ecology §1b): same packing,
-  // byte = round(maturity/1000·255), pushed by PlayerImpl.setFarmMaturity
-  // only when the BYTE changes (ripening moves ~1 byte/tick — the same
-  // upload-flood guard as damage). Drained to packedFieldUpdates each tick.
+  // Worked-field deltas (restore-organic-growth): packed `tile | (byte<<24)`,
+  // byte 255 = worked, 0 = released. Drained to packedFieldUpdates each tick.
   public fieldUpdatePairs: number[] = [];
   /** [smallID, tilesOwned, gold, troops] quads — see PlayerImpl.toUpdate. */
   private playerStatsQuads: number[] = [];
@@ -153,6 +150,12 @@ export class GameImpl implements Game {
       _config.disableNavMesh(),
     );
     this._sharedWaterCache = new SharedWaterCache(this);
+
+    // Baked fertility (simplify-food-economy) and its city twin,
+    // suitability (restore-organic-growth): one u8 each per tile, computed
+    // once here; every runtime read is a plain lookup.
+    this._fertility = bakeFertility(this._map, _config.food());
+    this._suitability = bakeSuitability(this._map, this._fertility);
 
     if (_config.gameConfig().gameMode === GameMode.Team) {
       this.populateTeams();
@@ -487,8 +490,6 @@ export class GameImpl implements Game {
     for (const tile of waterChangedTiles) {
       this.recordTileUpdate(tile);
     }
-    this.healTileDamage();
-    this.decayTileTenure();
     this._ticks++;
     return this.updates;
   }
@@ -519,14 +520,6 @@ export class GameImpl implements Game {
 
   drainPackedDensityUpdates(): Uint32Array | null {
     const pairs = this.densityUpdatePairs;
-    if (pairs.length === 0) return null;
-    const packed = new Uint32Array(pairs);
-    pairs.length = 0;
-    return packed;
-  }
-
-  drainPackedDamageUpdates(): Uint32Array | null {
-    const pairs = this.damageUpdatePairs;
     if (pairs.length === 0) return null;
     const packed = new Uint32Array(pairs);
     pairs.length = 0;
@@ -739,107 +732,19 @@ export class GameImpl implements Game {
     this._map.forEachNeighborWithDiag(tile, callback);
   }
 
-  // Tile combat damage (rework-settlement-ecology): sparse — only tiles that
-  // have seen combat are tracked; healed tiles are dropped. Map iteration is
-  // insertion-ordered and inserts are deterministic, so healing is too.
-  private _tileDamage = new Map<TileRef, number>();
+  // Baked fertility + suitability planes — set once in the constructor;
+  // indexable by TileRef (refs are y·width + x).
+  private _fertility!: Uint8Array;
+  private _suitability!: Uint8Array;
 
-  tileDamage(tile: TileRef): number {
-    return this._tileDamage.get(tile) ?? 0;
+  /** Baked tile fertility byte (0..255). Water/impassable tiles are 0. */
+  fertility(tile: TileRef): number {
+    return this._fertility[tile];
   }
 
-  addTileDamage(tile: TileRef, milli: number): void {
-    if (milli <= 0) return;
-    const next = Math.min(1000, this.tileDamage(tile) + milli);
-    this._tileDamage.set(tile, next);
-    this.damageUpdatePairs.push(tile | (Math.round((next * 255) / 1000) << 24));
-  }
-
-  tileDamageEntries(): IterableIterator<[TileRef, number]> {
-    return this._tileDamage.entries();
-  }
-
-  /** Heal every damaged tile by the per-tick rate; fully healed tiles drop
-   *  out of the sparse map (and only then can tenure/growth resume). */
-  private healTileDamage(): void {
-    if (this._tileDamage.size === 0) return;
-    const heal = this.config().food().tileDamageHealMilli;
-    if (heal <= 0) return;
-    const healed: TileRef[] = [];
-    for (const [tile, dmg] of this._tileDamage) {
-      const next = dmg - heal;
-      if (next <= 0) {
-        healed.push(tile);
-      } else {
-        this._tileDamage.set(tile, next);
-        // Emit a render delta only when the QUANTIZED byte steps (8-wide
-        // bands): healing moves ~1 byte/tick, and re-uploading every damaged
-        // tile every tick floods the render channel (measured 1.8k one-pixel
-        // GPU uploads/tick — the 3fps bug). An 8-step fade is invisible.
-        const prevQ = Math.round((dmg * 255) / 1000) & ~7;
-        const nextQ = Math.round((next * 255) / 1000) & ~7;
-        if (nextQ !== prevQ) {
-          this.damageUpdatePairs.push(tile | (nextQ << 24));
-        }
-      }
-    }
-    for (const tile of healed) {
-      this._tileDamage.delete(tile);
-      this.damageUpdatePairs.push(tile); // byte 0 — fully healed, tint gone
-    }
-  }
-
-  // Tile stability (rework-settlement-ecology): sparse demand-gated tenure.
-  // Accrual happens per player in TileTenure.tenureTick; this holds the
-  // ledger, the vacancy decay, and the ownership-flip hard reset.
-  private _tileTenure = new Map<TileRef, number>();
-
-  tileTenure(tile: TileRef): number {
-    return this._tileTenure.get(tile) ?? 0;
-  }
-
-  setTileTenure(tile: TileRef, milli: number): void {
-    if (milli <= 0) {
-      this._tileTenure.delete(tile);
-    } else {
-      this._tileTenure.set(tile, milli);
-    }
-  }
-
-  tileTenureEntries(): IterableIterator<[TileRef, number]> {
-    return this._tileTenure.entries();
-  }
-
-  /**
-   * Vacancy decay, run on the supply cadence: a tenured tile that is no
-   * longer occupied (no urban density, no Farmland) loses tenure slowly —
-   * depopulation is a setback, not a crater. Combat damage pauses the clock
-   * entirely (no accrual, no decay).
-   */
-  private decayTileTenure(): void {
-    if (this._tileTenure.size === 0) return;
-    const f = this.config().food();
-    const period = Math.max(1, f.supplyRefreshTicks);
-    if (this._ticks % period !== 0) return;
-    const decay = f.tenureDecayMilli * period;
-    if (decay <= 0) return;
-    const dead: TileRef[] = [];
-    for (const [tile, v] of this._tileTenure) {
-      if (this.tileDamage(tile) > 0) continue; // battlefield: clock paused
-      const owner = this.owner(tile);
-      const occupied =
-        owner.isPlayer() &&
-        ((owner as PlayerImpl).density(tile) > 0 ||
-          this.plotAt(tile)?.type() === UnitType.Farmland);
-      if (occupied) continue;
-      const next = v - decay;
-      if (next <= 0) {
-        dead.push(tile);
-      } else {
-        this._tileTenure.set(tile, next);
-      }
-    }
-    for (const t of dead) this._tileTenure.delete(t);
+  /** Baked city-suitability byte (0..255). Water/impassable tiles are 0. */
+  suitability(tile: TileRef): number {
+    return this._suitability[tile];
   }
 
   conquer(owner: PlayerImpl, tile: TileRef): void {
@@ -850,26 +755,16 @@ export class GameImpl implements Game {
       throw Error(`cannot conquer impassable terrain`);
     }
     const previousOwner = this.owner(tile) as TerraNullius | PlayerImpl;
-    // Fertility accounting mirrors _tiles: incremental on transfer, never a
-    // full-map scan.
-    const crop = this._map.layer("crop", tile);
     if (previousOwner.isPlayer()) {
       previousOwner._lastTileChange = this._ticks;
       previousOwner._tiles.delete(tile);
       previousOwner._borderTiles.delete(tile);
-      previousOwner._fertilitySum -= crop;
-      // War razing (add-urban-core-growth): a captured tile loses its urban
-      // density and any farm maturity — conquest yields scorched land the
-      // captor must regrow / re-cultivate from scratch.
+      // The captured tile leaves the loser's city and worked fields.
       previousOwner.setDensity(tile, 0);
-      previousOwner.setFarmMaturity(tile, 0);
+      previousOwner.removeFieldTile(tile);
     }
-    // Stability hard-resets on an ownership flip (rework-settlement-ecology):
-    // conquest yields raw, tenure-zero land the captor must re-stabilize.
-    this._tileTenure.delete(tile);
     this._map.setOwnerID(tile, owner.smallID());
     owner._tiles.add(tile);
-    owner._fertilitySum += crop;
     owner._lastTileChange = this._ticks;
     this.updateBorders(tile);
     this._map.setFallout(tile, false);
@@ -888,10 +783,8 @@ export class GameImpl implements Game {
     previousOwner._lastTileChange = this._ticks;
     previousOwner._tiles.delete(tile);
     previousOwner._borderTiles.delete(tile);
-    previousOwner._fertilitySum -= this._map.layer("crop", tile);
     previousOwner.setDensity(tile, 0);
-    previousOwner.setFarmMaturity(tile, 0);
-    this._tileTenure.delete(tile);
+    previousOwner.removeFieldTile(tile);
 
     this._map.setOwnerID(tile, 0);
     this.updateBorders(tile);

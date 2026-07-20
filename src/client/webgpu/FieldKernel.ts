@@ -617,6 +617,35 @@ export class FieldKernel {
     this.device.queue.writeBuffer(target, 0, data.buffer as ArrayBuffer);
   }
 
+  /**
+   * Upload only elements [firstElem, lastElem] of a Uint32 buffer — a partial
+   * update so a persistent conduit doesn't re-DMA the whole buffer every tick.
+   * The GPU buffer retains everything outside the range.
+   */
+  writeBufferU32Range(
+    name: string,
+    data: Uint32Array,
+    firstElem: number,
+    lastElem: number,
+  ): void {
+    if (lastElem < firstElem) return;
+    const spec = this.bufferSpecs.get(name);
+    if (!spec?.clearable) {
+      throw new Error(`Buffer "${name}" is not writable (set clearable)`);
+    }
+    const target = spec.pingPong
+      ? this.buffersOf(name)[this.polarity.get(name) ?? 0]
+      : this.buffersOf(name)[0];
+    // queue.writeBuffer(buffer, byteOffset, data, dataElemOffset, elemCount).
+    this.device.queue.writeBuffer(
+      target,
+      firstElem * 4,
+      data,
+      firstElem,
+      lastElem - firstElem + 1,
+    );
+  }
+
   /** Read a buffer back to the CPU (ping-pong: the current read facet). */
   async readBuffer(name: string): Promise<ArrayBuffer> {
     const spec = this.bufferSpecs.get(name);

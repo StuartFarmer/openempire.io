@@ -3,6 +3,7 @@ import { state } from "lit/decorators.js";
 import { GameMapType } from "../../core/game/Game";
 import type { MapData } from "../../core/game/GameMapLoader";
 import { LAB_SYSTEMS } from "../lab/systems";
+import { CameraRenderer, type CameraState } from "../shell/CameraRenderer";
 import { terrainMapFileLoader } from "../TerrainMapFileLoader";
 import {
   compileFieldSystem,
@@ -13,7 +14,6 @@ import {
 } from "../webgpu/FieldDynamics";
 import { FieldKernel } from "../webgpu/FieldKernel";
 import { uploadMapLayers } from "../webgpu/MapLayerUpload";
-import { CameraRenderer, type CameraState } from "../shell/CameraRenderer";
 
 // Shared machinery for the field viewer (unify-field-viewer / codify-game-
 // systems): a LitElement base that owns the device + a pan/zoom CameraRenderer,
@@ -30,6 +30,9 @@ export const MAX_TICKS_PER_FRAME = 8;
 const TURBO_TARGET_MS = 25;
 // Camera zoom clamp (framebuffer px per tile).
 const MAX_SCALE = 32;
+// Movement (framebuffer px, squared) beyond which a press is a drag/pan, not a
+// click — the WebGL model: drag pans, a click that doesn't move acts.
+const CLICK_DRAG_THRESHOLD_SQ = 6 * 6;
 
 export abstract class FieldViewerBase extends LitElement {
   @state() protected systemId = LAB_SYSTEMS[0]?.id ?? "";
@@ -66,6 +69,11 @@ export abstract class FieldViewerBase extends LitElement {
   private dragging = false;
   private painting = false;
   private lastPointer = { x: 0, y: 0 };
+  /** Press-point (framebuffer) + pressed tile + whether it became a drag —
+   * used to tell a click (act) from a drag (pan). */
+  private downPoint = { x: 0, y: 0 };
+  private downTile = { x: 0, y: 0 };
+  private moved = false;
 
   private raf = 0;
   private lastTime = 0;
@@ -202,7 +210,9 @@ export abstract class FieldViewerBase extends LitElement {
   /** Compile the current system, (re)create the headless kernel on the shared
    * device, upload map layers, reconcile the declared view/brush/params, init
    * state, and hand off to the subclass's onSystemMounted. */
-  protected async loadWorld(preserved?: Map<string, ArrayBuffer>): Promise<void> {
+  protected async loadWorld(
+    preserved?: Map<string, ArrayBuffer>,
+  ): Promise<void> {
     const system = this.currentSystem();
     const canvas = this.querySelector<HTMLCanvasElement>(`#${this.canvasId()}`);
     if (!system || !canvas) return;
@@ -252,7 +262,10 @@ export abstract class FieldViewerBase extends LitElement {
         this.scalarReadout = {};
         return;
       }
-      kernel.writeUniform("P", compiled.writeParams(this.paramValues, this.seed));
+      kernel.writeUniform(
+        "P",
+        compiled.writeParams(this.paramValues, this.seed),
+      );
       this.playerIntents = [];
       this.aiClock = 0;
       this.runAI(); // seed the system's bots (no-op without an `ai` hook)
@@ -368,37 +381,56 @@ export abstract class FieldViewerBase extends LitElement {
     const r = this.renderer;
     if (!r || r.mapWidth === 0) return;
     const minScale = r.fitScale() * 0.5;
-    this.camera.scale = Math.min(MAX_SCALE, Math.max(minScale, this.camera.scale));
+    this.camera.scale = Math.min(
+      MAX_SCALE,
+      Math.max(minScale, this.camera.scale),
+    );
     this.camera.cx = Math.min(r.mapWidth, Math.max(0, this.camera.cx));
     this.camera.cy = Math.min(r.mapHeight, Math.max(0, this.camera.cy));
   }
 
-  /** Whether the pointer is currently painting (brush tool available + on). */
-  private brushActive(): boolean {
-    return this.tool === "brush" && this.canBrush();
+  /** Systems that PAINT tiles continuously (declared brushes) — these get the
+   * Pan/Brush tool toggle, and dragging in the brush tool paints. */
+  protected hasBrushPainting(): boolean {
+    return (this.compiled?.brushNames.length ?? 0) > 0;
   }
 
-  /** Whether the mounted system offers a tile interaction (brush or onTile). */
+  /** Systems that act on a DISCRETE click (spawn/attack/build/command). These
+   * need no tool: dragging pans, a click (no drag) fires onTileGesture.
+   * Subclasses override (the shell adds OpenFront-live). */
+  protected hasClickAction(): boolean {
+    return !!this.compiled?.system.input?.onTile;
+  }
+
+  /** Back-compat: "the map has a tile interaction of some kind." */
   protected canBrush(): boolean {
-    return (
-      (this.compiled?.brushNames.length ?? 0) > 0 ||
-      !!this.compiled?.system.input?.onTile
-    );
+    return this.hasBrushPainting() || this.hasClickAction();
+  }
+
+  /** Painting mode: a brush-painting system with the brush tool selected. */
+  private paintTool(): boolean {
+    return this.hasBrushPainting() && this.tool === "brush";
   }
 
   protected onPointerDown = (event: PointerEvent): void => {
     (event.currentTarget as HTMLCanvasElement).setPointerCapture(
       event.pointerId,
     );
-    // The tool decides: brush drags to stamp/command, pan drags the camera.
-    if (this.brushActive()) {
+    this.lastPointer = this.framebufferPoint(event);
+    // Brush-painting systems (in the brush tool) paint on drag.
+    if (this.paintTool()) {
+      this.onStrokeStart();
       this.painting = true;
       const { x, y } = this.cursorToMap(event);
       this.onTileGesture(Math.floor(x), Math.floor(y), event);
-    } else {
-      this.dragging = true;
-      this.lastPointer = this.framebufferPoint(event);
+      return;
     }
+    // Otherwise: drag always pans; a click that doesn't drag acts (WebGL model).
+    this.dragging = true;
+    this.moved = false;
+    this.downPoint = this.lastPointer;
+    const { x, y } = this.cursorToMap(event);
+    this.downTile = { x: Math.floor(x), y: Math.floor(y) };
   };
 
   protected onPointerMove = (event: PointerEvent): void => {
@@ -410,12 +442,31 @@ export abstract class FieldViewerBase extends LitElement {
     }
     if (!this.dragging) return;
     const point = this.framebufferPoint(event);
+    if (!this.moved) {
+      const dx = point.x - this.downPoint.x;
+      const dy = point.y - this.downPoint.y;
+      if (dx * dx + dy * dy > CLICK_DRAG_THRESHOLD_SQ) this.moved = true;
+    }
     this.camera.cx -= (point.x - this.lastPointer.x) / this.camera.scale;
     this.camera.cy -= (point.y - this.lastPointer.y) / this.camera.scale;
     this.lastPointer = point;
   };
 
-  protected onPointerUp = (): void => {
+  /** Called when a brush/act stroke begins (pointer down in brush tool).
+   * Subclasses override to reset per-stroke state. */
+  protected onStrokeStart(): void {}
+
+  protected onPointerUp = (event: PointerEvent): void => {
+    // A click that didn't turn into a drag → act on the pressed tile.
+    if (
+      this.dragging &&
+      !this.moved &&
+      !this.painting &&
+      this.hasClickAction()
+    ) {
+      this.onStrokeStart();
+      this.onTileGesture(this.downTile.x, this.downTile.y, event);
+    }
     this.dragging = false;
     this.painting = false;
   };
@@ -430,8 +481,10 @@ export abstract class FieldViewerBase extends LitElement {
     if (!r) return;
     const point = this.framebufferPoint(event);
     const canvas = event.currentTarget as HTMLCanvasElement;
-    const mapX = this.camera.cx + (point.x - canvas.width / 2) / this.camera.scale;
-    const mapY = this.camera.cy + (point.y - canvas.height / 2) / this.camera.scale;
+    const mapX =
+      this.camera.cx + (point.x - canvas.width / 2) / this.camera.scale;
+    const mapY =
+      this.camera.cy + (point.y - canvas.height / 2) / this.camera.scale;
     const factor = Math.exp(-event.deltaY * 0.0015);
     const minScale = r.fitScale() * 0.5;
     const scale = Math.min(
@@ -654,5 +707,4 @@ export abstract class FieldViewerBase extends LitElement {
     this.flushPlayers();
     return consumed !== false;
   }
-
 }

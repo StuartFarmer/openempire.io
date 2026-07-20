@@ -244,29 +244,44 @@ inputs and AI:
 
 ```ts
 export const raiders = defineFieldSystem({
-  id: "raiders", name: "Raiders",
+  id: "raiders",
+  name: "Raiders",
   description: "Click a tile to send troops.",
-  kind: "game",                 // "study" | "game" — viewer chrome hint (JSON-safe)
+  kind: "game", // "study" | "game" — viewer chrome hint (JSON-safe)
   defaultMap: "EarthXL",
   defaultView: "territory",
 
-  players: playerIntent(5),     // shared standard intent fields (alive/attacking/target…)
+  players: playerIntent(5), // shared standard intent fields (alive/attacking/target…)
 
   // ── the only non-JSON-safe parts: two TS closures ────────────────────
-  input: {                      // pointer/key → brush stamp or player intent
+  input: {
+    // pointer/key → brush stamp or player intent
     cursor: "crosshair",
     onTile(ctx, x, y) {
       ctx.setPlayer(ctx.localPlayer, { attacking: 1, targetX: x, targetY: y });
-      return true;              // consumed → the camera does not pan
+      return true; // consumed → the camera does not pan
     },
   },
-  ai: {                         // non-human players (writeBots is gone)
+  ai: {
+    // non-human players (writeBots is gone)
     cadenceTicks: 40,
     decide: (ctx) => nearestEnemyAI(ctx, { commit: 0.6 }),
   },
 
-  params: { /* … */ }, views: { /* … */ }, brushes: { /* … */ },
-  modules: import.meta.glob("./**/*.wesl", { query: "?raw", import: "default", eager: true }),
+  params: {
+    /* … */
+  },
+  views: {
+    /* … */
+  },
+  brushes: {
+    /* … */
+  },
+  modules: import.meta.glob("./**/*.wesl", {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  }),
 });
 ```
 
@@ -302,18 +317,18 @@ each caller passes its own params. (Noise/`fbm`/`hash01` remain in
 in `src/client/lab/shared/index.ts`: `PLAYER_INTENT_FIELDS` / `playerIntent(n)`
 and AI helpers like `nearestEnemyAI`.
 
-**What stays out of `shared::`:** a system's *specific* mechanics — its combat
+**What stays out of `shared::`:** a system's _specific_ mechanics — its combat
 resolution, defense/conquest rules, and the data encodings those use — live in
 that system's own `lib/` (empire and territory each keep their `lib/combat.wesl`,
 with different defense formulas and deterministic vs stochastic conquest). Two
 systems having similar mechanics is not a reason to promote them; `shared::` is
-for genuinely generic math, not shared *rules*.
+for genuinely generic math, not shared _rules_.
 
 ### Terrain is the base; a game is a ruleset (add-games-on-terrain)
 
 The `#shell` runs **one terrain, many games**. The terrain derivation
 (elevation → climate → drainage → biome/water) is the always-on world
-substrate; a *game* is a ruleset — its own layers/players/ai/input — whose
+substrate; a _game_ is a ruleset — its own layers/players/ai/input — whose
 per-tick layers READ the terrain fields. `composeTerrain(game)` merges the
 terrain derivation into a game; the viewer mounts that.
 

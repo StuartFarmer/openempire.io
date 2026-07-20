@@ -1,6 +1,7 @@
 {
-  "categories": ["new", "fictional"],
+  "categories": ["featured", "new", "fictional"],
   "elevation": true,
+  "featured_rank": 4,
   "hydro": true,
   "id": "Pangea002",
   "layers": true,

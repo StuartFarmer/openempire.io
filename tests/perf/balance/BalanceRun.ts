@@ -370,7 +370,6 @@ async function runOne(
   }
   structures.UrbanAreaTotal = Math.round(urbanAreaTotal);
   structures.UrbanAreaMax = Math.round(urbanAreaMax);
-  structures.MaxCityKm2 = Math.round(game.config().urbanAreaKm2(urbanAreaMax));
   structures.Cities = cities;
   // Diagnostic: is the top nation's "sprawl" grown tiles or just settlement
   // seeds? Settlements each seed one tile; grown = urbanArea − settlements.

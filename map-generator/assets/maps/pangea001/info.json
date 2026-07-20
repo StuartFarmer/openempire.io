@@ -2,7 +2,7 @@
   "id": "Pangea001",
   "name": "Pangea I",
   "translation_key": "map.pangea001",
-  "categories": ["new", "fictional"],
+  "categories": ["featured", "new", "fictional"],
   "multiplayer_frequency": 0,
   "nations": [],
   "world_engine": {
@@ -23,5 +23,6 @@
     "lakeElevationRange": 0.03,
     "riverWeakThreshold": 0.28,
     "riverStrongThreshold": 0.48
-  }
+  },
+  "featured_rank": 3
 }

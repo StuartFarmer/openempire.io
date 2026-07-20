@@ -210,7 +210,7 @@ describe("Config.trainGold trade stop penalty", () => {
 
   beforeEach(() => {
     const gameConfig: GameConfig = {
-      gameMap: GameMapType.World,
+      gameMap: GameMapType.Verdantia,
       gameMode: GameMode.FFA,
       gameType: GameType.Singleplayer,
       difficulty: Difficulty.Medium,

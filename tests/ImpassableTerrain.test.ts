@@ -79,7 +79,7 @@ async function setupImpassableGame(humans: PlayerInfo[] = []): Promise<Game> {
   );
 
   const gameConfig: GameConfig = {
-    gameMap: GameMapType.World,
+    gameMap: GameMapType.Verdantia,
     gameMode: GameMode.FFA,
     gameType: GameType.Singleplayer,
     difficulty: Difficulty.Medium,

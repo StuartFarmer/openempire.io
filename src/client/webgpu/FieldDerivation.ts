@@ -42,7 +42,10 @@ export function bindingsModule(
   binds: readonly string[],
   bufferTypes: Record<string, "f32" | "u32">,
   typeImports: string,
-  uniform: { name: string; wgslType: string } = { name: "P", wgslType: "Params" },
+  uniform: { name: string; wgslType: string } = {
+    name: "P",
+    wgslType: "Params",
+  },
 ): string {
   const decls = binds.map((ref, index) => {
     const binding = index + 1; // 0 is GRID (package::kernel)

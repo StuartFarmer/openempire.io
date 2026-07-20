@@ -56,14 +56,13 @@ export class EconPanel extends LitElement implements Controller {
   }
 
   /**
-   * Storage capacity for the chart scale: the camp stock cap, stretched to
-   * whatever the granaries actually hold — district capacities are grown
-   * from tile tenure sim-side (rework-settlement-ecology 4.3) and are not
+   * Storage capacity for the chart scale: the base granary cap, stretched
+   * to whatever the player actually holds — the per-farm cap bonus is not
    * mirrored to the client, so the live stock is the best available bound.
    */
   private capacityOf(p: PlayerView): number {
     const f = this.game!.config().food();
-    return Math.max(f.baseStorage, Number(p.food()));
+    return Math.max(f.granaryBase, Number(p.food()));
   }
 
   private foodSample(me: PlayerView): ResourceSample {

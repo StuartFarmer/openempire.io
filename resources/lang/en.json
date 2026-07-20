@@ -5,18 +5,19 @@
       "city": "Increases max population",
       "defense_post": "Increases defenses of nearby borders",
       "factory": "Creates railroads and spawns trains",
-      "farmland": "A field seed that spreads across fertile land where farmers till it. Awarded at population milestones.",
+      "farmland": "Works the surrounding land: food production scales with the fertility of its footprint.",
       "hydrogen_bomb": "Large explosion",
       "mirv": "Huge explosion, only targets selected player",
       "missile_silo": "Used to launch nukes",
       "port": "Sends trade ships to generate gold",
       "sam_launcher": "Defends against incoming nukes",
-      "settlement": "A city seed that grows where farms feed it. Awarded at population milestones.",
+      "settlement": "A city nucleus that adds housing, raising your population cap.",
       "warship": "Captures trade ships, destroys ships and boats"
     },
+    "next_pair": "Next founding pair at {n} peak population",
     "not_enough_food": "Not enough food",
     "not_enough_money": "Not enough money",
-    "seeds": "seeds"
+    "seeds": "{count, plural, one {# seed banked} other {# seeds banked}}"
   },
   "chat": {
     "attack": {
@@ -134,11 +135,13 @@
   "control_panel": {
     "allied_afk_neighbor_info": "You can attack disconnected players even if you are allied with them.",
     "army_limit_warning": "You're near your army limit! Consider sending troops to teammates.",
+    "fertility_overlay": "Fertility overlay: tint land by its baked fertility (green = lush, red = barren)",
     "food": "Food stored and net production per second",
-    "food_allocation": "Food allocation: how much of each harvest feeds your population (growth) versus going into storage (spending money). Storage still feeds people in a famine.",
     "food_starving": "Starving! Food consumption exceeds production and storage is empty",
     "low_troops_warning": "You are very low on troops - You should always keep some troops for defense.",
-    "supply_overlay": "Toggle the supply-lines overlay: territory out of reach of your settlements darkens (well-supplied land stays untouched)",
+    "overlay_fertility": "Fertility",
+    "overlay_suitability": "Suitability",
+    "suitability_overlay": "Suitability overlay: tint land by its baked city suitability (blue = prime town ground)",
     "teammate_afk_neighbor_info": "You can attack disconnected teammates.",
     "traitor_neighbor_info": "You can betray traitors without becoming a traitor yourself."
   },
@@ -488,8 +491,7 @@
     "pangea002": "Pangea II",
     "random": "Random",
     "spqr": "SPQR",
-    "verdantia": "Verdantia",
-    "world": "World"
+    "verdantia": "Verdantia"
   },
   "map_categories": {
     "africa": "Africa",
@@ -708,13 +710,9 @@
   },
   "tuning_panel": {
     "default_tooltip": "Default",
-    "group_consumption": "Consumption",
-    "group_demographics": "Demographics",
     "group_farms": "Farms",
     "group_other": "Other",
     "group_population": "Population",
-    "group_production": "Production",
-    "group_scale": "Scale",
     "group_storage": "Storage",
     "group_supply_war": "Supply & war",
     "group_urban": "Urban growth",

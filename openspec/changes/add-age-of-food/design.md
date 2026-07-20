@@ -11,7 +11,7 @@ Constraints: the WESL/FieldDynamics substrate is field-native (per-tile fields, 
 **Goals:**
 
 - Prove the core loop in one age: found → grow into supplied catchment → hit the ecological cap → mobilize (hurting the economy) → push into a rival's fertile land → fail to hold it without supply.
-- Make the ecology *legible as strategy*: fertile valleys are worth wars, deserts are barriers, the frost line and growing season gate campaigns.
+- Make the ecology _legible as strategy_: fertile valleys are worth wars, deserts are barriers, the frost line and growing season gate campaigns.
 - Keep everything field-native and GPU-resident; multi-player via the existing players buffer.
 
 **Non-Goals:**
@@ -25,13 +25,13 @@ Constraints: the WESL/FieldDynamics substrate is field-native (per-tile fields, 
 
 1. **Potential vs realized split.** `potential` is the settlement-ecology food-carrying-capacity, computed exactly as the `settlement` system does (soil × warmth × moisture-gate × GDD → sustainable population), left unowned and seasonal. Players own `pop` and `troops` fields; an `owner` field (u32, 0 = neutral) tags every tile. This is the single idea that makes an ecology a game.
 
-2. **Organic-flow control (chosen over directed armies).** Territory grows OpenFront-style: owned borders bleed into adjacent *supplied, unowned* tiles automatically, at a rate gated by supply and remaining potential. The player directs *where* expansion and attacks push (a target/gradient), and population flows there as a field — few clicks, the map does the work, native to the substrate. Directed discrete army groups were considered and rejected for this slice (heavier, needs discrete units over the fields; revisit if organic flow proves too coarse).
+2. **Organic-flow control (chosen over directed armies).** Territory grows OpenFront-style: owned borders bleed into adjacent _supplied, unowned_ tiles automatically, at a rate gated by supply and remaining potential. The player directs _where_ expansion and attacks push (a target/gradient), and population flows there as a field — few clicks, the map does the work, native to the substrate. Directed discrete army groups were considered and rejected for this slice (heavier, needs discrete units over the fields; revisit if organic flow proves too coarse).
 
 3. **Ecological population cap (replaces flat maxTroops).** A player's supportable people = the sum of realized `potential` over their supplied territory. `pop + troops` cannot exceed it; overshoot starves. Fertile, supplied land raises the ceiling — the mechanical statement of "leverage the ecosystem."
 
 4. **Supply as terrain-weighted diffusion.** `supply` diffuses from settled cores (tiles whose `pop` clears a settlement threshold), decaying with distance and terrain cost — cheap along rivers/coasts, expensive over mountains/desert. Age I range is short (footpaths); roads (Age II) will multiply it. Growth requires supply; troops beyond supply attrite. This is the "can't hold what you can't supply" spine, and it is one diffusion field.
 
-5. **Deterministic attrition combat now; stochastic documented for later.** At a contested tile the larger *supplied* force wins predictably: both sides lose troops proportional to the smaller force, the winner claims the tile, and a defense bonus (terrain) plus a capture-margin hysteresis keep frontlines from oscillating. Readable and balanceable. A **stochastic alternative** (probabilistic capture weighted by the force ratio, à la the `territory` prototype) is written into the spec as a NON-implemented requirement so we can A/B it later without re-deriving the design.
+5. **Deterministic attrition combat now; stochastic documented for later.** At a contested tile the larger _supplied_ force wins predictably: both sides lose troops proportional to the smaller force, the winner claims the tile, and a defense bonus (terrain) plus a capture-margin hysteresis keep frontlines from oscillating. Readable and balanceable. A **stochastic alternative** (probabilistic capture weighted by the force ratio, à la the `territory` prototype) is written into the spec as a NON-implemented requirement so we can A/B it later without re-deriving the design.
 
 6. **Seasons as tempo.** `potential` falls in winter (via the seasonal temperature already in the model) and the frost zone drops to ~0; the `food` store banks summer surplus. Overextended or over-mobilized players get culled in winter. No new system — it falls out of the substrate.
 
@@ -41,14 +41,14 @@ Constraints: the WESL/FieldDynamics substrate is field-native (per-tile fields, 
 
 Per tile (all f32 unless noted), on land only:
 
-| field | meaning | update sketch |
-| --- | --- | --- |
-| `potential` | food carrying capacity (unowned, seasonal) | from the settlement ecology (soil × warmth × moisture × GDD) |
-| `owner` (u32) | player holding the tile (0 = neutral) | set by expansion / combat capture |
-| `supply` | reach from settled cores | `source(pop > settleThresh)` then terrain-weighted diffuse + decay |
-| `pop` | settled civilians | `pop += grow · supply · (potential − pop)`; starve when `pop+troops > potential` and `food = 0` |
-| `troops` | mobilized army | `+= mobilize·pop − demob`; flows toward target along supply; attrites where `supply` low |
-| `food` | local store (winter buffer) | `+= harvest·crops·gdd − eat·(pop+troops) − decay·food` |
+| field         | meaning                                    | update sketch                                                                                   |
+| ------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `potential`   | food carrying capacity (unowned, seasonal) | from the settlement ecology (soil × warmth × moisture × GDD)                                    |
+| `owner` (u32) | player holding the tile (0 = neutral)      | set by expansion / combat capture                                                               |
+| `supply`      | reach from settled cores                   | `source(pop > settleThresh)` then terrain-weighted diffuse + decay                              |
+| `pop`         | settled civilians                          | `pop += grow · supply · (potential − pop)`; starve when `pop+troops > potential` and `food = 0` |
+| `troops`      | mobilized army                             | `+= mobilize·pop − demob`; flows toward target along supply; attrites where `supply` low        |
+| `food`        | local store (winter buffer)                | `+= harvest·crops·gdd − eat·(pop+troops) − decay·food`                                          |
 
 Expansion (organic): an owned tile pushes into an adjacent neutral tile `n` when `supply(n) > 0` and `potential(n) > 0`, transferring a little `pop` and setting `owner(n)`; rate scales with the pusher's surplus and the target's potential.
 
@@ -75,7 +75,7 @@ else:
 - [Organic flow too coarse for satisfying war] → the directed-army model is the fallback (Decision 2); the field/ownership representation is unchanged if we add discrete groups later.
 - [Deterministic combat feels flat] → the stochastic alternative is spec'd and shares all inputs; swapping is a single pass rewrite.
 - [Multi-player field ownership at scale] → the players buffer + `groupBy` scalars already exist (Phase 1 substrate); `owner` is one u32 field like the `territory` prototype's.
-- [Balance is unknown] → this is the point of the lab slice: every rate is a slider, tuned interactively; verification asserts the *loop* occurs (growth, cap, frontline, capture), not specific numbers.
+- [Balance is unknown] → this is the point of the lab slice: every rate is a slider, tuned interactively; verification asserts the _loop_ occurs (growth, cap, frontline, capture), not specific numbers.
 
 ## Migration / first-slice scope
 
@@ -83,5 +83,5 @@ Purely additive: a new lab system + a verification script. No core, map, or shel
 
 ## Open Questions
 
-- Whether `supply` should also carry *food logistics* in Age I (surplus flowing from breadbasket to frontier) or defer that to the Age II road network — leaning defer, keeping Age I supply purely about reach/attrition.
+- Whether `supply` should also carry _food logistics_ in Age I (surplus flowing from breadbasket to frontier) or defer that to the Age II road network — leaning defer, keeping Age I supply purely about reach/attrition.
 - Exact militia fraction and terrain-defense table — decided during tuning, not spec'd to numbers.

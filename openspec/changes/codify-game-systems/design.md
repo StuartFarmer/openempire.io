@@ -98,7 +98,7 @@ per-player decisions); systems wanting GPU "AI" still use extra layers/passes.
 
 `input`/`ai` are arbitrary logic, chosen for flexibility over the JSON-safe
 manifest goal (a node-graph editor could still author every data field and
-treat a system with hooks as "has custom code"). They are the *only*
+treat a system with hooks as "has custom code"). They are the _only_
 non-serializable parts; keeping them as two named, optional functions makes the
 boundary explicit.
 
@@ -144,11 +144,11 @@ this is the single open implementation detail (it does not affect the authored
 
 `shared::` holds generic math a system can reuse, never a system's own rules:
 
-| Module | Provides | For |
-| --- | --- | --- |
-| `shared::growth` | `logistic(v, rate, cap)`, `decay(v, rate)`, `grow(v, rate, food)` | settlement/grazing/empire pop math |
-| `shared::diffusion` | `blend(prev, neigh, rate)` spread/relax step (pairs with `avg8`) | grazing spread, supply diffusion |
-| `shared::palette` | `lerp3`, `ramp3` color-ramp helpers | ad-hoc ramps |
+| Module              | Provides                                                          | For                                |
+| ------------------- | ----------------------------------------------------------------- | ---------------------------------- |
+| `shared::growth`    | `logistic(v, rate, cap)`, `decay(v, rate)`, `grow(v, rate, food)` | settlement/grazing/empire pop math |
+| `shared::diffusion` | `blend(prev, neigh, rate)` spread/relax step (pairs with `avg8`)  | grazing spread, supply diffusion   |
+| `shared::palette`   | `lerp3`, `ramp3` color-ramp helpers                               | ad-hoc ramps                       |
 
 (Noise/`fbm`/`hash01` stay in `package::kernel`, already available everywhere.)
 The library grows with demand as genuinely generic helpers appear.
@@ -158,7 +158,7 @@ resolution, defense/conquest rules, and the data encodings those rules use (the
 attacker+pressure `u32` packing). Empire and territory each keep their own
 `lib/combat.wesl` (empire: additive `defenseOf` + deterministic `conquers`;
 territory: multiplicative garrison defense + stochastic conquest). Two systems
-having *similar* combat is not a reason to promote it — similarity ≠ generic.
+having _similar_ combat is not a reason to promote it — similarity ≠ generic.
 
 ### Shared TS fragments
 
@@ -184,7 +184,7 @@ A small `src/client/lab/shared/index.ts` surface for manifest reuse:
   the active brush when one is selected).
 - Reads `defaultMap`/`defaultView` when mounting a system.
 
-The camera pan/zoom/hover (now shared by every page) is the *default* input for
+The camera pan/zoom/hover (now shared by every page) is the _default_ input for
 systems without an `input` hook; a game system's `input` can still opt into pan
 by calling nothing on plain drag (the viewer pans when the hook does not
 consume the gesture) — the hook returns whether it handled the event.
@@ -195,4 +195,4 @@ consume the gesture) — the hook returns whether it handled the event.
   shipped tribal-economy game rule.
 - No GPU-resident AI (AI is a CPU/TS hook writing the players struct).
 - Win/lose conditions and multi-human input remain future work (a `kind:
-  "game"` system can encode outcomes in scalars for now).
+"game"` system can encode outcomes in scalars for now).

@@ -92,9 +92,9 @@ export class AlternateViewEvent implements GameEvent {
   constructor(public readonly alternateView: boolean) {}
 }
 
-/** Persistent supply-lines heatmap toggle (layered maps — BuildBar button). */
-export class ToggleSupplyOverlayEvent implements GameEvent {
-  constructor(public readonly enabled: boolean) {}
+/** Soil-overlay cycle (BuildBar button): off → fertility → suitability. */
+export class ToggleFertilityOverlayEvent implements GameEvent {
+  constructor(public readonly mode: "off" | "fertility" | "suitability") {}
 }
 
 export class CloseViewEvent implements GameEvent {}

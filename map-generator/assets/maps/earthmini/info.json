@@ -2,7 +2,7 @@
   "id": "EarthMini",
   "name": "Earth Mini",
   "translation_key": "map.earthmini",
-  "categories": ["new", "world"],
+  "categories": ["featured", "new", "world"],
   "multiplayer_frequency": 0,
   "nations": [
     {
@@ -984,5 +984,6 @@
     "lakeElevationRange": 0.03,
     "riverWeakThreshold": 0.28,
     "riverStrongThreshold": 0.48
-  }
+  },
+  "featured_rank": 6
 }

@@ -687,9 +687,8 @@ describe("system-specific mechanics stay in the system", () => {
   // live in its own lib/, not in shared (codify-game-systems).
   test("empire + territory own their combat.wesl", async () => {
     const { empire } = await import("../src/client/lab/systems/empire/system");
-    const { territory } = await import(
-      "../src/client/lab/systems/territory/system"
-    );
+    const { territory } =
+      await import("../src/client/lab/systems/territory/system");
     // empire is a terrain game (its overlay reads tint); compose it. territory
     // has no terrain-dependent view, so it compiles standalone.
     const e = await compileFieldSystem(composeTerrain(empire));
@@ -763,13 +762,12 @@ fn update(x: i32, y: i32, i: u32) -> f32 {
 
 describe("games composed on terrain compile", () => {
   test("grazing / settlement / empire link on the terrain base", async () => {
-    const { composeTerrain } = await import(
-      "../src/client/lab/systems/terrain/system"
-    );
-    const { grazing } = await import("../src/client/lab/systems/grazing/system");
-    const { settlement } = await import(
-      "../src/client/lab/systems/settlement/system"
-    );
+    const { composeTerrain } =
+      await import("../src/client/lab/systems/terrain/system");
+    const { grazing } =
+      await import("../src/client/lab/systems/grazing/system");
+    const { settlement } =
+      await import("../src/client/lab/systems/settlement/system");
     const { empire } = await import("../src/client/lab/systems/empire/system");
     for (const game of [grazing, settlement, empire]) {
       const c = await compileFieldSystem(composeTerrain(game));
@@ -787,9 +785,8 @@ describe("games composed on terrain compile", () => {
 
 describe("conquest game composes on terrain", () => {
   test("conquest links on the terrain base (OpenFront terrain-typed combat)", async () => {
-    const { conquest } = await import(
-      "../src/client/lab/systems/conquest/system"
-    );
+    const { conquest } =
+      await import("../src/client/lab/systems/conquest/system");
     const c = await compileFieldSystem(composeTerrain(conquest));
     const names = c.kernelConfig.passes.map((p) => p.name);
     expect(names).toContain("climate"); // terrain base
@@ -798,5 +795,33 @@ describe("conquest game composes on terrain", () => {
     expect(names).toContain("view/conquest");
     // terrain-typed conquest cost is in the pass source.
     expect(passByName(c, "stock/owner").code).toContain("conquers");
+  });
+});
+
+describe("openfront-live bridge composes on terrain", () => {
+  test("owner is a CPU-written render conduit (init only, never GPU-ticked)", async () => {
+    const { openfront } =
+      await import("../src/client/lab/systems/openfront/system");
+    const c = await compileFieldSystem(composeTerrain(openfront));
+    const names = c.kernelConfig.passes.map((p) => p.name);
+    expect(names).toContain("climate"); // terrain base derives
+    // Render conduits (CPU-written each tick): ownership + structure + damage +
+    // front fields (all init-only).
+    expect(c.layerNames).toEqual([
+      "damage",
+      "density",
+      "front",
+      "owner",
+      "plot",
+    ]);
+    for (const l of ["owner", "plot", "density", "damage", "front"]) {
+      expect(names).toContain(`init/${l}`);
+      // No per-tick sim pass: no `update`, so never GPU-ticked — the shell
+      // overwrites each from the real sim every frame.
+      expect(names).not.toContain(`stock/${l}`);
+    }
+    // The overlay composites the owner colour over the terrain tint.
+    expect(names).toContain("view/openfront");
+    expect(passByName(c, "view/openfront").code).toContain("unpackTint");
   });
 });

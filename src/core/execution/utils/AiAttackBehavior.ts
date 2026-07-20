@@ -32,8 +32,6 @@ import {
 } from "../nation/NationEmojiBehavior";
 import { TransportShipExecution } from "../TransportShipExecution";
 import { closestTwoTiles } from "../Util";
-import { deployableTroops, fieldStaffingNeed } from "./EconomyModel";
-import { foodShedField } from "./FoodShed";
 
 export class AiAttackBehavior {
   private botAttackTroopsSent: number = 0;
@@ -223,6 +221,34 @@ export class AiAttackBehavior {
     return null;
   }
 
+  /**
+   * Mop-up (playtest 2026-07-19): finish off a bordering AI remnant we dwarf
+   * 20:1 with a small dedicated force. The reserve/trigger gates below
+   * compare troops to the housing-based maxTroops, which a food-bound
+   * population can sit under forever — without this bypass, the nation that
+   * ENCLAVES a husk tribe never attacks it and the husk survives at six
+   * people. Humans are exempt (the difficulty protections stay authoritative
+   * for them); one mop-up per target at a time.
+   */
+  mopUpWeakNeighbor(): boolean {
+    const myTroops = this.player.troops();
+    if (myTroops < 100) return false;
+    for (const n of this.player.nearby()) {
+      if (!n.isPlayer()) continue;
+      if (n.type() === PlayerType.Human) continue;
+      if (this.player.isFriendly(n)) continue;
+      if (n.troops() * 20 >= myTroops) continue;
+      if (!this.player.sharesBorderWith(n)) continue;
+      if (this.player.outgoingAttacks().some((a) => a.target() === n)) {
+        continue;
+      }
+      const force = Math.min(myTroops / 4, Math.max(500, n.troops() * 10));
+      this.game.addExecution(new AttackExecution(force, this.player, n.id()));
+      return true;
+    }
+    return false;
+  }
+
   // attackBestTarget is called with borderingFriends and borderingEnemies sorted by troops (ascending)
   private attackBestTarget(
     borderingFriends: Player[],
@@ -234,6 +260,9 @@ export class AiAttackBehavior {
     if (this.hasNeighboringBotWithStructures()) {
       if (this.attackBots()) return;
     }
+
+    // Enclaved husk neighbors die regardless of the reserve gates below.
+    if (this.mopUpWeakNeighbor()) return;
 
     // Save up troops until we reach the reserve ratio
     if (!this.hasReserveRatioTroops()) return;
@@ -691,6 +720,9 @@ export class AiAttackBehavior {
   }
 
   attackRandomTarget() {
+    // Enclaved husk neighbors die regardless of the trigger gate below.
+    if (this.mopUpWeakNeighbor()) return;
+
     // Save up troops until we reach the trigger ratio
     if (!this.hasTriggerRatioTroops()) return;
 
@@ -951,29 +983,7 @@ export class AiAttackBehavior {
     // recapture those structures ASAP, even before reaching the normal reserve.
     const useReserve = target.isPlayer() && !botWithStructures;
     const reserveRatio = useReserve ? this.reserveRatio : this.expandRatio;
-    // Farmers stay home (rework-settlement-ecology task 10): the tilled
-    // field runs on the IDLE pool, so troops sent past its staffing need
-    // send the harvest itself — margins fallow, capacity collapses, famine.
-    // The reserve floor keeps the fields worked; a player under attack
-    // fights with everything (survival outranks the harvest).
-    const staffingFloor =
-      this.player.incomingAttacks().length > 0
-        ? 0
-        : fieldStaffingNeed(
-            this.game,
-            this.player,
-            foodShedField(this.game, this.player),
-          );
-    const targetTroops = Math.max(maxTroops * reserveRatio, staffingFloor);
-    // War-share bound (task 10.6): total deployment stays under
-    // maxWarShare of the living population — the vanilla reserves are
-    // housing-based and a food-bound population sits far below housing, so
-    // without this a young AI dumps its whole demography into one push and
-    // never rebuilds. Suspended while under attack (survival first).
-    const warCap =
-      this.player.incomingAttacks().length > 0
-        ? Infinity
-        : deployableTroops(this.game, this.player);
+    const targetTroops = maxTroops * reserveRatio;
 
     let troops;
     if (
@@ -993,7 +1003,6 @@ export class AiAttackBehavior {
     if (target.isPlayer()) {
       troops = Math.min(troops, this.troopSendCap());
     }
-    troops = Math.min(troops, warCap);
 
     if (troops < 1) {
       return null;

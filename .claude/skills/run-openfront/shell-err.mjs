@@ -1,6 +1,9 @@
 import { chromium } from "playwright";
-const browser = await chromium.launch({ headless: true, channel: "chromium",
-  args: ["--enable-unsafe-webgpu", "--enable-features=WebGPU"] });
+const browser = await chromium.launch({
+  headless: true,
+  channel: "chromium",
+  args: ["--enable-unsafe-webgpu", "--enable-features=WebGPU"],
+});
 const page = await browser.newPage();
 const logs = [];
 page.on("pageerror", (e) => logs.push(`PAGEERROR: ${e.message}`));

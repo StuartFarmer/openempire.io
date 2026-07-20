@@ -1,6 +1,7 @@
 {
-  "categories": ["new", "fictional"],
+  "categories": ["featured", "new", "fictional"],
   "elevation": true,
+  "featured_rank": 5,
   "hydro": true,
   "id": "MajorMenor",
   "layers": true,

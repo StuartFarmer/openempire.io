@@ -405,8 +405,11 @@ describe("Hard/Impossible troop floor", () => {
       (c) => c[0].constructor.name === "AttackExecution",
     )?.[0] as any;
     expect(exec).toBeDefined();
-    // No cap applies, so troops should be the full reserve amount
-    expect(exec.startTroops).toBeGreaterThan(40_000);
+    // troopSendCap doesn't bind (no player neighbors) — the send is the
+    // full reserve-ratio remainder (simplify-food-economy removed the
+    // war-share bound with the rest of the food-war coupling).
+    const expected = bot.troops() - testGame.config().maxTroops(bot) * 0.2; // expandRatio
+    expect(exec.startTroops).toBeCloseTo(expected, 5);
   });
 
   it("Team: troopSendCap returns Infinity — no cap in team games", async () => {
@@ -602,5 +605,61 @@ describe("Hard/Impossible troop floor", () => {
     expect(exec).toBeDefined();
     // The bypass allows retaliation with at least the incoming 50k
     expect(exec.startTroops).toBeGreaterThanOrEqual(50_000);
+  });
+});
+
+describe("Mop-up of husk neighbors", () => {
+  /** Big bot owns everything except a small husk enclave at (10..13)². */
+  async function enclaveSetup(huskType: PlayerType) {
+    const testGame = await setup("big_plains", { instantBuild: true });
+    const bigInfo = new PlayerInfo("big", PlayerType.Bot, null, "big_id");
+    const huskInfo = new PlayerInfo("husk", huskType, null, "husk_id");
+    testGame.addPlayer(bigInfo);
+    testGame.addPlayer(huskInfo);
+    const big = testGame.player("big_id");
+    const husk = testGame.player("husk_id");
+    testGame.map().forEachTile((tile) => {
+      if (!testGame.map().isLand(tile)) return;
+      const x = testGame.map().x(tile);
+      const y = testGame.map().y(tile);
+      const inEnclave = x >= 10 && x < 14 && y >= 10 && y < 14;
+      (inEnclave ? husk : big).conquer(tile);
+    });
+    big.setTroops(5000);
+    husk.setTroops(6); // the classic playtest husk
+    const behavior = new AiAttackBehavior(
+      new PseudoRandom(7),
+      testGame,
+      big,
+      0.5,
+      0.3,
+      0.2,
+    );
+    return { testGame, big, husk, behavior };
+  }
+
+  it("a dwarfed AI enclave is attacked and dies, bypassing reserve gates", async () => {
+    const { testGame, husk, behavior } = await enclaveSetup(PlayerType.Bot);
+    expect(behavior.mopUpWeakNeighbor()).toBe(true);
+    for (let i = 0; i < 500 && husk.isAlive(); i++) testGame.executeNextTick();
+    expect(husk.isAlive()).toBe(false);
+  });
+
+  it("only fires once per target while an attack is in flight", async () => {
+    const { testGame, behavior } = await enclaveSetup(PlayerType.Bot);
+    expect(behavior.mopUpWeakNeighbor()).toBe(true);
+    testGame.executeNextTick(); // the AttackExecution registers
+    expect(behavior.mopUpWeakNeighbor()).toBe(false);
+  });
+
+  it("human neighbors are exempt — difficulty protections stay authoritative", async () => {
+    const { behavior } = await enclaveSetup(PlayerType.Human);
+    expect(behavior.mopUpWeakNeighbor()).toBe(false);
+  });
+
+  it("a peer-sized neighbor is not mopped up", async () => {
+    const { husk, behavior } = await enclaveSetup(PlayerType.Bot);
+    husk.setTroops(300); // 5000 < 300·20 — not a husk
+    expect(behavior.mopUpWeakNeighbor()).toBe(false);
   });
 });

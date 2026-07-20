@@ -1,6 +1,7 @@
 {
-  "categories": ["new", "fictional"],
+  "categories": ["featured", "new", "fictional"],
   "elevation": true,
+  "featured_rank": 2,
   "hydro": true,
   "id": "Estuaria",
   "layers": true,

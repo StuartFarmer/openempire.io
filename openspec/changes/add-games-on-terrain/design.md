@@ -64,11 +64,11 @@ view is `composeTerrain({}))` — the base with no ruleset.
 
 Each game drops its crude climate layers and reads the terrain fields:
 
-| Game | Was | Now (reads terrain) |
-| --- | --- | --- |
-| `grazing` | grass from `crop`, herd | grass from `layers::crop` × `layers::temperature` growth; herd unchanged |
-| `settlement` | `temp`/`gdd`/`crops` re-derived | crops from `layers::temperature` + `layers::water` + `layers::humidity`; pop unchanged |
-| `empire` | `temp` swing + `potential` from planes | `potential` from `layers::temperature` (real seasons) + `layers::water` (drainage) + `layers::humidity`; pop/troops/owner/combat unchanged |
+| Game         | Was                                    | Now (reads terrain)                                                                                                                        |
+| ------------ | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `grazing`    | grass from `crop`, herd                | grass from `layers::crop` × `layers::temperature` growth; herd unchanged                                                                   |
+| `settlement` | `temp`/`gdd`/`crops` re-derived        | crops from `layers::temperature` + `layers::water` + `layers::humidity`; pop unchanged                                                     |
+| `empire`     | `temp` swing + `potential` from planes | `potential` from `layers::temperature` (real seasons) + `layers::water` (drainage) + `layers::humidity`; pop/troops/owner/combat unchanged |
 
 The seasonal swing that games faked (`temp.wesl`) is deleted — the terrain
 `temperature` already carries real continentality + seasons, advanced by the

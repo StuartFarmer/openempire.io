@@ -4,9 +4,9 @@
 
 A `FieldDynamics` system already bundles a game's **mechanics, layers, WebGPU, and views** — swap the folder, get a different game. But three things a "self-contained game" needs are still missing or stranded:
 
-- **Inputs beyond painting.** The only declared input is a brush (god-mode paint into a layer). A game needs the player to *command a player* — click a tile to target it, drag to select, press a key — which means binding pointer/keyboard gestures to the per-player intent channel (`players` struct). Today the shell hardcodes pan/zoom/hover and the lab hardcodes brush-paint; neither is owned by the system.
+- **Inputs beyond painting.** The only declared input is a brush (god-mode paint into a layer). A game needs the player to _command a player_ — click a tile to target it, drag to select, press a key — which means binding pointer/keyboard gestures to the per-player intent channel (`players` struct). Today the shell hardcodes pan/zoom/hover and the lab hardcodes brush-paint; neither is owned by the system.
 - **AI.** The bot driver is hardcoded in `FieldViewerBase.writeBots`, assuming one specific set of player fields (`alive/attacking/commit/targetX/targetY`). Every system is stuck with that toy; a new system can't ship its own AI.
-- **Shared shaders.** The only cross-system WESL library is `package::kernel` (noise/grid). `package::lib` is *system-local*, so generic, game-agnostic helpers — diffusion, logistic growth, color ramps — get re-implemented per system, with no place to factor them. (System-*specific* mechanics like each game's combat rules legitimately differ and stay per-system — those are not the target.)
+- **Shared shaders.** The only cross-system WESL library is `package::kernel` (noise/grid). `package::lib` is _system-local_, so generic, game-agnostic helpers — diffusion, logistic growth, color ramps — get re-implemented per system, with no place to factor them. (System-_specific_ mechanics like each game's combat rules legitimately differ and stay per-system — those are not the target.)
 
 To "create plenty of different systems to try out a bunch of different mechanics," a system must be able to own its inputs and AI, and pull common mechanics from a shared library instead of re-authoring them. This change codifies the full **System = self-contained game** contract and adds the shared library.
 

@@ -1,25 +1,39 @@
 import { mkdirSync } from "node:fs";
 import { chromium } from "playwright";
 mkdirSync("/tmp/openfront-run", { recursive: true });
-const browser = await chromium.launch({ headless: true, channel: "chromium",
-  args: ["--enable-unsafe-webgpu", "--enable-features=WebGPU"] });
+const browser = await chromium.launch({
+  headless: true,
+  channel: "chromium",
+  args: ["--enable-unsafe-webgpu", "--enable-features=WebGPU"],
+});
 const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
 const errors = [];
 page.on("pageerror", (e) => errors.push(`PAGEERROR: ${e.message}`));
-page.on("console", (m) => { if (m.type() === "error") errors.push(`CONSOLE: ${m.text()}`); });
+page.on("console", (m) => {
+  if (m.type() === "error") errors.push(`CONSOLE: ${m.text()}`);
+});
 
 await page.goto("http://localhost:9000/#shell", { waitUntil: "load" });
 // Wait for terrain derivation (zoom fits → not 1×).
-await page.waitForFunction(() => {
-  const el = document.querySelector("game-shell-page");
-  return el && (el.textContent ?? "").includes("week ");
-}, { timeout: 60000 });
+await page.waitForFunction(
+  () => {
+    const el = document.querySelector("game-shell-page");
+    return el && (el.textContent ?? "").includes("week ");
+  },
+  { timeout: 60000 },
+);
 await page.waitForTimeout(4000);
-const st = () => page.evaluate(() => {
-  const el = document.querySelector("game-shell-page");
-  return { status: el?.status, note: el?.derivedNote, ok: el?.derivedOk,
-           zoom: el?.zoomReadout, sys: el?.systemId };
-});
+const st = () =>
+  page.evaluate(() => {
+    const el = document.querySelector("game-shell-page");
+    return {
+      status: el?.status,
+      note: el?.derivedNote,
+      ok: el?.derivedOk,
+      zoom: el?.zoomReadout,
+      sys: el?.systemId,
+    };
+  });
 console.log("terrain:", JSON.stringify(await st()));
 await page.screenshot({ path: "/tmp/openfront-run/unified-1-terrain.png" });
 
@@ -39,7 +53,9 @@ console.log("grazing after run:", JSON.stringify(await st()));
 await page.selectOption("game-shell-page select >> nth=0", "terrain");
 await page.waitForTimeout(3500);
 console.log("back to terrain:", JSON.stringify(await st()));
-await page.screenshot({ path: "/tmp/openfront-run/unified-3-terrain-again.png" });
+await page.screenshot({
+  path: "/tmp/openfront-run/unified-3-terrain-again.png",
+});
 
 console.log("errors:", errors.length ? errors.slice(0, 8) : "none");
 await browser.close();

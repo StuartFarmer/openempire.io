@@ -31,7 +31,7 @@ function makeAdditionalNations(names: string[]): AdditionalNation[] {
 
 function makeGameStart(targetNations: number): GameStartInfo {
   const config: GameConfig = {
-    gameMap: GameMapType.World,
+    gameMap: GameMapType.Verdantia,
     gameMode: GameMode.FFA,
     gameType: GameType.Singleplayer,
     difficulty: Difficulty.Medium,

@@ -32,7 +32,7 @@ import {
 import { terrainMapFileLoader } from "./TerrainMapFileLoader";
 
 const DEFAULT_OPTIONS = {
-  selectedMap: GameMapType.World,
+  selectedMap: GameMapType.Verdantia,
   selectedDifficulty: Difficulty.Easy,
   bots: 400,
   infiniteGold: false,

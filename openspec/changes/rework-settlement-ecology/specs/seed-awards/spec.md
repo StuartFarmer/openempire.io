@@ -56,9 +56,14 @@ Awarded seeds SHALL accumulate in per-player banks (farm and Settlement counted 
 
 ### Requirement: The spawn kit is the same founding pair
 
-The spawn starter kit SHALL be expressed through the same system: the Core is founded as today (the first "settlement"), paired with one starter farm nucleus granted via the seed system (pre-placed or pre-banked, per current spawn behavior) — there is no separate purchase path anywhere.
+The spawn starter kit SHALL be expressed through the same system: the Core is founded as today (the first "settlement"), paired with one starter farm nucleus granted via the seed system (pre-placed or pre-banked, per current spawn behavior) — there is no separate purchase path anywhere. The kit nucleus SHALL arrive with a starter FIELD (playtest 2026-07-19): pre-claimed tiles settled at their climate suitability, sized to the acreage the spawn village's own labor sustains (`startPopulation / farmersPerFieldTile` tiles, nucleus included) and grown on the best-suitability frontier, claim-viable tiles only. Without it the village's day-one capacity is one tile's yield: the population crashes toward a few hundred and the plot labor gate then locks the field at that size (the field needs people, the people need the field). Hostile ground plants fewer tiles; dead soil keeps nucleus-only scarcity.
 
 #### Scenario: Spawning on a layered map
 
 - **WHEN** a player spawns
 - **THEN** they receive the Core plus one farm nucleus via the seed system, and no plot is ever purchasable with food afterward
+
+#### Scenario: The starter field carries the start population
+
+- **WHEN** a player spawns on ordinary fertile ground
+- **THEN** the kit field feeds the whole starting population from tick one, and the population grows from the start rather than crashing toward a one-tile capacity

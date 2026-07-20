@@ -8,7 +8,6 @@ import {
   Player,
   PlayerID,
   PlayerType,
-  TerrainType,
   TerraNullius,
   TribalStructures,
 } from "../game/Game";
@@ -340,15 +339,6 @@ export class AttackExecution implements Execution {
         targetPlayer.removeTroops(defenderTroopLoss);
       }
       this._owner.conquer(tileToConquer);
-      // Fighting scars the ground (rework-settlement-ecology): tiles taken
-      // from a PLAYER in combat accumulate damage that must fully heal before
-      // they grow again. Wilderness expansion is not combat and leaves no scar.
-      if (targetPlayer) {
-        this.mg.addTileDamage(
-          tileToConquer,
-          this.mg.config().food().combatTileDamageMilli,
-        );
-      }
       this.attack.setFrontTile(tileToConquer);
       this.handleDeadDefender();
     }
@@ -389,21 +379,16 @@ export class AttackExecution implements Execution {
         }
       }
 
-      let mag: number;
-      switch (this.map.terrainType(neighbor)) {
-        case TerrainType.Plains:
-          mag = 1;
-          break;
-        case TerrainType.Highland:
-          mag = 1.5;
-          break;
-        case TerrainType.Mountain:
-          mag = 2;
-          break;
-        default:
-          mag = 0;
-          break;
-      }
+      // Continuous terrain (restore-organic-growth, combat-terrain spec):
+      // fronts flow through low, dry ground and lag on hills and wet
+      // forest. Replaces the 3-band terrain classes — 93% of generated-map
+      // land fell in ONE band, which made fronts circular.
+      const mag =
+        1 +
+        (2 * this.map.magnitude(neighbor)) / 31 +
+        (this.mg.layer("humidity", neighbor) +
+          this.mg.layer("water", neighbor)) /
+          510;
 
       let priority =
         (this.random.nextInt(0, 7) + 10) * (1 - numOwnedByMe * 0.5 + mag / 2) +

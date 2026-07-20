@@ -7,7 +7,6 @@ import { GameMode, GameType, Gold } from "../../../core/game/Game";
 import { TileRef } from "../../../core/game/GameMap";
 import { UserSettings } from "../../../core/game/UserSettings";
 import { ClientID } from "../../../core/Schemas";
-import { SendFoodAllocationIntentEvent } from "../../board/BoardEvents";
 import { Controller } from "../../Controller";
 import { AttackRatioEvent } from "../../InputHandler";
 import { UIState } from "../../UIState";
@@ -19,7 +18,6 @@ import {
 } from "../../Utils";
 import { GameView } from "../../view";
 import { PlayerView } from "../../view/PlayerView";
-const barnIcon = assetUrl("images/BarnIconWhite.svg");
 const foodIcon = assetUrl("images/FoodIcon.svg");
 const soldierIcon = assetUrl("images/SoldierIcon.svg");
 const swordIcon = assetUrl("images/SwordIcon.svg");
@@ -53,13 +51,6 @@ export class ControlPanel extends LitElement implements Controller {
   // Food economy (layered games only)
   @state()
   private _food: Gold = 0n;
-  /**
-   * Allocation slider (add-food-allocation): population share of each
-   * tick's production. Seeded from the sim once, then locally authoritative
-   * (the intent round-trips through the turn loop).
-   */
-  @state()
-  private _foodAllocation: number | null = null;
   @state()
   private _foodNetPerTick: number = 0;
   @state()
@@ -123,7 +114,6 @@ export class ControlPanel extends LitElement implements Controller {
     this._maxTroops = config.maxTroops(player);
     this._troops = player.troops();
     this._food = player.food();
-    this._foodAllocation ??= player.foodPopulationShare();
     this._foodNetPerTick = player.foodProduction() - player.foodConsumption();
     this._foodStarving = player.foodStarved() > 0;
     this._attackingTroops = player
@@ -287,63 +277,6 @@ export class ControlPanel extends LitElement implements Controller {
 
   private handleRatioSliderPointerUp(e: Event) {
     (e.target as HTMLInputElement).blur();
-  }
-
-  private handleFoodAllocationInput(e: Event) {
-    const value = Number((e.target as HTMLInputElement).value);
-    this._foodAllocation = value / 100;
-    this.eventBus.emit(new SendFoodAllocationIntentEvent(this._foodAllocation));
-  }
-
-  /** Allocation slider: population share ↔ storage share. */
-  private renderFoodAllocationRow(compact: boolean) {
-    if (this._foodAllocation === null) {
-      return html``;
-    }
-    const popPct = Math.round(this._foodAllocation * 100);
-    return html`
-      <div
-        class="flex items-center gap-1.5 ${compact ? "" : "mt-1"}"
-        translate="no"
-        title=${translateText("control_panel.food_allocation")}
-      >
-        <div
-          class="flex items-center gap-1 shrink-0 border border-gray-600 rounded-md px-1 py-0.5 ${compact
-            ? "text-xs"
-            : "text-sm"} font-bold text-white cursor-pointer ${compact
-            ? "w-[7rem]"
-            : "w-[8rem]"}"
-        >
-          <img
-            src=${soldierIcon}
-            alt=""
-            aria-hidden="true"
-            width="12"
-            height="12"
-            style="filter: brightness(0) invert(1);"
-          />
-          <span class="tabular-nums">${popPct}%</span>
-          <img
-            src=${barnIcon}
-            alt=""
-            aria-hidden="true"
-            width="12"
-            height="12"
-            class="ml-auto"
-          />
-          <span class="tabular-nums">${100 - popPct}%</span>
-        </div>
-        <input
-          type="range"
-          min="0"
-          max="100"
-          .value=${String(popPct)}
-          @input=${(e: Event) => this.handleFoodAllocationInput(e)}
-          @pointerup=${(e: Event) => this.handleRatioSliderPointerUp(e)}
-          class="flex-1 h-1.5 accent-amber-300 cursor-pointer"
-        />
-      </div>
-    `;
   }
 
   private calculateTroopBar(): { greenPercent: number; orangePercent: number } {
@@ -543,8 +476,6 @@ export class ControlPanel extends LitElement implements Controller {
           class="flex-1 h-1.5 accent-aquarius cursor-pointer"
         />
       </div>
-      <!-- Row 3: food allocation (population share ↔ storage share) -->
-      ${this.renderFoodAllocationRow(false)}
     `;
   }
 
@@ -621,7 +552,6 @@ export class ControlPanel extends LitElement implements Controller {
           />
         </div>
       </div>
-      ${this.renderFoodAllocationRow(true)}
     `;
   }
 
