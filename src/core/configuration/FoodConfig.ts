@@ -67,6 +67,38 @@ export interface FoodConfig {
    *  combatTileDamageMilli / tileDamageHealMilli ticks. */
   tileDamageHealMilli: number;
   /**
+   * The tile-local defender garrison (localize-defender-density). Combat used
+   * to price every tile off `troops / numTilesOwned` — a NATIONWIDE average, so
+   * a metropolis and empty steppe defended identically. Instead the defender's
+   * army is distributed over the per-tile population field (`density`): the
+   * garrison at a tile is `(troops / numTilesOwned) · garrisonRatio(tile)`,
+   * where the ratio is the smoothed local density over the player's OWN mean
+   * density. A tile at that mean has ratio 1 and defends exactly as before —
+   * this redistributes defense, it does not globally buff or nerf it.
+   */
+  /** Catchment (bucket) edge in tiles for the density smoothing. MUST be a
+   *  power of two. Larger → a city's defensive shadow reaches further and is
+   *  harder to walk around; smaller → sharper walls that a wide front can
+   *  route past. Default 4 (~80 km at tileKm 20). */
+  garrisonCatchment: number;
+  /** Floor of the garrison ratio. Lower → emptier territory is cheaper to
+   *  sweep. Raising it toward 1 flattens the frontier back toward the old
+   *  global average. */
+  garrisonRatioMin: number;
+  /** Ceiling of the garrison ratio — THE balance knob. The raw ratio runs into
+   *  the hundreds (a nation whose whole population sits on a handful of its
+   *  thousands of tiles), so this, not the formula, decides whether a heartland
+   *  is a speed bump or a wall. `garrisonRatioMin = garrisonRatioMax = 1`
+   *  reduces combat exactly to its pre-change global-average behavior. */
+  garrisonRatioMax: number;
+  /** Weight of the global force-ratio term in per-tile attacker loss (the
+   *  `within(defender/attacker, 0.6, 2) · mag` shape). */
+  combatWeightForce: number;
+  /** Weight of the LOCAL garrison term in per-tile attacker loss. Higher →
+   *  where the defender's people live matters more than raw force disparity.
+   *  Should sum to 1 with combatWeightForce. */
+  combatWeightLocal: number;
+  /**
    * Tile stability (rework-settlement-ecology): a demand-gated tenure clock.
    * A city tile ages (+1 tick of tenure) only while the city is pushing its
    * housing limit and the tile is fully healed; a farm ages only once settled
@@ -315,6 +347,16 @@ export const FOOD_DEFAULTS: FoodConfig = {
   // 100 ticks (~10 s) — repeated fighting stacks toward a long-lived scar.
   combatTileDamageMilli: 400,
   tileDamageHealMilli: 4,
+  // Tile-local garrison — STAGING DEFAULTS (localize-defender-density task
+  // 1.2): the clamp band is pinned to [1, 1] and the weights kept at the
+  // pre-change 0.6/0.4, making the whole feature an exact no-op so the
+  // plumbing can be verified against the existing suite before it changes any
+  // outcome. Task 5.1 opens these to [0.2, 24] and 0.3/0.7.
+  garrisonCatchment: 4,
+  garrisonRatioMin: 1,
+  garrisonRatioMax: 1,
+  combatWeightForce: 0.6,
+  combatWeightLocal: 0.4,
   // Stability: an old core plateaus at 3× housing; half the plateau after
   // ~2 min (1200 ticks) of demand-gated aging. Vacancy decays 10× slower
   // than accrual; capitals up to 1.5× growth pace at full age.

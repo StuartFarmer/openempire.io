@@ -23,6 +23,7 @@ import {
   EmojiMessage,
   GameMode,
   Gold,
+  LandUse,
   MutableAlliance,
   Player,
   PlayerBuildable,
@@ -137,6 +138,19 @@ export class PlayerImpl implements Player {
   public _density = new Map<TileRef, number>();
   /** Cached Σ density in milliunits, kept in sync by setDensity(). */
   private _urbanAreaMilli = 0;
+  /** Σ density per coarse bucket, the smoothing structure behind
+   *  garrisonRatio() (localize-defender-density). Sparse and kept in sync by
+   *  setDensity() — the single writer of _density — so conquest and relinquish
+   *  maintain it for free via their setDensity(tile, 0) calls. Integer sums,
+   *  so the field never accumulates floating-point error. */
+  private _densityBuckets = new Map<number, number>();
+  /** Lazily derived bucket geometry; see garrisonRatio(). */
+  private _bucketGeom: {
+    shift: number;
+    edge: number;
+    cols: number;
+    rows: number;
+  } | null = null;
   /** Extra housing from tile tenure (rework-settlement-ecology): Σ over city
    *  tiles of (capMult−1)·popPerDensity, refreshed by TileTenure.tenureTick. */
   public _tenureCapacityBonus = 0;
@@ -148,6 +162,12 @@ export class PlayerImpl implements Player {
   public _settlementSeeds = 0;
   /** Per-Farmland-tile maturity M∈[0,1] in milliunits (add-urban-core-growth). */
   public _farmMaturity = new Map<TileRef, number>();
+  /** Persistent land-use zone of every tile this player has ever developed
+   *  (LandUse). Set when a tile is first BUILT (density > 0 → Urban; farm
+   *  maturity ≥ claim → Field); NEVER cleared by death — only by conquest /
+   *  relinquish, which drop the entry directly. A built tile keeps its zone so
+   *  it regrows as its own type and the other automaton can't poach it. */
+  public _landUse = new Map<TileRef, LandUse>();
 
   markedTraitorTick = -1;
   markedDoomsdayClockTick = -1;
@@ -1289,10 +1309,14 @@ export class PlayerImpl implements Player {
     const prev = this._density.get(tile) ?? 0;
     if (v === prev) return;
     this._urbanAreaMilli += v - prev;
+    this.addToDensityBucket(tile, v - prev);
     if (v === 0) {
       this._density.delete(tile);
     } else {
       this._density.set(tile, v);
+      // A tile that has ever housed people is Urban ground forever — the zone
+      // outlives the population (see LandUse). Death (v === 0) leaves it set.
+      this._landUse.set(tile, LandUse.Urban);
     }
     // Emit a render delta when the displayed byte changes: fill fraction
     // shaded by the tile's age (rework-settlement-ecology) — young suburbs
@@ -1327,6 +1351,112 @@ export class PlayerImpl implements Player {
     return this._urbanAreaMilli / this.mg.config().food().popPerDensity;
   }
 
+  /**
+   * Bucket geometry for the garrison field. The catchment edge is live-tunable
+   * (it is in FOOD_TUNABLE_KEYS), and the bucket sums are indexed under it, so
+   * a change invalidates them — rebuild from _density rather than let stale
+   * indices silently corrupt the field. Only pays that cost on an actual
+   * change; the steady state is a cached read.
+   */
+  private bucketGeom(): {
+    shift: number;
+    edge: number;
+    cols: number;
+    rows: number;
+  } {
+    const edge = this.mg.config().food().garrisonCatchment;
+    if (this._bucketGeom === null || this._bucketGeom.edge !== edge) {
+      if (edge < 1 || (edge & (edge - 1)) !== 0) {
+        throw new Error(
+          `garrisonCatchment must be a power of two, got ${edge}`,
+        );
+      }
+      const map = this.mg.map();
+      const rebuild = this._bucketGeom !== null;
+      this._bucketGeom = {
+        shift: Math.log2(edge),
+        edge,
+        cols: Math.ceil(map.width() / edge),
+        rows: Math.ceil(map.height() / edge),
+      };
+      if (rebuild) {
+        this._densityBuckets.clear();
+        for (const [tile, people] of this._density) {
+          this.addToDensityBucket(tile, people);
+        }
+      }
+    }
+    return this._bucketGeom;
+  }
+
+  /** O(1) incremental maintenance of the bucket sums, driven by setDensity. */
+  private addToDensityBucket(tile: TileRef, delta: number): void {
+    if (delta === 0) return;
+    const { shift, cols } = this.bucketGeom();
+    const map = this.mg.map();
+    const idx = (map.y(tile) >> shift) * cols + (map.x(tile) >> shift);
+    const next = (this._densityBuckets.get(idx) ?? 0) + delta;
+    if (next === 0) {
+      this._densityBuckets.delete(idx);
+    } else {
+      this._densityBuckets.set(idx, next);
+    }
+  }
+
+  /** Bucket sum, treating off-map buckets as empty. The bounds check matters:
+   *  a negative bx would otherwise alias onto the previous row's last bucket. */
+  private bucketSum(
+    bx: number,
+    by: number,
+    cols: number,
+    rows: number,
+  ): number {
+    if (bx < 0 || by < 0 || bx >= cols || by >= rows) return 0;
+    return this._densityBuckets.get(by * cols + bx) ?? 0;
+  }
+
+  garrisonRatio(tile: TileRef): number {
+    const total = this._urbanAreaMilli;
+    const tiles = this.numTilesOwned();
+    // No people (or no land) → no spatial signal to read, so fall back to
+    // exactly the pre-change global-average behavior. This is what keeps
+    // inert-food games deterministic and unchanged.
+    if (total <= 0 || tiles <= 0) return 1;
+
+    const { shift, edge, cols, rows } = this.bucketGeom();
+    const map = this.mg.map();
+    // Bilinear sample over the 2x2 neighbouring buckets in bucket-CENTRE
+    // coordinates: g = (p + 0.5)/edge - 0.5, carried exactly as the integer
+    // u = 2p + 1 - edge over the denominator w = 2·edge. Sampling rather than
+    // reading the single containing bucket is what removes the boundary cliff
+    // that would otherwise let an attacker sidestep a city by one tile.
+    const w = edge << 1;
+    const sampleShift = shift + 1;
+    const u = 2 * map.x(tile) + 1 - edge;
+    const v = 2 * map.y(tile) + 1 - edge;
+    // Arithmetic shift is floor division for powers of two, including negatives.
+    const i0 = u >> sampleShift;
+    const j0 = v >> sampleShift;
+    const tx = u & (w - 1);
+    const ty = v & (w - 1);
+    // Integer weights summing to w², so the numerator is exact and free of
+    // accumulation-order effects.
+    const num =
+      (w - tx) * (w - ty) * this.bucketSum(i0, j0, cols, rows) +
+      tx * (w - ty) * this.bucketSum(i0 + 1, j0, cols, rows) +
+      (w - tx) * ty * this.bucketSum(i0, j0 + 1, cols, rows) +
+      tx * ty * this.bucketSum(i0 + 1, j0 + 1, cols, rows);
+
+    const f = this.mg.config().food();
+    const localPerTile = num / (w * w * edge * edge);
+    const meanPerTile = total / tiles;
+    return within(
+      localPerTile / meanPerTile,
+      f.garrisonRatioMin,
+      f.garrisonRatioMax,
+    );
+  }
+
   farmMaturity(tile: TileRef): number {
     return this._farmMaturity.get(tile) ?? 0;
   }
@@ -1337,6 +1467,12 @@ export class PlayerImpl implements Player {
     const v = milli <= 0 ? 0 : milli >= 1000 ? 1000 : Math.round(milli);
     if (v === 0) this._farmMaturity.delete(tile);
     else this._farmMaturity.set(tile, v);
+    // A tile cultivated to the claim threshold is Field ground forever — the
+    // zone outlives the crop (see LandUse). Senescence (v === 0) leaves it set;
+    // sub-claim establishment that dies back was never "built", so isn't zoned.
+    if (v >= this.mg.config().food().fieldClaimMilli) {
+      this._landUse.set(tile, LandUse.Field);
+    }
     // Field overlay (rework-settlement-ecology §1b): emit the render delta
     // only when the display BYTE moves — ripening advances ~1 byte/tick, so
     // this is the same upload-flood guard the damage channel uses.
@@ -1349,6 +1485,10 @@ export class PlayerImpl implements Player {
 
   farmMaturityEntries(): IterableIterator<[TileRef, number]> {
     return this._farmMaturity.entries();
+  }
+
+  landUse(tile: TileRef): LandUse | undefined {
+    return this._landUse.get(tile);
   }
 
   isFieldTile(tile: TileRef): boolean {

@@ -367,6 +367,21 @@ export enum PlayerType {
   Nation = "NATION",
 }
 
+/**
+ * Persistent zoning of a DEVELOPED tile. Once a tile is BUILT — urbanized by
+ * the city CA or cultivated as a claimed field — it keeps its zone forever.
+ * Death (the population starves out; crops senesce) clears the live density /
+ * maturity but NOT the zone: dead city ground stays reserved for the city and
+ * regrows as city, dead field ground stays reserved for the farm and regrows
+ * as field. The two automata never poach each other's ground, living OR dead —
+ * a built tile never reverts to wild. Only losing the tile itself (conquest or
+ * relinquish) clears the zone.
+ */
+export enum LandUse {
+  Urban = 1,
+  Field = 2,
+}
+
 export interface Execution {
   isActive(): boolean;
   activeDuringSpawnPhase(): boolean;
@@ -637,6 +652,12 @@ export interface Player {
   density(tile: TileRef): number;
   setDensity(tile: TileRef, milli: number): void;
   densityEntries(): IterableIterator<[TileRef, number]>;
+  /** The tile-local garrison multiplier (localize-defender-density): smoothed
+   *  local population density at `tile` over this player's OWN mean density,
+   *  clamped to the configured band. 1 = an average-density tile, which
+   *  defends exactly as the old `troops / numTilesOwned` average did. Returns
+   *  exactly 1 when this player has no population at all. */
+  garrisonRatio(tile: TileRef): number;
   /** Urban area in tile-equivalents (Σ density). */
   urbanArea(): number;
   /** Extra housing from tile tenure (rework-settlement-ecology): old city
@@ -658,6 +679,12 @@ export interface Player {
    *  invisible to the city CA and vice versa — first claim holds; a tile
    *  merely establishing (below the threshold) counts as wild. */
   isFieldTile(tile: TileRef): boolean;
+  /** Persistent zoning of a developed tile (LandUse), or undefined if the tile
+   *  was never built. Survives the tile's DEATH — a starved-out city tile
+   *  stays LandUse.Urban, a senesced field stays LandUse.Field — so the ground
+   *  regrows as its own type and is never poached by the other automaton. Only
+   *  conquest / relinquish clears it. */
+  landUse(tile: TileRef): LandUse | undefined;
 
   // Units
   units(...types: UnitType[]): Unit[];
