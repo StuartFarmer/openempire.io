@@ -1,150 +1,190 @@
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="proprietary/images/OpenFrontLogoDark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="proprietary/images/OpenFrontLogo.svg">
-    <img src="proprietary/images/OpenFrontLogo.svg" alt="OpenFrontIO Logo" width="300">
-  </picture>
-</p>
+# OpenEmpire.io
 
-[OpenFront.io](https://openfront.io/) is an online real-time strategy game focused on territorial control and alliance building. Players compete to expand their territory, build structures, and form strategic alliances in various maps based on real-world geography.
+A singleplayer real-time strategy game about growing an empire from a single
+settlement. You feed a population, that population _is_ your army, and you take
+ground from AI nations by pushing troops along a front.
 
-This is a fork/rewrite of WarFront.io. Credit to https://github.com/WarFrontIO.
+It runs entirely in your browser — there is no server, no account, no login.
 
-![CI](https://github.com/openfrontio/OpenFrontIO/actions/workflows/ci.yml/badge.svg)
-[![Crowdin](https://badges.crowdin.net/openfront-mls/localized.svg)](https://crowdin.com/project/openfront-mls)
-[![CLA assistant](https://cla-assistant.io/readme/badge/openfrontio/OpenFrontIO)](https://cla-assistant.io/openfrontio/OpenFrontIO)
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-[![Assets: CC BY-SA 4.0](https://img.shields.io/badge/Assets-CC%20BY--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-sa/4.0/)
+This is a lean fork of [OpenFront.io](https://openfront.io/), itself a rewrite
+of WarFront.io. Credit to <https://github.com/WarFrontIO>.
 
-## License
+---
 
-OpenFront source code is licensed under the **GNU Affero General Public License v3.0**
+## Before you start
 
-Current copyright notices appear in:
+**You need two things:**
 
-- Footer: "© OpenFront and Contributors"
-- Loading screen: "© OpenFront and Contributors"
+|                           |                                                                                                                          |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **Node.js 22 or newer**   | `node -v` to check. Get it from <https://nodejs.org> (the LTS build is fine).                                            |
+| **A browser with WebGPU** | **Chrome or Edge** is the safe choice. Safari 18+ (macOS 15+) works. Firefox may not — if the map is black, this is why. |
 
-Modified versions must preserve these notices in reasonably visible locations.
+Nothing else. No database, no Docker, no API keys.
 
-See the [LICENSE](LICENSE) for complete requirements.
+---
 
-For asset licensing, see [LICENSE-ASSETS](LICENSE-ASSETS).  
-For license history, see [LICENSING.md](LICENSING.md).
+## Install and run
 
-## 🌟 Features
+Five commands. Copy-paste them one at a time into a terminal.
 
-- **Real-time Strategy Gameplay**: Expand your territory and engage in strategic battles
-- **Alliance System**: Form alliances with other players for mutual defense
-- **Multiple Maps**: Play across various geographical regions including Europe, Asia, Africa, and more
-- **Resource Management**: Balance your expansion with defensive capabilities
-- **Cross-platform**: Play in any modern web browser
+**1. Get the code**
 
-## 📋 Prerequisites
+```bash
+git clone https://github.com/StuartFarmer/openempire.io.git
+```
 
-- [npm](https://www.npmjs.com/) (v10.9.2 or higher)
-- A modern web browser (Chrome, Firefox, Edge, etc.)
+**2. Go into the folder**
 
-## 🚀 Installation
+```bash
+cd openempire.io
+```
 
-1. **Clone the repository**
+**3. Switch to the playable branch**
 
-   ```bash
-   git clone https://github.com/openfrontio/OpenFrontIO.git
-   cd OpenFrontIO
-   ```
+```bash
+git checkout lean
+```
 
-2. **Install dependencies**
+**4. Install the dependencies**
 
-   ```bash
-   npm run inst
-   ```
+```bash
+npm run inst
+```
 
-   Do NOT use `npm install` nor `npm i` but instead use our `npm run inst`. It runs the safer `npm ci --ignore-scripts` to install dependencies exactly according to the versions in `package-lock.json` and doesn't run scripts. This can prevent being hit by a supply chain attack.
+> ⚠️ Use `npm run inst`, **not** `npm install`. It runs `npm ci --ignore-scripts`,
+> which installs the exact locked versions and skips some heavy native builds you
+> do not need to play. `npm install` can take much longer and may fail.
 
-## 🎮 Running the Game
+This takes a minute or two and prints a pile of warnings about vulnerabilities.
+That is normal — ignore it.
 
-### Development Mode
-
-Run both the client and server in development mode with live reloading:
+**5. Start the game**
 
 ```bash
 npm run dev
 ```
 
-This will:
+It will open <http://localhost:9000> in your browser automatically. If it does
+not, open that address yourself.
 
-- Start the webpack dev server for the client
-- Launch the game server with development settings
-- Open the game in your default browser (to disable this behavior, set `SKIP_BROWSER_OPEN=true` in your environment)
+Leave the terminal window open — closing it stops the game. Press `Ctrl+C` in
+that terminal when you are done.
 
-### Client Only
+---
 
-To run just the client with hot reloading:
+## Playing
+
+You land on a dark menu with a live game running behind it — that is the actual
+simulation, not a video.
+
+1. Type a name (and optionally a 2–5 character clan tag) in the box.
+2. Hit **Start Game**.
+3. **Click anywhere on land** to plant your settlement. The other nations'
+   landing sites are labelled in amber so you can see who you are settling next
+   to.
+4. The camera flies in, and everything outside your borders darkens.
+
+**Controls**
+
+| Action           | How                                                                                         |
+| ---------------- | ------------------------------------------------------------------------------------------- |
+| Attack / expand  | **Click** enemy or unclaimed land next to your border                                       |
+| Aim a push       | Click **further away** for a narrow spearhead, **close to your border** for a broad advance |
+| Look at a nation | **Hover** it — it lights up and a chip shows its name and population                        |
+| Pan              | **Drag**                                                                                    |
+| Zoom             | **Scroll**                                                                                  |
+| Build            | The **Settlement** / **Farmland** buttons at the bottom, then click a tile                  |
+| Attack strength  | The **attack %** slider, bottom right                                                       |
+
+**Reading the screen**
+
+- **Bottom left** — details of whatever tile is under your cursor.
+- **Bottom centre** — your troops, population, food and territory.
+- **Bottom right** — your empire over time. `surplus` is the one to watch: if it
+  goes negative you are eating your reserves and your population is about to
+  fall. Hover a nation and its numbers ghost onto the same charts so you can see
+  whether you are gaining on them.
+- **Coloured border during a fight** — green where you are winning, red where
+  you are losing, per tile. It shows you _where_ a push is biting.
+
+**Buttons along the top**
+
+`Pause`, `turbo` (fast-forward), `bots` (how many opponents), `restart` (new
+game, same map), `stats`, and `climate` (sliders for the world's weather — your
+settings are saved between sessions and can be exported as JSON).
+
+You can switch maps and game types with the dropdowns at the top left.
+
+---
+
+## Playing on the same network
+
+If your friends are on the same wifi and you want them to open it on their own
+machines:
 
 ```bash
-npm run start:client
+npm run dev:host
 ```
 
-### Server Only
+The terminal prints a **Network:** address like `http://192.168.1.42:9000` —
+they open that. Each person still plays their own separate game; there is no
+multiplayer.
 
-To run just the server with development settings:
+---
+
+## If something goes wrong
+
+**The map is black, or it says "This browser does not expose navigator.gpu"**
+Your browser does not have WebGPU. Use Chrome or Edge.
+
+**`Port 9000 is already in use`**
+An old copy is still running. Stop it:
 
 ```bash
-npm run start:server-dev
+pkill -f vite
 ```
 
-### Connecting to staging or production backends
+Then `npm run dev` again.
 
-Sometimes it's useful to connect to production servers when replaying a game, testing user profiles, purchases, or login flow.
-
-> To replay a production game, make sure you're on the same commit that the game you want to replay was executed on, you can find the `gitCommit` value via `https://api.openfront.io/game/[gameId]`.
-> Unfinished games cannot be replayed on localhost.
-
-To connect to staging api servers:
+**`npm run inst` fails, or the game behaves strangely after pulling changes**
+Wipe the dependencies and reinstall:
 
 ```bash
-npm run dev:staging
+rm -rf node_modules
+npm run inst
 ```
 
-To connect to production api servers:
+**`git checkout lean` says the branch does not exist**
+Fetch it first:
 
 ```bash
-npm run dev:prod
+git fetch origin lean
+git checkout lean
 ```
 
-## 🛠️ Development Tools
+**Getting the latest version later**
 
-- **Format code**:
+```bash
+git pull
+npm run inst
+npm run dev
+```
 
-  ```bash
-  npm run format
-  ```
+---
 
-- **Lint code**:
+## For developers
 
-  ```bash
-  npm run lint
-  ```
+```bash
+npm test           # test suite (Vitest)
+npm run lint       # ESLint
+npm run format     # Prettier
+npm run build-prod # production build (static site)
+```
 
-- **Lint and fix code**:
+Five test files fail on a clean checkout — `InputHandler`, `UserSettings`,
+`SoundManager`, and the client `GameView` / `PlayerView` tests. That is a known
+pre-existing baseline, not something you broke. Everything else should pass.
 
-  ```bash
-  npm run lint:fix
-  ```
-
-- **Testing**
-  ```bash
-  npm test
-  ```
-
-## 🏗️ Project Structure
-
-- `/src/client` - Frontend game client
-- `/src/core` - Deterministic game simulation
-- `/src/server` - Backend game server
-- `/resources` - Static assets (images, maps, etc.)
-
-## 🤝 Contributing
-
-Contributions and translations are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow, the approved-issue process, project governance, and translation info.
+`CLAUDE.md` carries the architecture notes, and `openspec/changes/` holds the
+design documents behind each rule change.
