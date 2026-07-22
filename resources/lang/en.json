@@ -466,13 +466,12 @@
     "github": "GitHub",
     "go_to_troubleshooting": "Go to our troubleshooting page",
     "help": "Help",
-    "menu": "Menu",
     "play": "Play",
     "privacy_policy": "Privacy Policy",
     "settings": "Settings",
     "solo": "Solo",
     "terms_of_service": "Terms of Service",
-    "title": "OpenFront (ALPHA)",
+    "title": "OpenEmpire.io",
     "troubleshooting": "Troubleshooting",
     "wiki": "Wiki"
   },
@@ -533,7 +532,7 @@
   },
   "play_page": {
     "map_generator": "Map Generator",
-    "singleplayer": "Singleplayer"
+    "start_game": "Start Game"
   },
   "player_panel": {
     "active": "Active",

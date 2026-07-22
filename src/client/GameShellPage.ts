@@ -1,5 +1,5 @@
 import { html, svg } from "lit";
-import { customElement, state } from "lit/decorators.js";
+import { customElement, property, state } from "lit/decorators.js";
 import { getAssetManifest, getCdnBase } from "../core/AssetUrls";
 import {
   FOOD_DEFAULTS,
@@ -100,6 +100,23 @@ const MASK_FADE_RATE = 0.05;
 const SETTLE_ZOOM = 20;
 /** Per-frame approach rate for the camera fly-to. */
 const CAMERA_TWEEN_RATE = 0.08;
+/**
+ * How long the camera stays on one place, in milliseconds. Deliberately wall
+ * clock rather than a step count: the ambient step runs on the shell's redraw
+ * cadence, which swings with load (measured anywhere from ~13/s to ~85/s), so
+ * counting steps gave shot lengths between 2 seconds and 69.
+ */
+const AMBIENT_HOLD_MS = 15000;
+/** Tiles per second the camera coasts along its arrival bearing. */
+const AMBIENT_DRIFT_PER_S = 0.5;
+/** Farthest the camera travels between shots, in tiles. Past this a move stops
+ *  reading as a pan and becomes a cut across the world. */
+const AMBIENT_MAX_HOP = 90;
+/** Zoom the ambient camera frames a shot at — close enough to read borders
+ *  and combat rather than looking at a world map. */
+const AMBIENT_ZOOM = 22;
+/** Map the backdrop runs. Smaller = faster boot and less memory. */
+const AMBIENT_MAP = "EarthMini";
 
 type ShellViewKey = ShellView;
 const VIEW_KEYS: readonly ShellViewKey[] = SHELL_VIEWS;
@@ -269,6 +286,27 @@ export class GameShellPage extends FieldViewerBase {
   private history = new Map<number, PlayerHistory>();
   private lastSampleTick = -1;
   @state() private showStats = true;
+  /**
+   * Ambient mode: the shell rendered as a live backdrop (the front page). No
+   * toolbar, HUD, panels, labels or input — just the world, warming itself up
+   * in turbo and a camera that drifts toward wherever the fighting is. Reusing
+   * the real shell rather than a second renderer means the backdrop is always
+   * the current build, and the sim is already warm when you press Start.
+   */
+  @property({ type: Boolean, reflect: true }) ambient = false;
+  /** Counter seeding which shot gets picked next (no longer a pacing clock). */
+  private ambientClock = 0;
+  private ambientTarget: { cx: number; cy: number; scale: number } | null =
+    null;
+  /** Unit bearing of the last camera move; the drift continues along it. Null
+   *  until the first move, so the opening shot holds still rather than sliding
+   *  off in an arbitrary direction. */
+  private ambientHeading: { dx: number; dy: number } | null = null;
+  /** Whether the opening shot has been framed (we snap, never ease, into it). */
+  private ambientFramed = false;
+  /** Wall-clock marks for the shot hold and the per-second drift. */
+  private ambientShotAt = 0;
+  private ambientLastStep = 0;
   /** Front labels shipped this tick (cluster tiles + signed delta). */
   private frontLabelsData: ShellFrontLabel[] = [];
   /** Throttles the terrain season re-derive (GPU) to a few times/second. */
@@ -335,14 +373,29 @@ export class GameShellPage extends FieldViewerBase {
     ];
     // The shell opens on the actual game, not the terrain viewer.
     this.systemId = openfront.id;
-    this.mapKey = "SPQR";
+    // The backdrop runs a smaller world than the playable default: measured
+    // ~0.9s to a ticking sim and 231MB, against 3.2s / 340MB for full Earth.
+    this.mapKey = this.hasAttribute("ambient") ? AMBIENT_MAP : "SPQR";
     this.restoreClimateState();
     super.connectedCallback();
     window.addEventListener("keydown", this.onKeyDown);
+    if (this.hasAttribute("ambient")) {
+      window.addEventListener("showPage", this.onAmbientPageChange);
+    }
   }
+
+  private onAmbientPageChange = (e: Event): void => {
+    const page = (e as CustomEvent<string>).detail;
+    if (page === "page-play") {
+      if (!this.kernel) void this.loadWorld();
+    } else {
+      this.destroySim();
+    }
+  };
 
   disconnectedCallback(): void {
     window.removeEventListener("keydown", this.onKeyDown);
+    window.removeEventListener("showPage", this.onAmbientPageChange);
     this.clearViewCache();
     this.destroySim();
     super.disconnectedCallback();
@@ -367,7 +420,10 @@ export class GameShellPage extends FieldViewerBase {
 
   async firstUpdated(): Promise<void> {
     // Outrank the page footer/header stacking contexts — fullscreen surface.
-    this.style.zIndex = "9999";
+    // The ambient backdrop is the exact opposite: it must sit UNDER the menu,
+    // and it is pointer-events-none, so hit-testing hid this from every check
+    // that only asked "is the button clickable".
+    this.style.zIndex = this.ambient ? "0" : "9999";
     if (!CameraRenderer.isSupported()) {
       this.status = "WebGPU is not supported in this browser.";
       return;
@@ -824,6 +880,7 @@ export class GameShellPage extends FieldViewerBase {
       bots: this.simBots,
       cdnBase: getCdnBase(),
       assetManifest: getAssetManifest(),
+      ambient: this.ambient,
     });
   }
 
@@ -1600,6 +1657,110 @@ export class GameShellPage extends FieldViewerBase {
   }
 
   /**
+   * Ambient autopilot. Runs the world in turbo so the backdrop is a timelapse
+   * of empires spreading rather than a static map, then eases the camera from
+   * front to front so what is on screen is combat, not empty ocean.
+   */
+  private stepAmbient(): void {
+    if (!this.ambient) return;
+    this.paramValues.ambientView = 1;
+    // Just run — no turbo. The worker already ticks the backdrop slower than
+    // real time, and a fast-forward at the start reads as a glitch rather than
+    // as a game.
+    if (!this.running) this.toggleRunning();
+
+    // Open already close in on somewhere, rather than easing down from a world
+    // view. Before anyone owns ground the nations' landing sites are the only
+    // thing on the map worth pointing at.
+    if (!this.ambientFramed) {
+      const first = this.pickAmbientShot() ?? this.firstNationShot();
+      if (first !== null) {
+        this.camera = first;
+        this.ambientFramed = true;
+        // Advance the clock so the first real move picks a DIFFERENT place —
+        // the shot index is derived from it, so leaving it at 0 makes the
+        // camera "travel" to where it already is and nothing ever moves.
+        this.ambientClock = 1;
+        this.ambientShotAt = performance.now();
+        this.ambientLastStep = this.ambientShotAt;
+      }
+      return;
+    }
+
+    if (this.cameraTween !== null) return;
+    const now = performance.now();
+    const dt = Math.min(0.25, (now - this.ambientLastStep) / 1000);
+    this.ambientLastStep = now;
+    if (now - this.ambientShotAt < AMBIENT_HOLD_MS) {
+      // Keep coasting the way the camera arrived, so the move and the drift
+      // read as one continuous push rather than a fly-in followed by an
+      // unrelated left-to-right slide.
+      const h = this.ambientHeading;
+      if (h !== null) {
+        const step = AMBIENT_DRIFT_PER_S * dt;
+        this.camera = {
+          ...this.camera,
+          cx: this.camera.cx + h.dx * step,
+          cy: this.camera.cy + h.dy * step,
+        };
+        this.needsRedraw = true;
+      }
+      return;
+    }
+    this.ambientShotAt = now;
+    this.ambientClock += 1;
+    const shot = this.pickAmbientShot();
+    if (shot === null) return;
+    // Remember the bearing of this move; the drift will carry it on.
+    const dx = shot.cx - this.camera.cx;
+    const dy = shot.cy - this.camera.cy;
+    const len = Math.hypot(dx, dy);
+    if (len > 0.001) this.ambientHeading = { dx: dx / len, dy: dy / len };
+    this.ambientTarget = shot;
+    this.cameraTween = shot;
+  }
+
+  /** Somewhere to point before anyone owns ground: a nation's landing site. */
+  private firstNationShot(): { cx: number; cy: number; scale: number } | null {
+    if (this.nationSpawns.length === 0) return null;
+    const n = this.nationSpawns[this.nationSpawns.length >> 1];
+    return { cx: n.x + 0.5, cy: n.y + 0.5, scale: AMBIENT_ZOOM };
+  }
+
+  /** A place worth looking at: an active front, else a populated area. */
+  private pickAmbientShot(): { cx: number; cy: number; scale: number } | null {
+    const W = this.mapWidth;
+    const front = this.frontU32;
+    const dens = this.densityU32;
+    const pool: number[] = [];
+    if (front) {
+      for (let i = 0; i < front.length; i += 1) if (front[i] > 0) pool.push(i);
+    }
+    if (pool.length === 0 && dens) {
+      for (let i = 0; i < dens.length; i += 1) if (dens[i] > 0) pool.push(i);
+    }
+    if (pool.length === 0) return null;
+    // Prefer somewhere close by, so the camera walks the map instead of
+    // teleporting across it. Falls back to the whole pool when the
+    // neighbourhood has nothing left worth looking at.
+    const cx = this.camera.cx;
+    const cy = this.camera.cy;
+    const near = pool.filter((i) => {
+      const dx = (i % W) - cx;
+      const dy = Math.floor(i / W) - cy;
+      return dx * dx + dy * dy <= AMBIENT_MAX_HOP * AMBIENT_MAX_HOP;
+    });
+    const from = near.length > 0 ? near : pool;
+    // Deterministic-ish pick without Math.random so repeated frames are stable.
+    const t = from[(this.ambientClock * 7919) % from.length];
+    return {
+      cx: (t % W) + 0.5,
+      cy: Math.floor(t / W) + 0.5,
+      scale: AMBIENT_ZOOM,
+    };
+  }
+
+  /**
    * Fly the camera toward its target. Zoom eases in LOG space so the
    * approach feels linear to the eye — a straight lerp on scale spends most
    * of its time crawling through the high zooms.
@@ -1697,6 +1858,7 @@ export class GameShellPage extends FieldViewerBase {
     if (!this.kernel || !this.compiled) return;
     this.inFlight = true;
     this.stepMaskFade();
+    this.stepAmbient();
     this.stepCameraTween();
     this.kernel.writeUniform(
       "P",
@@ -1981,6 +2143,7 @@ export class GameShellPage extends FieldViewerBase {
 
   render() {
     if (!CameraRenderer.isSupported()) {
+      if (this.ambient) return html``;
       return html`<section
         class="w-full h-full bg-neutral-950 text-white overflow-auto"
       >
@@ -1992,6 +2155,22 @@ export class GameShellPage extends FieldViewerBase {
     }
     const game = this.hasGame();
     const compiled = this.compiled;
+    if (this.ambient) {
+      // Backdrop only. No chrome, no pointer handlers — the menu sits on top
+      // and must keep every click.
+      return html`
+        <section class="absolute inset-0 overflow-hidden pointer-events-none">
+          <canvas
+            id="shell-canvas"
+            class="absolute inset-0 w-full h-full"
+          ></canvas>
+          <div
+            id="shell-labels"
+            class="absolute inset-0 pointer-events-none overflow-hidden hidden"
+          ></div>
+        </section>
+      `;
+    }
     return html`
       <section class="fixed inset-0 z-[9000] bg-neutral-950 overflow-hidden">
         <canvas

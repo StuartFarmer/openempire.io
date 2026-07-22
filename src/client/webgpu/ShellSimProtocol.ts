@@ -59,6 +59,9 @@ export type ShellSimIn =
       bots: number;
       cdnBase: string;
       assetManifest: AssetManifest;
+      /** Front-page backdrop: nobody is going to place a spawn, so the sim
+       *  needs the spawn phase to end on a timer instead of on a human. */
+      ambient?: boolean;
     }
   | { type: "running"; running: boolean; turbo: boolean }
   // The worker resolves attack-vs-boat + ratio-scaled troops (needs Game reads).

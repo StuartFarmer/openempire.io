@@ -37,6 +37,9 @@ export const openfront = defineFieldSystem({
     ownFocusDim: { value: 0.3, min: 0, max: 1, step: 0.02 },
     // smallID of the nation under the cursor (0 = none). Page-driven.
     hoveredPlayer: { value: 0, min: 0, max: 255, step: 1, hidden: true },
+    // 1 in the front-page backdrop: there is no human to be "us", so the mask
+    // would leave the world as bare terrain. Colour every nation instead.
+    ambientView: { value: 0, min: 0, max: 1, step: 1, hidden: true },
   },
 
   // Per-player palette slots (WebGL-parity colors): the page computes each

@@ -3,6 +3,7 @@
 // per-tick summary to GameShellPage. Owns EVERY Game read; the main thread has
 // no Game access.
 import { assetUrl } from "../../core/AssetUrls";
+import { SpawnTimerExecution } from "../../core/execution/SpawnTimerExecution";
 import { borderSegment } from "../../core/execution/utils/BorderSegment";
 import { climateSuitability } from "../../core/execution/utils/FarmGrowth";
 import {
@@ -72,8 +73,16 @@ const knownNames = new Set<number>();
 let unitDiffClock = 0;
 let spawnAnchorSent = false;
 let nationSpawnsSent = false;
+/** Front-page backdrop: no human, spawn phase on a timer, and a slower clock
+ *  once warm so the world drifts rather than races behind the menu. */
+let ambient = false;
 /** Ints per player in the packed `stats` array (see ShellSimProtocol). */
 const STAT_STRIDE = 7;
+/** How much slower than real time the backdrop ticks once it is warm. */
+const AMBIENT_TICK_SCALE = 3;
+/** Ticks the backdrop runs during init, before its first frame is shown. Must
+ *  clear the spawn phase (numSpawnPhaseTurns, 100) with room for borders. */
+const AMBIENT_PREWARM_TICKS = 220;
 
 // Per-tick capture from the GameRunner callback.
 let pending: GameUpdateViewData | null = null;
@@ -121,6 +130,15 @@ async function init(msg: Extract<ShellSimIn, { type: "init" }>): Promise<void> {
     if (!(gu as ErrorUpdate).errMsg) pending = gu as GameUpdateViewData;
   });
   game = gr.game;
+  // Singleplayer has NO spawn timer (GameRunner only adds SpawnTimerExecution
+  // for multiplayer) — the phase ends when a HUMAN picks a spawn. The backdrop
+  // has no human, so without this the world sits in the spawn phase forever
+  // and the nations mill about placing spawns instead of playing. Add the very
+  // same timer the multiplayer path uses.
+  if (msg.ambient === true) {
+    ambient = true;
+    game.addExecution(new SpawnTimerExecution());
+  }
   W = game.width();
   H = game.height();
   const food = game.config().food();
@@ -139,6 +157,18 @@ async function init(msg: Extract<ShellSimIn, { type: "init" }>): Promise<void> {
   for (let t = 0; t < n; t += 1) {
     fertility[t] = game.layer("crop", t);
     suitability[t] = Math.round(climateSuitability(game, t) * 255);
+  }
+  if (ambient) {
+    // The spawn phase runs on a 100-tick timer, and the backdrop deliberately
+    // ticks slower than real time — left alone that is ~30s of nations
+    // shuffling into place before anything happens. Burn those ticks here,
+    // before anyone can see them, so the very first painted frame is a game
+    // already under way.
+    while (game.ticks() < AMBIENT_PREWARM_TICKS) {
+      gr.addTurn({ turnNumber: turn++, intents: [] });
+      gr.executeNextTick();
+    }
+    pending = null;
   }
   post({ type: "ready", popPerDensity, fertility, suitability }, [
     fertility.buffer,
@@ -482,7 +512,8 @@ function loop(): void {
   if (!running || !gr) return;
   const start = performance.now();
   stepAndPost();
-  const delay = turbo ? 0 : Math.max(0, TICK_MS - (performance.now() - start));
+  const budget = ambient ? TICK_MS * AMBIENT_TICK_SCALE : TICK_MS;
+  const delay = turbo ? 0 : Math.max(0, budget - (performance.now() - start));
   timer = setTimeout(loop, delay);
 }
 

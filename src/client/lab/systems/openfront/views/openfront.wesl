@@ -103,7 +103,15 @@ fn color(x: i32, y: i32, i: u32) -> vec4f {
   let inspecting = hoveredId != 0u;
   let isHovered = o != 0u && o == hoveredId;
   let onEdge = layers::owner::any8_ne(x, y, o);
-  if (isHovered) {
+  if (params::ambientView() > 0.5) {
+    // Backdrop: every empire gets its own colour and border, the way the map
+    // read before the personal mask. Nothing here is "yours" to reveal.
+    if (o != 0u) {
+      let fill = select(ownerColor(o), unpackTint(slot.fill), slot.fill != 0u);
+      let bcol = select(fill * 0.58, unpackTint(slot.border), slot.border != 0u);
+      col = select(mix(col, fill, 0.588), bcol, onEdge);
+    }
+  } else if (isHovered) {
     // Looking INTO a country: the mask lifts entirely so you can read its
     // land, cities and fields, and its outline goes white so you know exactly
     // whose territory you are seeing.

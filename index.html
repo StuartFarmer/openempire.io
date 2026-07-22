@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <title data-i18n="main.title">OpenFront (ALPHA)</title>
+    <title>OpenEmpire.io</title>
     <link rel="manifest" href="<%- manifestHref %>" />
     <link rel="icon" type="image/svg+xml" href="<%- faviconHref %>" />
 
@@ -79,50 +79,43 @@
   </head>
 
   <body
-    class="h-full select-none font-sans min-h-screen bg-neutral-800 transition-opacity duration-300 ease-in-out flex flex-row overflow-hidden"
+    class="h-full select-none font-sans min-h-screen bg-neutral-900 transition-opacity duration-300 ease-in-out flex flex-row overflow-hidden"
   >
-    <div id="hex-grid" class="fixed inset-0 -z-50 pointer-events-none">
-      <div
-        id="background-layer"
-        class="absolute inset-0 bg-cover bg-center opacity-30 [filter:brightness(1.0)] dark:[filter:sepia(0.2)_saturate(1.2)_hue-rotate(180deg)_brightness(0.9)]"
-        style="
-          background-image: var(--background-image-url);
-          background-position: center calc(50% + 2cm);
-        "
-      ></div>
-      <div
-        class="absolute inset-0 bg-center bg-no-repeat bg-contain hidden lg:block"
-        style="background-image: var(--desktop-logo-image-url); opacity: 0.5"
-      ></div>
-      <div
-        class="absolute inset-0 bg-center bg-no-repeat bg-contain lg:hidden"
-        style="background-image: var(--mobile-logo-image-url); opacity: 0.5"
-      ></div>
-    </div>
+    <!-- The hex-grid / world-map background layer was removed for the dark
+         front page. Its CSS vars are still set in <head>, so re-adding the
+         div is all that is needed to bring it back. -->
 
-    <!-- LEFT SIDEBAR MENU -->
+    <!-- Live gameplay backdrop: the real shell in `ambient` mode (no chrome, no
+         input), running a timelapse of EarthMini behind the menu. Tears its sim
+         down as soon as you navigate away, so only one game ever runs. Renders
+         nothing without WebGPU — the flat dark page is the fallback. -->
+    <game-shell-page
+      id="page-backdrop"
+      ambient
+      class="fixed inset-0 pointer-events-none [.in-game_&]:hidden"
+      style="z-index: 0"
+    ></game-shell-page>
 
+    <!-- Scrim between the live backdrop and the menu. Without it the bright
+         ocean washes the title out — the backdrop has to stay legible as a
+         backdrop, not compete with the text. -->
     <div
-      id="mobile-menu-backdrop"
-      class="lg:hidden! in-[.in-game]:hidden hidden pointer-events-none [&.open]:block [&.open]:pointer-events-auto [&.open]:fixed [&.open]:inset-0 [&.open]:bg-black/60 [&.open]:z-[40000] transition-opacity"
-      role="presentation"
-      aria-hidden="true"
+      class="fixed inset-0 pointer-events-none [.in-game_&]:hidden"
+      style="
+        z-index: 1;
+        background: radial-gradient(
+          ellipse at center,
+          rgba(0, 0, 0, 0.72) 0%,
+          rgba(0, 0, 0, 0.52) 45%,
+          rgba(0, 0, 0, 0.42) 100%
+        );
+      "
     ></div>
-
-    <mobile-nav-bar
-      id="sidebar-menu"
-      class="peer [.in-game_&]:hidden z-[40001] fixed left-0 top-0 h-full flex flex-col justify-start overflow-visible bg-black/70 backdrop-blur-xl border-r border-white/10 transition-transform duration-500 ease-out transform -translate-x-full w-[70%] [&.open]:translate-x-0 lg:hidden"
-      role="dialog"
-      data-i18n-aria-label="main.menu"
-    ></mobile-nav-bar>
 
     <!-- MAIN CONTENT AREA -->
     <div
-      class="in-[.in-game]:hidden flex-1 relative overflow-hidden h-full transition-[margin] duration-500 ease-out will-change-[margin-left] flex flex-col"
+      class="in-[.in-game]:hidden flex-1 relative z-10 overflow-hidden h-full transition-[margin] duration-500 ease-out will-change-[margin-left] flex flex-col"
     >
-      <!-- Desktop Top Bar -->
-      <desktop-nav-bar></desktop-nav-bar>
-
       <!-- Main container with responsive padding -->
       <main-layout class="contents">
         <play-page class="contents"></play-page>
@@ -170,9 +163,12 @@
         ></earth-page>
       </main-layout>
 
-      <div class="[.in-game_&]:hidden mt-auto flex flex-col shrink-0">
-        <page-footer></page-footer>
-      </div>
+      <!-- <page-footer> (social links, copyright, language globe) removed for
+           the clean front page; the component is still in the codebase.
+           lang-selector must stay mounted though — its connectedCallback is
+           what loads the translations, and translateText falls back to raw
+           keys without it. Hidden, not deleted. -->
+      <lang-selector class="hidden"></lang-selector>
 
       <!-- Global Modals -->
     </div>
