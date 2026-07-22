@@ -4,7 +4,108 @@
   "translation_key": "map.verdantia",
   "categories": ["featured", "new", "fictional"],
   "multiplayer_frequency": 0,
-  "nations": [],
+  "nations": [
+    {
+      "coordinates": [216, 98],
+      "name": "Aldermoor"
+    },
+    {
+      "coordinates": [341, 180],
+      "name": "Bramblehold"
+    },
+    {
+      "coordinates": [460, 168],
+      "name": "Cindermarch"
+    },
+    {
+      "coordinates": [395, 110],
+      "name": "Dunravel"
+    },
+    {
+      "coordinates": [144, 98],
+      "name": "Elderwyn"
+    },
+    {
+      "coordinates": [281, 108],
+      "name": "Fenwater"
+    },
+    {
+      "coordinates": [101, 166],
+      "name": "Greenhollow"
+    },
+    {
+      "coordinates": [68, 101],
+      "name": "Hearthvale"
+    },
+    {
+      "coordinates": [243, 138],
+      "name": "Ironbark"
+    },
+    {
+      "coordinates": [25, 169],
+      "name": "Junipergarde"
+    },
+    {
+      "coordinates": [401, 173],
+      "name": "Kelnmere"
+    },
+    {
+      "coordinates": [301, 152],
+      "name": "Larkspur"
+    },
+    {
+      "coordinates": [486, 91],
+      "name": "Mosswend"
+    },
+    {
+      "coordinates": [285, 204],
+      "name": "Northreach"
+    },
+    {
+      "coordinates": [438, 87],
+      "name": "Oakenfast"
+    },
+    {
+      "coordinates": [195, 154],
+      "name": "Pinehaven"
+    },
+    {
+      "coordinates": [387, 62],
+      "name": "Quillbrook"
+    },
+    {
+      "coordinates": [64, 197],
+      "name": "Rushmere"
+    },
+    {
+      "coordinates": [347, 113],
+      "name": "Stonecreek"
+    },
+    {
+      "coordinates": [105, 70],
+      "name": "Thornfield"
+    },
+    {
+      "coordinates": [62, 48],
+      "name": "Umbervale"
+    },
+    {
+      "coordinates": [434, 209],
+      "name": "Verdance"
+    },
+    {
+      "coordinates": [238, 193],
+      "name": "Willowmarch"
+    },
+    {
+      "coordinates": [176, 231],
+      "name": "Yarrowden"
+    },
+    {
+      "coordinates": [151, 176],
+      "name": "Zephyrhold"
+    }
+  ],
   "world_engine": {
     "seed": 42,
     "width": 512,

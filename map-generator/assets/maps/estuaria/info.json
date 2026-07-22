@@ -4,7 +4,88 @@
   "translation_key": "map.estuaria",
   "categories": ["featured", "new", "fictional"],
   "multiplayer_frequency": 0,
-  "nations": [],
+  "nations": [
+    {
+      "coordinates": [300, 243],
+      "name": "Aldermoor"
+    },
+    {
+      "coordinates": [105, 127],
+      "name": "Bramblehold"
+    },
+    {
+      "coordinates": [172, 130],
+      "name": "Cindermarch"
+    },
+    {
+      "coordinates": [154, 256],
+      "name": "Dunravel"
+    },
+    {
+      "coordinates": [62, 166],
+      "name": "Elderwyn"
+    },
+    {
+      "coordinates": [341, 114],
+      "name": "Fenwater"
+    },
+    {
+      "coordinates": [235, 248],
+      "name": "Greenhollow"
+    },
+    {
+      "coordinates": [243, 154],
+      "name": "Hearthvale"
+    },
+    {
+      "coordinates": [47, 77],
+      "name": "Ironbark"
+    },
+    {
+      "coordinates": [15, 133],
+      "name": "Junipergarde"
+    },
+    {
+      "coordinates": [67, 248],
+      "name": "Kelnmere"
+    },
+    {
+      "coordinates": [367, 165],
+      "name": "Larkspur"
+    },
+    {
+      "coordinates": [104, 70],
+      "name": "Mosswend"
+    },
+    {
+      "coordinates": [12, 266],
+      "name": "Northreach"
+    },
+    {
+      "coordinates": [190, 211],
+      "name": "Oakenfast"
+    },
+    {
+      "coordinates": [137, 175],
+      "name": "Pinehaven"
+    },
+    {
+      "coordinates": [313, 184],
+      "name": "Quillbrook"
+    },
+    {
+      "coordinates": [293, 70],
+      "name": "Rushmere"
+    },
+    {
+      "coordinates": [307, 309],
+      "name": "Stonecreek"
+    },
+    {
+      "coordinates": [224, 100],
+      "name": "Thornfield"
+    }
+  ],
   "world_engine": {
     "seed": 23,
     "width": 384,
