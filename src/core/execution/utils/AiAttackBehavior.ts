@@ -32,6 +32,7 @@ import {
 } from "../nation/NationEmojiBehavior";
 import { TransportShipExecution } from "../TransportShipExecution";
 import { closestTwoTiles } from "../Util";
+import { borderSegment } from "./BorderSegment";
 import { deployableTroops, fieldStaffingNeed } from "./EconomyModel";
 import { foodShedField } from "./FoodShed";
 
@@ -142,7 +143,15 @@ export class AiAttackBehavior {
 
     const owner = this.game.owner(dst);
     const cap = owner.isPlayer() ? this.troopSendCap() : Infinity;
-    const troops = Math.min(this.player.troops() / 5, cap);
+    // Boats are deployment too: bound by the same war share as land attacks,
+    // counting what is already committed (deployableTroops nets off live
+    // attacks AND transports). Without this the AI stacks boat after boat and
+    // exceeds the share it is supposed to be held to.
+    const troops = Math.min(
+      this.player.troops() / 5,
+      cap,
+      deployableTroops(this.game, this.player),
+    );
     if (troops < 1) return;
 
     // Hard & Impossible: don't attack if we'd send less than 20% of target's troops
@@ -737,12 +746,55 @@ export class AiAttackBehavior {
     return traitors.length > 0 ? this.random.randElement(traitors) : null;
   }
 
+  /**
+   * Pick a stretch of our border facing `target` to attack FROM
+   * (front-line-troops). An attack's troops are now spread over the front it
+   * seeds, so the old whole-border path would smear the AI's whole force one
+   * tile thick along its entire frontier — the weakest possible commitment at
+   * every point. Committing to a bounded stretch gives the AI the same
+   * concentration a human gets by clicking.
+   */
+  private attackSegment(target: Player | TerraNullius): TileRef[] | undefined {
+    const targetID = target.isPlayer() ? (target as Player).smallID() : 0;
+    const mine = this.player.smallID();
+    const contact: TileRef[] = [];
+    for (const t of this.player.borderTiles()) {
+      let touches = false;
+      this.game.forEachNeighbor(t, (n) => {
+        if (touches) return;
+        const o = this.game.ownerID(n);
+        if (o === mine) return;
+        // Unowned land counts as contact when expanding into wilderness.
+        if (o === targetID && (targetID !== 0 || this.game.isLand(n))) {
+          touches = true;
+        }
+      });
+      if (touches) contact.push(t);
+    }
+    if (contact.length === 0) return undefined;
+    // Aim somewhere along the contact front and commit a bounded stretch
+    // around it, so troops-per-tile stays meaningful on a long frontier.
+    const aim = contact[this.random.nextInt(0, contact.length)];
+    const seg = borderSegment(
+      contact,
+      this.game.x(aim),
+      this.game.y(aim),
+      (t) => this.game.x(t),
+      (t) => this.game.y(t),
+      { maxWidth: Math.max(8, Math.floor(contact.length / 3)) },
+    );
+    return seg?.sourceTiles;
+  }
+
   forceSendAttack(target: Player | TerraNullius) {
     this.game.addExecution(
       new AttackExecution(
         this.player.troops() / 2,
         this.player,
         target.isPlayer() ? target.id() : this.game.terraNullius().id(),
+        null,
+        true,
+        this.attackSegment(target) ?? null,
       ),
     );
   }
@@ -824,7 +876,11 @@ export class AiAttackBehavior {
         if (this.game.hasFallout(tile)) continue;
         if (!canBuildTransportShip(this.game, this.player, tile)) continue;
 
-        const troops = this.player.troops() / 5;
+        // Same war-share bound as every other deployment path.
+        const troops = Math.min(
+          this.player.troops() / 5,
+          deployableTroops(this.game, this.player),
+        );
         if (troops < 1) return false;
 
         this.game.addExecution(
@@ -969,11 +1025,15 @@ export class AiAttackBehavior {
     // maxWarShare of the living population — the vanilla reserves are
     // housing-based and a food-bound population sits far below housing, so
     // without this a young AI dumps its whole demography into one push and
-    // never rebuilds. Suspended while under attack (survival first).
-    const warCap =
-      this.player.incomingAttacks().length > 0
-        ? Infinity
-        : deployableTroops(this.game, this.player);
+    // never rebuilds.
+    //
+    // NEVER suspended. This used to become Infinity whenever the player had
+    // an incoming attack, which meant attacking an AI disabled its own safety
+    // limit: it stacked attack on attack until its population was spent, then
+    // collapsed and was trivially annexed. Troops are people — a nation that
+    // fields 100% of its people has already lost, whether or not it wins the
+    // battle.
+    const warCap = deployableTroops(this.game, this.player);
 
     let troops;
     if (
@@ -1026,6 +1086,9 @@ export class AiAttackBehavior {
         troops,
         this.player,
         target.isPlayer() ? target.id() : this.game.terraNullius().id(),
+        null,
+        true,
+        this.attackSegment(target) ?? null,
       ),
     );
     return true;

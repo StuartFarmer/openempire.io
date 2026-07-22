@@ -347,6 +347,7 @@ describe("Hard/Impossible troop floor", () => {
     // No cap on Easy — sends full reserve amount
 
     const addExecSpy = vi.spyOn(testGame, "addExecution");
+    const popBefore = attacker.troops();
     const result = behavior.sendAttack(bot);
 
     expect(result).toBe(true);
@@ -356,12 +357,10 @@ describe("Hard/Impossible troop floor", () => {
     expect(exec).toBeDefined();
     // On Easy, no troop floor applies — troops are only limited by the reserve ratio
     expect(exec.startTroops).toBeGreaterThan(0);
-    // Verify the troops exceed what the Hard cap would have been
-    const hardCap = Math.max(
-      0,
-      attacker.troops() - Math.ceil(neighbor.troops() * 0.75),
-    );
-    expect(exec.startTroops).toBeGreaterThan(hardCap);
+    // Easy applies no troop floor, so the war share is what bounds the send.
+    // (It is below the old Hard cap now — the share is an absolute ceiling on
+    // deployment and is never suspended.)
+    expect(exec.startTroops).toBe(Math.floor(popBefore * 0.2));
   });
 
   it("Hard: sendAttack uncapped when nation has no player neighbors", async () => {
@@ -396,6 +395,7 @@ describe("Hard/Impossible troop floor", () => {
     );
 
     const addExecSpy = vi.spyOn(testGame, "addExecution");
+    const popBefore = bot.troops();
     // sendAttack goes through sendLandAttack which applies troopSendCap.
     // With no player neighbors, troopSendCap returns Infinity (no cap).
     const result = behavior.sendAttack(testGame.terraNullius());
@@ -405,8 +405,10 @@ describe("Hard/Impossible troop floor", () => {
       (c) => c[0].constructor.name === "AttackExecution",
     )?.[0] as any;
     expect(exec).toBeDefined();
-    // No cap applies, so troops should be the full reserve amount
-    expect(exec.startTroops).toBeGreaterThan(40_000);
+    // troopSendCap is Infinity here (no player neighbors), so it is not what
+    // limits the attack — but the war share ALWAYS does. It is an absolute
+    // bound now, never suspended, so it is the binding constraint.
+    expect(exec.startTroops).toBe(Math.floor(popBefore * 0.2));
   });
 
   it("Team: troopSendCap returns Infinity — no cap in team games", async () => {
@@ -479,6 +481,7 @@ describe("Hard/Impossible troop floor", () => {
     neighbor.addTroops(90_000);
 
     const addExecSpy = vi.spyOn(testGame, "addExecution");
+    const popBefore = attacker.troops();
     const result = behavior.sendAttack(bot);
 
     expect(result).toBe(true);
@@ -486,8 +489,10 @@ describe("Hard/Impossible troop floor", () => {
       (c) => c[0].constructor.name === "AttackExecution",
     )?.[0] as any;
     expect(exec).toBeDefined();
-    // In FFA Hard, troops would be capped to 32.5k. In Team mode, no cap.
-    expect(exec.startTroops).toBeGreaterThan(32_500);
+    // In FFA Hard, troopSendCap would clamp this to 32.5k; in Team mode it is
+    // Infinity, so it does not bind. The war share still does — it is absolute.
+    expect(exec.startTroops).toBe(Math.floor(popBefore * 0.2));
+    expect(exec.startTroops).toBeLessThan(32_500);
   });
 
   it("Team: isAttackTooWeak returns false — weak attacks allowed in team games", async () => {
@@ -593,6 +598,7 @@ describe("Hard/Impossible troop floor", () => {
 
     // With incoming attacks, troopSendCap raises to at least totalIncoming
     const addExecSpy = vi.spyOn(testGame, "addExecution");
+    const popBefore = attacker.troops();
     const result = behavior.sendAttack(neighbor);
 
     expect(result).toBe(true);
@@ -600,7 +606,13 @@ describe("Hard/Impossible troop floor", () => {
       (c) => c[0].constructor.name === "AttackExecution",
     )?.[0] as any;
     expect(exec).toBeDefined();
-    // The bypass allows retaliation with at least the incoming 50k
-    expect(exec.startTroops).toBeGreaterThanOrEqual(50_000);
+    // troopSendCap's under-attack bypass still applies, so a nation facing a
+    // STRONGER neighbor can still counter-attack at all (the normal cap above
+    // is 0). What no longer happens is the war share being lifted with it: the
+    // counter-attack is bounded at maxWarShare of the living population.
+    // Previously this was Infinity, so being attacked made an AI commit its
+    // entire demography and collapse.
+    expect(exec.startTroops).toBe(Math.floor(popBefore * 0.2));
+    expect(exec.startTroops).toBeLessThan(50_000);
   });
 });
