@@ -1,4 +1,4 @@
-import { Game, Player, UnitType } from "../../game/Game";
+import { Game, LandUse, Player, UnitType } from "../../game/Game";
 import { TileRef } from "../../game/GameMap";
 import { PseudoRandom } from "../../PseudoRandom";
 import { simpleHash } from "../../Util";
@@ -186,6 +186,10 @@ function addCityTiles(
     // tile — nucleus or spread — is food, never city. Tiles merely
     // establishing below the claim threshold are still wild and fair game.
     if (player.isFieldTile(tile)) continue;
+    // ...and once field, always field: a SENESCED field tile (dead crop,
+    // maturity 0) keeps its Field zone, so the city grows around the fallow
+    // patch and never paves it — the farm regrows there instead.
+    if (player.landUse(tile) === LandUse.Field) continue;
     // Battle-worn ground never urbanizes until fully healed — the city
     // grows around the scar (rework-settlement-ecology).
     if (mg.tileDamage(tile) > 0) continue;

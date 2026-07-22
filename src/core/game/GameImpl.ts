@@ -863,6 +863,9 @@ export class GameImpl implements Game {
       // captor must regrow / re-cultivate from scratch.
       previousOwner.setDensity(tile, 0);
       previousOwner.setFarmMaturity(tile, 0);
+      // The persistent land-use zone survives death but NOT conquest — captured
+      // ground is raw, and the captor re-zones it by (re)developing it.
+      previousOwner._landUse.delete(tile);
     }
     // Stability hard-resets on an ownership flip (rework-settlement-ecology):
     // conquest yields raw, tenure-zero land the captor must re-stabilize.
@@ -891,6 +894,8 @@ export class GameImpl implements Game {
     previousOwner._fertilitySum -= this._map.layer("crop", tile);
     previousOwner.setDensity(tile, 0);
     previousOwner.setFarmMaturity(tile, 0);
+    // Relinquished ground reverts to raw wild: drop its zone (see LandUse).
+    previousOwner._landUse.delete(tile);
     this._tileTenure.delete(tile);
 
     this._map.setOwnerID(tile, 0);

@@ -98,8 +98,9 @@ const snap = () =>
       supplyTiles: cnt(el.supplyU32, (v) => v > 0),
       damageTiles: cnt(el.damageU32, (v) => v > 0),
       farmland: cnt(el.plotU32, (v) => v === 2),
-      hasSupplyParam:
-        (el.compiled?.paramList ?? []).some((p) => p.name === "supplyOverlay"),
+      hasSupplyParam: (el.compiled?.paramList ?? []).some(
+        (p) => p.name === "supplyOverlay",
+      ),
     };
   });
 

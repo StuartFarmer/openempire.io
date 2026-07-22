@@ -1,4 +1,4 @@
-import { Game, Player, UnitType } from "../../game/Game";
+import { Game, LandUse, Player, UnitType } from "../../game/Game";
 import { TileRef } from "../../game/GameMap";
 import { PseudoRandom } from "../../PseudoRandom";
 import { simpleHash } from "../../Util";
@@ -255,6 +255,11 @@ function placePatch(
     if (map.ownerID(t) !== smallID) return false; // borders bound fields
     if (!map.isLand(t) || map.isImpassable(t)) return false;
     if (player.density(t) > 0) return false; // city — first claim holds
+    // ...and once city, always city: a razed city tile (starved out,
+    // density 0) keeps its Urban zone, so the field grows around the ruin and
+    // never tills it — the city regrows there instead. This is the fix for
+    // farms paving over dead city ground and locking the city out.
+    if (player.landUse(t) === LandUse.Urban) return false;
     if (mg.plotAt(t) !== undefined) return false;
     if (mg.tileDamage(t) > 0) return false; // scarred ground refuses
     if (player.farmMaturity(t) > 0) return false; // already field ground

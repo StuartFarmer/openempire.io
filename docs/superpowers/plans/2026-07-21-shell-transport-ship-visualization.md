@@ -21,11 +21,13 @@
 ### Task 1: Serialize transport ships
 
 **Files:**
+
 - Modify: `src/client/webgpu/ShellSimProtocol.ts`
 - Modify: `src/client/webgpu/ShellSim.worker.ts`
 - Test: `tests/ShellTransportShips.test.ts`
 
 **Interfaces:**
+
 - Produces `SHELL_TRANSPORT_STRIDE = 4`.
 - Produces `packTransportShips(units): Int32Array` records `[id, tile, lastTile, ownerSmallID]`.
 - Extends `ShellSimFrame` with `transportShips: Int32Array`.
@@ -102,10 +104,12 @@ Expected: PASS, one test.
 ### Task 2: Draw exact transport sprites
 
 **Files:**
+
 - Modify: `src/client/shell/CameraRenderer.ts`
 - Modify: `tests/ShellTransportShips.test.ts`
 
 **Interfaces:**
+
 - Produces `buildTransportShipInstances(ships, mapWidth, fill, border): ArrayBuffer`.
 - Produces `CameraRenderer.setTransportShips(ships, fill, border): void`.
 
@@ -128,10 +132,7 @@ test("builds aligned camera instances with exact palette colors", () => {
   expect(buffer.byteLength).toBe(32);
   expect([...new Float32Array(buffer).slice(0, 4)]).toEqual([2, 10, 1, 10]);
   expect([...new Uint32Array(buffer).slice(4, 8)]).toEqual([
-    0x112233,
-    0x445566,
-    3,
-    0,
+    0x112233, 0x445566, 3, 0,
   ]);
 });
 ```
@@ -200,9 +201,11 @@ Expected: PASS.
 ### Task 3: Join worker snapshots to exact shell colors
 
 **Files:**
+
 - Modify: `src/client/GameShellPage.ts`
 
 **Interfaces:**
+
 - Consumes `ShellSimFrame.transportShips` and `CameraRenderer.setTransportShips`.
 
 - [ ] **Step 1: Mirror the existing palette and forward each snapshot**

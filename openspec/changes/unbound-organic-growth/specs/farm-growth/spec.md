@@ -17,7 +17,7 @@ and keeps growing as the player's territory grows. Growth is deterministic
 `fieldGrowthRate` and self-limited by the field's own perimeter each tick (it
 cannot claim beyond its current frontier in one tick). Production per farm SHALL
 be `farmOutputMilli × (Σ fertility over WORKED tiles / (255 × (2·farmRadius+1)²))
-× fertilityBonus` — unchanged in form and thus *per worked tile*, so a field
+× fertilityBonus` — unchanged in form and thus _per worked tile_, so a field
 larger than `(2·farmRadius+1)²` yields proportionally MORE than the old
 full-footprint amount (growth keeps adding value). `farmRadius` remains only as
 the production reference area and the farm-placement spacing rule (no own farm

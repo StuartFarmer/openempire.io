@@ -7,7 +7,7 @@ city growth, but two of its choices read as artificial in play:
 
 - **Farms are a bounded square.** A field can only grow within Chebyshev
   `farmRadius` of its nucleus (default 3 → a 7×7, 49-tile cap), so a mature farm
-  is a hard-edged square that stops growing. The desired feel is a *natural*
+  is a hard-edged square that stops growing. The desired feel is a _natural_
   field that spreads organically over the owned land and, in principle, keeps
   growing — the shape following fertility, not a bounding box.
 - **Cities recede on their own.** When population dips, the city shrinks itself
@@ -28,8 +28,8 @@ shaped remains. This change only lifts the cap and removes self-recession.)
   grows. Growth is paced per tick and self-limited by the field's own perimeter
   (a single frontier scan claims the best tiles), so it stays deterministic and
   efficient. Production is unchanged in form — `farmOutputMilli × Σfertility /
-  (255 × (2·farmRadius+1)²) × fertilityBonus` — which is already *per worked
-  tile*, so a field larger than the old footprint simply yields proportionally
+(255 × (2·farmRadius+1)²) × fertilityBonus` — which is already _per worked
+  tile_, so a field larger than the old footprint simply yields proportionally
   more; `farmRadius` stays only as the production reference and the placement-
   spacing rule, no longer a growth limit.
 - **Cities are permanent.** Remove `recedeCity` and the `RECEDE_OVER`
