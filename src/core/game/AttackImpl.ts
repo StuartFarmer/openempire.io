@@ -10,15 +10,36 @@ export class AttackImpl implements Attack {
   public _retreating = false;
   public _retreated = false;
 
+  /**
+   * The force this attack has AT EACH TILE of its front (front-line-troops).
+   * Troops used to be a single number, so an attack had strength but no
+   * location: a counter-attack launched anywhere deleted a push grinding into
+   * the opposite border, and a front's width cost nothing because every tile
+   * was priced off the undivided total. Keyed by the tiles in `_border` — the
+   * enemy tiles this attack is pressing.
+   */
+  private _troopsAt = new Map<TileRef, number>();
+  /** Σ _troopsAt, maintained on every mutation (integer). */
+  private _troopsSum = 0;
+  /**
+   * Troops with nowhere to stand right now — a conquered tile's survivors
+   * before the advance opens new front, or a commitment made against an empty
+   * front. Flushed onto the front by the per-tick seep pass. Counted in
+   * `troops()` so the total is conserved exactly.
+   */
+  private _reserve = 0;
+
   constructor(
     private _id: string,
     private _target: Player | TerraNullius,
     private _attacker: Player,
-    private _troops: number,
+    troops: number,
     private _sourceTile: TileRef | null,
     private _border: Set<number>,
     private _mg: GameImpl,
-  ) {}
+  ) {
+    this._reserve = Math.max(0, Math.floor(troops));
+  }
 
   sourceTile(): TileRef | null {
     return this._sourceTile;
@@ -38,10 +59,128 @@ export class AttackImpl implements Attack {
     return this._attacker;
   }
   troops(): number {
-    return this._troops;
+    return this._troopsSum + this._reserve;
   }
+
+  /**
+   * Set the TOTAL, preserving the distribution's shape (design.md D6). Callers
+   * like retreat, attack merging, nuke deaths and starvation attrition all
+   * scale the whole force; rescaling proportionally keeps a concentrated
+   * spearhead concentrated instead of collapsing it onto one tile.
+   */
   setTroops(troops: number) {
-    this._troops = Math.max(0, troops);
+    const next = Math.max(0, Math.floor(troops));
+    const current = this.troops();
+    if (next === current) return;
+    if (next === 0) {
+      this._troopsAt.clear();
+      this._troopsSum = 0;
+      this._reserve = 0;
+      return;
+    }
+    if (current === 0) {
+      // Nothing on the front to scale — hold it until seep places it.
+      this._reserve = next;
+      return;
+    }
+    // Scale every entry by next/current, then put the rounding remainder in
+    // the reserve so the sum is exact without biasing any tile.
+    let placed = 0;
+    for (const [tile, n] of this._troopsAt) {
+      const scaled = Math.floor((n * next) / current);
+      this._troopsAt.set(tile, scaled);
+      placed += scaled;
+    }
+    this.dropEmptyFrontEntries();
+    this._troopsSum = placed;
+    this._reserve = next - placed;
+  }
+
+  /** The force at one front tile (0 if the attack has nothing there). */
+  troopsAt(tile: TileRef): number {
+    return this._troopsAt.get(tile) ?? 0;
+  }
+
+  /** Put troops on a front tile. */
+  addTroopsAt(tile: TileRef, n: number): void {
+    if (n <= 0) return;
+    const v = Math.floor(n);
+    this._troopsAt.set(tile, this.troopsAt(tile) + v);
+    this._troopsSum += v;
+  }
+
+  /** Take up to `n` troops from a tile; returns how many were actually there. */
+  spendAt(tile: TileRef, n: number): number {
+    const have = this.troopsAt(tile);
+    const spent = Math.min(have, Math.max(0, Math.floor(n)));
+    if (spent <= 0) return 0;
+    const left = have - spent;
+    if (left === 0) this._troopsAt.delete(tile);
+    else this._troopsAt.set(tile, left);
+    this._troopsSum -= spent;
+    return spent;
+  }
+
+  /** Front tiles that currently hold troops. */
+  frontTiles(): IterableIterator<TileRef> {
+    return this._troopsAt.keys();
+  }
+
+  /** Unplaced troops awaiting a front tile. */
+  reserve(): number {
+    return this._reserve;
+  }
+
+  /**
+   * Spread the reserve evenly over the front. Called once per tick by the seep
+   * pass — troops freed by a conquest land on whatever front the advance has
+   * just opened. Integer split with the remainder left in reserve, so nothing
+   * is created or lost.
+   */
+  flushReserve(): void {
+    if (this._reserve <= 0) return;
+    const tiles = [...this._border];
+    if (tiles.length === 0) return;
+    tiles.sort((a, b) => a - b);
+    const share = Math.floor(this._reserve / tiles.length);
+    if (share > 0) {
+      for (const t of tiles) this.addTroopsAt(t, share);
+      this._reserve -= share * tiles.length;
+    }
+    // Hand the remainder out one troop at a time, lowest tile first.
+    for (const t of tiles) {
+      if (this._reserve <= 0) break;
+      this.addTroopsAt(t, 1);
+      this._reserve -= 1;
+    }
+  }
+
+  /** Spread `n` troops evenly over the given tiles (deterministic, exact). */
+  distributeOver(tiles: readonly TileRef[], n: number): void {
+    const amount = Math.max(0, Math.floor(n));
+    if (amount <= 0) return;
+    if (tiles.length === 0) {
+      this._reserve += amount;
+      return;
+    }
+    const ordered = [...tiles].sort((a, b) => a - b);
+    const share = Math.floor(amount / ordered.length);
+    let left = amount;
+    if (share > 0) {
+      for (const t of ordered) this.addTroopsAt(t, share);
+      left -= share * ordered.length;
+    }
+    for (const t of ordered) {
+      if (left <= 0) break;
+      this.addTroopsAt(t, 1);
+      left -= 1;
+    }
+  }
+
+  private dropEmptyFrontEntries(): void {
+    for (const [tile, n] of this._troopsAt) {
+      if (n <= 0) this._troopsAt.delete(tile);
+    }
   }
 
   isActive() {
@@ -89,6 +228,11 @@ export class AttackImpl implements Attack {
   clearBorder(): void {
     this._borderSize = 0;
     this._border.clear();
+    // The force survives the front being rebuilt; it just has nowhere to
+    // stand until the new front tiles are added.
+    this._reserve += this._troopsSum;
+    this._troopsAt.clear();
+    this._troopsSum = 0;
   }
 
   addBorderTile(tile: TileRef): void {
@@ -102,6 +246,14 @@ export class AttackImpl implements Attack {
     if (this._border.has(tile)) {
       this._borderSize -= 1;
       this._border.delete(tile);
+    }
+    // Survivors of a tile that has left the front are not lost — they wait in
+    // the reserve for the seep pass to place them on the new front.
+    const left = this._troopsAt.get(tile);
+    if (left !== undefined) {
+      this._troopsAt.delete(tile);
+      this._troopsSum -= left;
+      this._reserve += left;
     }
   }
 

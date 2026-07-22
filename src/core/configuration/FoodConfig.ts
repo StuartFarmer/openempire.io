@@ -67,37 +67,26 @@ export interface FoodConfig {
    *  combatTileDamageMilli / tileDamageHealMilli ticks. */
   tileDamageHealMilli: number;
   /**
-   * The tile-local defender garrison (localize-defender-density). Combat used
-   * to price every tile off `troops / numTilesOwned` — a NATIONWIDE average, so
-   * a metropolis and empty steppe defended identically. Instead the defender's
-   * army is distributed over the per-tile population field (`density`): the
-   * garrison at a tile is `(troops / numTilesOwned) · garrisonRatio(tile)`,
-   * where the ratio is the smoothed local density over the player's OWN mean
-   * density. A tile at that mean has ratio 1 and defends exactly as before —
-   * this redistributes defense, it does not globally buff or nerf it.
+   * Front cohesion (front-line-troops): the fraction of each front tile's
+   * troops that is shared with its front-adjacent neighbours each tick. An
+   * attack's troops live ON its front tiles, so without any sharing a stretch
+   * that runs dry stays dry forever and a breakthrough cannot be reinforced.
+   * 0 = a perfectly rigid front (each stretch fights alone); higher = the
+   * force re-averages faster, and at 1 it collapses back toward the old
+   * single-pool behaviour where position did not matter.
    */
-  /** Catchment (bucket) edge in tiles for the density smoothing. MUST be a
-   *  power of two. Larger → a city's defensive shadow reaches further and is
-   *  harder to walk around; smaller → sharper walls that a wide front can
-   *  route past. Default 4 (~80 km at tileKm 20). */
-  garrisonCatchment: number;
-  /** Floor of the garrison ratio. Lower → emptier territory is cheaper to
-   *  sweep. Raising it toward 1 flattens the frontier back toward the old
-   *  global average. */
-  garrisonRatioMin: number;
-  /** Ceiling of the garrison ratio — THE balance knob. The raw ratio runs into
-   *  the hundreds (a nation whose whole population sits on a handful of its
-   *  thousands of tiles), so this, not the formula, decides whether a heartland
-   *  is a speed bump or a wall. `garrisonRatioMin = garrisonRatioMax = 1`
-   *  reduces combat exactly to its pre-change global-average behavior. */
-  garrisonRatioMax: number;
-  /** Weight of the global force-ratio term in per-tile attacker loss (the
-   *  `within(defender/attacker, 0.6, 2) · mag` shape). */
-  combatWeightForce: number;
-  /** Weight of the LOCAL garrison term in per-tile attacker loss. Higher →
-   *  where the defender's people live matters more than raw force disparity.
-   *  Should sum to 1 with combatWeightForce. */
-  combatWeightLocal: number;
+  frontSeepFraction: number;
+  /**
+   * The front width (in tiles) at which a commitment fights exactly as it did
+   * before front-line-troops. Combat compares the defender's WHOLE army
+   * against the attacker's force, so feeding it a single tile's force would
+   * pin every engagement at the cost ceiling and nothing would ever advance.
+   * The tile's force is therefore scaled by this width: an attack spread over
+   * exactly `frontReferenceWidth` tiles behaves identically to the old global
+   * pool, a narrower one fights proportionally stronger per tile, a wider one
+   * proportionally weaker. Lower = concentration is rewarded harder.
+   */
+  frontReferenceWidth: number;
   /**
    * Tile stability (rework-settlement-ecology): a demand-gated tenure clock.
    * A city tile ages (+1 tick of tenure) only while the city is pushing its
@@ -183,8 +172,14 @@ export interface FoodConfig {
    * boats). Troops ARE people — the idle pool is the farmers and parents
    * the nation rebuilds from — so the vanilla maxTroops-based reserves
    * (housing, not headcount) let a young bot dump its whole demography
-   * into one push and never recover. Ignored while under attack (survival
-   * outranks the demography).
+   * into one push and never recover.
+   *
+   * This is an ABSOLUTE cap and is never suspended — not while under attack,
+   * not for boats, not for any difficulty. It used to be lifted to Infinity
+   * the moment a player had an incoming attack, which meant ATTACKING an AI
+   * switched off its own safety limit: it would stack attack after attack
+   * until its population was gone and then collapse. Troops are people, so
+   * "fight with everything" is not a survival response, it is suicide.
    */
   maxWarShare: number;
 
@@ -347,16 +342,11 @@ export const FOOD_DEFAULTS: FoodConfig = {
   // 100 ticks (~10 s) — repeated fighting stacks toward a long-lived scar.
   combatTileDamageMilli: 400,
   tileDamageHealMilli: 4,
-  // Tile-local garrison — STAGING DEFAULTS (localize-defender-density task
-  // 1.2): the clamp band is pinned to [1, 1] and the weights kept at the
-  // pre-change 0.6/0.4, making the whole feature an exact no-op so the
-  // plumbing can be verified against the existing suite before it changes any
-  // outcome. Task 5.1 opens these to [0.2, 24] and 0.3/0.7.
-  garrisonCatchment: 4,
-  garrisonRatioMin: 1,
-  garrisonRatioMax: 1,
-  combatWeightForce: 0.6,
-  combatWeightLocal: 0.4,
+  // Front cohesion: a tenth of each front tile's force shifts toward its
+  // neighbours per tick — enough that a stalled stretch recovers over a few
+  // seconds, slow enough that where you commit still decides what happens.
+  frontSeepFraction: 0.1,
+  frontReferenceWidth: 16,
   // Stability: an old core plateaus at 3× housing; half the plateau after
   // ~2 min (1200 ticks) of demand-gated aging. Vacancy decays 10× slower
   // than accrual; capitals up to 1.5× growth pace at full age.
@@ -389,7 +379,7 @@ export const FOOD_DEFAULTS: FoodConfig = {
   warSupplyAttrition: 0.05,
   // At 0.35 a pop-5k bot fields ≤1750 across all fronts — real pushes,
   // while the majority stays home farming and breeding the next push.
-  maxWarShare: 0.35,
+  maxWarShare: 0.2,
   // Pace: each tick the city closes ~this fraction of the gap to its
   // food-supported target size (min one tile), so it grows over seconds, not
   // instantly — bounded growth, not a land-grab.

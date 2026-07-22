@@ -411,6 +411,19 @@ export interface Attack {
   removeBorderTile(tile: TileRef): void;
   clearBorder(): void;
   borderSize(): number;
+  /** Force at one front tile (front-line-troops). `troops()` is the sum of
+   *  this field plus any unplaced reserve. */
+  troopsAt(tile: TileRef): number;
+  addTroopsAt(tile: TileRef, n: number): void;
+  /** Take up to `n` from a tile; returns how many were actually there. */
+  spendAt(tile: TileRef, n: number): number;
+  frontTiles(): IterableIterator<TileRef>;
+  /** Troops not yet placed on a front tile. */
+  reserve(): number;
+  /** Spread the reserve over the current front (once per tick). */
+  flushReserve(): void;
+  /** Spread `n` troops evenly and deterministically over `tiles`. */
+  distributeOver(tiles: readonly TileRef[], n: number): void;
   clusteredPositions(): TileRef[];
 }
 
@@ -652,12 +665,6 @@ export interface Player {
   density(tile: TileRef): number;
   setDensity(tile: TileRef, milli: number): void;
   densityEntries(): IterableIterator<[TileRef, number]>;
-  /** The tile-local garrison multiplier (localize-defender-density): smoothed
-   *  local population density at `tile` over this player's OWN mean density,
-   *  clamped to the configured band. 1 = an average-density tile, which
-   *  defends exactly as the old `troops / numTilesOwned` average did. Returns
-   *  exactly 1 when this player has no population at all. */
-  garrisonRatio(tile: TileRef): number;
   /** Urban area in tile-equivalents (Σ density). */
   urbanArea(): number;
   /** Extra housing from tile tenure (rework-settlement-ecology): old city

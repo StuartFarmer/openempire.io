@@ -789,20 +789,11 @@ export class Config {
         largeAttackerSpeedBonus = (100_000 / attacker.numTilesOwned()) ** 0.6;
       }
 
-      // The tile-local garrison (localize-defender-density): the defender's
-      // army distributed over WHERE THEIR PEOPLE LIVE instead of averaged over
-      // territory. `garrisonRatio` is normalized to the defender's own mean
-      // density, so an average-density tile has ratio 1 and prices exactly as
-      // the old global average did — this redistributes defense rather than
-      // globally buffing or nerfing it.
-      const f = this.food();
-      const garrisonRatio = defender.garrisonRatio(tileToConquer);
       // Guard the divide: a defender can transiently report 0 tiles (e.g. a
       // failed/re-rolled spawn) while an attack against it is still live —
       // Infinity here NaN-poisons the attack and crashes removeTroops.
       const defenderTroopLoss =
-        (defender.troops() / Math.max(1, defender.numTilesOwned())) *
-        garrisonRatio;
+        defender.troops() / Math.max(1, defender.numTilesOwned());
       const traitorMod = defender.isTraitor() ? this.traitorDefenseDebuff() : 1;
       const currentAttackerLoss =
         within(defender.troops() / attackTroops, 0.6, 2) *
@@ -814,23 +805,13 @@ export class Config {
       const altAttackerLoss =
         1.3 * defenderTroopLoss * (mag / 100) * traitorMod;
       const attackerTroopLoss =
-        f.combatWeightForce * currentAttackerLoss +
-        f.combatWeightLocal * altAttackerLoss;
+        0.6 * currentAttackerLoss + 0.4 * altAttackerLoss;
 
       return {
         attackerTroopLoss,
         defenderTroopLoss,
         tilesPerTickUsed:
-          // The garrison SCALES the existing global factor rather than
-          // replacing the defender's troop count with it: a per-tile garrison
-          // is orders of magnitude smaller than a national army, so
-          // substituting it would peg this expression at its 0.2 floor
-          // everywhere and make conquest uniformly FASTER (design.md D4).
-          within(
-            (defender.troops() / (5 * attackTroops)) * garrisonRatio,
-            0.2,
-            1.5,
-          ) *
+          within(defender.troops() / (5 * attackTroops), 0.2, 1.5) *
           speed *
           largeDefenderSpeedDebuff *
           largeAttackerSpeedBonus *
