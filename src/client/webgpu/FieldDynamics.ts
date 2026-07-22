@@ -54,6 +54,10 @@ export interface FieldParamSpec {
   min?: number;
   max?: number;
   step?: number;
+  /** Driven by the page, not the user: kept out of the generated slider UI.
+   *  Use for animated/derived uniforms (fades, transitions) that would be
+   *  fought over if a slider also wrote them. */
+  hidden?: boolean;
 }
 
 export type FieldLayerType = "f32" | "u32" | "i32";
@@ -300,6 +304,7 @@ export interface CompiledFieldSystem {
     min: number;
     max: number;
     step: number;
+    hidden: boolean;
   }[];
   viewNames: readonly string[];
   brushNames: readonly string[];
@@ -1383,6 +1388,7 @@ ${oceanMask ? "  if (land[i] == 0.0) { color = vec3f(0.055, 0.13, 0.20); }" : ""
       min: spec.min ?? 0,
       max: spec.max ?? Math.max(1, spec.value * 2),
       step: spec.step ?? 0.001,
+      hidden: spec.hidden === true,
     })),
     viewNames: views.map(([name]) => name),
     brushNames: brushes.map(([name]) => name),

@@ -52,6 +52,8 @@ export abstract class FieldViewerBase extends LitElement {
   /** Zoom readout (framebuffer px per tile), and the tile under the cursor. */
   @state() protected zoomReadout = 1;
   @state() protected hoverTile: { x: number; y: number } | null = null;
+  /** Cursor position in client coords — for UI that follows the pointer. */
+  protected hoverClient: { x: number; y: number } | null = null;
 
   protected systems: readonly FieldSystem[] = LAB_SYSTEMS;
   protected renderer: CameraRenderer | null = null;
@@ -473,6 +475,7 @@ export abstract class FieldViewerBase extends LitElement {
 
   protected onPointerLeave = (): void => {
     this.hoverTile = null;
+    this.hoverClient = null;
   };
 
   protected onWheel = (event: WheelEvent): void => {
@@ -499,11 +502,13 @@ export abstract class FieldViewerBase extends LitElement {
   };
 
   private updateHover(event: PointerEvent): void {
+    this.hoverClient = { x: event.clientX, y: event.clientY };
     const { x: mapX, y: mapY } = this.cursorToMap(event);
     const x = Math.floor(mapX);
     const y = Math.floor(mapY);
     if (x < 0 || y < 0 || x >= this.mapWidth || y >= this.mapHeight) {
       if (this.hoverTile !== null) this.hoverTile = null;
+      this.hoverClient = null;
       return;
     }
     if (this.hoverTile?.x !== x || this.hoverTile?.y !== y) {

@@ -3,6 +3,7 @@
 // per-tick summary to GameShellPage. Owns EVERY Game read; the main thread has
 // no Game access.
 import { assetUrl } from "../../core/AssetUrls";
+import { borderSegment } from "../../core/execution/utils/BorderSegment";
 import { climateSuitability } from "../../core/execution/utils/FarmGrowth";
 import {
   supplyField,
@@ -14,6 +15,7 @@ import {
   GameMode,
   GameType,
   UnitType,
+  type Attack,
   type Game,
   type Player,
 } from "../../core/game/Game";
@@ -24,11 +26,12 @@ import type {
 import { createGameRunner, GameRunner } from "../../core/GameRunner";
 import type { GameStartInfo, Intent, StampedIntent } from "../../core/Schemas";
 import { generateID } from "../../core/Util";
-import type {
-  ShellFrontLabel,
-  ShellSimFrame,
-  ShellSimIn,
-  ShellSimOut,
+import {
+  packTransportShips,
+  type ShellFrontLabel,
+  type ShellSimFrame,
+  type ShellSimIn,
+  type ShellSimOut,
 } from "./ShellSimProtocol";
 
 const ctx: Worker = self as unknown as Worker;
@@ -56,6 +59,8 @@ let plotState: Uint8Array | null = null;
  *  from packedFieldUpdates; worked tiles render as Farmland in `plot`. */
 let fieldState: Uint8Array | null = null;
 let frontState: Uint8Array | null = null;
+/** Tick of the last border change we shipped (see myBorder below). */
+let lastBorderChangeSent = -1;
 /** Last-shipped supply-quality byte per tile (human view): 0 = out of supply,
  *  1..255 = quality. Rebuilt only when the human's supply field refreshes. */
 let supplyState: Uint8Array | null = null;
@@ -66,6 +71,9 @@ let prevFrontTiles: number[] = [];
 const knownNames = new Set<number>();
 let unitDiffClock = 0;
 let spawnAnchorSent = false;
+let nationSpawnsSent = false;
+/** Ints per player in the packed `stats` array (see ShellSimProtocol). */
+const STAT_STRIDE = 7;
 
 // Per-tick capture from the GameRunner callback.
 let pending: GameUpdateViewData | null = null;
@@ -136,6 +144,12 @@ async function init(msg: Extract<ShellSimIn, { type: "init" }>): Promise<void> {
     fertility.buffer,
     suitability.buffer,
   ]);
+  // One frame immediately, WITHOUT stepping. Frames are otherwise only
+  // produced by the run loop, so a game that starts (or restarts) paused would
+  // leave the client on the previous game's state — stale tick, no spawn-phase
+  // nation markers, no fresh player table.
+  const { frame, transfer } = buildFrame(game);
+  post(frame, transfer);
 }
 
 /** Plot deltas from owner changes, worked-field deltas (packedFieldUpdates:
@@ -196,14 +210,38 @@ function frontDelta(g: Game, labels: ShellFrontLabel[]): Uint32Array | null {
       (mine - theirs) / (mine + theirs + 1);
     const encode = (b: number) =>
       Math.max(1, Math.min(255, Math.round(128 + b * 127)));
-    const encoded = new Map<number, number>();
+
+    // PER-TILE front balance (front-line-troops). This used to compute ONE
+    // number per opposing player — attack total vs a territory-averaged
+    // defence — and flood the whole shared border with it, so a front read as
+    // uniformly winning or losing and you could not see WHERE a push was.
+    // Attack troops now live on individual tiles, so each seam tile is scored
+    // by the force actually present at it and the border becomes a gradient:
+    // bright where a push is biting, dark where it is being held.
+    const myPushes = new Map<number, Attack[]>();
+    for (const a of me.outgoingAttacks()) {
+      const target = a.target();
+      if (!target.isPlayer()) continue;
+      const id = (target as Player).smallID();
+      const list = myPushes.get(id);
+      if (list === undefined) myPushes.set(id, [a]);
+      else list.push(a);
+    }
+    const theirPushes = new Map<number, Attack[]>();
+    for (const a of me.incomingAttacks()) {
+      const id = a.attacker().smallID();
+      const list = theirPushes.get(id);
+      if (list === undefined) theirPushes.set(id, [a]);
+      else list.push(a);
+    }
+
+    // Labels stay an aggregate readout — one signed number per front cluster.
     for (const a of me.outgoingAttacks()) {
       const target = a.target();
       if (!target.isPlayer()) continue;
       const def = target as Player;
       const local =
         (def.troops() * a.borderSize()) / Math.max(1, def.numTilesOwned());
-      encoded.set(def.smallID(), encode(bal(a.troops(), local)));
       labels.push({
         tiles: a.clusteredPositions(),
         delta: Math.round(a.troops() - local),
@@ -212,13 +250,28 @@ function frontDelta(g: Game, labels: ShellFrontLabel[]): Uint32Array | null {
     for (const a of me.incomingAttacks()) {
       const local =
         (me.troops() * a.borderSize()) / Math.max(1, me.numTilesOwned());
-      encoded.set(a.attacker().smallID(), encode(bal(local, a.troops())));
       labels.push({
         tiles: a.clusteredPositions(),
         delta: Math.round(local - a.troops()),
       });
     }
-    if (encoded.size > 0) {
+
+    if (myPushes.size > 0 || theirPushes.size > 0) {
+      // Baseline holding strength per tile: the standing garrison each side
+      // has spread over its territory. Without it a seam with no committed
+      // troops on either side would read as a dead heat at full contrast.
+      const myGarrison = me.troops() / Math.max(1, me.numTilesOwned());
+      const garrisonOf = new Map<number, number>();
+      for (const id of [...myPushes.keys(), ...theirPushes.keys()]) {
+        const p = g.playerBySmallID(id);
+        garrisonOf.set(
+          id,
+          p.isPlayer()
+            ? (p as Player).troops() /
+                Math.max(1, (p as Player).numTilesOwned())
+            : 0,
+        );
+      }
       for (const b of me.borderTiles()) {
         const bx = g.x(b);
         const by = g.y(b);
@@ -227,13 +280,24 @@ function frontDelta(g: Game, labels: ShellFrontLabel[]): Uint32Array | null {
           const ny = by + (d === 2 ? 1 : d === 3 ? -1 : 0);
           if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
           const ni = ny * W + nx;
-          const v = encoded.get(g.ownerID(ni));
-          if (v !== undefined) {
-            paint(b, v);
-            painted.push(b);
-            paint(ni, v);
-            painted.push(ni);
+          const oid = g.ownerID(ni);
+          const mineHere = myPushes.get(oid);
+          const theirsHere = theirPushes.get(oid);
+          if (mineHere === undefined && theirsHere === undefined) continue;
+          // My force pressing THEIR tile, theirs pressing MY tile.
+          let mine = myGarrison;
+          if (mineHere !== undefined) {
+            for (const a of mineHere) mine += a.troopsAt(ni);
           }
+          let theirs = garrisonOf.get(oid) ?? 0;
+          if (theirsHere !== undefined) {
+            for (const a of theirsHere) theirs += a.troopsAt(b);
+          }
+          const v = encode(bal(mine, theirs));
+          paint(b, v);
+          painted.push(b);
+          paint(ni, v);
+          painted.push(ni);
         }
       }
     }
@@ -278,11 +342,12 @@ function supplyDelta(g: Game): Uint32Array | null {
 /** Compact per-player stats + names for newly-seen players. */
 function playerSummary(g: Game): {
   stats: Int32Array;
-  names: { id: number; name: string }[] | null;
+  names: { id: number; name: string; pid: string; ptype: string }[] | null;
 } {
   const players = g.players();
-  const stats = new Int32Array(players.length * 4);
-  let names: { id: number; name: string }[] | null = null;
+  const stats = new Int32Array(players.length * STAT_STRIDE);
+  let names: { id: number; name: string; pid: string; ptype: string }[] | null =
+    null;
   let i = 0;
   for (const p of players) {
     const id = p.smallID();
@@ -290,9 +355,23 @@ function playerSummary(g: Game): {
     stats[i++] = Math.round(p.troops());
     stats[i++] = p.numTilesOwned();
     stats[i++] = p.isAlive() ? 1 : 0;
+    // The food economy for EVERY nation, not just the human: the stats panel
+    // charts a rival's food and surplus alongside your own, so "who is
+    // starving" is readable rather than guessed.
+    const flow = p.foodFlow();
+    // food() already returns DISPLAY units (it divides the milli store by
+    // 1000 internally) — do not scale it again.
+    stats[i++] = Number(p.food());
+    stats[i++] = Math.round(flow.production);
+    stats[i++] = Math.round(flow.consumption);
     if (!knownNames.has(id)) {
       knownNames.add(id);
-      (names ??= []).push({ id, name: p.displayName() });
+      (names ??= []).push({
+        id,
+        name: p.displayName(),
+        pid: p.id(),
+        ptype: p.type(),
+      });
     }
   }
   return { stats, names };
@@ -312,6 +391,7 @@ function buildFrame(g: Game): {
   const damage = pending?.packedDamageUpdates ?? null;
   const supply = supplyDelta(g);
   const { stats, names } = playerSummary(g);
+  const transportShips = packTransportShips(g.units(UnitType.TransportShip));
   const me = myPlayer();
   const myStats = me
     ? {
@@ -325,19 +405,41 @@ function buildFrame(g: Game): {
         settlementSeeds: me.settlementSeeds(),
       }
     : null;
+  // Nations' intended landing sites — only while the human is still choosing,
+  // and only once (they do not move). Without this the spawn map is blank and
+  // you pick a home with no idea who you are about to be next to.
+  let nationSpawns: ShellSimFrame["nationSpawns"] = null;
+  if (g.inSpawnPhase() && !nationSpawnsSent) {
+    const out: { x: number; y: number; name: string }[] = [];
+    for (const n of g.nations()) {
+      if (n.spawnCell === undefined) continue;
+      out.push({
+        x: n.spawnCell.x,
+        y: n.spawnCell.y,
+        name: n.playerInfo.name,
+      });
+    }
+    if (out.length > 0) {
+      nationSpawns = out;
+      nationSpawnsSent = true;
+    }
+  }
   let spawnAnchor: number | null = null;
   if (!spawnAnchorSent && me && me.numTilesOwned() > 0) {
     spawnAnchor = me.core() ?? [...me.tiles()][0] ?? null;
     if (spawnAnchor !== null) spawnAnchorSent = true;
   }
-  // Re-key the placeName anchors from PlayerID → smallID (the main thread joins
-  // them with the smallID-keyed player table).
-  let nameAnchors: ShellSimFrame["nameAnchors"] = null;
-  if (pending?.playerNameViewData) {
-    nameAnchors = {};
-    for (const [pid, a] of Object.entries(pending.playerNameViewData)) {
-      if (g.hasPlayer(pid)) nameAnchors[String(g.player(pid).smallID())] = a;
-    }
+  // The human's border tiles, shipped exactly when the border MOVES. This used
+  // to be a blind every-3-ticks cadence while territory deltas shipped every
+  // tick, so the aimed-segment highlight visibly lagged the border it is drawn
+  // against — the territory grew, the highlight stayed on the old seam for a
+  // few frames, and it read as the highlight sliding around on its own.
+  // `lastTileChange` is bumped by conquer/relinquish, so this ships on the
+  // tick the border actually changes and skips every tick it does not.
+  let myBorder: Uint32Array | undefined;
+  if (me && me.lastTileChange() !== lastBorderChangeSent) {
+    lastBorderChangeSent = me.lastTileChange();
+    myBorder = Uint32Array.from(me.borderTiles());
   }
   const frame: ShellSimFrame = {
     type: "frame",
@@ -351,14 +453,16 @@ function buildFrame(g: Game): {
     damage,
     supply,
     stats,
+    transportShips,
     names,
     myStats,
     fronts: labels.length ? labels : null,
-    nameAnchors,
     spawnAnchor,
+    nationSpawns,
+    myBorder,
   };
-  const transfer: Transferable[] = [stats.buffer];
-  for (const a of [owner, plot, front, density, damage, supply]) {
+  const transfer: Transferable[] = [stats.buffer, transportShips.buffer];
+  for (const a of [owner, plot, front, density, damage, supply, myBorder]) {
     if (a) transfer.push(a.buffer);
   }
   return { frame, transfer };
@@ -416,7 +520,22 @@ ctx.onmessage = (e: MessageEvent<ShellSimIn>) => {
           const o = game.ownerID(msg.tile);
           const targetID =
             o === 0 ? null : (game.playerBySmallID(o) as Player).id();
-          stamp({ type: "attack", targetID, troops, sourceTiles: null });
+          // Concentrated push (ClientGameRunner parity): the click aims a
+          // segment of OUR border nearest the clicked cell; distance sets
+          // its breadth. Whole-border advance when unresolvable.
+          const seg = borderSegment(
+            Array.from(me.borderTiles()),
+            game.x(msg.tile),
+            game.y(msg.tile),
+            (t) => game!.x(t),
+            (t) => game!.y(t),
+          );
+          stamp({
+            type: "attack",
+            targetID,
+            troops,
+            sourceTiles: seg?.sourceTiles ?? null,
+          });
         } else if (me.bestTransportShipSpawn(msg.tile) !== false) {
           stamp({ type: "boat", troops, dst: msg.tile });
         }

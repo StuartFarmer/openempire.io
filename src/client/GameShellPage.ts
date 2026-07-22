@@ -1,4 +1,4 @@
-import { html } from "lit";
+import { html, svg } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { getAssetManifest, getCdnBase } from "../core/AssetUrls";
 import {
@@ -6,6 +6,7 @@ import {
   FOOD_TUNABLE_KEYS,
   type FoodConfig,
 } from "../core/configuration/FoodConfig";
+import { borderSegment } from "../core/execution/utils/BorderSegment";
 import { GameMapType, UnitType } from "../core/game/Game";
 import type { MapData } from "../core/game/GameMapLoader";
 import type { Intent } from "../core/Schemas";
@@ -29,6 +30,8 @@ import {
   SHELL_VIEWS,
   type ShellView,
 } from "./shell/MapLayerViews";
+import { themeProvider } from "./theme/ThemeProvider";
+import type { PlayerView } from "./view";
 import { FieldViewerBase } from "./viewer/FieldViewerBase";
 import { loadMapInputs, type MapInputBundle } from "./webgpu/MapInputs";
 import type {
@@ -48,6 +51,23 @@ import {
  * generation-time climate values for the derived view. River thresholds now
  * cut the SHIPPED water plane (graded alpha rendering) — 1.0/1.0 turns
  * rivers off entirely. */
+/** localStorage key for the climate knobs (survives a page refresh). */
+const CLIMATE_STORE_KEY = "openfront.shell.climate";
+
+/** Ints per player in the worker's packed `stats` array. */
+const STAT_STRIDE = 7;
+/** Samples kept per series (the sparkline's width in points). */
+const HISTORY_LEN = 80;
+/** Sim ticks between samples — ~8s of history at 10 ticks/s. */
+const HISTORY_EVERY = 10;
+
+interface PlayerHistory {
+  troops: number[];
+  tiles: number[];
+  food: number[];
+  balance: number[];
+}
+
 const SHELL_CLIMATE_DEFAULTS = {
   latitudeEffect: 1.01,
   elevationCooling: 0.37,
@@ -74,6 +94,12 @@ const YEAR_TICKS = 520;
 /** Re-derive the terrain season every Nth OpenFront-live render frame — the
  * season changes slowly, so this bounds the GPU derive cost on huge maps. */
 const SEASON_DERIVE_EVERY = 8;
+/** Per-frame approach rate for the territory mask fade (~1s at 60fps). */
+const MASK_FADE_RATE = 0.05;
+/** Zoom the camera settles at when you place your spawn. */
+const SETTLE_ZOOM = 20;
+/** Per-frame approach rate for the camera fly-to. */
+const CAMERA_TWEEN_RATE = 0.08;
 
 type ShellViewKey = ShellView;
 const VIEW_KEYS: readonly ShellViewKey[] = SHELL_VIEWS;
@@ -178,7 +204,26 @@ export class GameShellPage extends FieldViewerBase {
   // tiles upload (run-merged writeBufferU32Range) — the GPU buffers retain rest.
   private worker: Worker | null = null;
   private ownerScratch: Uint32Array | null = null;
+  private readonly playerFill = new Uint32Array(256);
+  private readonly playerBorder = new Uint32Array(256);
   private plotU32: Uint32Array | null = null;
+  /** Byte mirror of the plot conduit for the camera's sub-tile sprite
+   *  plane (farmland tilled rows — see CameraRenderer.plotPlane). */
+  private plotBytes: Uint8Array | null = null;
+  private plotBytesDirty = false;
+  /** The mounted map's data source — feeds the baked-terrain upload. */
+  private currentMapData: MapData | null = null;
+  /** True once the baked terrain-colors plane replaced the derived tint for
+   *  OpenFront-live (1:1 with the WebGL game's TerrainPass base). */
+  private bakedTintOn = false;
+  /** The human's border tiles from the worker (segment-highlight source).
+   *  A plain array: borderSegment's map-to-objects silently coerces to
+   *  zeros on a typed array. */
+  private myBorderTiles: number[] | null = null;
+  /** The aimed-segment conduit mirror + currently lit tiles. */
+  private highlightU32: Uint32Array | null = null;
+  private litHighlight: number[] = [];
+  private lastSegKey = -1;
   private densityU32: Uint32Array | null = null;
   private frontU32: Uint32Array | null = null;
   /** Combat-scar conduit (rework-settlement-ecology): 0..255 damage per tile. */
@@ -211,8 +256,19 @@ export class GameShellPage extends FieldViewerBase {
   private playerName = new Map<number, string>();
   private playerStat = new Map<
     number,
-    { troops: number; tiles: number; alive: boolean }
+    {
+      troops: number;
+      tiles: number;
+      alive: boolean;
+      food: number;
+      production: number;
+      consumption: number;
+    }
   >();
+  /** Rolling per-player series behind the stats panel's sparklines. */
+  private history = new Map<number, PlayerHistory>();
+  private lastSampleTick = -1;
+  @state() private showStats = true;
   /** Front labels shipped this tick (cluster tiles + signed delta). */
   private frontLabelsData: ShellFrontLabel[] = [];
   /** Throttles the terrain season re-derive (GPU) to a few times/second. */
@@ -246,15 +302,19 @@ export class GameShellPage extends FieldViewerBase {
   } | null = null;
   /** Selected buildable placed on the next tile click (null = attack mode). */
   @state() private buildType: UnitType | null = null;
-  /** Per-player name anchors from the sim's placeName data (tile coords). */
-  private nameAnchors: Record<string, { x: number; y: number; size: number }> =
-    {};
   /** Dedupe repeated same-tile gestures within one drag stroke. */
   private lastGestureKey = -1;
   /** Whether the camera has been recentered on the human's spawn. */
   private centeredOnSpawn = false;
+  /** Camera destination while flying to the spawn; null when idle. */
+  private cameraTween: { cx: number; cy: number; scale: number } | null = null;
+  /** Where each nation will land (spawn phase only). */
+  private nationSpawns: { x: number; y: number; name: string }[] = [];
+  /** Pooled markers for those landing sites. */
+  private nationSpawnPool = new Map<string, HTMLDivElement>();
   /** Pooled on-map name labels (DOM overlay), keyed by PlayerID. */
-  private labelPool = new Map<string, HTMLDivElement>();
+  /** The single cursor-following nation chip (replaces the name-label pool). */
+  private hoverChipEl: HTMLDivElement | null = null;
   /** Pooled front imbalance labels (+N/-N), keyed by attack id + cluster. */
   private frontLabelPool = new Map<string, HTMLDivElement>();
   private recolorBusy = false;
@@ -273,8 +333,10 @@ export class GameShellPage extends FieldViewerBase {
       composeTerrain(settlement),
       composeTerrain(empire),
     ];
-    this.systemId = terrainSystem.id;
-    this.mapKey = "EarthXL";
+    // The shell opens on the actual game, not the terrain viewer.
+    this.systemId = openfront.id;
+    this.mapKey = "SPQR";
+    this.restoreClimateState();
     super.connectedCallback();
     window.addEventListener("keydown", this.onKeyDown);
   }
@@ -319,62 +381,202 @@ export class GameShellPage extends FieldViewerBase {
    * track pan/zoom, which don't trigger a Lit re-render). */
   protected present(): void {
     super.present();
-    this.updateLabels();
+    this.updateHoverChip();
+    this.updateNationSpawnMarkers();
     this.updateFrontLabels();
     this.updateBuildPreview();
+    this.updateSegmentHighlight();
   }
 
   /**
-   * Position a pooled `<div>` label (player name + troop count) over each living
-   * player's placeName anchor, projected through the shell camera. The human's
-   * label is accented. Off-screen labels are culled; stale ones removed.
+   * Nation readout, on demand (replaces the always-on name + troop labels that
+   * covered the map once enough players existed). Hovering another nation's
+   * land shows one small chip beside the cursor — same treatment as the
+   * front-imbalance chips — with its name and population.
    */
-  private updateLabels(): void {
+  private updateHoverChip(): void {
     const container = this.querySelector<HTMLDivElement>("#shell-labels");
-    if (!container) return;
-    if (!this.isOpenfront() || this.inSpawn) {
-      if (this.labelPool.size > 0) {
-        container.replaceChildren();
-        this.labelPool.clear();
-      }
+    const canvas = this.querySelector<HTMLCanvasElement>("#shell-canvas");
+    const hide = () => {
+      this.hoverChipEl?.remove();
+      this.hoverChipEl = null;
+      // Nothing being inspected → the mask returns to normal.
+      this.paramValues.hoveredPlayer = 0;
+    };
+    if (!container || !canvas || !this.isOpenfront() || this.inSpawn) {
+      hide();
       return;
     }
-    const canvas = this.querySelector<HTMLCanvasElement>("#shell-canvas");
-    if (!canvas) return;
-    const dpr = window.devicePixelRatio || 1;
-    const cam = this.camera;
-    const cwCss = canvas.width / dpr;
-    const chCss = canvas.height / dpr;
-    const seen = new Set<string>();
-    for (const [sid, anchor] of Object.entries(this.nameAnchors)) {
-      const id = Number(sid);
-      const stat = this.playerStat.get(id);
-      if (!stat || !stat.alive || stat.tiles === 0) continue;
-      const cx = ((anchor.x - cam.cx) * cam.scale + canvas.width / 2) / dpr;
-      const cy = ((anchor.y - cam.cy) * cam.scale + canvas.height / 2) / dpr;
-      if (cx < -80 || cy < -40 || cx > cwCss + 80 || cy > chCss + 40) continue;
-      seen.add(sid);
-      let el = this.labelPool.get(sid);
-      if (!el) {
-        el = document.createElement("div");
-        el.className =
-          "absolute -translate-x-1/2 -translate-y-1/2 text-center leading-none whitespace-nowrap font-semibold";
-        el.style.textShadow = "0 1px 3px rgba(0,0,0,0.95)";
-        container.appendChild(el);
-        this.labelPool.set(sid, el);
-      }
-      el.style.left = `${cx}px`;
-      el.style.top = `${cy}px`;
-      el.style.fontSize = `${Math.max(9, Math.min(26, anchor.size * cam.scale * 0.6))}px`;
-      el.style.color = id === this.mySmallID ? "#fde047" : "#ffffff";
-      el.textContent = `${this.playerName.get(id) ?? "?"} · ${stat.troops}`;
+    const hover = this.hoverTile;
+    const at = this.hoverClient;
+    if (hover === null || at === null) {
+      hide();
+      return;
     }
-    for (const [sid, el] of this.labelPool) {
-      if (!seen.has(sid)) {
-        el.remove();
-        this.labelPool.delete(sid);
-      }
+    const tile = hover.y * this.mapWidth + hover.x;
+    const owner = this.ownerScratch?.[tile] ?? 0;
+    // Only other nations — your own land needs no label, neutral has none.
+    if (owner === 0 || owner === this.mySmallID) {
+      hide();
+      return;
     }
+    const stat = this.playerStat.get(owner);
+    if (!stat || !stat.alive) {
+      hide();
+      return;
+    }
+    let el = this.hoverChipEl;
+    if (!el) {
+      el = document.createElement("div");
+      // Same chip styling as the front-imbalance labels.
+      el.className =
+        "absolute whitespace-nowrap font-bold text-sm px-1 rounded bg-black/55 pointer-events-none";
+      el.style.textShadow = "0 1px 2px rgba(0,0,0,0.95)";
+      el.style.color = "#ffffff";
+      container.appendChild(el);
+      this.hoverChipEl = el;
+    }
+    // Reveal this nation in the overlay (mask off, white outline) and dip our
+    // own land, so the chip and the highlight always agree on the subject.
+    this.paramValues.hoveredPlayer = owner;
+    const rect = canvas.getBoundingClientRect();
+    // Offset off the cursor so the chip never sits under the pointer.
+    el.style.left = `${at.x - rect.left + 14}px`;
+    el.style.top = `${at.y - rect.top - 10}px`;
+    // Troops ARE the population in this economy, so one number covers both.
+    el.textContent = `${this.playerName.get(owner) ?? "?"} · ${compactNum(
+      Math.round(stat.troops),
+    )}`;
+  }
+
+  /**
+   * Live strategy readout (lower right). Each row is one series as a
+   * sparkline, because the LEVELS are already on the bottom HUD — the only new
+   * information here is the shape over time.
+   *
+   * When you hover a nation its series are drawn on YOUR axes, dimmed, rather
+   * than in a second box. The question that decides strategy is "am I gaining
+   * on them or falling behind", and that is a crossover — it can only be read
+   * when both lines share a scale.
+   */
+  private renderStatsPanel() {
+    if (!this.isOpenfront() || this.inSpawn || !this.showStats) return null;
+    const mine = this.history.get(this.mySmallID);
+    if (!mine) return null;
+    const other = this.hoveredStatsId();
+    const theirs = other === 0 ? null : this.history.get(other);
+    const theirName = other === 0 ? null : (this.playerName.get(other) ?? "?");
+
+    // One row: label, sparkline (yours solid, theirs ghosted on the same
+    // scale), current value, and a trend arrow off the recent slope.
+    const row = (
+      label: string,
+      a: number[],
+      b: number[] | undefined,
+      fmt: (n: number) => string,
+      signed = false,
+    ) => {
+      if (a.length < 2) return null;
+      const series = b && b.length > 1 ? [a, b] : [a];
+      let lo = Infinity;
+      let hi = -Infinity;
+      for (const arr of series)
+        for (const v of arr) {
+          if (v < lo) lo = v;
+          if (v > hi) hi = v;
+        }
+      if (signed) {
+        // Keep zero on the axis so "above/below the line" is meaningful.
+        lo = Math.min(lo, 0);
+        hi = Math.max(hi, 0);
+      }
+      const span = hi - lo || 1;
+      const W = 76;
+      const H = 26;
+      const path = (arr: number[]) =>
+        arr
+          .map((v, k) => {
+            const x = (k / (HISTORY_LEN - 1)) * W;
+            const y = H - ((v - lo) / span) * H;
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+          })
+          .join(" ");
+      const last = a[a.length - 1];
+      const prev = a[Math.max(0, a.length - 6)];
+      const dir = last > prev * 1.005 ? "▲" : last < prev * 0.995 ? "▼" : "·";
+      const dirColor =
+        dir === "▲" ? "#34d399" : dir === "▼" ? "#f87171" : "#94a3b8";
+      const zeroY = signed ? H - ((0 - lo) / span) * H : null;
+      return html`<div class="flex items-center gap-1.5">
+        <span class="w-14 text-white/50">${label}</span>
+        <svg
+          width=${W}
+          height=${H}
+          viewBox="0 0 ${W} ${H}"
+          preserveAspectRatio="none"
+          class="shrink-0"
+        >
+          ${zeroY !== null
+            ? svg`<line x1="0" y1=${zeroY} x2=${W} y2=${zeroY}
+                        stroke="rgba(255,255,255,0.18)" stroke-width="1" />`
+            : null}
+          ${b && b.length > 1
+            ? svg`<polyline points=${path(b)} fill="none"
+                            stroke="rgba(255,255,255,0.35)" stroke-width="1.25" />`
+            : null}
+          <polyline
+            points=${path(a)}
+            fill="none"
+            stroke="#7dd3fc"
+            stroke-width="1.5"
+          />
+        </svg>
+        <span class="w-14 text-right text-white/90 tabular-nums"
+          >${fmt(last)}</span
+        >
+        <span style="color:${dirColor}">${dir}</span>
+      </div>`;
+    };
+
+    const num = (n: number) => compactNum(Math.round(n));
+    const signedNum = (n: number) =>
+      (n >= 0 ? "+" : "−") + compactNum(Math.abs(Math.round(n)));
+    const myNow = this.playerStat.get(this.mySmallID);
+    const starving =
+      myNow !== undefined && myNow.production < myNow.consumption;
+
+    return html`
+      <div
+        class="absolute bottom-3 right-3 flex flex-col text-[11px] text-white bg-black/70 backdrop-blur px-3 py-2 rounded h-[13.5rem]"
+        @wheel=${(e: Event) => e.stopPropagation()}
+      >
+        <div class="flex justify-between gap-4 pb-1 border-b border-white/10">
+          <span class="text-white/70 font-semibold">you</span>
+          ${theirName
+            ? html`<span class="text-white/40">vs ${theirName}</span>`
+            : html`<span class="text-white/25">hover a nation</span>`}
+        </div>
+        <div class="flex-1 flex flex-col justify-around">
+          ${row("pop", mine.troops, theirs?.troops, num)}
+          ${row("food", mine.food, theirs?.food, num)}
+          ${row("surplus", mine.balance, theirs?.balance, signedNum, true)}
+          ${row("tiles", mine.tiles, theirs?.tiles, num)}
+        </div>
+        <!-- Always rendered, hidden when fed: reserving the line keeps the
+             panel a fixed height so it never jumps as the warning appears. -->
+        <div
+          class="text-[10px] text-red-300 pt-0.5 ${starving ? "" : "invisible"}"
+        >
+          ⚠ eating reserves — population will fall
+        </div>
+      </div>
+    `;
+  }
+
+  /** The nation whose series to ghost: whatever the hover chip is naming. */
+  private hoveredStatsId(): number {
+    const v = this.paramValues.hoveredPlayer ?? 0;
+    return Number.isFinite(v) ? Math.round(v) : 0;
   }
 
   /** Signed troop-imbalance labels at the human's active fronts (green ahead /
@@ -525,6 +727,7 @@ export class GameShellPage extends FieldViewerBase {
   /** After a system mounts, terrain ALWAYS derives (the base); a game's layers
    * were already init'd by the base. Show a terrain view by default, then fit. */
   protected async onSystemMounted(mapData: MapData): Promise<void> {
+    this.currentMapData = mapData;
     this.clearViewCache();
     this.tickCount = 0;
     this.tool = "pan"; // start in pan; the brush tool is opt-in per game
@@ -536,6 +739,9 @@ export class GameShellPage extends FieldViewerBase {
       // select); the sim auto-runs so bots place spawns while the human picks.
       await this.startWorker();
       await this.applyGameView("openfront");
+      // 1:1 terrain: swap the derived tint for the baked terrain-colors
+      // plane — the exact pixels the WebGL game's TerrainPass draws.
+      void this.uploadBakedTint();
       this.tool = "pan";
       this.centeredOnSpawn = false;
       this.running = true;
@@ -561,12 +767,21 @@ export class GameShellPage extends FieldViewerBase {
     const n = this.mapWidth * this.mapHeight;
     this.ownerScratch = new Uint32Array(n);
     this.plotU32 = new Uint32Array(n);
+    this.plotBytes = new Uint8Array(n);
+    this.plotBytesDirty = false;
+    this.renderer?.setPlotPlane(this.mapWidth, this.mapHeight);
+    this.highlightU32 = new Uint32Array(n);
+    this.litHighlight = [];
+    this.lastSegKey = -1;
+    this.myBorderTiles = null;
+    // Fresh per-game color allocators, matching the WebGL client's
+    // per-game theme lifecycle.
+    themeProvider.reset();
     this.densityU32 = new Uint32Array(n);
     this.frontU32 = new Uint32Array(n);
     this.damageU32 = new Uint32Array(n);
     this.supplyU32 = new Uint32Array(n);
     this.dirtyTiles.clear();
-    this.nameAnchors = {};
     this.myStats = null;
     this.buildType = null;
     this.inSpawn = true;
@@ -629,6 +844,13 @@ export class GameShellPage extends FieldViewerBase {
       }
     }
     this.applyPairs("plot", this.plotU32, f.plot);
+    if (f.plot && this.plotBytes) {
+      const a = f.plot;
+      for (let k = 0; k + 1 < a.length; k += 2) {
+        this.plotBytes[a[k]] = a[k + 1] & 0xff;
+      }
+      this.plotBytesDirty = true;
+    }
     this.applyPairs("front", this.frontU32, f.front);
     this.applyByte24("density", this.densityU32, f.density);
     this.applyByte24("damage", this.damageU32, f.damage);
@@ -639,21 +861,55 @@ export class GameShellPage extends FieldViewerBase {
     this.flushDirty("density", this.densityU32!);
     this.flushDirty("damage", this.damageU32!);
     this.flushDirty("supply", this.supplyU32!);
+    if (this.plotBytesDirty && this.plotBytes && this.renderer) {
+      this.renderer.writePlotPlane(
+        this.plotBytes,
+        this.mapWidth,
+        this.mapHeight,
+      );
+      this.plotBytesDirty = false;
+    }
 
     // Summaries.
-    this.mySmallID = f.mySmallID;
-    if (f.names) for (const nm of f.names) this.playerName.set(nm.id, nm.name);
+    if (this.mySmallID !== f.mySmallID) {
+      this.mySmallID = f.mySmallID;
+      // Tell the view which slot is ours — the overlay darkens every tile that
+      // is not flagged here (see views/openfront.wesl).
+      if (this.mySmallID > 0) {
+        this.mergePlayerIntent(this.mySmallID, { mine: 1 });
+        this.flushPlayers();
+      }
+    }
+    if (f.names) {
+      for (const nm of f.names) {
+        this.playerName.set(nm.id, nm.name);
+        this.assignPaletteSlot(nm.id, nm.pid, nm.ptype);
+      }
+      this.flushPlayers();
+    }
+    this.renderer?.setTransportShips(
+      f.transportShips,
+      this.playerFill,
+      this.playerBorder,
+    );
+    if (f.myBorder) {
+      this.myBorderTiles = Array.from(f.myBorder);
+      this.updateSegmentHighlight(true);
+    }
     if (f.stats) {
       const s = f.stats;
-      for (let i = 0; i + 3 < s.length; i += 4) {
+      for (let i = 0; i + STAT_STRIDE - 1 < s.length; i += STAT_STRIDE) {
         this.playerStat.set(s[i], {
           troops: s[i + 1],
           tiles: s[i + 2],
           alive: s[i + 3] === 1,
+          food: s[i + 4],
+          production: s[i + 5],
+          consumption: s[i + 6],
         });
       }
+      this.sampleHistory();
     }
-    if (f.nameAnchors) this.nameAnchors = f.nameAnchors;
     this.frontLabelsData = f.fronts ?? [];
     if (this.inSpawn !== f.inSpawn) this.inSpawn = f.inSpawn;
     if (this.tickReadout !== f.tick) this.tickReadout = f.tick;
@@ -662,14 +918,16 @@ export class GameShellPage extends FieldViewerBase {
     if (week !== this.weekReadout) this.weekReadout = week;
     this.applyMyStats(f.myStats);
     if (!this.centeredOnSpawn && f.spawnAnchor !== null) {
-      this.camera = {
-        ...this.camera,
+      // Settling flies the camera to your new home rather than snapping — the
+      // same easing as the mask, so the two land together.
+      this.cameraTween = {
         cx: (f.spawnAnchor % this.mapWidth) + 0.5,
         cy: Math.floor(f.spawnAnchor / this.mapWidth) + 0.5,
-        scale: Math.max(this.camera.scale, 6),
+        scale: SETTLE_ZOOM,
       };
       this.centeredOnSpawn = true;
     }
+    if (f.nationSpawns) this.nationSpawns = f.nationSpawns;
     this.needsRedraw = true;
   }
 
@@ -763,12 +1021,27 @@ export class GameShellPage extends FieldViewerBase {
     this.tunePending.clear();
     this.worker?.terminate();
     this.worker = null;
+    this.renderer?.setTransportShips(
+      new Int32Array(),
+      this.playerFill,
+      this.playerBorder,
+    );
+    this.playerFill.fill(0);
+    this.playerBorder.fill(0);
     this.ownerScratch = null;
     this.fertilityPlane = null;
     this.suitabilityPlane = null;
     this.previewData = null;
     this.previewQueryTile = -1;
     this.plotU32 = null;
+    this.plotBytes = null;
+    this.plotBytesDirty = false;
+    this.renderer?.setPlotPlane(0, 0);
+    this.highlightU32 = null;
+    this.litHighlight = [];
+    this.lastSegKey = -1;
+    this.myBorderTiles = null;
+    this.bakedTintOn = false;
     this.densityU32 = null;
     this.frontU32 = null;
     this.damageU32 = null;
@@ -782,7 +1055,8 @@ export class GameShellPage extends FieldViewerBase {
 
   private clearLabels(): void {
     this.querySelector("#shell-labels")?.replaceChildren();
-    this.labelPool.clear();
+    this.hoverChipEl = null;
+    this.nationSpawnPool.clear();
     this.frontLabelPool.clear();
     this.previewEl = null;
   }
@@ -854,11 +1128,147 @@ export class GameShellPage extends FieldViewerBase {
     return true;
   }
 
+  /** Compute a player's EXACT WebGL theme colors (territory fill + border)
+   *  and write them into the view's palette slot — same ThemeProvider
+   *  allocators as the game, keyed by the same PlayerID. */
+  private assignPaletteSlot(smallID: number, pid: string, ptype: string): void {
+    if (smallID <= 0 || smallID >= 256) return;
+    const theme = themeProvider.current();
+    const adapter = {
+      team: () => null,
+      type: () => ptype,
+      id: () => pid,
+    } as unknown as PlayerView;
+    const fill = theme.territoryColor(adapter).toRgb();
+    const border = theme.borderColor(theme.territoryColor(adapter)).toRgb();
+    const pack = (c: { r: number; g: number; b: number }) =>
+      (c.r << 16) | (c.g << 8) | c.b;
+    const packedFill = pack(fill);
+    const packedBorder = pack(border);
+    this.playerFill[smallID] = packedFill;
+    this.playerBorder[smallID] = packedBorder;
+    this.mergePlayerIntent(smallID, {
+      fill: packedFill,
+      border: packedBorder,
+    });
+  }
+
+  /** Replace the derived tint plane with the baked terrain-colors.png —
+   *  pixel-identical terrain to the WebGL game. The season re-derive is
+   *  skipped while this is on (it would repaint the derived look). */
+  private async uploadBakedTint(): Promise<void> {
+    if (!this.kernel || !this.currentMapData) return;
+    try {
+      const bmp = await buildViewBitmap(
+        "terrain",
+        this.currentMapData,
+        this.mapWidth,
+        this.mapHeight,
+      );
+      const cv = new OffscreenCanvas(this.mapWidth, this.mapHeight);
+      const c2d = cv.getContext("2d");
+      if (!c2d) return;
+      c2d.drawImage(bmp, 0, 0, this.mapWidth, this.mapHeight);
+      const img = c2d.getImageData(0, 0, this.mapWidth, this.mapHeight).data;
+      const packed = new Uint32Array(this.mapWidth * this.mapHeight);
+      for (let i = 0; i < packed.length; i++) {
+        const o = i * 4;
+        packed[i] = (img[o] << 16) | (img[o + 1] << 8) | img[o + 2];
+      }
+      this.kernel.writeBufferU32Range("tint", packed, 0, packed.length - 1);
+      this.bakedTintOn = true;
+    } catch {
+      // Keep the derived terrain — parity is best-effort.
+    }
+  }
+
+  /**
+   * The aimed-segment highlight (WebGL SegmentHighlightController parity):
+   * hovering land you could attack lights the stretch of YOUR border a
+   * click would advance — nearest point to the cursor, breadth by distance.
+   * `force` recomputes even on the same hover tile (border moved).
+   */
+  private updateSegmentHighlight(force = false): void {
+    if (!this.highlightU32 || !this.kernel) return;
+    const hover = this.hoverTile;
+    const border = this.myBorderTiles;
+    const off =
+      !this.isOpenfront() ||
+      this.inSpawn ||
+      this.buildType !== null ||
+      hover === null ||
+      border === null ||
+      border.length === 0 ||
+      !this.myStats?.alive;
+    let tile = -1;
+    if (!off && hover) {
+      tile = hover.y * this.mapWidth + hover.x;
+      const owner = this.ownerScratch?.[tile] ?? 0;
+      const water = this.hoverFields?.waterMask?.[tile] === 1;
+      if (owner === this.mySmallID || water) tile = -1;
+    }
+    if (tile === -1 || border === null) {
+      this.clearSegmentHighlight();
+      return;
+    }
+    if (!force && tile === this.lastSegKey) return;
+    this.lastSegKey = tile;
+    const seg = borderSegment(
+      border,
+      (tile % this.mapWidth) + 0.5,
+      Math.floor(tile / this.mapWidth) + 0.5,
+      (t) => t % this.mapWidth,
+      (t) => Math.floor(t / this.mapWidth),
+    );
+    for (const t of this.litHighlight) {
+      this.highlightU32[t] = 0;
+      this.markDirty("highlight", t);
+    }
+    this.litHighlight = [];
+    if (seg) {
+      for (const t of seg.sourceTiles) {
+        this.highlightU32[t] = 255;
+        this.markDirty("highlight", t);
+      }
+      this.litHighlight = seg.sourceTiles;
+    }
+    this.flushDirty("highlight", this.highlightU32);
+  }
+
+  private clearSegmentHighlight(): void {
+    this.lastSegKey = -1;
+    if (!this.highlightU32 || this.litHighlight.length === 0) return;
+    for (const t of this.litHighlight) {
+      this.highlightU32[t] = 0;
+      this.markDirty("highlight", t);
+    }
+    this.litHighlight = [];
+    this.flushDirty("highlight", this.highlightU32);
+  }
+
   /** Restart the sim with the current bot count and re-show the overlay. */
   private async restartSim(): Promise<void> {
     if (!this.isOpenfront() || !this.kernel) return;
     this.running = false;
-    for (const b of ["owner", "plot", "density", "front", "damage", "supply"]) {
+    // A restart is a new game: fly to the new spawn again and fade the mask
+    // back in from nothing, rather than staying zoomed on the old capital.
+    this.centeredOnSpawn = false;
+    this.cameraTween = null;
+    this.paramValues.maskFade = 0;
+    this.nationSpawns = [];
+    // The readouts are page-side counters; without this the toolbar keeps
+    // showing the previous game's week/tick.
+    this.tickCount = 0;
+    this.weekReadout = 0;
+    for (const b of [
+      "owner",
+      "plot",
+      "density",
+      "front",
+      "damage",
+      "supply",
+      "highlight",
+    ]) {
       this.kernel.clearBuffer(b);
     }
     await this.startWorker();
@@ -894,6 +1304,9 @@ export class GameShellPage extends FieldViewerBase {
         width: this.mapWidth,
         height: this.mapHeight,
         ...SHELL_CLIMATE_DEFAULTS,
+        // Anything you tuned last session wins over both the map's baked
+        // config and the shell defaults.
+        ...this.savedClimateKnobs(),
       };
       const hasSeason = Boolean(manifest.season && mapData.seasonBin);
       const bundle: MapInputBundle = {
@@ -1022,7 +1435,120 @@ export class GameShellPage extends FieldViewerBase {
   private setKnob(key: keyof FoundationWorldEngineMapConfig, value: number) {
     if (!this.derivedConfig) return;
     this.derivedConfig = { ...this.derivedConfig, [key]: value };
+    this.persistClimate();
     this.queueRecolor();
+  }
+
+  /**
+   * Append one sample per series for every living nation. Sampled on a tick
+   * cadence rather than per frame so the sparklines show game time, not
+   * however fast the browser happened to be rendering.
+   */
+  private sampleHistory(): void {
+    if (this.tickCount - this.lastSampleTick < HISTORY_EVERY) return;
+    this.lastSampleTick = this.tickCount;
+    const push = (arr: number[], v: number) => {
+      arr.push(v);
+      if (arr.length > HISTORY_LEN) arr.shift();
+    };
+    for (const [id, st] of this.playerStat) {
+      if (!st.alive) {
+        this.history.delete(id);
+        continue;
+      }
+      let h = this.history.get(id);
+      if (!h) {
+        h = { troops: [], tiles: [], food: [], balance: [] };
+        this.history.set(id, h);
+      }
+      push(h.troops, st.troops);
+      push(h.tiles, st.tiles);
+      push(h.food, st.food);
+      // Surplus/deficit is the LEADING indicator: it crosses zero long before
+      // the food stock visibly bends, so it is what predicts a starving nation.
+      push(h.balance, st.production - st.consumption);
+    }
+  }
+
+  /** Everything the climate panel controls, as one plain object. */
+  private climateSettings(): Record<string, number | boolean> {
+    const out: Record<string, number | boolean> = {};
+    for (const k of CLIMATE_KNOBS) {
+      const v = this.derivedConfig?.[k.key];
+      if (typeof v === "number") out[k.key] = v;
+    }
+    out.tilt = this.tilt;
+    out.seasonStrength = this.seasonStrength;
+    out.iceThreshold = this.iceThreshold;
+    out.snowBand = this.snowBand;
+    out.biomeBlend = this.biomeBlend;
+    out.useClimateBase = this.useClimateBase;
+    return out;
+  }
+
+  /** Read back the stored settings (shape-checked; corrupt entries ignored). */
+  private readClimateStore(): Record<string, number | boolean> {
+    try {
+      const raw = localStorage.getItem(CLIMATE_STORE_KEY);
+      if (!raw) return {};
+      const parsed: unknown = JSON.parse(raw);
+      if (typeof parsed !== "object" || parsed === null) return {};
+      return parsed as Record<string, number | boolean>;
+    } catch {
+      return {};
+    }
+  }
+
+  /** Just the map-config knobs from storage, for merging into derivedConfig. */
+  private savedClimateKnobs(): Partial<FoundationWorldEngineMapConfig> {
+    const saved = this.readClimateStore();
+    const out: Record<string, number> = {};
+    for (const k of CLIMATE_KNOBS) {
+      const v = saved[k.key];
+      if (typeof v === "number" && Number.isFinite(v)) out[k.key] = v;
+    }
+    return out as Partial<FoundationWorldEngineMapConfig>;
+  }
+
+  /** Restore the non-map-config climate state (called once at startup). */
+  private restoreClimateState(): void {
+    const saved = this.readClimateStore();
+    const num = (k: string, apply: (v: number) => void) => {
+      const v = saved[k];
+      if (typeof v === "number" && Number.isFinite(v)) apply(v);
+    };
+    num("tilt", (v) => (this.tilt = v));
+    num("seasonStrength", (v) => (this.seasonStrength = v));
+    num("iceThreshold", (v) => (this.iceThreshold = v));
+    num("snowBand", (v) => (this.snowBand = v));
+    num("biomeBlend", (v) => (this.biomeBlend = v));
+    if (typeof saved.useClimateBase === "boolean") {
+      this.useClimateBase = saved.useClimateBase;
+    }
+  }
+
+  private persistClimate(): void {
+    try {
+      localStorage.setItem(
+        CLIMATE_STORE_KEY,
+        JSON.stringify(this.climateSettings()),
+      );
+    } catch {
+      // Storage disabled/full — tuning still works, it just will not survive.
+    }
+  }
+
+  /** Download the climate settings as JSON for keeping alongside a map. */
+  private exportClimate(): void {
+    const blob = new Blob([JSON.stringify(this.climateSettings(), null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `climate-${this.mapKey.toLowerCase()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   // --- per-frame advance ------------------------------------------------------
@@ -1073,13 +1599,113 @@ export class GameShellPage extends FieldViewerBase {
       });
   }
 
+  /**
+   * Fly the camera toward its target. Zoom eases in LOG space so the
+   * approach feels linear to the eye — a straight lerp on scale spends most
+   * of its time crawling through the high zooms.
+   */
+  private stepCameraTween(): void {
+    const t = this.cameraTween;
+    if (t === null) return;
+    const cam = this.camera;
+    const cx = cam.cx + (t.cx - cam.cx) * CAMERA_TWEEN_RATE;
+    const cy = cam.cy + (t.cy - cam.cy) * CAMERA_TWEEN_RATE;
+    const logNow = Math.log(Math.max(0.0001, cam.scale));
+    const logTo = Math.log(Math.max(0.0001, t.scale));
+    const scale = Math.exp(logNow + (logTo - logNow) * CAMERA_TWEEN_RATE);
+    const done =
+      Math.abs(t.cx - cx) < 0.5 &&
+      Math.abs(t.cy - cy) < 0.5 &&
+      Math.abs(logTo - Math.log(scale)) < 0.01;
+    this.camera = done
+      ? { cx: t.cx, cy: t.cy, scale: t.scale }
+      : { cx, cy, scale };
+    if (done) this.cameraTween = null;
+    this.needsRedraw = true;
+  }
+
+  /**
+   * Landing-site markers for the other nations, shown ONLY while you are
+   * choosing your own spawn. They answer "who am I about to be next to?" —
+   * a question the blank spawn map could not previously answer at all.
+   */
+  private updateNationSpawnMarkers(): void {
+    const container = this.querySelector<HTMLDivElement>("#shell-labels");
+    const canvas = this.querySelector<HTMLCanvasElement>("#shell-canvas");
+    const clear = () => {
+      if (this.nationSpawnPool.size === 0) return;
+      for (const el of this.nationSpawnPool.values()) el.remove();
+      this.nationSpawnPool.clear();
+    };
+    if (!container || !canvas || !this.isOpenfront() || !this.inSpawn) {
+      clear();
+      return;
+    }
+    const dpr = window.devicePixelRatio || 1;
+    const cam = this.camera;
+    const cwCss = canvas.width / dpr;
+    const chCss = canvas.height / dpr;
+    const seen = new Set<string>();
+    for (const n of this.nationSpawns) {
+      const key = `${n.x},${n.y}`;
+      const cx = ((n.x + 0.5 - cam.cx) * cam.scale + canvas.width / 2) / dpr;
+      const cy = ((n.y + 0.5 - cam.cy) * cam.scale + canvas.height / 2) / dpr;
+      if (cx < -60 || cy < -30 || cx > cwCss + 60 || cy > chCss + 30) continue;
+      seen.add(key);
+      let el = this.nationSpawnPool.get(key);
+      if (!el) {
+        el = document.createElement("div");
+        el.className =
+          "absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap font-bold text-[10px] px-1 rounded bg-black/55 pointer-events-none";
+        el.style.textShadow = "0 1px 2px rgba(0,0,0,0.95)";
+        el.style.color = "#fbbf24";
+        el.textContent = n.name;
+        container.appendChild(el);
+        this.nationSpawnPool.set(key, el);
+      }
+      el.style.left = `${cx}px`;
+      el.style.top = `${cy}px`;
+    }
+    for (const [key, el] of this.nationSpawnPool) {
+      if (!seen.has(key)) {
+        el.remove();
+        this.nationSpawnPool.delete(key);
+      }
+    }
+  }
+
+  /**
+   * Ease the territory mask in once you have actually settled. Before that —
+   * during the spawn phase, or if you have been wiped out — the whole world
+   * renders unmasked so you can read the map you are choosing a home on. The
+   * fade is exponential so it arrives softly instead of snapping to black the
+   * instant the spawn lands.
+   */
+  private stepMaskFade(): void {
+    const settled =
+      !this.inSpawn && this.myStats?.alive === true && this.mySmallID > 0;
+    const target = settled ? 1 : 0;
+    const now = this.paramValues.maskFade ?? 0;
+    const next = now + (target - now) * MASK_FADE_RATE;
+    // Snap the last sliver so it settles exactly instead of creeping forever.
+    this.paramValues.maskFade = Math.abs(target - next) < 0.005 ? target : next;
+  }
+
   /** Render the OpenFront-live overlay from the (already-uploaded) conduits;
    * the terrain season derive runs only every Nth frame (GPU throttle). */
   private renderOpenfront(): void {
     if (!this.kernel || !this.compiled) return;
     this.inFlight = true;
+    this.stepMaskFade();
+    this.stepCameraTween();
+    this.kernel.writeUniform(
+      "P",
+      this.compiled.writeParams(this.paramValues, this.seed),
+    );
     const doDerive =
-      this.derivedOk && this.deriveClock++ % SEASON_DERIVE_EVERY === 0;
+      !this.bakedTintOn &&
+      this.derivedOk &&
+      this.deriveClock++ % SEASON_DERIVE_EVERY === 0;
     if (doDerive) this.writeTP("terrain");
     const frame = this.kernel.beginFrame();
     if (doDerive) this.compiled.runDerive(frame, "season");
@@ -1408,6 +2034,7 @@ export class GameShellPage extends FieldViewerBase {
               if (sys?.defaultMap && sys.defaultMap in GameMapType) {
                 this.mapKey = sys.defaultMap;
               }
+              this.destroySim();
               void this.loadWorld();
             }}
           >
@@ -1422,6 +2049,7 @@ export class GameShellPage extends FieldViewerBase {
             class="bg-black/40 border border-white/20 px-2 py-1 text-white"
             @change=${(e: Event) => {
               this.mapKey = (e.target as HTMLSelectElement).value;
+              this.destroySim();
               void this.loadWorld();
             }}
           >
@@ -1513,6 +2141,27 @@ export class GameShellPage extends FieldViewerBase {
               </label>`
             : null}
           <span class="text-white/70">zoom ${this.zoomReadout}×</span>
+          ${this.isOpenfront()
+            ? html`<button
+                class="border border-white/20 px-2 py-1 hover:bg-white/10"
+                title="Restart the game on this map"
+                @click=${() => void this.restartSim()}
+              >
+                restart
+              </button>`
+            : null}
+          ${this.isOpenfront()
+            ? html`<button
+                class="border border-white/20 px-2 py-1 hover:bg-white/10 ${this
+                  .showStats
+                  ? "bg-white/10"
+                  : ""}"
+                title="Live statistics (yours, and whoever you hover)"
+                @click=${() => (this.showStats = !this.showStats)}
+              >
+                stats
+              </button>`
+            : null}
           ${this.derivedOk
             ? html`<button
                 class="border border-white/20 px-2 py-1 hover:bg-white/10 ${this
@@ -1573,6 +2222,7 @@ export class GameShellPage extends FieldViewerBase {
         </div>
 
         ${this.isOpenfront() ? this.renderPlayerHud() : null}
+        ${this.renderStatsPanel()}
         ${game && !this.isOpenfront() ? this.renderSimPanel() : null}
         ${this.showKnobs && this.derivedOk && this.derivedConfig
           ? this.renderKnobs(this.derivedConfig)
@@ -1682,7 +2332,7 @@ export class GameShellPage extends FieldViewerBase {
   private renderSimPanel() {
     const compiled = this.compiled;
     const scalars = Object.entries(this.scalarReadout);
-    const params = compiled?.paramList ?? [];
+    const params = (compiled?.paramList ?? []).filter((p) => !p.hidden);
     if (scalars.length === 0 && params.length === 0) return null;
     return html`
       <div
@@ -1884,22 +2534,27 @@ export class GameShellPage extends FieldViewerBase {
         )}
         ${slider("tilt", this.tilt, 0, 45, 0.1, (v) => {
           this.tilt = v;
+          this.persistClimate();
           this.queueRecolor();
         })}
         ${slider("seasonStrength", this.seasonStrength, 0, 3, 0.05, (v) => {
           this.seasonStrength = v;
+          this.persistClimate();
           this.queueRecolor();
         })}
         ${slider("iceThreshold", this.iceThreshold, 0, 0.6, 0.005, (v) => {
           this.iceThreshold = v;
+          this.persistClimate();
           this.queueRecolor();
         })}
         ${slider("snowBand", this.snowBand, 0, 0.3, 0.005, (v) => {
           this.snowBand = v;
+          this.persistClimate();
           this.queueRecolor();
         })}
         ${slider("biomeBlend", this.biomeBlend, 0, 0.15, 0.005, (v) => {
           this.biomeBlend = v;
+          this.persistClimate();
           this.queueRecolor();
         })}
         <label
@@ -1910,6 +2565,7 @@ export class GameShellPage extends FieldViewerBase {
             .checked=${this.useClimateBase}
             @change=${(e: Event) => {
               this.useClimateBase = (e.target as HTMLInputElement).checked;
+              this.persistClimate();
               this.queueRecolor();
             }}
           />
@@ -1917,6 +2573,33 @@ export class GameShellPage extends FieldViewerBase {
             >real climate base (off = synthetic model)</span
           >
         </label>
+        <div class="flex items-center gap-2 pt-1 border-t border-white/10">
+          <button
+            class="border border-white/20 px-2 py-1 hover:bg-white/10"
+            title="Download these climate values as JSON"
+            @click=${() => this.exportClimate()}
+          >
+            export json
+          </button>
+          <button
+            class="border border-white/20 px-2 py-1 hover:bg-white/10"
+            title="Forget saved climate values and reload the map's own"
+            @click=${() => {
+              try {
+                localStorage.removeItem(CLIMATE_STORE_KEY);
+              } catch {
+                // Nothing to do — storage is unavailable.
+              }
+              // Re-derive from the map's own config now that the override
+              // is gone (same path the map picker takes).
+              this.destroySim();
+              void this.loadWorld();
+            }}
+          >
+            reset
+          </button>
+          <span class="text-white/40">saved automatically</span>
+        </div>
         ${this.isOpenfront() && this.worker ? this.renderGameKnobs() : null}
       </div>
     `;

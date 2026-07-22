@@ -3,8 +3,33 @@
 // read; the main thread is a pure client that applies conduit deltas + renders
 // and drives the HUD/hover/labels from the small per-tick summary below.
 import type { AssetManifest } from "../../core/AssetUrls";
-import type { GameMapType, UnitType } from "../../core/game/Game";
+import { UnitType, type GameMapType } from "../../core/game/Game";
 import type { Intent } from "../../core/Schemas";
+
+export const SHELL_TRANSPORT_STRIDE = 4;
+
+interface ShellTransportSource {
+  type(): UnitType;
+  isActive(): boolean;
+  id(): number;
+  tile(): number;
+  lastTile(): number;
+  owner(): { smallID(): number };
+}
+
+export function packTransportShips(units: readonly ShellTransportSource[]) {
+  const out: number[] = [];
+  for (const unit of units) {
+    if (unit.type() !== UnitType.TransportShip || !unit.isActive()) continue;
+    out.push(
+      unit.id(),
+      Number(unit.tile()),
+      Number(unit.lastTile()),
+      unit.owner().smallID(),
+    );
+  }
+  return Int32Array.from(out);
+}
 
 /** The human's live stats readout (shipped each tick). */
 export interface ShellMyStats {
@@ -62,12 +87,22 @@ export interface ShellSimFrame {
   density: Uint32Array | null; // tile | (byte<<24)
   damage: Uint32Array | null; // tile | (byte<<24) — combat scarring, 0 = healed
   supply: Uint32Array | null; // tile | (byte<<24) — human supply quality, 1..255
-  stats: Int32Array | null; // [smallID, troops, tiles, alive] quads
-  names: { id: number; name: string }[] | null; // newly-seen players
+  /** Per-player stats, 7 ints each:
+   *  [smallID, troops, tiles, alive, food, production, consumption]. */
+  stats: Int32Array | null;
+  transportShips: Int32Array; // [id, tile, lastTile, ownerSmallID] quads
+  /** Newly-seen players: smallID, display name, and the identity the
+   *  client THEME needs for exact WebGL-parity colors (pid + type). */
+  names: { id: number; name: string; pid: string; ptype: string }[] | null;
   myStats: ShellMyStats | null;
   fronts: ShellFrontLabel[] | null;
-  nameAnchors: Record<string, { x: number; y: number; size: number }> | null;
   spawnAnchor: number | null; // one-shot: the human's spawn tile
+  /** Where each nation will land, shipped during the spawn phase only, so the
+   *  map you are choosing a home on shows who else is about to appear. */
+  nationSpawns: { x: number; y: number; name: string }[] | null;
+  /** The human's border tiles (refreshed every few ticks) — feeds the
+   *  aimed-segment highlight (WebGL SegmentHighlightController parity). */
+  myBorder?: Uint32Array;
 }
 
 export type ShellSimOut =
