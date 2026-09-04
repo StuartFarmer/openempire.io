@@ -20,7 +20,7 @@
 - New city/farm levels use flat per-level costs and linear capacity stacking; there is no gameplay level cap.
 - Growth is `r * stock * ln(capacity / stock)`, seeded only on creation and captured-farm restart; upgrades preserve stock.
 - The GPU remains authoritative for tile state. Normal play reads back only scalars, compact player outputs, and the currently hovered tile's five words.
-- Fixed-point food accounting uses the compiler's `SUM_FX = 256`; tolerated debit error is strictly less than `1 / 256` food.
+- Fixed-point food accounting uses the compiler's `SUM_FX = 256`; tolerated aggregate debit error is strictly less than `contributingFarmCount / 256` food because each farm is quantized independently.
 - Add no dependency and no CPU simulation mirror.
 
 ---
@@ -681,7 +681,7 @@ let keep = select(1.0, f32(totalFx - spendFx) / f32(totalFx), totalFx > 0u);
 var nextFood = max(0.0, layers::food::val(i) * keep);
 ```
 
-This produces deterministic proportional spending with no float atomic and at most one `1 / 256` aggregate quantum of discrepancy.
+This produces deterministic proportional spending with no float atomic and strictly less than one `1 / 256` quantum of discrepancy per contributing farm.
 
 - [ ] **Step 7: Add the view**
 
@@ -728,7 +728,7 @@ const scenario = [
 ];
 ```
 
-After spawn, read the test-only owner plane and choose the lowest-index player-2 tile adjacent to player 1; queue a player-2 farm there before combat so capture reset is exercised deterministically. At each tick, write all persistent attack fields plus only that tick's due action. Capture snapshots after spawn, after 20 peaceful growth ticks, after each discrete action, and after 60 attack ticks aimed from player 1 toward that border farm. For the single debit-conservation tick, temporarily write `farmGrowthRate = 0`, compare the before/after food sums to `foodSpendFx`, then restore `0.06`.
+After spawn, read the test-only owner plane and choose the lowest-index player-2 tile adjacent to player 1; queue a player-2 farm there before combat so capture reset is exercised deterministically. At each tick, write all persistent attack fields plus only that tick's due action. Capture snapshots after spawn, after 20 peaceful growth ticks, after each discrete action, and after 60 attack ticks aimed from player 1 toward that border farm. For the single debit-conservation tick, temporarily write `farmGrowthRate = 0`, count `contributingFarmCount` from the pre-debit planes as owned tiles whose `farmLevel` is nonzero, compare the before/after food sums to `foodSpendFx`, then restore `0.06`.
 
 Before the scenario, run a fresh-kernel growth microcase with two city tiles at equal 20% fill: level 1 with stock `0.2`, and level 2 with stock `0.4`. One tick must leave both stocks monotonic and bounded by `1`/`2`, with the level-2 delta within `1e-5` of twice the level-1 delta. A level-1 city at zero stock must stay zero, proving that only creation/capture code supplies a seed.
 
@@ -774,8 +774,8 @@ assert(
   "captured farm did not restart from seed",
 );
 assert(
-  Math.abs(foodRemoved - reportedSpend) < 1 / 256,
-  "proportional debit exceeded one fixed-point quantum",
+  Math.abs(foodRemoved - reportedSpend) < contributingFarmCount / 256,
+  "proportional debit exceeded one fixed-point quantum per contributing farm",
 );
 ```
 

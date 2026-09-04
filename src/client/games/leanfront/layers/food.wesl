@@ -7,13 +7,17 @@ import package::sim;
 import package::lib::economy::{ActionDecision, decideAction, gompertz, toFx, attackCommit};
 import package::lib::conquest::{terrainMag, defenseOf, conquers, attackerOf, pressureOf};
 
-fn firstLandNeighbor(tile: u32) -> u32 {
+fn firstSpawnFarmTile(tile: u32) -> u32 {
   let tx = i32(tile % GRID.size.x);
   let ty = i32(tile / GRID.size.x);
   for (var k = 0; k < 8; k += 1) {
     let n = vec2i(tx, ty) + OFF[k];
-    if (inBounds(n.x, n.y) && layers::land::at(n.x, n.y) != 0.0) {
-      return refOf(n.x, n.y);
+    if (!inBounds(n.x, n.y) || layers::land::at(n.x, n.y) == 0.0) { continue; }
+    let neighbor = refOf(n.x, n.y);
+    if (layers::owner::val(neighbor) == 0u &&
+        layers::cityLevel::val(neighbor) == 0u &&
+        layers::farmLevel::val(neighbor) == 0u) {
+      return neighbor;
     }
   }
   return 0xffffffffu;
@@ -28,7 +32,7 @@ fn actionFor(p: u32) -> ActionDecision {
     p, action.actionKind, action.actionTile, action.actionTick, sim::tick(), valid,
     layers::land::val(targetTile), layers::owner::val(targetTile),
     layers::cityLevel::val(targetTile), layers::farmLevel::val(targetTile),
-    firstLandNeighbor(targetTile) != 0xffffffffu, sim::scalar_tilesOwned(p),
+    firstSpawnFarmTile(targetTile) != 0xffffffffu, sim::scalar_tilesOwned(p),
     sim::scalar_totalFood(p), params::cityCapacityPerLevel(),
     params::farmCapacityPerLevel(), params::cityLevelCost(),
     params::farmLevelCost(), params::razeCost(),
@@ -84,7 +88,7 @@ fn update(x: i32, y: i32, i: u32) -> f32 {
     let action = players::val(p);
     let d = actionFor(p);
     if (d.result != 1u) { continue; }
-    if (action.actionKind == 1u && i == firstLandNeighbor(action.actionTile)) {
+    if (action.actionKind == 1u && i == firstSpawnFarmTile(action.actionTile)) {
       farm = 1u;
       next = params::seedFraction() * params::farmCapacityPerLevel();
     } else if (i == action.actionTile && action.actionKind == 3u) {

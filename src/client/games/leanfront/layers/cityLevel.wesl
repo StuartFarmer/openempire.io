@@ -1,20 +1,24 @@
-import package::kernel::{GRID, OFF, inBounds};
+import package::kernel::{GRID, OFF, inBounds, refOf};
 import package::params;
 import package::layers;
 import package::players;
 import package::sim;
 import package::lib::economy::{ActionDecision, decideAction};
 
-fn hasLandNeighbor(tile: u32) -> bool {
+fn firstSpawnFarmTile(tile: u32) -> u32 {
   let tx = i32(tile % GRID.size.x);
   let ty = i32(tile / GRID.size.x);
   for (var k = 0; k < 8; k += 1) {
     let n = vec2i(tx, ty) + OFF[k];
-    if (inBounds(n.x, n.y) && layers::land::at(n.x, n.y) != 0.0) {
-      return true;
+    if (!inBounds(n.x, n.y) || layers::land::at(n.x, n.y) == 0.0) { continue; }
+    let neighbor = refOf(n.x, n.y);
+    if (layers::owner::val(neighbor) == 0u &&
+        layers::cityLevel::val(neighbor) == 0u &&
+        layers::farmLevel::val(neighbor) == 0u) {
+      return neighbor;
     }
   }
-  return false;
+  return 0xffffffffu;
 }
 
 fn actionFor(p: u32) -> ActionDecision {
@@ -26,7 +30,7 @@ fn actionFor(p: u32) -> ActionDecision {
     p, action.actionKind, action.actionTile, action.actionTick, sim::tick(), valid,
     layers::land::val(targetTile), layers::owner::val(targetTile),
     layers::cityLevel::val(targetTile), layers::farmLevel::val(targetTile),
-    hasLandNeighbor(targetTile), sim::scalar_tilesOwned(p),
+    firstSpawnFarmTile(targetTile) != 0xffffffffu, sim::scalar_tilesOwned(p),
     sim::scalar_totalFood(p), params::cityCapacityPerLevel(),
     params::farmCapacityPerLevel(), params::cityLevelCost(),
     params::farmLevelCost(), params::razeCost(),

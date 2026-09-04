@@ -53,16 +53,16 @@ describe("core dependency boundary", () => {
 
     expect(workerSource).not.toContain('=== "leanfront"');
     expect(workerSource).not.toContain("GpuEconomy");
-    expect(workerSource).not.toMatch(/(?:from|import\()[^\n]*leanfront\/runtime/);
+    expect(workerSource).not.toMatch(
+      /(?:from|import\()[^\n]*leanfront\/runtime/,
+    );
     expect(openfrontSource).not.toMatch(/leanfront|GpuEconomy/);
     expect(registrySource).not.toMatch(/^import .*leanfront\/runtime/m);
     expect(registrySource).not.toContain("GpuEconomy");
-    expect(registrySource).toContain('import("./leanfront/runtime")');
-    expect(leanfrontSystemSource).toContain(
-      'import.meta.glob("./layers/**/*.wesl"',
-    );
+    expect(registrySource).not.toContain("leanfront");
+    expect(leanfrontSystemSource).toContain('import.meta.glob("./**/*.wesl"');
     expect(leanfrontSystemSource).not.toContain(
-      'import.meta.glob("./**/*.wesl"',
+      'import.meta.glob("./layers/**/*.wesl"',
     );
   });
 });

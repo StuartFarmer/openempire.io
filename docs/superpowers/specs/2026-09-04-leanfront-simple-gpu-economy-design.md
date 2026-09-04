@@ -160,8 +160,10 @@ Accepted spending is removed proportionally from every owned farm's stored food.
 This keeps the economy global while retaining tile-local stores: losing or
 razing a farm still removes its contribution. The deterministic reduction and
 debit passes must not use floating-point atomics. Their fixed-point conversion
-may leave less than one reduction quantum of rounding error; that quantum is the
-economy's smallest spendable unit and food is never allowed to become negative.
+may leave less than one `1 / 256` quantum per contributing farm because each
+tile is quantized independently. A strict single-global-quantum bound would
+require a prefix/apportionment pipeline, which is deliberately excluded from
+this simple model. Food is never allowed to become negative.
 
 ## Tick order
 
@@ -274,7 +276,8 @@ Automated checks shall establish that:
 - Upgrading preserves stock and adds exactly one base capacity.
 - Growth never changes neighboring plot types or levels.
 - A proportional global debit removes the accepted cost without making a farm
-  negative, within one fixed-point reduction quantum.
+  negative, with aggregate error strictly below one `1 / 256` quantum per
+  contributing farm.
 - Invalid and unaffordable discrete intents change no gameplay field.
 - Attack commitment never exceeds the affordable amount.
 - Capture and raze obey the specified resource lifecycle.

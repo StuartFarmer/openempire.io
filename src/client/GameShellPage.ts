@@ -16,17 +16,18 @@ import {
   type FoundationWorldEngineMapConfig,
 } from "../games/alternative/world/WorldEngineElevation";
 import {
-  getLiveGame,
-  LIVE_GAMES,
-  type LiveGameDefinition,
-} from "./games/registry";
-import {
   flagForSeed,
   loadFlagCatalog,
   resolveFlagUrl,
   type FlagEntry,
 } from "./flags/FlagCatalog";
 import { findFoodPreset, foodPresets, presetKnobChanges } from "./FoodPresets";
+import { leanfront } from "./games/leanfront/system";
+import {
+  getLiveGame,
+  LIVE_GAMES,
+  type LiveGameDefinition,
+} from "./games/registry";
 import { TUNING_GROUPS } from "./hud/layers/TuningPanel";
 import { conquest } from "./lab/systems/conquest/system";
 import { empire } from "./lab/systems/empire/system";
@@ -95,12 +96,12 @@ const SHELL_CLIMATE_DEFAULTS = {
 // derivation (climate → drainage → biome → colors from the map's primary
 // fields, with live climate knobs + seasons + a rich hover readout) or any sim
 // system (world, settlement, empire, grazing, territory), ticked at the game
-// clock with brushes and generic param/scalar panels. Two entries are LIVE
-// games — OpenFront and its LeanFront fork — driven by the real CPU sim in the
-// ShellSim worker; the registry lookup gates that whole path. The shared machinery
+// clock with brushes and generic param/scalar panels. OpenFront is the one LIVE
+// game driven by the real CPU sim in the ShellSim worker; LeanFront follows the
+// field path. The registry lookup gates the worker path. The shared machinery
 // (headless kernel on the camera's device, tick loop, turbo, brushes) lives in
-// FieldViewerBase; this page adds the camera, the terrain derivation on the
-// base kernel, and the terrain-specific panels. Baked terrain-colors.png (via
+// FieldViewerBase; this page adds the camera, the terrain derivation on the base
+// kernel, and the terrain-specific panels. Baked terrain-colors.png (via
 // MapLayerViews) is the fallback when the derivation is unavailable.
 
 /** Ticks per in-world year — drives the terrain seasonal clock. */
@@ -400,6 +401,7 @@ export class GameShellPage extends FieldViewerBase {
     this.systems = [
       terrainSystem,
       ...LIVE_GAMES.map(({ system }) => composeTerrain(system)),
+      composeTerrain(leanfront),
       composeTerrain(conquest),
       composeTerrain(grazing),
       composeTerrain(settlement),
@@ -1752,6 +1754,7 @@ export class GameShellPage extends FieldViewerBase {
       return;
     }
     if (ticks <= 0) return;
+    ticks = this.beginSimulationBatch(ticks);
     this.tickCount += ticks;
     const week = Math.floor(((this.tickCount % YEAR_TICKS) / YEAR_TICKS) * 52);
     if (week !== this.weekReadout) this.weekReadout = week;

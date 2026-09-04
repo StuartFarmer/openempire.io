@@ -1,3 +1,4 @@
+import { readFileSync } from "fs";
 import {
   LEAN_ACTION,
   LEAN_RESULT,
@@ -74,6 +75,58 @@ test("plot shaders never derive a new plot from neighboring plots", () => {
   expect(farm).not.toMatch(/cityLevel::at|farmLevel::at/);
   expect(city).toContain("actionTile");
   expect(farm).toContain("actionTile");
+});
+
+test("mounts LeanFront on the field path and submits queued actions", () => {
+  const shell = readFileSync("src/client/GameShellPage.ts", "utf8");
+  expect(shell).toContain(
+    'import { leanfront } from "./games/leanfront/system";',
+  );
+  expect(shell).toContain("composeTerrain(leanfront)");
+  expect(shell).toContain("ticks = this.beginSimulationBatch(ticks);");
+});
+
+test("spawn selects the first neutral empty land neighbor in every pass", async () => {
+  await compileFieldSystem(composeTerrain(leanfront));
+  for (const name of [
+    "cityLevel",
+    "farmLevel",
+    "food",
+    "incursion",
+    "owner",
+    "troops",
+  ]) {
+    const source = leanfront.modules[`layers/${name}.wesl`];
+    expect(source).toContain("firstSpawnFarmTile");
+    expect(source).toMatch(/layers::owner::val\(neighbor\)\s*==\s*0u/);
+    expect(source).toMatch(/layers::cityLevel::val\(neighbor\)\s*==\s*0u/);
+    expect(source).toMatch(/layers::farmLevel::val\(neighbor\)\s*==\s*0u/);
+  }
+  for (const name of ["farmLevel", "food"]) {
+    const source = leanfront.modules[`layers/${name}.wesl`];
+    expect(source.match(/firstSpawnFarmTile\(/g)).toHaveLength(3);
+  }
+});
+
+test("reports valid actions at their target and invalid tile indices from tile zero", () => {
+  const owner = leanfront.modules["layers/owner.wesl"];
+  expect(owner).toMatch(/validTile\s*&&\s*i\s*==\s*action\.actionTile/);
+  expect(owner).toMatch(/!validTile\s*&&\s*i\s*==\s*0u/);
+});
+
+test("documents debit error as less than one quantum per contributing farm", () => {
+  const design = readFileSync(
+    "docs/superpowers/specs/2026-09-04-leanfront-simple-gpu-economy-design.md",
+    "utf8",
+  );
+  const plan = readFileSync(
+    "docs/superpowers/plans/2026-09-04-leanfront-simple-gpu-economy.md",
+    "utf8",
+  );
+  expect(design).toContain(
+    "less than one `1 / 256` quantum per contributing farm",
+  );
+  expect(plan).toContain("contributingFarmCount / 256");
 });
 
 test("maps the human's first click to spawn and later clicks to attack", () => {
