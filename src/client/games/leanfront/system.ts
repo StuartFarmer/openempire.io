@@ -1,13 +1,13 @@
-import { defineFieldSystem } from "../../../webgpu/FieldDynamics";
+import { defineFieldSystem } from "../../webgpu/FieldDynamics";
+import liveGameView from "../shared/live-game.wesl?raw";
 
 // LeanFront — a FORK of the `openfront` system, selectable alongside it in the
 // shell picker so mechanics can be simplified here without disturbing the
 // reference game. Today it is a faithful clone: the same live CPU simulation
 // (one `ShellSim` worker), the same maps, the same conduits and the same
 // overlay shader — the two entries render identically. The point is the seam,
-// not a difference: this folder's `layers/*.wesl` + `views/leanfront.wesl` are
-// LeanFront's own copies, free to diverge, and the shell now treats any live
-// game generically (`isLiveGame()` in GameShellPage).
+// not a difference: this folder's layers are LeanFront's own copies, free to
+// diverge, while the shell treats any registered live game generically.
 //
 // Divergence guide:
 //   • rendering / legibility → this folder's wesl + `params` below;
@@ -42,7 +42,7 @@ export const leanfront = defineFieldSystem({
   },
 
   views: {
-    leanfront: { source: "views/leanfront.wesl" },
+    leanfront: { source: liveGameView },
   },
 
   modules: import.meta.glob("./**/*.wesl", {

@@ -801,7 +801,7 @@ describe("conquest game composes on terrain", () => {
 describe("openfront-live bridge composes on terrain", () => {
   test("owner is a CPU-written render conduit (init only, never GPU-ticked)", async () => {
     const { openfront } =
-      await import("../src/client/lab/systems/openfront/system");
+      await import("../src/client/games/openfront/system");
     const c = await compileFieldSystem(composeTerrain(openfront));
     const names = c.kernelConfig.passes.map((p) => p.name);
     expect(names).toContain("climate"); // terrain base derives

@@ -88,9 +88,10 @@ export interface FieldViewSpec {
   /** Show any layer directly… */
   layer?: string;
   /**
-   * …or a `.wesl` module. Export `fn value(x, y, i) -> f32` (mapped through
-   * the ramp) or `fn color(x, y, i) -> vec4f` (full-color view — you own the
-   * pixels; ramp/oceanMask don't apply; alpha is yours to carry flags in).
+   * …or a `.wesl` module path or raw source. Export `fn value(x, y, i) -> f32`
+   * (mapped through the ramp) or `fn color(x, y, i) -> vec4f` (full-color view
+   * — you own the pixels; ramp/oceanMask don't apply; alpha is yours to carry
+   * flags in).
    */
   source?: string;
   /** Hex color stops, evenly spaced. Required unless the source exports fn color. */
@@ -482,17 +483,27 @@ export async function compileFieldSystem(
   const scalars = Object.entries(system.scalars ?? {});
   const brushes = Object.entries(system.brushes ?? {});
   const views = Object.entries(system.views);
+  const sourceModules = {
+    ...system.modules,
+    ...Object.fromEntries(
+      views.flatMap(([name, spec]) =>
+        spec.source !== undefined && !(spec.source in system.modules)
+          ? [[`views/${name}.wesl`, spec.source]]
+          : [],
+      ),
+    ),
+  };
   const playersSpec = system.players ?? null;
   const playerCount = playersSpec?.count ?? 0;
   const playerFields = Object.entries(playersSpec?.fields ?? {});
 
   // --- discover dynamic layers (type = fn init return type) -----------------
-  const layerFiles = Object.keys(system.modules)
+  const layerFiles = Object.keys(sourceModules)
     .map((path) => /^layers\/([^/]+)\.wesl$/.exec(path))
     .filter((match): match is RegExpExecArray => match !== null)
     .map((match) => {
       const path = match[0];
-      const source = system.modules[path];
+      const source = sourceModules[path];
       const initType = /fn\s+init\s*\([^)]*\)\s*->\s*(\w+)/.exec(source)?.[1];
       const updateType = /fn\s+update\s*\([^)]*\)\s*->\s*(\w+)/.exec(
         source,
@@ -754,7 +765,7 @@ struct Brush {
       simItems: new Set(),
       layers: new Set(),
     };
-    const stripped = system.modules[path]
+    const stripped = sourceModules[path]
       .replace(/\/\*[\s\S]*?\*\//g, "")
       .replace(/\/\/[^\n]*/g, "");
     const namespaceAliases = new Map<
@@ -978,7 +989,7 @@ struct Brush {
   // User modules enter the link with transition files remapped out of the
   // layers/ path (the generated state modules own it).
   const userModules = Object.fromEntries(
-    Object.entries(system.modules).map(([path, source]) => [
+    Object.entries(sourceModules).map(([path, source]) => [
       path.replace(/^layers\//, DYN_PREFIX),
       source,
     ]),
@@ -1043,19 +1054,17 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 
   for (const [name, spec] of views) {
     if (spec.source === undefined) continue;
-    if (!(spec.source in system.modules)) {
-      diagnostics.push(`views.${name}: source "${spec.source}" not found`);
-      continue;
-    }
+    const sourcePath =
+      spec.source in system.modules ? spec.source : `views/${name}.wesl`;
     // A source view exports either `fn value` (ramped) or `fn color`
     // (full-color; the author owns the pixels).
-    const isColorView = /\bfn\s+color\b/.test(system.modules[spec.source]);
-    const use = parseImports(spec.source);
+    const isColorView = /\bfn\s+color\b/.test(sourceModules[sourcePath]);
+    const use = parseImports(sourcePath);
     const wantsOceanMask = !isColorView && spec.oceanMask !== false;
     if (wantsOceanMask) use.layers.add("land");
     const binds = bindsFor(use);
     const generated = generatedModulesFor(use);
-    const modulePath = `package::${spec.source
+    const modulePath = `package::${sourcePath
       .replace(/\.wesl$/, "")
       .replace(/\//g, "::")}`;
     let root: string;
@@ -1106,7 +1115,7 @@ ${wantsOceanMask ? "  if (land::val(i) == 0.0) { color = vec3f(0.055, 0.13, 0.20
       pass: { name: `view/${name}`, binds: [...binds, "out"], raw: true },
       root,
       generated,
-      sourcePath: spec.source,
+      sourcePath,
     });
   }
 

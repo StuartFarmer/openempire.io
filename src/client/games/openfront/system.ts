@@ -1,4 +1,5 @@
-import { defineFieldSystem } from "../../../webgpu/FieldDynamics";
+import { defineFieldSystem } from "../../webgpu/FieldDynamics";
+import liveGameView from "../shared/live-game.wesl?raw";
 
 // OpenFront (live) — the REAL CPU simulation rendered over the GPU terrain
 // (bridge-core-sim-to-shell). This "system" carries no game rules: it is a
@@ -56,7 +57,7 @@ export const openfront = defineFieldSystem({
   },
 
   views: {
-    openfront: { source: "views/openfront.wesl" },
+    openfront: { source: liveGameView },
   },
 
   modules: import.meta.glob("./**/*.wesl", {

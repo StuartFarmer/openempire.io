@@ -9,13 +9,17 @@ import {
 import { borderSegment } from "../core/execution/utils/BorderSegment";
 import { GameMapType, UnitType } from "../core/game/Game";
 import type { MapData } from "../core/game/GameMapLoader";
-import type { RulesetID } from "../core/game/Rulesets";
 import { UserSettings } from "../core/game/UserSettings";
 import type { Intent } from "../core/Schemas";
 import {
   normalizeFoundationWorldEngineMapConfig,
   type FoundationWorldEngineMapConfig,
 } from "../games/alternative/world/WorldEngineElevation";
+import {
+  getLiveGame,
+  LIVE_GAMES,
+  type LiveGameDefinition,
+} from "./games/registry";
 import {
   flagForSeed,
   loadFlagCatalog,
@@ -27,8 +31,6 @@ import { TUNING_GROUPS } from "./hud/layers/TuningPanel";
 import { conquest } from "./lab/systems/conquest/system";
 import { empire } from "./lab/systems/empire/system";
 import { grazing } from "./lab/systems/grazing/system";
-import { leanfront } from "./lab/systems/leanfront/system";
-import { openfront } from "./lab/systems/openfront/system";
 import { settlement } from "./lab/systems/settlement/system";
 import {
   composeTerrain,
@@ -95,7 +97,7 @@ const SHELL_CLIMATE_DEFAULTS = {
 // system (world, settlement, empire, grazing, territory), ticked at the game
 // clock with brushes and generic param/scalar panels. Two entries are LIVE
 // games — OpenFront and its LeanFront fork — driven by the real CPU sim in the
-// ShellSim worker; `isLiveGame()` gates that whole path. The shared machinery
+// ShellSim worker; the registry lookup gates that whole path. The shared machinery
 // (headless kernel on the camera's device, tick loop, turbo, brushes) lives in
 // FieldViewerBase; this page adds the camera, the terrain derivation on the
 // base kernel, and the terrain-specific panels. Baked terrain-colors.png (via
@@ -397,15 +399,14 @@ export class GameShellPage extends FieldViewerBase {
     // (plus "terrain" alone). The default is terrain on the big Earth map.
     this.systems = [
       terrainSystem,
-      composeTerrain(openfront),
-      composeTerrain(leanfront),
+      ...LIVE_GAMES.map(({ system }) => composeTerrain(system)),
       composeTerrain(conquest),
       composeTerrain(grazing),
       composeTerrain(settlement),
       composeTerrain(empire),
     ];
     // The shell opens on the actual game, not the terrain viewer.
-    this.systemId = openfront.id;
+    this.systemId = LIVE_GAMES[0].id;
     // The backdrop runs a smaller world than the playable default: measured
     // ~0.9s to a ticking sim and 231MB, against 3.2s / 340MB for full Earth.
     this.mapKey = this.hasAttribute("ambient") ? AMBIENT_MAP : "SPQR";
@@ -434,26 +435,12 @@ export class GameShellPage extends FieldViewerBase {
     super.disconnectedCallback();
   }
 
-  /** Whether the selected system is a LIVE game — one backed by the real CPU
-   * simulation in the ShellSim worker (OpenFront and its LeanFront fork), as
-   * opposed to a GPU field system (empire, grazing, …) or bare terrain. Every
-   * sim-bridge path below gates on this, not on one system id. */
-  private isLiveGame(): boolean {
-    return this.systemId === openfront.id || this.systemId === leanfront.id;
+  private selectedLiveGame(): LiveGameDefinition | undefined {
+    return getLiveGame(this.systemId);
   }
 
-  /** The overlay view of the selected live game (each fork owns its own). */
   private liveGameView(): string {
-    const sys = this.systemId === leanfront.id ? leanfront : openfront;
-    return sys.defaultView ?? sys.id;
-  }
-
-  /** The RULES the selected live game runs under. Until now the pick reached
-   *  only the renderer, so "LeanFront" was a colour scheme over the same sim;
-   *  this is what makes it a game. The seam ships with zero divergence — see
-   *  core/game/Rulesets.ts. */
-  private liveGameRuleset(): RulesetID {
-    return this.systemId === leanfront.id ? "leanfront" : "openfront";
+    return this.selectedLiveGame()!.view;
   }
 
   private clearViewCache(): void {
@@ -543,7 +530,12 @@ export class GameShellPage extends FieldViewerBase {
       // Nothing being inspected → the mask returns to normal.
       this.paramValues.hoveredPlayer = 0;
     };
-    if (!container || !canvas || !this.isLiveGame() || this.inSpawn) {
+    if (
+      !container ||
+      !canvas ||
+      this.selectedLiveGame() === undefined ||
+      this.inSpawn
+    ) {
       hide();
       return;
     }
@@ -618,7 +610,12 @@ export class GameShellPage extends FieldViewerBase {
    * when both lines share a scale.
    */
   private renderStatsPanel() {
-    if (!this.isLiveGame() || this.inSpawn || !this.showStats) return null;
+    if (
+      this.selectedLiveGame() === undefined ||
+      this.inSpawn ||
+      !this.showStats
+    )
+      return null;
     const mine = this.history.get(this.mySmallID);
     if (!mine) return null;
     const other = this.hoveredStatsId();
@@ -743,7 +740,11 @@ export class GameShellPage extends FieldViewerBase {
     const container = this.querySelector<HTMLDivElement>("#shell-labels");
     if (!container) return;
     const canvas = this.querySelector<HTMLCanvasElement>("#shell-canvas");
-    if (!this.isLiveGame() || this.inSpawn || !canvas) {
+    if (
+      this.selectedLiveGame() === undefined ||
+      this.inSpawn ||
+      !canvas
+    ) {
       if (this.frontLabelPool.size > 0) {
         for (const el of this.frontLabelPool.values()) el.remove();
         this.frontLabelPool.clear();
@@ -811,7 +812,7 @@ export class GameShellPage extends FieldViewerBase {
     const hover = this.hoverTile;
     const buildType = this.buildType;
     if (
-      !this.isLiveGame() ||
+      this.selectedLiveGame() === undefined ||
       this.inSpawn ||
       this.worker === null ||
       buildType === null ||
@@ -891,7 +892,7 @@ export class GameShellPage extends FieldViewerBase {
     this.tool = "pan"; // start in pan; the brush tool is opt-in per game
     this.destroySim();
     await this.deriveTerrain(mapData);
-    if (this.isLiveGame()) {
+    if (this.selectedLiveGame() !== undefined) {
       // OpenFront-live: run the REAL sim in a Web Worker and show its territory
       // overlay over the derived terrain. Drag pans, a click acts (no tool
       // select); the sim auto-runs so bots place spawns while the human picks.
@@ -983,7 +984,7 @@ export class GameShellPage extends FieldViewerBase {
       cdnBase: getCdnBase(),
       assetManifest: getAssetManifest(),
       ambient: this.ambient,
-      ruleset: this.liveGameRuleset(),
+      ruleset: this.selectedLiveGame()!.id,
     });
   }
 
@@ -1245,7 +1246,7 @@ export class GameShellPage extends FieldViewerBase {
   /** OpenFront-live acts on a discrete click (drag pans, click acts) — no tool
    * select. Cellular games keep the Pan/Brush toggle for tile painting. */
   protected hasClickAction(): boolean {
-    return this.isLiveGame() || super.hasClickAction();
+    return this.selectedLiveGame() !== undefined || super.hasClickAction();
   }
 
   /** New click/stroke → allow re-acting on the same tile (repeated attacks). */
@@ -1256,7 +1257,7 @@ export class GameShellPage extends FieldViewerBase {
   /** Play/pause + turbo drive the WORKER's tick loop for OpenFront-live (the
    * base's pump() path ticks GPU layers, which openfront doesn't have). */
   protected toggleRunning(): void {
-    if (!this.isLiveGame()) return super.toggleRunning();
+    if (this.selectedLiveGame() === undefined) return super.toggleRunning();
     this.running = !this.running;
     this.postWorker({
       type: "running",
@@ -1266,7 +1267,7 @@ export class GameShellPage extends FieldViewerBase {
   }
 
   protected setTurbo(on: boolean): void {
-    if (!this.isLiveGame()) return super.setTurbo(on);
+    if (this.selectedLiveGame() === undefined) return super.setTurbo(on);
     this.turbo = on;
     this.postWorker({
       type: "running",
@@ -1281,7 +1282,8 @@ export class GameShellPage extends FieldViewerBase {
    * the base does not pan). Other systems fall back to the base brush routing.
    */
   protected onTileGesture(x: number, y: number, event: PointerEvent): boolean {
-    if (!this.isLiveGame()) return super.onTileGesture(x, y, event);
+    if (this.selectedLiveGame() === undefined)
+      return super.onTileGesture(x, y, event);
     if (!this.worker) return false;
     if (x < 0 || y < 0 || x >= this.mapWidth || y >= this.mapHeight)
       return false;
@@ -1369,7 +1371,7 @@ export class GameShellPage extends FieldViewerBase {
     const hover = this.hoverTile;
     const border = this.myBorderTiles;
     const off =
-      !this.isLiveGame() ||
+      this.selectedLiveGame() === undefined ||
       this.inSpawn ||
       this.buildType !== null ||
       hover === null ||
@@ -1424,7 +1426,7 @@ export class GameShellPage extends FieldViewerBase {
 
   /** Restart the sim with the current bot count and re-show the overlay. */
   private async restartSim(): Promise<void> {
-    if (!this.isLiveGame() || !this.kernel) return;
+    if (this.selectedLiveGame() === undefined || !this.kernel) return;
     this.running = false;
     // A restart is a new game: fly to the new spawn again and fade the mask
     // back in from nothing, rather than staying zoomed on the old capital.
@@ -1746,7 +1748,7 @@ export class GameShellPage extends FieldViewerBase {
     // OpenFront-live: the sim runs in the worker; this is render-only. The view
     // reads the conduits (uploaded in onWorkerFrame) + the terrain tint; the
     // season re-derive is throttled to a few times/second (GPU cost bound).
-    if (this.isLiveGame()) {
+    if (this.selectedLiveGame() !== undefined) {
       this.renderOpenfront();
       return;
     }
@@ -1922,7 +1924,12 @@ export class GameShellPage extends FieldViewerBase {
       for (const el of this.nationSpawnPool.values()) el.remove();
       this.nationSpawnPool.clear();
     };
-    if (!container || !canvas || !this.isLiveGame() || !this.inSpawn) {
+    if (
+      !container ||
+      !canvas ||
+      this.selectedLiveGame() === undefined ||
+      !this.inSpawn
+    ) {
       clear();
       return;
     }
@@ -2114,7 +2121,8 @@ export class GameShellPage extends FieldViewerBase {
 
   protected hoverRows(hx: number, hy: number): [string, string][] {
     // OpenFront-live: a rich game + terrain readout.
-    if (this.isLiveGame()) return this.openfrontHoverRows(hx, hy);
+    if (this.selectedLiveGame() !== undefined)
+      return this.openfrontHoverRows(hx, hy);
     if (!this.isTerrain()) return super.hoverRows(hx, hy);
     return this.terrainHoverRows(hx, hy) ?? super.hoverRows(hx, hy);
   }
@@ -2323,7 +2331,7 @@ export class GameShellPage extends FieldViewerBase {
           class="absolute inset-0 w-full h-full touch-none ${this.hasBrushPainting() &&
           this.tool === "brush"
             ? "cursor-crosshair"
-            : this.isLiveGame()
+            : this.selectedLiveGame() !== undefined
               ? "cursor-crosshair"
               : "cursor-grab active:cursor-grabbing"}"
           @pointerdown=${this.onPointerDown}
@@ -2444,7 +2452,7 @@ export class GameShellPage extends FieldViewerBase {
           ${game
             ? html`<span class="text-white/70">tick ${this.tickReadout}</span>`
             : null}
-          ${this.isLiveGame()
+          ${this.selectedLiveGame() !== undefined
             ? html`<label
                 class="flex items-center gap-1 text-white/80"
                 title="Bot count — applied on restart"
@@ -2465,7 +2473,7 @@ export class GameShellPage extends FieldViewerBase {
               </label>`
             : null}
           <span class="text-white/70">zoom ${this.zoomReadout}×</span>
-          ${this.isLiveGame()
+          ${this.selectedLiveGame() !== undefined
             ? html`<button
                 class="border border-white/20 px-2 py-1 hover:bg-white/10"
                 title="Restart the game on this map"
@@ -2474,7 +2482,7 @@ export class GameShellPage extends FieldViewerBase {
                 restart
               </button>`
             : null}
-          ${this.isLiveGame()
+          ${this.selectedLiveGame() !== undefined
             ? html`<button
                 class="border border-white/20 px-2 py-1 hover:bg-white/10 ${this
                   .showStats
@@ -2545,9 +2553,9 @@ export class GameShellPage extends FieldViewerBase {
             : null}
         </div>
 
-        ${this.isLiveGame() ? this.renderPlayerHud() : null}
+        ${this.selectedLiveGame() !== undefined ? this.renderPlayerHud() : null}
         ${this.renderStatsPanel()}
-        ${game && !this.isLiveGame() ? this.renderSimPanel() : null}
+        ${game && this.selectedLiveGame() === undefined ? this.renderSimPanel() : null}
         ${this.showKnobs && this.derivedOk && this.derivedConfig
           ? this.renderKnobs(this.derivedConfig)
           : null}
@@ -3021,7 +3029,9 @@ export class GameShellPage extends FieldViewerBase {
           </button>
           <span class="text-white/40">saved automatically</span>
         </div>
-        ${this.isLiveGame() && this.worker ? this.renderGameKnobs() : null}
+        ${this.selectedLiveGame() !== undefined && this.worker
+          ? this.renderGameKnobs()
+          : null}
       </div>
     `;
   }
