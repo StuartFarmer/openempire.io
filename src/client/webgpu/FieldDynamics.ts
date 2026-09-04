@@ -1010,7 +1010,7 @@ struct Brush {
     if (use.playerOutputs) {
       modules["playerOutputs.wesl"] = [
         `struct PlayerOutput {\n${playerOutputs.map((name) => `  ${name}: u32,`).join("\n")}\n}`,
-        `@group(0) @binding(${indexOf("PO")}) var<storage, read_write> PLAYER_OUTPUTS: array<PlayerOutput, ${playerCount}>;`,
+        `@group(0) @binding(${indexOf("PO!")}) var<storage, read_write> PLAYER_OUTPUTS: array<PlayerOutput, ${playerCount}>;`,
         ...playerOutputs.map(
           (name) =>
             `fn set_${name}(p: u32, value: u32) { PLAYER_OUTPUTS[min(p, ${playerCount - 1}u)].${name} = value; }`,

@@ -56,6 +56,9 @@ describe("intent brushes and player outputs", () => {
       "brush/city",
     );
     expect(passByName(compiled, "stock/value").binds).toContain("PO!");
+    expect(passByName(compiled, "stock/value").code).toMatch(
+      /@binding\(1\) var<storage, read_write> PLAYER_OUTPUTS/,
+    );
     expect(compiled.kernelConfig.buffers).toContainEqual(
       expect.objectContaining({
         name: "PO",
