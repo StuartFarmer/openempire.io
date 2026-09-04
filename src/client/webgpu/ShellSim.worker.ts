@@ -53,6 +53,7 @@ let runtime: LiveGameRuntime | null = null;
 let clientID = "";
 let turn = 0;
 let running = false;
+let runGeneration = 0;
 let turbo = false;
 let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -599,23 +600,24 @@ async function stepAndPost(): Promise<void> {
   post(frame, transfer);
 }
 
-async function loop(): Promise<void> {
-  if (!running || !gr) return;
+async function loop(generation: number): Promise<void> {
+  if (!running || !gr || generation !== runGeneration) return;
   const start = performance.now();
   await stepAndPost();
-  if (!running || !gr) return;
+  if (!running || !gr || generation !== runGeneration) return;
   const budget = ambient ? TICK_MS * AMBIENT_TICK_SCALE : TICK_MS;
   const delay = turbo ? 0 : Math.max(0, budget - (performance.now() - start));
-  timer = setTimeout(() => void loop(), delay);
+  timer = setTimeout(() => void loop(generation), delay);
 }
 
 function setRunning(run: boolean, tb: boolean): void {
   turbo = tb;
   if (run && !running) {
     running = true;
-    void loop();
+    void loop(++runGeneration);
   } else if (!run) {
     running = false;
+    runGeneration += 1;
     if (timer) clearTimeout(timer);
     timer = null;
   }

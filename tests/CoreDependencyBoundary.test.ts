@@ -51,8 +51,17 @@ describe("core dependency boundary", () => {
     expect(workerSource).not.toContain("GpuEconomy");
     expect(openfrontSource).not.toMatch(/leanfront|GpuEconomy/);
     expect(registrySource).toContain('import("./leanfront/runtime")');
+    expect(workerSource).toContain("let runGeneration = 0;");
     expect(workerSource).toContain(
-      "await stepAndPost();\n  if (!running || !gr) return;\n  const budget",
+      "async function loop(generation: number): Promise<void> {\n  if (!running || !gr || generation !== runGeneration) return;",
     );
+    expect(workerSource).toContain(
+      "await stepAndPost();\n  if (!running || !gr || generation !== runGeneration) return;\n  const budget",
+    );
+    expect(workerSource).toContain(
+      "setTimeout(() => void loop(generation), delay)",
+    );
+    expect(workerSource).toContain("void loop(++runGeneration);");
+    expect(workerSource).toContain("running = false;\n    runGeneration += 1;");
   });
 });
