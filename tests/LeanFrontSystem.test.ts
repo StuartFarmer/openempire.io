@@ -8,8 +8,17 @@ import { leanfront } from "../src/client/games/leanfront/system";
 import { composeTerrain } from "../src/client/lab/systems/terrain/system";
 import { compileFieldSystem } from "../src/client/webgpu/FieldDynamics";
 
-function storageBindingCount(code: string): number {
-  return code.match(/var<storage\b/g)?.length ?? 0;
+function storageBindingCount(
+  binds: readonly string[],
+  uniformNames: ReadonlySet<string>,
+): number {
+  return binds.filter((bind) => {
+    const resource = bind
+      .replace(/!$/, "")
+      .split(":", 1)[0]
+      .replace(/\.(read|write)$/, "");
+    return resource !== "out" && !uniformNames.has(resource);
+  }).length;
 }
 
 test("declares only the simple economy state and tuning surface", async () => {
@@ -78,13 +87,17 @@ test("declares only the simple economy state and tuning surface", async () => {
 
 test("every composed LeanFront pass fits the ten-storage-buffer WebGPU limit", async () => {
   const compiled = await compileFieldSystem(composeTerrain(leanfront));
+  const uniformNames = new Set(
+    compiled.kernelConfig.uniforms?.map(({ name }) => name) ?? [],
+  );
   const counts = Object.fromEntries(
     compiled.kernelConfig.passes.map((pass) => [
       pass.name,
-      storageBindingCount(pass.code),
+      storageBindingCount(pass.binds, uniformNames),
     ]),
   );
   expect(Object.keys(counts).length).toBeGreaterThan(0);
+  expect(counts["sim/tick"]).toBe(1);
   expect(
     Object.fromEntries(
       Object.entries(counts).filter(([, count]) => count > 10),
