@@ -154,6 +154,20 @@ fn update(x: i32, y: i32, i: u32) -> f32 { return layers::${reads}::val(i); }
     modules: { "layers/a.wesl": layer("b"), "layers/b.wesl": layer("a") },
   };
 
+  const reducedSystem: FieldSystem = {
+    id: "reduced",
+    name: "Reduced",
+    scalars: { total: { reduce: "sum", layer: "amount" } },
+    views: { amount: { layer: "amount", ramp: ["#000000", "#ffffff"] } },
+    modules: {
+      "layers/amount.wesl": `
+import package::layers;
+fn init(x: i32, y: i32, i: u32) -> f32 { return 0.0; }
+fn update(x: i32, y: i32, i: u32) -> f32 { return layers::amount::val(i); }
+`,
+    },
+  };
+
   function recordTick(compiled: CompiledFieldSystem): string[] {
     const calls: string[] = [];
     const frame = { pass: (n: string) => calls.push(`pass:${n}`) };
@@ -165,14 +179,35 @@ fn update(x: i32, y: i32, i: u32) -> f32 { return layers::${reads}::val(i); }
     return calls;
   }
 
+  test("updates see the previous scalars before reduction slots are cleared", async () => {
+    const compiled = await compileFieldSystem(reducedSystem);
+    expect(recordTick(compiled)).toEqual([
+      "pass:sim/tick",
+      "pass:stock/amount",
+      "swap:amount",
+      "pass:sim/zero",
+      "pass:reduce/total",
+    ]);
+  });
+
+  test("tick advance and scalar clearing are separate generated passes", async () => {
+    const compiled = await compileFieldSystem(reducedSystem);
+    const tick = compiled.kernelConfig.passes.find((p) => p.name === "sim/tick")!;
+    const zero = compiled.kernelConfig.passes.find((p) => p.name === "sim/zero")!;
+    expect(tick.code).toContain("S.tick = S.tick + 1u");
+    expect(zero.code).not.toContain("S.tick = S.tick + 1u");
+    expect(zero.code).toContain("atomicStore");
+  });
+
   test("default: one synchronous phase — all stocks, then one commit", async () => {
     const compiled = await compileFieldSystem(twoLayers);
     expect(recordTick(compiled)).toEqual([
-      "pass:sim/zero",
+      "pass:sim/tick",
       "pass:stock/a",
       "pass:stock/b",
       "swap:a",
       "swap:b",
+      "pass:sim/zero",
     ]);
   });
 
@@ -182,11 +217,12 @@ fn update(x: i32, y: i32, i: u32) -> f32 { return layers::${reads}::val(i); }
       phases: [["b"], ["a"]],
     });
     expect(recordTick(compiled)).toEqual([
-      "pass:sim/zero",
+      "pass:sim/tick",
       "pass:stock/b",
       "swap:b",
       "pass:stock/a",
       "swap:a",
+      "pass:sim/zero",
     ]);
   });
 
@@ -196,11 +232,12 @@ fn update(x: i32, y: i32, i: u32) -> f32 { return layers::${reads}::val(i); }
       phases: [["b"]],
     });
     expect(recordTick(compiled)).toEqual([
-      "pass:sim/zero",
+      "pass:sim/tick",
       "pass:stock/b",
       "swap:b",
       "pass:stock/a",
       "swap:a",
+      "pass:sim/zero",
     ]);
   });
 

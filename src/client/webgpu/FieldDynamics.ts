@@ -1122,23 +1122,32 @@ ${wantsOceanMask ? "  if (land::val(i) == 0.0) { color = vec3f(0.055, 0.13, 0.20
   // --- generated (non-WESL) passes -------------------------------------------------
   const passes: FieldPassSpec[] = [];
 
+  const scalarResetStatements = scalarSlots
+    .map((slot) => {
+      const reset =
+        slot.spec.reduce === "min"
+          ? "0x7f7fffffu"
+          : slot.base === "i32"
+            ? "0"
+            : "0u";
+      return slot.spec.groupBy !== undefined
+        ? `  for (var g = 0u; g < ${slot.words}u; g += 1u) { atomicStore(&S.${slot.member}[g], ${reset}); }`
+        : `  atomicStore(&S.${slot.member}, ${reset});`;
+    })
+    .join("\n");
+
+  passes.push({
+    name: "sim/tick",
+    binds: ["S:SimAtomic!"],
+    kind: "single",
+    code: "fn once() { S.tick = S.tick + 1u; }",
+  });
+
   passes.push({
     name: "sim/zero",
     binds: ["S:SimAtomic!"],
     kind: "single",
-    code: `fn once() {\n  S.tick = S.tick + 1u;\n${scalarSlots
-      .map((slot) => {
-        const reset =
-          slot.spec.reduce === "min"
-            ? "0x7f7fffffu"
-            : slot.base === "i32"
-              ? "0"
-              : "0u";
-        return slot.spec.groupBy !== undefined
-          ? `  for (var g = 0u; g < ${slot.words}u; g += 1u) { atomicStore(&S.${slot.member}[g], ${reset}); }`
-          : `  atomicStore(&S.${slot.member}, ${reset});`;
-      })
-      .join("\n")}\n}`,
+    code: `fn once() {\n${scalarResetStatements}\n}`,
   });
 
   for (const slot of scalarSlots) {
@@ -1488,7 +1497,7 @@ ${oceanMask ? "  if (land[i] == 0.0) { color = vec3f(0.055, 0.13, 0.20); }" : ""
     },
 
     runTick(kernel, frame) {
-      frame.pass("sim/zero");
+      frame.pass("sim/tick");
       // Each phase commits before the next runs (Gauss-Seidel staging); the
       // default is one phase — the fully synchronous Jacobi step.
       for (const phase of updatePhases) {
@@ -1499,6 +1508,7 @@ ${oceanMask ? "  if (land[i] == 0.0) { color = vec3f(0.055, 0.13, 0.20); }" : ""
           kernel.swap(name);
         }
       }
+      frame.pass("sim/zero");
       for (const [name] of scalars) {
         frame.pass(`reduce/${name}`);
       }
