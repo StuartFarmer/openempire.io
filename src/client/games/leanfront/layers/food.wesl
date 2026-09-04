@@ -1,49 +1,22 @@
-import package::kernel::{GRID, OFF, inBounds, refOf};
+import package::kernel::GRID;
 import package::params;
+import package::params::{cityCapacityPerLevel, farmCapacityPerLevel, cityLevelCost, farmLevelCost, razeCost};
 import package::layers;
+import package::layers::{land, owner, cityLevel, farmLevel};
 import package::players;
+import package::players::{val, count};
 import package::playerOutputs;
 import package::sim;
-import package::lib::economy::{ActionDecision, decideAction, gompertz, toFx, attackCommit};
+import package::sim::{tick, scalar_tilesOwned, scalar_totalFood};
+import package::lib::actions::resolveAction;
+import package::lib::economy::{gompertz, toFx, attackCommit};
 import package::lib::conquest::{terrainMag, defenseOf, conquers, attackerOf, pressureOf};
-
-fn firstSpawnFarmTile(tile: u32) -> u32 {
-  let tx = i32(tile % GRID.size.x);
-  let ty = i32(tile / GRID.size.x);
-  for (var k = 0; k < 8; k += 1) {
-    let n = vec2i(tx, ty) + OFF[k];
-    if (!inBounds(n.x, n.y) || layers::land::at(n.x, n.y) == 0.0) { continue; }
-    let neighbor = refOf(n.x, n.y);
-    if (layers::owner::val(neighbor) == 0u &&
-        layers::cityLevel::val(neighbor) == 0u &&
-        layers::farmLevel::val(neighbor) == 0u) {
-      return neighbor;
-    }
-  }
-  return 0xffffffffu;
-}
-
-fn actionFor(p: u32) -> ActionDecision {
-  let action = players::val(p);
-  let cells = GRID.size.x * GRID.size.y;
-  let valid = action.actionTile < cells;
-  let targetTile = min(action.actionTile, cells - 1u);
-  return decideAction(
-    p, action.actionKind, action.actionTile, action.actionTick, sim::tick(), valid,
-    layers::land::val(targetTile), layers::owner::val(targetTile),
-    layers::cityLevel::val(targetTile), layers::farmLevel::val(targetTile),
-    firstSpawnFarmTile(targetTile) != 0xffffffffu, sim::scalar_tilesOwned(p),
-    sim::scalar_totalFood(p), params::cityCapacityPerLevel(),
-    params::farmCapacityPerLevel(), params::cityLevelCost(),
-    params::farmLevelCost(), params::razeCost(),
-  );
-}
 
 fn effectiveCommit(p: u32) -> f32 {
   let intent = players::val(p);
   if (intent.alive == 0u || intent.attacking == 0u) { return 0.0; }
   let totalFx = toFx(sim::scalar_totalFood(p));
-  let costFx = min(totalFx, actionFor(p).costFx);
+  let costFx = min(totalFx, resolveAction(p).decision.costFx);
   return attackCommit(intent.commit, sim::scalar_totalPeople(p),
     f32(totalFx - costFx) / 256.0, params::attackCostPerPerson());
 }
@@ -55,7 +28,7 @@ fn attackCostFx(p: u32) -> u32 {
 
 fn spendFx(p: u32) -> u32 {
   let totalFx = toFx(sim::scalar_totalFood(p));
-  return min(totalFx, actionFor(p).costFx + attackCostFx(p));
+  return min(totalFx, resolveAction(p).decision.costFx + attackCostFx(p));
 }
 
 fn init(x: i32, y: i32, i: u32) -> f32 { return 0.0; }
@@ -86,9 +59,10 @@ fn update(x: i32, y: i32, i: u32) -> f32 {
 
   for (var p = 1u; p < players::count(); p += 1u) {
     let action = players::val(p);
-    let d = actionFor(p);
+    let resolved = resolveAction(p);
+    let d = resolved.decision;
     if (d.result != 1u) { continue; }
-    if (action.actionKind == 1u && i == firstSpawnFarmTile(action.actionTile)) {
+    if (action.actionKind == 1u && i == resolved.spawnFarmTile) {
       farm = 1u;
       next = params::seedFraction() * params::farmCapacityPerLevel();
     } else if (i == action.actionTile && action.actionKind == 3u) {

@@ -629,7 +629,7 @@ fn attackCommit(requested: f32, totalPeople: f32, availableFood: f32,
 }
 ```
 
-`decideAction` returns `ActionDecision` for exactly one `actionKind`/`actionTile` when `actionTick == sim::tick()`. City/farm require owned land; opposite types reject; increment from `0xffffffffu` rejects; capacity must remain finite and at most `3.402823e38`; raze accepts a nonempty land tile and clears its ownership/resources; spawn is free, requires the player to own zero tiles, a land target, and at least one land neighbor for the farm.
+`decideAction` returns `ActionDecision` for exactly one `actionKind`/`actionTile` when `actionTick == sim::tick()`. City/farm require owned land; opposite types reject; increment from `0xffffffffu` rejects; capacity must remain finite and at most `3.402823e38`; raze accepts a nonempty land tile and clears its ownership/resources; spawn is free and requires the player to own zero tiles. A shared imported action resolver processes due spawns by ascending player ID, rejects a later kit whose territory overlaps an earlier accepted city/farm reservation, and chooses the first neutral, plot-empty land neighbor outside all earlier accepted reservations. All layer transitions use its resolved city/farm pair.
 
 - [ ] **Step 5: Replace the manifest with the exact initial tuning surface**
 
@@ -660,7 +660,7 @@ Declare `city`, `farm`, and `raze` as radius-zero intent brushes. The five group
 
 - [ ] **Step 6: Add the six layer transitions**
 
-All five persistent update shaders call the same `decideAction` helper against previous state, so acceptance, price, and overflow behavior cannot diverge. Use this transition table:
+All five persistent update shaders call the same shared `resolveAction` helper against previous state, so acceptance, spawn priority/reservations, price, and overflow behavior cannot diverge. Use this transition table:
 
 | Layer       | Free spawn                                               | City/farm action                                | Raze                   | Conquest                     | Growth                                                                    |
 | ----------- | -------------------------------------------------------- | ----------------------------------------------- | ---------------------- | ---------------------------- | ------------------------------------------------------------------------- |

@@ -86,8 +86,34 @@ test("mounts LeanFront on the field path and submits queued actions", () => {
   expect(shell).toContain("ticks = this.beginSimulationBatch(ticks);");
 });
 
-test("spawn selects the first neutral empty land neighbor in every pass", async () => {
-  await compileFieldSystem(composeTerrain(leanfront));
+test("two nearby same-tick spawns use one linked player-priority reservation decision", async () => {
+  const compiled = await compileFieldSystem(composeTerrain(leanfront));
+  const arbitration = leanfront.modules["lib/actions.wesl"] ?? "";
+
+  // Players 1 and 2 are resolved in order. Removing the earlier-player scan or
+  // either reservation comparison makes this contract fail before Task 5's GPU
+  // scenario can exercise the same pair of intents.
+  expect(arbitration).toMatch(
+    /for \(var candidatePlayer = 1u; candidatePlayer <= player;/,
+  );
+  expect(arbitration).toMatch(
+    /for \(var earlierPlayer = 1u; earlierPlayer < candidatePlayer;/,
+  );
+  expect(arbitration).toMatch(/acceptedSpawns\[earlierPlayer\]/);
+  expect(arbitration).toMatch(/reservedCities\[earlierPlayer\]/);
+  expect(arbitration).toMatch(/reservedFarms\[earlierPlayer\]/);
+  expect(arbitration).toMatch(/layers::land::val\(tile\) != 0\.0/);
+  expect(arbitration).toMatch(/layers::owner::val\(tile\) == 0u/);
+  expect(arbitration).toMatch(/layers::cityLevel::val\(tile\) == 0u/);
+  expect(arbitration).toMatch(/layers::farmLevel::val\(tile\) == 0u/);
+  expect(arbitration.match(/earlierPlayer < candidatePlayer/g)).toHaveLength(2);
+  expect(arbitration).toMatch(
+    /acceptedSpawns\[earlierPlayer\] == 0u[\s\S]*insideSpawnClaim\(reservedCities\[earlierPlayer\], action\.actionTile\)[\s\S]*insideSpawnClaim\(action\.actionTile, reservedFarms\[earlierPlayer\]\)/,
+  );
+  expect(arbitration).toMatch(
+    /acceptedSpawns\[earlierPlayer\] != 0u[\s\S]*neighbor == reservedCities\[earlierPlayer\][\s\S]*neighbor == reservedFarms\[earlierPlayer\]/,
+  );
+
   for (const name of [
     "cityLevel",
     "farmLevel",
@@ -97,15 +123,43 @@ test("spawn selects the first neutral empty land neighbor in every pass", async 
     "troops",
   ]) {
     const source = leanfront.modules[`layers/${name}.wesl`];
-    expect(source).toContain("firstSpawnFarmTile");
-    expect(source).toMatch(/layers::owner::val\(neighbor\)\s*==\s*0u/);
-    expect(source).toMatch(/layers::cityLevel::val\(neighbor\)\s*==\s*0u/);
-    expect(source).toMatch(/layers::farmLevel::val\(neighbor\)\s*==\s*0u/);
+    expect(source).not.toMatch(/fn firstSpawnFarmTile/);
+    expect(source).toContain("resolveAction");
+    const pass = compiled.kernelConfig.passes.find(
+      ({ name: passName }) => passName === `stock/${name}`,
+    );
+    expect(pass?.code).toContain("acceptedSpawns");
+    expect(pass?.code).toContain("reservedCities");
+    expect(pass?.code).toContain("reservedFarms");
   }
-  for (const name of ["farmLevel", "food"]) {
-    const source = leanfront.modules[`layers/${name}.wesl`];
-    expect(source.match(/firstSpawnFarmTile\(/g)).toHaveLength(3);
-  }
+
+  expect(leanfront.modules["layers/cityLevel.wesl"]).toContain(
+    "resolved.spawnCityTile",
+  );
+  expect(leanfront.modules["layers/cityLevel.wesl"]).not.toContain(
+    "resolved.spawnFarmTile",
+  );
+  expect(leanfront.modules["layers/farmLevel.wesl"]).toContain(
+    "resolved.spawnFarmTile",
+  );
+  expect(leanfront.modules["layers/farmLevel.wesl"]).not.toContain(
+    "resolved.spawnCityTile",
+  );
+  expect(leanfront.modules["layers/food.wesl"]).toContain(
+    "resolved.spawnFarmTile",
+  );
+  expect(leanfront.modules["layers/owner.wesl"]).toContain(
+    "resolved.spawnCityTile",
+  );
+  expect(leanfront.modules["layers/owner.wesl"]).toContain(
+    "var spawnClaimed = false",
+  );
+  expect(leanfront.modules["layers/owner.wesl"]).toMatch(
+    /!spawnClaimed[\s\S]*next = p;[\s\S]*spawnClaimed = true/,
+  );
+  expect(leanfront.modules["layers/troops.wesl"]).toContain(
+    "resolved.spawnCityTile",
+  );
 });
 
 test("reports valid actions at their target and invalid tile indices from tile zero", () => {

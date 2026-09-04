@@ -223,6 +223,13 @@ Each player receives one free spawn kit:
 - one level-1 city seeded with people;
 - one level-1 farm seeded with food.
 
+One shared GPU action resolver assigns same-tick spawn kits in ascending player
+ID order. An accepted kit reserves its city and farm sites; a later spawn whose
+radius-five territory would cover either reserved plot is rejected, and farm
+selection skips all earlier accepted reservations. Both sites must be neutral,
+passable, and plot-empty in the previous state. Every state transition consumes
+that same resolved pair, so a tile cannot become both city and farm.
+
 There is no separate starting wallet. The spawn kit is the sole exception to
 food-priced actions and prevents the zero-food construction deadlock.
 
