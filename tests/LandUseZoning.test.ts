@@ -68,6 +68,39 @@ function refreshShed(g: Game, p: Player) {
   return foodShedField(g, p);
 }
 
+describe("landUseEntries", () => {
+  test("enumerates exactly the ZONED tiles, not the territory", async () => {
+    const [g, p] = await game();
+    // 900 tiles conquered, two of them zoned. A consumer that wants zoned
+    // ground must be able to walk the zones rather than filter the territory —
+    // the economy uploader did the latter and spent 68 ms a tick on it.
+    const city = g.ref(3, 3);
+    const field = g.ref(4, 4);
+    p.setDensity(city, g.config().food().popPerDensity);
+    p.setFarmMaturity(field, g.config().food().fieldClaimMilli);
+
+    const entries = Array.from(p.landUseEntries());
+    expect(entries.length).toBe(2);
+    expect(new Map(entries).get(city)).toBe(LandUse.Urban);
+    expect(new Map(entries).get(field)).toBe(LandUse.Field);
+    expect(p.tiles().size).toBeGreaterThan(entries.length * 100);
+  });
+
+  test("agrees with landUse() tile by tile", async () => {
+    const [g, p] = await game();
+    p.setDensity(g.ref(1, 1), g.config().food().popPerDensity);
+    p.setFarmMaturity(g.ref(2, 2), g.config().food().fieldClaimMilli);
+    for (const [tile, use] of p.landUseEntries()) {
+      expect(p.landUse(tile)).toBe(use);
+    }
+  });
+
+  test("is empty on untouched ground", async () => {
+    const [, p] = await game();
+    expect(Array.from(p.landUseEntries())).toEqual([]);
+  });
+});
+
 describe("land-use zoning survives death (LandUse)", () => {
   test("a razed city tile keeps its Urban zone", async () => {
     const [g, p] = await game();

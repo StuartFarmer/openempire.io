@@ -253,6 +253,12 @@ async function run(msg: SupplyInjectionIn): Promise<SupplyInjectionOut> {
         fieldTileStorageMilli: f.fieldTileStorageMilli,
         fieldTileYieldMilli: f.fieldTileYieldMilli,
         tenureHalfTicks: f.tenureHalfTicks,
+        foodShedRadius: f.foodShedRadius,
+        foodShedPower: f.foodShedPower,
+        wFoodShed: f.wFoodShed,
+        fieldPatchCostMilli: f.fieldPatchCostMilli,
+        fieldPatchDriveCapMilli: f.fieldPatchDriveCapMilli,
+        farmersPerFieldTile: f.farmersPerFieldTile,
         tickSeed: 0,
       },
     );

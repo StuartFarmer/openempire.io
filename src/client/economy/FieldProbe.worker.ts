@@ -258,6 +258,12 @@ async function run(msg: FieldProbeIn): Promise<FieldProbeOut> {
       fieldTileStorageMilli: f.fieldTileStorageMilli,
       fieldTileYieldMilli: f.fieldTileYieldMilli,
       tenureHalfTicks: f.tenureHalfTicks,
+      foodShedRadius: f.foodShedRadius,
+      foodShedPower: f.foodShedPower,
+      wFoodShed: f.wFoodShed,
+      fieldPatchCostMilli: f.fieldPatchCostMilli,
+      fieldPatchDriveCapMilli: f.fieldPatchDriveCapMilli,
+      farmersPerFieldTile: f.farmersPerFieldTile,
       tickSeed: game.ticks() >>> 0,
     },
   );

@@ -2,6 +2,7 @@ import { Game, LandUse, Player, UnitType } from "../../game/Game";
 import { TileRef } from "../../game/GameMap";
 import { PseudoRandom } from "../../PseudoRandom";
 import { simpleHash } from "../../Util";
+import { observeDraw } from "./DrawProbe";
 import { isFallow, PlayerFoodShed } from "./FoodShed";
 
 /**
@@ -93,6 +94,28 @@ export function waterAccess(mg: Game, tile: TileRef): number {
   return waterN + f.wShore * shore;
 }
 
+/**
+ * A source of the farm CA other than this file's own two phases — the same
+ * injection point the floods and the district ledger have, and for the same
+ * reason: `src/core` cannot reach a GPU, so a compute-shader crop CA has to be
+ * offered in rather than branched to.
+ *
+ * `apply` returns true when it has advanced the player's maturity for this
+ * tick, in which case the CPU's ripen and patch phases are skipped entirely.
+ * Returning false falls back, so a provider that is not ready degrades instead
+ * of freezing the crop.
+ */
+export interface FarmTickProvider {
+  apply(mg: Game, player: Player, shed: PlayerFoodShed): boolean;
+}
+
+let externalFarm: FarmTickProvider | null = null;
+
+/** Install (or clear, with null) the external farm CA. */
+export function setFarmTickProvider(p: FarmTickProvider | null): void {
+  externalFarm = p;
+}
+
 /** Per-player plot-growth credit, keyed by nucleus tile. Process-local like
  *  the shed/supply caches (rebuilt empty on reload — pacing state, not truth). */
 const patchCredits = new WeakMap<Player, Map<TileRef, number>>();
@@ -124,6 +147,11 @@ const patchCredits = new WeakMap<Player, Map<TileRef, number>>();
  *   field SIZE at the moment of expansion.
  */
 export function farmTick(mg: Game, player: Player, shed: PlayerFoodShed): void {
+  // THE WHOLE TICK, or none of it. Ripening and patch placement both write
+  // maturity and the second reads what the first produced, so a provider that
+  // served only one of them would leave the two halves a tick apart — the same
+  // split that broke the ledger cutover.
+  if (externalFarm !== null && externalFarm.apply(mg, player, shed)) return;
   const f = mg.config().food();
   const claim = f.fieldClaimMilli;
 
@@ -301,20 +329,41 @@ function placePatch(
   }
   if (candidates.length === 0) return false;
 
+  // Draw from a CANONICAL order, for the same reason the city draw does
+  // (UrbanGrowth.addCityTiles): the walk below accumulates weight until it
+  // passes the draw, so the POOL'S ORDER decides which tile comes out — and
+  // this pool inherited its order from `fieldTiles`, which inherited it from
+  // the insertion history of the player's farm-maturity Map. That made which
+  // plot a field grows a function of the order tiles were once written, not of
+  // the board: two identical fields built in a different sequence expand
+  // differently. Sorting by tile ref makes the draw a function of the field,
+  // which is what any producer other than that exact Map can reproduce.
+  // The frontier is a handful of tiles (0-25 mean, 66 max on spqr), so this is
+  // free.
+  const order = candidates.map((_, i) => i);
+  order.sort((a, b) => candidates[a] - candidates[b]);
+
   const rand = new PseudoRandom(
     simpleHash(`patch:${player.id()}:${mg.ticks()}:${nucleus}`),
   );
   let total = 0;
   for (const w of weights) total += w;
-  let r = rand.nextFloat(0, total);
-  let pick = candidates.length - 1;
-  for (let i = 0; i < candidates.length; i++) {
-    r -= weights[i];
-    if (r <= 0) {
+  const r = rand.nextFloat(0, total);
+  let acc = r;
+  let pick = order[order.length - 1];
+  for (const i of order) {
+    acc -= weights[i];
+    if (acc <= 0) {
       pick = i;
       break;
     }
   }
+  observeDraw(
+    "patch",
+    order.map((i) => weights[i]),
+    r,
+    order.indexOf(pick),
+  );
   player.setFarmMaturity(candidates[pick], claim);
   return true;
 }

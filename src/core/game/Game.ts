@@ -669,6 +669,10 @@ export interface Player {
   density(tile: TileRef): number;
   setDensity(tile: TileRef, milli: number): void;
   densityEntries(): IterableIterator<[TileRef, number]>;
+  /** Every tile this player has ZONED, as (tile, use) pairs. Sparse: the zone
+   *  map is a few per cent of a territory, so a consumer that wants zoned tiles
+   *  should walk this rather than filtering `tiles()`. */
+  landUseEntries(): IterableIterator<[TileRef, LandUse]>;
   /** Urban area in tile-equivalents (Σ density). */
   urbanArea(): number;
   /** Extra housing from tile tenure (rework-settlement-ecology): old city

@@ -1378,6 +1378,10 @@ export class PlayerImpl implements Player {
     return this._farmMaturity.entries();
   }
 
+  landUseEntries(): IterableIterator<[TileRef, LandUse]> {
+    return this._landUse.entries();
+  }
+
   landUse(tile: TileRef): LandUse | undefined {
     return this._landUse.get(tile);
   }
