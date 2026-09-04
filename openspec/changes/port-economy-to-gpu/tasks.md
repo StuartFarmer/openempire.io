@@ -394,10 +394,10 @@ Remaining:
 ## 3. Cut over as a unit
 
 - [x] 3.1 THE RULESET NOW SELECTS A DEVICE, not just a `Config`. `GpuEconomy`
-      (`src/client/economy/GpuEconomy.ts`) owns the device, the compiled system
-      and the uploader for the life of a game; `ShellSim.worker` builds one when
-      the ruleset is `leanfront` and dispatches it BETWEEN ticks, which is what
-      lets a synchronous `executeNextTick` consume a GPU at all.
+      (`src/client/games/leanfront/economy/GpuEconomy.ts`) owns the device, the
+      compiled system and the uploader for the life of a game; LeanFront's
+      runtime builds and dispatches it BETWEEN ticks through the shared worker
+      host, which lets a synchronous `executeNextTick` consume a GPU at all.
 
       Verified live in the shipping worker, not a probe:
 
@@ -650,3 +650,22 @@ can silently disagree becomes the only path.
 - [ ] 5.2 Remove the provider seams and their staleness/decline logic, which exist only to keep two copies of the state in step.
 - [ ] 5.3 Remove the drift probe and the injection A/B harness once 4.1 has passed.
 - [ ] 5.4 Keep: every WESL pass, the dense district slots, integer accumulation, the order-independent tie-breaks, `peekFoodShed`, the browser run host and the GPU sweep pool.
+
+## 6. Active LeanFront WIP correctness follow-ups
+
+These remain allowed dirty-GPU work; they are explicit here so isolation work
+does not hide or accidentally bless them.
+
+- [ ] 6.1 In `src/client/games/leanfront/economy/GpuEconomy.ts`, read the
+      post-dispatch `slotCredit` buffer and call
+      `EconomyFieldUploader.absorbCredit(...)` before the next refresh. Without
+      that transfer, patch savings reset to their pre-dispatch value every tick.
+- [ ] 6.2 In `src/client/games/leanfront/economy/GpuEconomy.ts`, detect changes
+      to the live `game.config().food()` values baked into `economyFields` and
+      rebuild the compiled system/kernel or decline to the CPU before serving.
+      Runtime knob edits must not continue through stale shader constants.
+- [ ] 6.3 In the district-yield provider in
+      `src/client/games/leanfront/economy/GpuEconomy.ts`, validate every shed
+      farm's slot before writing `prodByIdx`, `capByIdx`, totals, or counters.
+      A missing slot must return `null` with outputs untouched so CPU fallback
+      is atomic rather than layered over a partially written GPU result.

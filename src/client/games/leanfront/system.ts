@@ -45,7 +45,7 @@ export const leanfront = defineFieldSystem({
     leanfront: { source: liveGameView },
   },
 
-  modules: import.meta.glob("./**/*.wesl", {
+  modules: import.meta.glob("./layers/**/*.wesl", {
     query: "?raw",
     import: "default",
     eager: true,

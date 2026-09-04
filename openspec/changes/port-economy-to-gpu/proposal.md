@@ -93,7 +93,7 @@ re-recorded.
 
 ## Impact
 
-- `src/client/economy/fields/passes/*.wesl` — tenure aging, the acres histogram,
+- `src/client/games/leanfront/economy/fields/passes/*.wesl` — tenure aging, the acres histogram,
   the PRNG and the city draw's real (shed-gated) weight have landed and are
   verified; patch application is the one pass still missing. The serial draw
   that D2 called for is NOT built and is not needed — the exponential race
@@ -104,7 +104,7 @@ re-recorded.
 - `src/client/webgpu/ShellSim.worker.ts` — has never been wired to any of this.
   The ruleset already reaches it (`Rulesets.ts`, verified live), but selects only
   a `Config`.
-- `src/client/economy/upload.ts` — the plane mirroring, staleness checks and
+- `src/client/games/leanfront/economy/upload.ts` — the plane mirroring, staleness checks and
   decline paths exist to keep two copies of the state in step. Under GPU
   ownership there is one copy; they are retired with the cutover, not carried.
 - `tests/perf/balance/` — the sweep already runs under headless Chromium

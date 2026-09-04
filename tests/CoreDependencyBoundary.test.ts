@@ -46,11 +46,24 @@ describe("core dependency boundary", () => {
       "utf8",
     );
     const registrySource = readFileSync("src/client/games/registry.ts", "utf8");
+    const leanfrontSystemSource = readFileSync(
+      "src/client/games/leanfront/system.ts",
+      "utf8",
+    );
 
     expect(workerSource).not.toContain('=== "leanfront"');
     expect(workerSource).not.toContain("GpuEconomy");
+    expect(workerSource).not.toMatch(/(?:from|import\()[^\n]*leanfront\/runtime/);
     expect(openfrontSource).not.toMatch(/leanfront|GpuEconomy/);
+    expect(registrySource).not.toMatch(/^import .*leanfront\/runtime/m);
+    expect(registrySource).not.toContain("GpuEconomy");
     expect(registrySource).toContain('import("./leanfront/runtime")');
+    expect(leanfrontSystemSource).toContain(
+      'import.meta.glob("./layers/**/*.wesl"',
+    );
+    expect(leanfrontSystemSource).not.toContain(
+      'import.meta.glob("./**/*.wesl"',
+    );
     expect(workerSource).toContain("let runGeneration = 0;");
     expect(workerSource).toContain(
       "async function loop(generation: number): Promise<void> {\n  if (!running || !gr || generation !== runGeneration) return;",

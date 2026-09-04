@@ -388,12 +388,18 @@ export class GpuEconomy {
     });
   }
 
-  /** Hand every consumer back to the CPU. */
-  dispose(): void {
+  /** Hand consumers back to the CPU without releasing the probe's device. */
+  uninstallProviders(): void {
     setDistrictYieldProvider(null);
     setFarmTickProvider(null);
     setShedFloodProvider(null);
+  }
+
+  /** Hand consumers back to the CPU and release the owned device. */
+  dispose(): void {
+    this.uninstallProviders();
     this.ready = false;
+    this.kernel.destroy();
   }
 
   /** Copy a readable field back. O(field) — for aggregates, not planes. */

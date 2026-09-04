@@ -1571,6 +1571,7 @@ async function run(msg: LedgerProbeIn): Promise<LedgerProbeOut> {
       }
     }
   }
+  let derivGpu: ReturnType<typeof totals>;
   {
     const { GpuEconomy: GE } = await import("./GpuEconomy");
     const probe = await GE.create(game);
@@ -1582,10 +1583,11 @@ async function run(msg: LedgerProbeIn): Promise<LedgerProbeOut> {
       probe.installShedOnly();
       forceAll();
     }
+    derivGpu = totals();
+    probe?.dispose();
   }
   const [derivGpuTilled, derivGpuRanked, derivGpuPeople, derivGpuRegions] =
-    totals();
-  setShedFloodProvider(null);
+    derivGpu;
   forceAll();
 
   // A/B THE ACTUAL TICK, INTERLEAVED — and this is the ONLY A/B (task 0.2).
@@ -1640,7 +1642,7 @@ async function run(msg: LedgerProbeIn): Promise<LedgerProbeOut> {
         game.players().filter((q: Player) => q.isAlive()),
       );
       if (useGpu) econ.install();
-      else econ.dispose();
+      else econ.uninstallProviders();
     }
     const t0 = performance.now();
     tick();

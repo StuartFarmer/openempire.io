@@ -14,7 +14,10 @@ await page.goto("http://localhost:9000/#shell", { waitUntil: "load" });
 await page.waitForFunction((s) => /week \d+/.test(document.querySelector(s)?.textContent ?? ""), SHELL, { timeout: 120000 });
 // Ruleset picker is the first <select>; map is the second.
 const selects = page.locator(`${SHELL} select`);
-await selects.nth(0).selectOption(RULESET).catch(() => {});
+await selects.nth(0).selectOption(RULESET);
+if ((await selects.nth(0).inputValue()) !== RULESET) {
+  throw new Error(`failed to select ruleset ${RULESET}`);
+}
 await page.waitForTimeout(20000);
 await page.locator(`${SHELL} input[type=checkbox]`).first().check().catch(() => {});
 await page.waitForTimeout(30000);

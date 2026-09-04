@@ -72,19 +72,19 @@ change implements; nothing about the game's requirements changes.
 
 ## Impact
 
-- `src/client/economy/fields/passes/` — the shed's derivation: a per-district
+- `src/client/games/leanfront/economy/fields/passes/` — the shed's derivation: a per-district
   maturity histogram and prefix sum for coverage, integer reductions for the
   labour pools, an adjacency reduction for regions. Plus the urban-placement and
   supply equivalents.
-- `src/client/economy/GpuEconomy.ts` — the remaining providers, serving
+- `src/client/games/leanfront/economy/GpuEconomy.ts` — the remaining providers, serving
   per-district results. No scatter, no bucketing, no per-tile readback.
 - `src/core/execution/utils/FoodShed.ts` — **`PlayerFoodShed` reshaped to
   per-district state.** `SupplyField.ts`, `UrbanGrowth.ts`, `EconomyModel.ts`,
   `TribalEconomy.ts` follow it. Seam contracts and the staleness guards they
   imply; new seams for urban placement and the city half of tenure.
-- `src/client/economy/upload.ts` — its per-player walk retires with the shed
+- `src/client/games/leanfront/economy/upload.ts` — its per-player walk retires with the shed
   (D8).
-- `src/client/economy/LedgerProbe.worker.ts` — one isolation probe per seam, and
+- `src/client/games/leanfront/economy/LedgerProbe.worker.ts` — one isolation probe per seam, and
   the board-health assertions that go with every timing.
 - OpenFront's CPU path and reference hashes are untouched throughout, and that
   is a gate rather than an expectation.

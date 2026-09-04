@@ -29,7 +29,7 @@ import { generateID } from "../../../../core/Util";
 import { compileFieldSystem } from "../../../webgpu/FieldDynamics";
 import { FieldKernel } from "../../../webgpu/FieldKernel";
 import { CUTOFF_RADII, economyFields } from "./fields/system";
-import { buildEconomyInputs } from "../../../economy/inputs";
+import { buildEconomyInputs } from "./inputs";
 import { EconomyFieldUploader } from "./upload";
 
 const ctx = self as unknown as Worker;

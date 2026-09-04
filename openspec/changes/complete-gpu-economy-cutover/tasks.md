@@ -42,7 +42,7 @@ them being trustworthy.
       `SupplyInjection.worker`, which is a hash-IDENTITY control, not a timing
       comparison, and is slated for removal by 8.2.
 
-- [x] 0.3 A reusable SEAM DIFF — `src/client/economy/SeamDiff.ts`, with
+- [x] 0.3 A reusable SEAM DIFF — `src/client/games/leanfront/economy/SeamDiff.ts`, with
       `tests/SeamDiff.test.ts` (17 tests, Node, no GPU needed). Given what a
       provider serves and what the CPU function returns, it compares membership
       in both directions and values on the shared keys, and reports
