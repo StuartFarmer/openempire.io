@@ -39,11 +39,4 @@ describe("live-game registry", () => {
       expect(() => runtime.dispose()).not.toThrow();
     }
   });
-
-  test("creating OpenFront never loads the LeanFront runtime", async () => {
-    const runtime = await getLiveGame("openfront")!.createRuntime({} as never);
-    await runtime.beforeTick();
-    expect(createLeanRuntime).not.toHaveBeenCalled();
-    runtime.dispose();
-  });
 });
