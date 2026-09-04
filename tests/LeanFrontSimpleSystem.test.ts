@@ -3,8 +3,8 @@ import {
   LEAN_ACTION,
   LEAN_RESULT,
   decodeLeanResult,
-} from "../src/client/games/leanfront/actions";
-import { leanfront } from "../src/client/games/leanfront/system";
+} from "../src/client/games/leanfront-simple/actions";
+import { leanfrontSimple as leanfront } from "../src/client/games/leanfront-simple/system";
 import { composeTerrain } from "../src/client/lab/systems/terrain/system";
 import { compileFieldSystem } from "../src/client/webgpu/FieldDynamics";
 
@@ -152,9 +152,9 @@ test("troops diffuse pair-symmetrically only across same-owner neighbors", () =>
 test("mounts LeanFront on the field path and submits queued actions", () => {
   const shell = readFileSync("src/client/GameShellPage.ts", "utf8");
   expect(shell).toContain(
-    'import { leanfront } from "./games/leanfront/system";',
+    'import { leanfrontSimple } from "./games/leanfront-simple/system";',
   );
-  expect(shell).toContain("composeTerrain(leanfront)");
+  expect(shell).toContain("composeTerrain(leanfrontSimple)");
   expect(shell).toContain("ticks = this.beginSimulationBatch(ticks);");
   expect(shell).toContain('readBuffer("cityLevel", 1, tile)');
   expect(shell).toContain('aria-label="Attack commitment"');
@@ -166,7 +166,7 @@ test("reports a rejected action even when the next frame starts during readback"
   warning.mockRestore();
   const page = new GameShellPage();
   const subject = page as any;
-  subject.systemId = "leanfront";
+  subject.systemId = "leanfront-simple";
   subject.kernel = {
     readBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(4)),
   };
@@ -222,7 +222,7 @@ test.each(["kernel", "compiled"] as const)(
         return new ArrayBuffer(4);
       }),
     };
-    subject.systemId = "leanfront";
+    subject.systemId = "leanfront-simple";
     subject.kernel = kernel;
     subject.compiled = compiled;
     subject.scalarReadout = scalarReadout;
@@ -244,7 +244,7 @@ test("an accepted action leaves shared status unchanged", async () => {
   const { GameShellPage } = await import("../src/client/GameShellPage");
   warning.mockRestore();
   const subject = new GameShellPage() as any;
-  subject.systemId = "leanfront";
+  subject.systemId = "leanfront-simple";
   subject.kernel = {
     readBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(4)),
   };

@@ -1,10 +1,16 @@
 # LeanFront Simple GPU Economy Implementation Plan
 
+> **Sibling-mode correction:** The completed GPU economy lives at game id
+> `leanfront-simple` under `src/client/games/leanfront-simple/`. The original
+> `leanfront` live runtime and economy have been restored. Task 7's removal
+> instructions and older `src/client/games/leanfront/` paths are historical and
+> superseded by this correction.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace LeanFront's mirrored OpenFront runtime with a standalone GPU field game where player-painted cities grow people, player-painted farms grow globally spendable food, and every action spends food.
+**Goal:** Add a standalone LeanFront Simple GPU field game where player-painted cities grow people, player-painted farms grow globally spendable food, and every action spends food, while retaining the original LeanFront game.
 
-**Architecture:** LeanFront becomes a `defineFieldSystem` sibling of the existing GPU `conquest` game. Five persistent tile fields remain GPU-resident; one command per player is admitted per submitted tick through the existing player-intent buffer, aggregates fund the following tick, and a compact GPU output buffer reports spend/result data without full-field readback. The existing field compiler/viewer receive only the reusable primitives this game actually needs: prior-tick scalar visibility, intent brushes, a one-action FIFO, compact `u32` player outputs, and one-word hover reads.
+**Architecture:** LeanFront Simple is a `defineFieldSystem` sibling of both the original LeanFront live game and the existing GPU `conquest` game. Five persistent tile fields remain GPU-resident; one command per player is admitted per submitted tick through the existing player-intent buffer, aggregates fund the following tick, and a compact GPU output buffer reports spend/result data without full-field readback. The existing field compiler/viewer receive only the reusable primitives this game actually needs: prior-tick scalar visibility, intent brushes, a one-action FIFO, compact `u32` player outputs, and one-word hover reads.
 
 **Tech Stack:** TypeScript 6, Lit, WebGPU/WGSL, WESL, Vitest, Vite, the repository's lazily loaded Playwright Chromium harness.
 
@@ -13,6 +19,8 @@
 ## Global Constraints
 
 - OpenFront's rules, worker runtime, rendering conduits, and reference behavior do not change.
+- The original `leanfront` live game remains registered and unchanged; the new
+  field game uses id `leanfront-simple` and has no CPU mirror.
 - `troops` is the only people/manpower resource; no separate civilian population is added.
 - Cities and farms grow only within their already-painted tile; no shader may paint, migrate, zone, or spread a plot to a neighboring tile.
 - Food is stored on farm tiles, aggregated globally per owner, and never consumed by people.

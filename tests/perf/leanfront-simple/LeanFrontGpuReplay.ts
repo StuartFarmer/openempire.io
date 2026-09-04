@@ -29,7 +29,7 @@ async function main(): Promise<void> {
       try {
         await page.goto(ORIGIN, { waitUntil: "load" });
         const result = await page.evaluate(async () => {
-          const probeUrl = "/tests/perf/leanfront/LeanFrontGpuProbe.ts";
+          const probeUrl = "/tests/perf/leanfront-simple/LeanFrontGpuProbe.ts";
           const probe = (await import(
             /* @vite-ignore */ probeUrl
           )) as typeof import("./LeanFrontGpuProbe");

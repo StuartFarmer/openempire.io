@@ -41,7 +41,8 @@ export async function createGameRunner(
   clientID: ClientID | undefined,
   mapLoader: GameMapLoader,
   callBack: (gu: GameUpdateViewData | ErrorUpdate) => void,
-  /** Worker ruleset, currently only `openfront`. */
+  /** Which game's rules to build. Defaults to `openfront`; see Rulesets.ts —
+   *  the seam ships with zero divergence and is proven identical. */
   ruleset: RulesetID = DEFAULT_RULESET,
 ): Promise<GameRunner> {
   const config = createRulesetConfig(ruleset, gameStart.config, null, false);

@@ -46,19 +46,33 @@ describe("core dependency boundary", () => {
       "utf8",
     );
     const registrySource = readFileSync("src/client/games/registry.ts", "utf8");
-    const runnerSource = readFileSync("src/core/GameRunner.ts", "utf8");
     const leanfrontSystemSource = readFileSync(
       "src/client/games/leanfront/system.ts",
       "utf8",
     );
+    const leanfrontSimpleSystemSource = readFileSync(
+      "src/client/games/leanfront-simple/system.ts",
+      "utf8",
+    );
 
-    expect(workerSource).not.toContain("leanfront");
-    expect(openfrontSource).not.toContain("leanfront");
-    expect(registrySource).not.toContain("leanfront");
-    expect(runnerSource).not.toContain("leanfront");
-    expect(leanfrontSystemSource).toContain('import.meta.glob("./**/*.wesl"');
-    expect(leanfrontSystemSource).not.toContain(
+    expect(workerSource).not.toContain('=== "leanfront"');
+    expect(workerSource).not.toContain("GpuEconomy");
+    expect(workerSource).not.toMatch(
+      /(?:from|import\()[^\n]*leanfront\/runtime/,
+    );
+    expect(openfrontSource).not.toMatch(/leanfront|GpuEconomy/);
+    expect(registrySource).not.toMatch(/^import .*leanfront\/runtime/m);
+    expect(registrySource).not.toContain("GpuEconomy");
+    expect(registrySource).toContain('import("./leanfront/runtime")');
+    expect(registrySource).not.toContain("leanfront-simple");
+    expect(leanfrontSystemSource).toContain(
       'import.meta.glob("./layers/**/*.wesl"',
+    );
+    expect(leanfrontSystemSource).not.toContain(
+      'import.meta.glob("./**/*.wesl"',
+    );
+    expect(leanfrontSimpleSystemSource).toContain(
+      'import.meta.glob("./**/*.wesl"',
     );
   });
 });

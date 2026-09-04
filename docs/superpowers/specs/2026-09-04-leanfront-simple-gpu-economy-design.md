@@ -1,8 +1,14 @@
 # LeanFront Simple GPU Economy Design
 
+> **Sibling-mode correction:** This design is implemented as the separate
+> `leanfront-simple` game. The original `leanfront` live runtime, economy,
+> ruleset, and experiments remain available unchanged. Any replacement or
+> deletion language retained below records the earlier implementation path and
+> is superseded by this boundary.
+
 ## Summary
 
-LeanFront becomes a standalone GPU field game derived from the existing
+LeanFront Simple is a standalone GPU field game derived from the existing
 `conquest` system. It keeps that system's ownership, terrain combat, neutral
 exploration, attack controls, and razing, while replacing the economy with two
 player-painted plot types: cities that grow people and farms that grow food.
@@ -12,8 +18,8 @@ it, and every post-spawn player action costs it. Both resources live on tiles,
 grow toward level-scaled capacity with the same Gompertz law, and are aggregated
 per player only for action budgeting, UI, and AI.
 
-The current LeanFront CPU/GPU economy mirror and the planned district economy
-are superseded. OpenFront remains unchanged.
+The original LeanFront CPU/GPU economy mirror remains intact for future work.
+LeanFront Simple has no CPU mirror of its own. OpenFront remains unchanged.
 
 ## Goals
 

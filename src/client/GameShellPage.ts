@@ -22,8 +22,11 @@ import {
   type FlagEntry,
 } from "./flags/FlagCatalog";
 import { findFoodPreset, foodPresets, presetKnobChanges } from "./FoodPresets";
-import { decodeLeanResult, LEAN_RESULT } from "./games/leanfront/actions";
-import { leanfront } from "./games/leanfront/system";
+import {
+  decodeLeanResult,
+  LEAN_RESULT,
+} from "./games/leanfront-simple/actions";
+import { leanfrontSimple } from "./games/leanfront-simple/system";
 import {
   getLiveGame,
   LIVE_GAMES,
@@ -412,7 +415,7 @@ export class GameShellPage extends FieldViewerBase {
     this.systems = [
       terrainSystem,
       ...LIVE_GAMES.map(({ system }) => composeTerrain(system)),
-      composeTerrain(leanfront),
+      composeTerrain(leanfrontSimple),
       composeTerrain(conquest),
       composeTerrain(grazing),
       composeTerrain(settlement),
@@ -1800,7 +1803,7 @@ export class GameShellPage extends FieldViewerBase {
     const compiled = this.compiled;
     await super.readScalars();
     if (this.kernel !== kernel || this.compiled !== compiled) return;
-    if (this.systemId !== "leanfront") {
+    if (this.systemId !== "leanfront-simple") {
       if (this.leanfrontHover !== null) this.leanfrontHover = null;
       return;
     }
@@ -1855,7 +1858,7 @@ export class GameShellPage extends FieldViewerBase {
     if (
       this.kernel !== kernel ||
       this.compiled !== compiled ||
-      this.systemId !== "leanfront" ||
+      this.systemId !== "leanfront-simple" ||
       currentHover === null ||
       currentHover.y * this.mapWidth + currentHover.x !== tile
     ) {
@@ -2210,7 +2213,8 @@ export class GameShellPage extends FieldViewerBase {
   // --- hover readout (terrain) — overrides the base's generic rows ------------
 
   protected hoverRows(hx: number, hy: number): [string, string][] {
-    if (this.systemId === "leanfront") return this.leanfrontHoverRows(hx, hy);
+    if (this.systemId === "leanfront-simple")
+      return this.leanfrontHoverRows(hx, hy);
     // OpenFront-live: a rich game + terrain readout.
     if (this.selectedLiveGame() !== undefined)
       return this.openfrontHoverRows(hx, hy);
@@ -2790,7 +2794,7 @@ export class GameShellPage extends FieldViewerBase {
     const compiled = this.compiled;
     const localPlayer = compiled?.localPlayer ?? 0;
     const scalars =
-      this.systemId === "leanfront"
+      this.systemId === "leanfront-simple"
         ? ([
             [
               "people",

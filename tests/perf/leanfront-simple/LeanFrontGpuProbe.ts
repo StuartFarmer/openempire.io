@@ -2,8 +2,8 @@ import {
   LEAN_ACTION,
   LEAN_RESULT,
   decodeLeanResult,
-} from "../../../src/client/games/leanfront/actions";
-import { leanfront } from "../../../src/client/games/leanfront/system";
+} from "../../../src/client/games/leanfront-simple/actions";
+import { leanfrontSimple as leanfront } from "../../../src/client/games/leanfront-simple/system";
 import {
   compileFieldSystem,
   type CompiledFieldSystem,
