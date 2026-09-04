@@ -5,6 +5,7 @@ import { createAlternativeWorldEngineMap } from "../../../src/games/alternative/
 import {
   buildFreshwaterPlane,
   buildGeneratedMapInfo,
+  buildGeneratorHydroBlob,
   buildGeneratorLayersBlob,
   buildGeneratorSourceImage,
   buildGeneratorTerrainColorImage,
@@ -56,6 +57,72 @@ describe("generator map export", () => {
     expect(Array.from(source.data)).toEqual([1, 2, 3, 255, 4, 5, 6, 255]);
   });
 
+  test("encodes lake then river hydro planes with generator values", () => {
+    const blob = buildGeneratorHydroBlob(
+      {
+        lakes: new Uint8Array([0, 1, 2, 0]),
+        normalizedWatermap: new Float32Array([-1, 0.5, 1, 2]),
+      },
+      2,
+      2,
+    );
+
+    expect(blob.length).toBe(8);
+    expect(Array.from(blob)).toEqual([0, 255, 255, 0, 0, 128, 255, 255]);
+  });
+
+  test("downloads hydro.bin from the current generated hydro planes", async () => {
+    const litWarning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { GeneratorPage } = await import("../../../src/client/GeneratorPage");
+    litWarning.mockRestore();
+    const page = new GeneratorPage();
+    document.body.append(page);
+    await page.updateComplete;
+
+    const button = Array.from(page.querySelectorAll("button")).find(
+      (candidate) => candidate.textContent?.trim() === "hydro.bin",
+    );
+    expect(button, "generator export controls omit hydro.bin").toBeDefined();
+
+    const downloads: Blob[] = [];
+    const createObjectUrl = vi
+      .spyOn(URL, "createObjectURL")
+      .mockImplementation((blob) => {
+        if (!(blob instanceof Blob)) throw new Error("expected Blob download");
+        downloads.push(blob);
+        return "blob:test";
+      });
+    const revokeObjectUrl = vi
+      .spyOn(URL, "revokeObjectURL")
+      .mockImplementation(() => undefined);
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => undefined);
+
+    try {
+      button?.click();
+      expect(downloads).toHaveLength(1);
+
+      const bytes = await readBlob(downloads[0]);
+      const generated = (
+        page as unknown as {
+          generated: ReturnType<typeof createAlternativeWorldEngineMap>;
+        }
+      ).generated;
+      const expected = buildGeneratorHydroBlob(
+        generated.worldEngineLayers,
+        generated.map.width,
+        generated.map.height,
+      );
+      expect(bytes).toEqual(expected);
+    } finally {
+      click.mockRestore();
+      revokeObjectUrl.mockRestore();
+      createObjectUrl.mockRestore();
+      page.remove();
+    }
+  });
+
   test("layers round-trip: engine → layers.bin → sim accessor, byte-for-byte", () => {
     const generated = createAlternativeWorldEngineMap({
       seed: 1337,
@@ -100,3 +167,14 @@ describe("generator map export", () => {
     expect(crops.size).toBeGreaterThan(1);
   });
 });
+
+function readBlob(blob: Blob): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      resolve(new Uint8Array(reader.result as ArrayBuffer));
+    });
+    reader.addEventListener("error", () => reject(reader.error));
+    reader.readAsArrayBuffer(blob);
+  });
+}

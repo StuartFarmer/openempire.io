@@ -39,7 +39,12 @@ The generator page SHALL export source files compatible with `map-generator/asse
 #### Scenario: Export map source files
 
 - **WHEN** the user exports the generated map
-- **THEN** the browser downloads `image.png` and `info.json` files for the generated map
+- **THEN** the browser downloads `image.png`, `terrain-colors.png`, `layers.bin`, `elevation.bin`, `hydro.bin`, and `info.json` files for the generated map
+
+#### Scenario: Export generated hydro fields
+
+- **WHEN** the user exports `hydro.bin`
+- **THEN** it contains the current generated lake plane followed by the current generated river plane, each encoded as exactly `width × height` Uint8 values
 
 #### Scenario: Exported image is generator input
 
@@ -53,7 +58,7 @@ The exported source files SHALL become a selectable playable OpenFront map throu
 #### Scenario: Compile generated map
 
 - **WHEN** the exported files are placed under `map-generator/assets/maps/<map_name>` and `npm run gen-maps` is run
-- **THEN** the normal generated outputs include `resources/maps/<map_name>/map.bin`, `map4x.bin`, `map16x.bin`, `manifest.json`, `thumbnail.webp`, and an updated `Maps.gen.ts`
+- **THEN** the normal generated outputs include `resources/maps/<map_name>/map.bin`, `map4x.bin`, `manifest.json`, `thumbnail.webp`, and an updated `Maps.gen.ts`
 
 #### Scenario: Play generated map
 

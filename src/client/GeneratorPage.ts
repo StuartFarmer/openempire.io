@@ -7,6 +7,7 @@ import {
 import {
   buildGeneratedMapInfo,
   buildGeneratorElevationBlob,
+  buildGeneratorHydroBlob,
   buildGeneratorLayersBlob,
   buildGeneratorSourceImage,
   buildGeneratorTerrainColorImage,
@@ -168,6 +169,19 @@ export class GeneratorPage extends LitElement {
     );
   };
 
+  private downloadHydro = (): void => {
+    const blob = buildGeneratorHydroBlob(
+      this.generated.worldEngineLayers,
+      this.generated.map.width,
+      this.generated.map.height,
+    );
+    downloadBlob(
+      // Copy into a fresh ArrayBuffer-backed view — Blob rejects ArrayBufferLike.
+      new Blob([new Uint8Array(blob)], { type: "application/octet-stream" }),
+      "hydro.bin",
+    );
+  };
+
   private paint(): void {
     const canvas = this.querySelector("canvas");
     const context = canvas?.getContext("2d");
@@ -223,6 +237,12 @@ export class GeneratorPage extends LitElement {
                   @click=${this.downloadElevation}
                 >
                   elevation.bin
+                </button>
+                <button
+                  class="px-3 py-2 border border-white/30 text-sm font-medium"
+                  @click=${this.downloadHydro}
+                >
+                  hydro.bin
                 </button>
                 <button
                   class="px-3 py-2 border border-white/30 text-sm font-medium"
@@ -335,7 +355,7 @@ export class GeneratorPage extends LitElement {
               </div>
               <div>
                 Files: image.png, terrain-colors.png, layers.bin, elevation.bin,
-                info.json
+                hydro.bin, info.json
               </div>
               <div>Then run: npm run gen-maps</div>
               <div>Size: ${map.width}x${map.height}</div>
