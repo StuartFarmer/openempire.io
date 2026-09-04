@@ -52,12 +52,8 @@ describe("core dependency boundary", () => {
       "utf8",
     );
 
-    expect(workerSource).not.toContain('=== "leanfront"');
-    expect(workerSource).not.toMatch(
-      /(?:from|import\()[^\n]*leanfront\/runtime/,
-    );
+    expect(workerSource).not.toContain("leanfront");
     expect(openfrontSource).not.toContain("leanfront");
-    expect(registrySource).not.toMatch(/^import .*leanfront\/runtime/m);
     expect(registrySource).not.toContain("leanfront");
     expect(runnerSource).not.toContain("leanfront");
     expect(leanfrontSystemSource).toContain('import.meta.glob("./**/*.wesl"');
