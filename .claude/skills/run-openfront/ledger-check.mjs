@@ -27,7 +27,9 @@ const out = await page.evaluate(
       await import("/src/core/AssetUrls.ts");
     const { GameMapType } = await import("/src/core/game/Game.ts");
     const W = (
-      await import("/src/client/economy/LedgerProbe.worker.ts?worker&inline")
+      await import(
+        "/src/client/games/leanfront/economy/LedgerProbe.worker.ts?worker&inline"
+      )
     ).default;
     const worker = new W();
     const r = await new Promise((res, rej) => {

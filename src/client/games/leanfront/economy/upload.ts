@@ -1,7 +1,7 @@
-import { peekFoodShed } from "../../core/execution/utils/FoodShed";
-import { Game, LandUse, Player, UnitType } from "../../core/game/Game";
-import { simpleHash } from "../../core/Util";
-import type { FieldKernel } from "../webgpu/FieldKernel";
+import { peekFoodShed } from "../../../../core/execution/utils/FoodShed";
+import { Game, LandUse, Player, UnitType } from "../../../../core/game/Game";
+import { simpleHash } from "../../../../core/Util";
+import type { FieldKernel } from "../../../webgpu/FieldKernel";
 import { MAX_CELLS } from "./fields/system";
 
 /**

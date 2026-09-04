@@ -1,7 +1,7 @@
 import {
   defineFieldSystem,
   type FieldSystem,
-} from "../../webgpu/FieldDynamics";
+} from "../../../../webgpu/FieldDynamics";
 
 // The economy's DISTANCE FIELDS on the GPU: the food shed (nearest farm + step
 // distance, per rework-settlement-ecology) and the military supply field (steps

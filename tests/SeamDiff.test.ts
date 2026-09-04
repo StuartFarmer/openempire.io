@@ -3,7 +3,7 @@ import {
   formatSeamDiff,
   mergeSeamDiffs,
   seamDiff,
-} from "../src/client/economy/SeamDiff";
+} from "../src/client/games/leanfront/economy/SeamDiff";
 
 describe("seamDiff", () => {
   it("agrees when both sides serve the same thing", () => {

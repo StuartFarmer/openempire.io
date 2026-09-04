@@ -22,17 +22,17 @@
  * WGSL's 2.5 ULP slack on division, so exact agreement is not the contract any
  * more. What matters is that no district is materially wrong.
  */
-import { assetUrl, type AssetManifest } from "../../core/AssetUrls";
-import { climateSuitability } from "../../core/execution/utils/FarmGrowth";
+import { assetUrl, type AssetManifest } from "../../../../core/AssetUrls";
+import { climateSuitability } from "../../../../core/execution/utils/FarmGrowth";
 import {
   foodShedPotential,
   isFallow,
   peekFoodShed,
-} from "../../core/execution/utils/FoodShed";
-import { supplyField } from "../../core/execution/utils/SupplyField";
-import { tenureCurve } from "../../core/execution/utils/TileTenure";
-import { urbanSuitability } from "../../core/execution/utils/UrbanGrowth";
-import { FetchGameMapLoader } from "../../core/game/FetchGameMapLoader";
+} from "../../../../core/execution/utils/FoodShed";
+import { supplyField } from "../../../../core/execution/utils/SupplyField";
+import { tenureCurve } from "../../../../core/execution/utils/TileTenure";
+import { urbanSuitability } from "../../../../core/execution/utils/UrbanGrowth";
+import { FetchGameMapLoader } from "../../../../core/game/FetchGameMapLoader";
 import {
   Difficulty,
   GameMapType,
@@ -42,12 +42,12 @@ import {
   UnitType,
   type Game,
   type Player,
-} from "../../core/game/Game";
-import { createGameRunner } from "../../core/GameRunner";
-import { PseudoRandom } from "../../core/PseudoRandom";
-import type { GameStartInfo } from "../../core/Schemas";
-import { compileFieldSystem } from "../webgpu/FieldDynamics";
-import { FieldKernel } from "../webgpu/FieldKernel";
+} from "../../../../core/game/Game";
+import { createGameRunner } from "../../../../core/GameRunner";
+import { PseudoRandom } from "../../../../core/PseudoRandom";
+import type { GameStartInfo } from "../../../../core/Schemas";
+import { compileFieldSystem } from "../../../webgpu/FieldDynamics";
+import { FieldKernel } from "../../../webgpu/FieldKernel";
 import {
   CUTOFF_RADII,
   economyFields,
@@ -326,7 +326,7 @@ async function run(msg: LedgerProbeIn): Promise<LedgerProbeOut> {
   const gr = await createGameRunner(gameStart, undefined, loader, () => {});
   const game: Game = gr.game;
   const { SpawnTimerExecution } =
-    await import("../../core/execution/SpawnTimerExecution");
+    await import("../../../../core/execution/SpawnTimerExecution");
   game.addExecution(new SpawnTimerExecution());
   let turn = 0;
   const tick = (): void => {
@@ -1062,7 +1062,7 @@ async function run(msg: LedgerProbeIn): Promise<LedgerProbeOut> {
   // same things. Same board, same tick — the only variable is where the flood
   // came from.
   const { setShedFloodProvider, foodShedField } =
-    await import("../../core/execution/utils/FoodShed");
+    await import("../../../../core/execution/utils/FoodShed");
   const totals = (): [number, number, number, number] => {
     let tilled = 0;
     let ranked = 0;

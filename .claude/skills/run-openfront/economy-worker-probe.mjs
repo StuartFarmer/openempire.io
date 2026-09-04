@@ -1,4 +1,4 @@
-// Drive src/client/economy/FieldProbe.worker.ts: can a Web Worker — where the
+// Drive src/client/games/leanfront/economy/FieldProbe.worker.ts: can a Web Worker — where the
 // simulation actually runs — own a WebGPU device, upload live game state,
 // dispatch the economy floods, and read back a result that matches the CPU
 // field the sim just computed for itself?
@@ -32,7 +32,9 @@ const out = await page.evaluate(
       await import("/src/core/AssetUrls.ts");
     const { GameMapType } = await import("/src/core/game/Game.ts");
     const Worker = (
-      await import("/src/client/economy/FieldProbe.worker.ts?worker&inline")
+      await import(
+        "/src/client/games/leanfront/economy/FieldProbe.worker.ts?worker&inline"
+      )
     ).default;
     const worker = new Worker();
     const result = await new Promise((resolve, reject) => {

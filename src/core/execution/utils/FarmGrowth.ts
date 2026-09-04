@@ -329,20 +329,6 @@ function placePatch(
   }
   if (candidates.length === 0) return false;
 
-  // Draw from a CANONICAL order, for the same reason the city draw does
-  // (UrbanGrowth.addCityTiles): the walk below accumulates weight until it
-  // passes the draw, so the POOL'S ORDER decides which tile comes out — and
-  // this pool inherited its order from `fieldTiles`, which inherited it from
-  // the insertion history of the player's farm-maturity Map. That made which
-  // plot a field grows a function of the order tiles were once written, not of
-  // the board: two identical fields built in a different sequence expand
-  // differently. Sorting by tile ref makes the draw a function of the field,
-  // which is what any producer other than that exact Map can reproduce.
-  // The frontier is a handful of tiles (0-25 mean, 66 max on spqr), so this is
-  // free.
-  const order = candidates.map((_, i) => i);
-  order.sort((a, b) => candidates[a] - candidates[b]);
-
   const rand = new PseudoRandom(
     simpleHash(`patch:${player.id()}:${mg.ticks()}:${nucleus}`),
   );
@@ -350,20 +336,15 @@ function placePatch(
   for (const w of weights) total += w;
   const r = rand.nextFloat(0, total);
   let acc = r;
-  let pick = order[order.length - 1];
-  for (const i of order) {
+  let pick = candidates.length - 1;
+  for (let i = 0; i < candidates.length; i++) {
     acc -= weights[i];
     if (acc <= 0) {
       pick = i;
       break;
     }
   }
-  observeDraw(
-    "patch",
-    order.map((i) => weights[i]),
-    r,
-    order.indexOf(pick),
-  );
+  observeDraw("patch", weights, r, pick);
   player.setFarmMaturity(candidates[pick], claim);
   return true;
 }

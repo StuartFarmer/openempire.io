@@ -1,10 +1,10 @@
-import { setFarmTickProvider } from "../../core/execution/utils/FarmGrowth";
-import { setDistrictYieldProvider } from "../../core/execution/utils/FoodEconomy";
-import type { PlayerFoodShed } from "../../core/execution/utils/FoodShed";
-import { setShedFloodProvider } from "../../core/execution/utils/FoodShed";
-import type { Game, Player } from "../../core/game/Game";
-import { compileFieldSystem } from "../webgpu/FieldDynamics";
-import { FieldKernel } from "../webgpu/FieldKernel";
+import { setFarmTickProvider } from "../../../../core/execution/utils/FarmGrowth";
+import { setDistrictYieldProvider } from "../../../../core/execution/utils/FoodEconomy";
+import type { PlayerFoodShed } from "../../../../core/execution/utils/FoodShed";
+import { setShedFloodProvider } from "../../../../core/execution/utils/FoodShed";
+import type { Game, Player } from "../../../../core/game/Game";
+import { compileFieldSystem } from "../../../webgpu/FieldDynamics";
+import { FieldKernel } from "../../../webgpu/FieldKernel";
 import { CUTOFF_RADII, economyFields } from "./fields/system";
 import { EconomyFieldUploader } from "./upload";
 
