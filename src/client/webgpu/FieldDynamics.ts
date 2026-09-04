@@ -1023,6 +1023,10 @@ struct Brush {
           (name) =>
             `fn set_${name}(p: u32, value: u32) { PLAYER_OUTPUTS[min(p, ${playerCount - 1}u)].${name} = value; }`,
         ),
+        ...playerOutputs.map(
+          (name) =>
+            `fn ${name}(p: u32) -> u32 { return PLAYER_OUTPUTS[min(p, ${playerCount - 1}u)].${name}; }`,
+        ),
       ].join("\n");
     }
 

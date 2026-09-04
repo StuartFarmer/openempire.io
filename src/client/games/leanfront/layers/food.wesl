@@ -1,14 +1,9 @@
 import package::kernel::GRID;
 import package::params;
-import package::params::{cityCapacityPerLevel, farmCapacityPerLevel, cityLevelCost, farmLevelCost, razeCost};
 import package::layers;
-import package::layers::{land, owner, cityLevel, farmLevel};
 import package::players;
-import package::players::{val, count};
 import package::playerOutputs;
 import package::sim;
-import package::sim::{tick, scalar_tilesOwned, scalar_totalFood};
-import package::lib::actions::resolveAction;
 import package::lib::economy::{gompertz, toFx, attackCommit};
 import package::lib::conquest::{terrainMag, defenseOf, conquers, attackerOf, pressureOf};
 
@@ -16,7 +11,7 @@ fn effectiveCommit(p: u32) -> f32 {
   let intent = players::val(p);
   if (intent.alive == 0u || intent.attacking == 0u) { return 0.0; }
   let totalFx = toFx(sim::scalar_totalFood(p));
-  let costFx = min(totalFx, resolveAction(p).decision.costFx);
+  let costFx = min(totalFx, playerOutputs::resolvedCostFx(p));
   return attackCommit(intent.commit, sim::scalar_totalPeople(p),
     f32(totalFx - costFx) / 256.0, params::attackCostPerPerson());
 }
@@ -28,7 +23,7 @@ fn attackCostFx(p: u32) -> u32 {
 
 fn spendFx(p: u32) -> u32 {
   let totalFx = toFx(sim::scalar_totalFood(p));
-  return min(totalFx, resolveAction(p).decision.costFx + attackCostFx(p));
+  return min(totalFx, playerOutputs::resolvedCostFx(p) + attackCostFx(p));
 }
 
 fn init(x: i32, y: i32, i: u32) -> f32 { return 0.0; }
@@ -59,17 +54,15 @@ fn update(x: i32, y: i32, i: u32) -> f32 {
 
   for (var p = 1u; p < players::count(); p += 1u) {
     let action = players::val(p);
-    let resolved = resolveAction(p);
-    let d = resolved.decision;
-    if (d.result != 1u) { continue; }
-    if (action.actionKind == 1u && i == resolved.spawnFarmTile) {
+    if (playerOutputs::resolvedResult(p) != 1u) { continue; }
+    if (action.actionKind == 1u && i == playerOutputs::spawnFarmTile(p)) {
       farm = 1u;
       next = params::seedFraction() * params::farmCapacityPerLevel();
     } else if (i == action.actionTile && action.actionKind == 3u) {
       if (farm == 0u) {
         next = params::seedFraction() * params::farmCapacityPerLevel();
       }
-      farm = d.nextFarmLevel;
+      farm = playerOutputs::resolvedLevel(p);
     } else if (i == action.actionTile && action.actionKind == 4u) {
       farm = 0u;
       next = 0.0;

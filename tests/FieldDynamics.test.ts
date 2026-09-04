@@ -107,6 +107,40 @@ describe("intent brushes and player outputs", () => {
       /package::playerOutputs requires declared players\.outputs/,
     );
   });
+
+  test("later phases can read compact player outputs", async () => {
+    const phased = defineFieldSystem({
+      id: "player-output-read",
+      name: "player output read",
+      players: {
+        count: 2,
+        fields: { actionKind: "u32" },
+        outputs: ["decision"],
+      },
+      phases: [["write"], ["read"]],
+      views: { read: { layer: "read", ramp: ["#000000", "#ffffff"] } },
+      modules: {
+        "layers/write.wesl": `
+          import package::playerOutputs;
+          fn init(x: i32, y: i32, i: u32) -> u32 { return 0u; }
+          fn update(x: i32, y: i32, i: u32) -> u32 {
+            if (i == 1u) { playerOutputs::set_decision(1u, 7u); }
+            return 0u;
+          }`,
+        "layers/read.wesl": `
+          import package::playerOutputs;
+          fn init(x: i32, y: i32, i: u32) -> u32 { return 0u; }
+          fn update(x: i32, y: i32, i: u32) -> u32 {
+            return playerOutputs::decision(1u);
+          }`,
+      },
+    });
+
+    const compiled = await compileFieldSystem(phased);
+    expect(passByName(compiled, "stock/read").code).toContain(
+      "fn decision(p: u32) -> u32",
+    );
+  });
 });
 
 function passByName(compiled: CompiledFieldSystem, name: string) {

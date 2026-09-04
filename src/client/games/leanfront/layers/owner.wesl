@@ -1,14 +1,8 @@
 import package::kernel::GRID;
 import package::params;
-import package::params::{cityCapacityPerLevel, farmCapacityPerLevel, cityLevelCost, farmLevelCost, razeCost};
 import package::layers;
-import package::layers::{land, owner, cityLevel, farmLevel};
 import package::players;
-import package::players::{val, count};
 import package::playerOutputs;
-import package::sim;
-import package::sim::{tick, scalar_tilesOwned, scalar_totalFood};
-import package::lib::actions::resolveAction;
 import package::lib::conquest::{terrainMag, defenseOf, conquers, attackerOf, pressureOf};
 
 fn init(x: i32, y: i32, i: u32) -> u32 { return 0u; }
@@ -32,18 +26,11 @@ fn update(x: i32, y: i32, i: u32) -> u32 {
   var spawnClaimed = false;
   for (var p = 1u; p < players::count(); p += 1u) {
     let action = players::val(p);
-    let resolved = resolveAction(p);
-    let d = resolved.decision;
-    let cells = GRID.size.x * GRID.size.y;
-    let validTile = action.actionTile < cells;
-    if (action.actionTick == sim::tick() &&
-        ((validTile && i == action.actionTile) || (!validTile && i == 0u))) {
-      playerOutputs::set_actionResult(p, (sim::tick() << 8u) | d.result);
-    }
-    if (d.result != 1u) { continue; }
+    if (playerOutputs::resolvedResult(p) != 1u) { continue; }
     if (action.actionKind == 1u && layers::land::val(i) != 0.0) {
-      let tx = i32(resolved.spawnCityTile % GRID.size.x);
-      let ty = i32(resolved.spawnCityTile / GRID.size.x);
+      let spawnCity = playerOutputs::spawnCityTile(p);
+      let tx = i32(spawnCity % GRID.size.x);
+      let ty = i32(spawnCity / GRID.size.x);
       let dx = x - tx;
       let dy = y - ty;
       if (dx * dx + dy * dy <= 25 && !spawnClaimed) {

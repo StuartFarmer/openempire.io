@@ -169,8 +169,9 @@ this simple model. Food is never allowed to become negative.
 
 One GPU dispatch advances a tick in this order:
 
-1. Validate and price queued construction, upgrade, and raze intents against the
-   previous tick's fresh aggregates.
+1. Validate and price queued construction, upgrade, and raze intents once per
+   player against the previous tick's fresh aggregates, writing a compact GPU
+   decision record.
 2. Limit attack commitment to what remains affordable.
 3. Debit accepted spending proportionally from owned farms.
 4. Apply accepted construction, upgrades, and razing.
@@ -206,9 +207,11 @@ The CPU sends only:
   coordinates);
 - a bounded ordered command buffer containing paint, upgrade, and raze intents.
 
-The GPU returns only per-player aggregates and compact command result codes for
-UI feedback. It never returns whole tile fields during normal play. Rendering
-reads the resident GPU fields directly.
+The GPU retains one compact per-player command decision record for later shader
+phases and returns only per-player aggregates, command result codes, and current
+spending for UI feedback. It never returns whole tile fields during normal play.
+Rendering reads the resident GPU fields directly. Every shader pass stays
+within the WebGPU guaranteed limit of ten storage-buffer bindings.
 
 Invalid, unaffordable, opposite-type, non-land, and non-owned paint intents are
 no-ops with a result code. If the bounded command buffer fills, remaining brush

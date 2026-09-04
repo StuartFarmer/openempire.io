@@ -658,9 +658,9 @@ params: {
 
 Declare `city`, `farm`, and `raze` as radius-zero intent brushes. The five grouped reductions read `food`, `troops`, `owner`, `cityLevel`, and `farmLevel`. Use `import.meta.glob("./**/*.wesl", ...)` so libs, layers, and views are all available to WESL.
 
-- [ ] **Step 6: Add the six layer transitions**
+- [ ] **Step 6: Add the command resolver and six gameplay transitions**
 
-All five persistent update shaders call the same shared `resolveAction` helper against previous state, so acceptance, spawn priority/reservations, price, and overflow behavior cannot diverge. Use this transition table:
+A first `command` phase calls the shared `resolveAction` helper once per player against previous state and stores its result, cost, resolved level, and spawn reservations in the compact player-output buffer. The incursion and five persistent gameplay shaders consume that record instead of rebinding every resolver dependency, keeping every pass within ten storage buffers. Acceptance, spawn priority/reservations, price, and overflow behavior therefore cannot diverge. Use this transition table:
 
 | Layer       | Free spawn                                               | City/farm action                                | Raze                   | Conquest                     | Growth                                                                    |
 | ----------- | -------------------------------------------------------- | ----------------------------------------------- | ---------------------- | ---------------------------- | ------------------------------------------------------------------------- |
@@ -670,7 +670,7 @@ All five persistent update shaders call the same shared `resolveAction` helper a
 | `troops`    | city target gets `seedFraction * cityCapacityPerLevel`   | new city gets one seed; upgrade preserves stock | target becomes 0       | surviving conquest garrison  | Gompertz only if resulting city level is nonzero                          |
 | `food`      | farm neighbor gets `seedFraction * farmCapacityPerLevel` | new farm gets one seed; upgrade preserves stock | target becomes 0       | captured farm resets to seed | proportional debit, then Gompertz only if resulting farm level is nonzero |
 
-`incursion` is the existing conquest neighbor-pressure shader with `p.commit` replaced by `effectiveCommit(p)`. Compute each player's discrete accepted cost first, subtract it from previous `totalFood[p]`, then cap attack commitment using previous `totalPeople[p]`. On `i == p`, write `foodSpendFx` each tick. On the target tile of a due discrete action, write `(sim::tick() << 8u) | result` to `actionResult`.
+`incursion` is the existing conquest neighbor-pressure shader with `p.commit` replaced by `effectiveCommit(p)`. Compute each player's discrete accepted cost first, subtract it from previous `totalFood[p]`, then cap attack commitment using previous `totalPeople[p]`. On `i == p`, write `foodSpendFx` each tick. The command resolver writes `(sim::tick() << 8u) | result` to `actionResult` from that player's single invocation for each due action.
 
 Debit an existing farm owned by `p` with an integer-derived factor:
 

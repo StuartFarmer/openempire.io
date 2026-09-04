@@ -117,10 +117,19 @@ export const leanfront = defineFieldSystem({
       actionTile: "u32",
       actionTick: "u32",
     },
-    outputs: ["actionResult", "foodSpendFx"],
+    outputs: [
+      "actionResult",
+      "foodSpendFx",
+      "resolvedResult",
+      "resolvedCostFx",
+      "resolvedLevel",
+      "spawnCityTile",
+      "spawnFarmTile",
+    ],
   },
 
   phases: [
+    ["command"],
     ["incursion"],
     ["owner", "troops", "cityLevel", "farmLevel", "food"],
   ],

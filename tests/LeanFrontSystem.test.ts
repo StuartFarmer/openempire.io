@@ -8,10 +8,15 @@ import { leanfront } from "../src/client/games/leanfront/system";
 import { composeTerrain } from "../src/client/lab/systems/terrain/system";
 import { compileFieldSystem } from "../src/client/webgpu/FieldDynamics";
 
+function storageBindingCount(code: string): number {
+  return code.match(/var<storage\b/g)?.length ?? 0;
+}
+
 test("declares only the simple economy state and tuning surface", async () => {
   const compiled = await compileFieldSystem(composeTerrain(leanfront));
   expect(compiled.layerNames).toEqual([
     "cityLevel",
+    "command",
     "farmLevel",
     "food",
     "incursion",
@@ -37,8 +42,18 @@ test("declares only the simple economy state and tuning surface", async () => {
     "flipMargin",
   ]);
   expect(leanfront.phases).toEqual([
+    ["command"],
     ["incursion"],
     ["owner", "troops", "cityLevel", "farmLevel", "food"],
+  ]);
+  expect(compiled.playerOutputNames).toEqual([
+    "actionResult",
+    "foodSpendFx",
+    "resolvedResult",
+    "resolvedCostFx",
+    "resolvedLevel",
+    "spawnCityTile",
+    "spawnFarmTile",
   ]);
   expect(leanfront.scalars).toEqual({
     totalFood: { reduce: "sum", layer: "food", groupBy: "owner" },
@@ -59,6 +74,22 @@ test("declares only the simple economy state and tuning surface", async () => {
   expect(compiled.intentForBrush("city")).toBe(LEAN_ACTION.city);
   expect(compiled.intentForBrush("farm")).toBe(LEAN_ACTION.farm);
   expect(compiled.intentForBrush("raze")).toBe(LEAN_ACTION.raze);
+});
+
+test("every composed LeanFront pass fits the ten-storage-buffer WebGPU limit", async () => {
+  const compiled = await compileFieldSystem(composeTerrain(leanfront));
+  const counts = Object.fromEntries(
+    compiled.kernelConfig.passes.map((pass) => [
+      pass.name,
+      storageBindingCount(pass.code),
+    ]),
+  );
+  expect(Object.keys(counts).length).toBeGreaterThan(0);
+  expect(
+    Object.fromEntries(
+      Object.entries(counts).filter(([, count]) => count > 10),
+    ),
+  ).toEqual({});
 });
 
 test("packs a result code with its originating tick", () => {
@@ -114,6 +145,15 @@ test("two nearby same-tick spawns use one linked player-priority reservation dec
     /acceptedSpawns\[earlierPlayer\] != 0u[\s\S]*neighbor == reservedCities\[earlierPlayer\][\s\S]*neighbor == reservedFarms\[earlierPlayer\]/,
   );
 
+  const command = leanfront.modules["layers/command.wesl"] ?? "";
+  expect(command).toContain("resolveAction");
+  const commandPass = compiled.kernelConfig.passes.find(
+    ({ name }) => name === "stock/command",
+  );
+  expect(commandPass?.code).toContain("acceptedSpawns");
+  expect(commandPass?.code).toContain("reservedCities");
+  expect(commandPass?.code).toContain("reservedFarms");
+
   for (const name of [
     "cityLevel",
     "farmLevel",
@@ -124,32 +164,33 @@ test("two nearby same-tick spawns use one linked player-priority reservation dec
   ]) {
     const source = leanfront.modules[`layers/${name}.wesl`];
     expect(source).not.toMatch(/fn firstSpawnFarmTile/);
-    expect(source).toContain("resolveAction");
+    expect(source).not.toContain("resolveAction");
+    expect(source).toMatch(/playerOutputs::resolved(Result|CostFx)/);
     const pass = compiled.kernelConfig.passes.find(
       ({ name: passName }) => passName === `stock/${name}`,
     );
-    expect(pass?.code).toContain("acceptedSpawns");
-    expect(pass?.code).toContain("reservedCities");
-    expect(pass?.code).toContain("reservedFarms");
+    expect(pass?.code).not.toContain("acceptedSpawns");
+    expect(pass?.code).not.toContain("reservedCities");
+    expect(pass?.code).not.toContain("reservedFarms");
   }
 
   expect(leanfront.modules["layers/cityLevel.wesl"]).toContain(
-    "resolved.spawnCityTile",
+    "playerOutputs::spawnCityTile(p)",
   );
   expect(leanfront.modules["layers/cityLevel.wesl"]).not.toContain(
-    "resolved.spawnFarmTile",
+    "playerOutputs::spawnFarmTile(p)",
   );
   expect(leanfront.modules["layers/farmLevel.wesl"]).toContain(
-    "resolved.spawnFarmTile",
+    "playerOutputs::spawnFarmTile(p)",
   );
   expect(leanfront.modules["layers/farmLevel.wesl"]).not.toContain(
-    "resolved.spawnCityTile",
+    "playerOutputs::spawnCityTile(p)",
   );
   expect(leanfront.modules["layers/food.wesl"]).toContain(
-    "resolved.spawnFarmTile",
+    "playerOutputs::spawnFarmTile(p)",
   );
   expect(leanfront.modules["layers/owner.wesl"]).toContain(
-    "resolved.spawnCityTile",
+    "playerOutputs::spawnCityTile(p)",
   );
   expect(leanfront.modules["layers/owner.wesl"]).toContain(
     "var spawnClaimed = false",
@@ -158,14 +199,15 @@ test("two nearby same-tick spawns use one linked player-priority reservation dec
     /!spawnClaimed[\s\S]*next = p;[\s\S]*spawnClaimed = true/,
   );
   expect(leanfront.modules["layers/troops.wesl"]).toContain(
-    "resolved.spawnCityTile",
+    "playerOutputs::spawnCityTile(p)",
   );
 });
 
-test("reports valid actions at their target and invalid tile indices from tile zero", () => {
-  const owner = leanfront.modules["layers/owner.wesl"];
-  expect(owner).toMatch(/validTile\s*&&\s*i\s*==\s*action\.actionTile/);
-  expect(owner).toMatch(/!validTile\s*&&\s*i\s*==\s*0u/);
+test("reports due valid and invalid actions from one player invocation", () => {
+  const command = leanfront.modules["layers/command.wesl"];
+  expect(command).toMatch(/i == 0u \|\| i >= players::count\(\)/);
+  expect(command).toMatch(/action\.actionTick == sim::tick\(\)/);
+  expect(command).toContain("playerOutputs::set_actionResult(i,");
 });
 
 test("documents debit error as less than one quantum per contributing farm", () => {

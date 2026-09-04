@@ -1,13 +1,9 @@
 import package::kernel::{GRID, OFF, inBounds, refOf};
 import package::params;
-import package::params::{cityCapacityPerLevel, farmCapacityPerLevel, cityLevelCost, farmLevelCost, razeCost};
 import package::layers;
-import package::layers::{land, owner, cityLevel, farmLevel};
 import package::players;
-import package::players::{val, count};
+import package::playerOutputs;
 import package::sim;
-import package::sim::{tick, scalar_tilesOwned, scalar_totalFood};
-import package::lib::actions::resolveAction;
 import package::lib::economy::{toFx, attackCommit};
 import package::lib::conquest::packAttack;
 
@@ -15,7 +11,7 @@ fn effectiveCommit(p: u32) -> f32 {
   let intent = players::val(p);
   if (intent.alive == 0u || intent.attacking == 0u) { return 0.0; }
   let totalFx = toFx(sim::scalar_totalFood(p));
-  let costFx = min(totalFx, resolveAction(p).decision.costFx);
+  let costFx = min(totalFx, playerOutputs::resolvedCostFx(p));
   let available = f32(totalFx - costFx) / 256.0;
   return attackCommit(intent.commit, sim::scalar_totalPeople(p), available,
     params::attackCostPerPerson());
