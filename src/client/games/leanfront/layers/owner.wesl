@@ -1,8 +1,74 @@
-// Per-tile ownership from the REAL CPU simulation (bridge-core-sim-to-shell).
-// This layer is a render CONDUIT, not a GPU sim: it has no `update`, so it is
-// never ticked or swapped — the shell overwrites it each tick with the sim's
-// tileStateBuffer (owner smallID = state & 0xfff; 0 = neutral). The overlay
-// view reads it and washes each player's colour over the terrain.
-fn init(x: i32, y: i32, i: u32) -> u32 {
-  return 0u;
+import package::kernel::{GRID, OFF, inBounds, refOf};
+import package::params;
+import package::layers;
+import package::players;
+import package::playerOutputs;
+import package::sim;
+import package::lib::economy::{ActionDecision, decideAction};
+import package::lib::conquest::{terrainMag, defenseOf, conquers, attackerOf, pressureOf};
+
+fn hasLandNeighbor(tile: u32) -> bool {
+  let tx = i32(tile % GRID.size.x);
+  let ty = i32(tile / GRID.size.x);
+  for (var k = 0; k < 8; k += 1) {
+    let n = vec2i(tx, ty) + OFF[k];
+    if (inBounds(n.x, n.y) && layers::land::at(n.x, n.y) != 0.0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+fn actionFor(p: u32) -> ActionDecision {
+  let action = players::val(p);
+  let cells = GRID.size.x * GRID.size.y;
+  let valid = action.actionTile < cells;
+  let targetTile = min(action.actionTile, cells - 1u);
+  return decideAction(
+    p, action.actionKind, action.actionTile, action.actionTick, sim::tick(), valid,
+    layers::land::val(targetTile), layers::owner::val(targetTile),
+    layers::cityLevel::val(targetTile), layers::farmLevel::val(targetTile),
+    hasLandNeighbor(targetTile), sim::scalar_tilesOwned(p),
+    sim::scalar_totalFood(p), params::cityCapacityPerLevel(),
+    params::farmCapacityPerLevel(), params::cityLevelCost(),
+    params::farmLevelCost(), params::razeCost(),
+  );
+}
+
+fn init(x: i32, y: i32, i: u32) -> u32 { return 0u; }
+
+fn update(x: i32, y: i32, i: u32) -> u32 {
+  let me = layers::owner::val(i);
+  var next = me;
+  if (layers::land::val(i) != 0.0) {
+    let attack = layers::incursion::val(i);
+    let mag = terrainMag(layers::elevation::val(i), params::seaLevel());
+    let defense = defenseOf(layers::troops::val(i), mag, me == 0u,
+      params::neutralDefense(), params::terrainWeight());
+    if (conquers(pressureOf(attack), attackerOf(attack), me, defense,
+        params::flipMargin())) {
+      next = attackerOf(attack);
+    }
+  } else {
+    next = 0u;
+  }
+
+  for (var p = 1u; p < players::count(); p += 1u) {
+    let action = players::val(p);
+    let d = actionFor(p);
+    if (i == action.actionTile && action.actionTick == sim::tick()) {
+      playerOutputs::set_actionResult(p, (sim::tick() << 8u) | d.result);
+    }
+    if (d.result != 1u) { continue; }
+    if (action.actionKind == 1u && layers::land::val(i) != 0.0) {
+      let tx = i32(action.actionTile % GRID.size.x);
+      let ty = i32(action.actionTile / GRID.size.x);
+      let dx = x - tx;
+      let dy = y - ty;
+      if (dx * dx + dy * dy <= 25) { next = p; }
+    } else if (action.actionKind == 4u && i == action.actionTile) {
+      next = 0u;
+    }
+  }
+  return next;
 }
