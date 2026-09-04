@@ -893,7 +893,7 @@ export class GameShellPage extends FieldViewerBase {
     this.destroySim();
     await this.deriveTerrain(mapData);
     if (this.selectedLiveGame() !== undefined) {
-      // OpenFront-live: run the REAL sim in a Web Worker and show its territory
+      // Selected live game: run the real sim in a Web Worker and show its territory
       // overlay over the derived terrain. Drag pans, a click acts (no tool
       // select); the sim auto-runs so bots place spawns while the human picks.
       await this.startWorker();
@@ -1243,7 +1243,7 @@ export class GameShellPage extends FieldViewerBase {
     this.postWorker({ type: "intent", intent });
   }
 
-  /** OpenFront-live acts on a discrete click (drag pans, click acts) — no tool
+  /** A selected live game acts on a discrete click (drag pans, click acts) — no tool
    * select. Cellular games keep the Pan/Brush toggle for tile painting. */
   protected hasClickAction(): boolean {
     return this.selectedLiveGame() !== undefined || super.hasClickAction();
@@ -1254,8 +1254,8 @@ export class GameShellPage extends FieldViewerBase {
     this.lastGestureKey = -1;
   }
 
-  /** Play/pause + turbo drive the WORKER's tick loop for OpenFront-live (the
-   * base's pump() path ticks GPU layers, which openfront doesn't have). */
+  /** Play/pause + turbo drive a selected live game's worker tick loop (the
+   * base's pump() path ticks GPU layers, which live games do not use). */
   protected toggleRunning(): void {
     if (this.selectedLiveGame() === undefined) return super.toggleRunning();
     this.running = !this.running;

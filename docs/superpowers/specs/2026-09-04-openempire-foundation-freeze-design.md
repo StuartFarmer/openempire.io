@@ -126,9 +126,9 @@ GPU economy belongs behind its `beforeTick`/`dispose` lifecycle. Runtime
 selection occurs through dynamic imports in the game registry/factory;
 `ShellSim.worker.ts` contains no LeanFront-specific branch.
 
-`GameShellPage.ts` reads one registry entry for the selected system, view,
-ruleset, and worker game ID. It no longer separately implements
-`isLiveGame`, `liveGameView`, and `liveGameRuleset` decisions.
+`GameShellPage.ts` uses its registry-backed `selectedLiveGame()` helper for the
+selected system, view (through `liveGameView()`), ruleset, and worker game ID.
+It does not keep separate OpenFront/LeanFront decision branches.
 
 Both games initially reference the same shared WESL territory/mask view.
 LeanFront receives its own copy only when its presentation genuinely diverges.
