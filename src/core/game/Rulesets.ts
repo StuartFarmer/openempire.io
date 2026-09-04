@@ -7,8 +7,6 @@
  * Game rules diverge from vanilla only through an OpenSpec change with specs
  * and tests.
  *
- * GPU providers implement those same rules behind LeanFront's runtime lifecycle;
- * they do not belong in this Config factory.
  */
 import { Config } from "../configuration/Config";
 import type { GameConfig } from "../Schemas";
