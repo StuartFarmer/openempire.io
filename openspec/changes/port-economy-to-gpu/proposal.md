@@ -83,13 +83,14 @@ every tick where the CPU reads a snapshot up to ten ticks old — but a more
 accurate evaluation of the same rule is not a different rule, and every such
 difference is named and bounded rather than discovered.
 
-One CPU-side defect is fixed on the way, and it is a fix regardless of the port:
-the field-expansion draw enumerated its candidates in the insertion order of a
-JavaScript Map, so which plot a field grew depended on the order its tiles were
-once written rather than on the board. Two identical fields built in different
-sequences expanded differently. It is now ordered by tile ref, as the city draw
-already was. That changes seeded outcomes once, so the reference hashes are
-re-recorded.
+The GPU checkpoint evaluated ordering the shared field-expansion candidates by
+tile ref, but that experiment was not retained. Current shared/OpenFront farm
+candidates remain insertion-ordered, and OpenFront was not rebaselined for this
+change. Checkpoint hashes `1208077788489980`, `2322560228707292`, and
+`4764841754597059` are superseded historical measurements, never acceptance
+gates. The only current OpenFront source is `docs/OpenFrontLiveReference.md`:
+verdantia `801065038163313`, `2069060768539590`; spqr
+`4964847657180561`.
 
 ## Impact
 
@@ -101,9 +102,9 @@ re-recorded.
 - `src/core/execution/utils/` — the provider seams (`setSupplyProvider`,
   `setShedFloodProvider`, `setDistrictYieldProvider`) already exist and are
   tested; the remaining consumers need theirs.
-- `src/client/webgpu/ShellSim.worker.ts` — has never been wired to any of this.
-  The ruleset already reaches it (`Rulesets.ts`, verified live), but selects only
-  a `Config`.
+- `src/client/webgpu/ShellSim.worker.ts` — hosts the generic live-game runtime;
+  LeanFront's registered runtime can dispatch the GPU economy before a core
+  tick, while OpenFront's runtime remains CPU-only.
 - `src/client/games/leanfront/economy/upload.ts` — the plane mirroring, staleness checks and
   decline paths exist to keep two copies of the state in step. Under GPU
   ownership there is one copy; they are retired with the cutover, not carried.

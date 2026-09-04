@@ -916,9 +916,8 @@ export class GameShellPage extends FieldViewerBase {
 
   // --- OpenFront-live sim bridge ----------------------------------------------
 
-  /** Spin up the real core simulation for the current map (Singleplayer, N
-   * bots, random spawn). No worker, no LocalServer, no HUD — it's ticked
-   * directly from the viewer loop and read for per-tile ownership. */
+  /** Spin up the simulation worker for the current map (Singleplayer, N bots).
+   * The worker owns every core `Game` read and returns render/HUD conduits. */
   private async startWorker(): Promise<void> {
     this.destroySim();
     const mapType = GameMapType[this.mapKey as keyof typeof GameMapType];

@@ -1,7 +1,7 @@
 # urban-core-growth Specification
 
 ## Purpose
-TBD - created by archiving change rework-persistent-tiles-and-burn. Update Purpose after archive.
+Define persistent empty urban lots through recession and their distinct rendering and regrowth behavior.
 ## Requirements
 ### Requirement: Recession leaves a persistent empty urban lot
 

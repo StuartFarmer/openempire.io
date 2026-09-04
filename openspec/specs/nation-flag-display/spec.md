@@ -1,7 +1,7 @@
 # nation-flag-display Specification
 
 ## Purpose
-TBD - created by archiving change add-nation-flags. Update Purpose after archive.
+Define deterministic flag assignment and display for shell nations without affecting simulation outcomes.
 ## Requirements
 ### Requirement: Every nation has a flag
 

@@ -1,7 +1,7 @@
 # flag-selection-ui Specification
 
 ## Purpose
-TBD - created by archiving change add-nation-flags. Update Purpose after archive.
+Define flag reference resolution and the front-page workflow for choosing, rerolling, persisting, and previewing a player flag.
 ## Requirements
 ### Requirement: Flag ref resolution
 

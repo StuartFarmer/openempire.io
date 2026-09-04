@@ -56,6 +56,7 @@ let running = false;
 let runGeneration = 0;
 let turbo = false;
 let timer: ReturnType<typeof setTimeout> | null = null;
+let stepInFlight: Promise<void> | null = null;
 
 let W = 0;
 let H = 0;
@@ -589,9 +590,10 @@ function buildFrame(g: Game): {
   return { frame, transfer };
 }
 
-async function stepAndPost(): Promise<void> {
+async function stepAndPost(generation: number): Promise<void> {
   if (!gr || !game) return;
   await runtime?.beforeTick();
+  if (!running || !gr || !game || generation !== runGeneration) return;
   gr.addTurn({ turnNumber: turn++, intents: queued });
   queued = [];
   pending = null;
@@ -602,8 +604,21 @@ async function stepAndPost(): Promise<void> {
 
 async function loop(generation: number): Promise<void> {
   if (!running || !gr || generation !== runGeneration) return;
+  if (stepInFlight) {
+    await stepInFlight;
+    if (!running || !gr || generation !== runGeneration) return;
+  }
   const start = performance.now();
-  await stepAndPost();
+  const step = stepAndPost(generation).catch((err: unknown) => {
+    setRunning(false, turbo);
+    post({
+      type: "error",
+      message: err instanceof Error ? err.message : String(err),
+    });
+  });
+  stepInFlight = step;
+  await step;
+  if (stepInFlight === step) stepInFlight = null;
   if (!running || !gr || generation !== runGeneration) return;
   const budget = ambient ? TICK_MS * AMBIENT_TICK_SCALE : TICK_MS;
   const delay = turbo ? 0 : Math.max(0, budget - (performance.now() - start));

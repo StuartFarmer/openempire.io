@@ -3,17 +3,16 @@ import liveGameView from "../shared/live-game.wesl?raw";
 
 // OpenFront (live) — the REAL CPU simulation rendered over the GPU terrain
 // (bridge-core-sim-to-shell). This "system" carries no game rules: it is a
-// thin render conduit. The shell runs an actual `GameRunner` in-process, ticks
-// it, and uploads its per-tile ownership into the `owner` field each frame; the
-// `openfront` overlay washes each player's colour over the rendered terrain.
-// CPU simulates (the game), GPU renders (the world) — the standard split.
+// thin render conduit. `ShellSim.worker` owns and ticks the `GameRunner`, then
+// sends per-tile deltas to the main thread for upload into the `owner` field;
+// the `openfront` overlay washes each player's colour over the rendered terrain.
+// The worker CPU simulates the game and the GPU renders the world.
 export const openfront = defineFieldSystem({
   id: "openfront",
   name: "OpenFront (live)",
   description: "The real CPU simulation, rendered over the terrain world.",
   kind: "game",
-  // The sim ticks on the main thread here (no worker); a moderate map keeps it
-  // responsive. Larger maps still work, just slower per tick.
+  // The sim ticks in `ShellSim.worker`; this system only declares its renderer.
   defaultMap: "Verdantia",
   defaultView: "openfront",
 

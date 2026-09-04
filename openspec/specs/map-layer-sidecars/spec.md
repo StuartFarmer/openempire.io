@@ -1,7 +1,7 @@
 # map-layer-sidecars Specification
 
 ## Purpose
-TBD - created by archiving change add-map-layer-sidecars. Update Purpose after archive.
+Define the deterministic binary map-layer sidecar format and its export, bake, load, and simulation access path.
 ## Requirements
 ### Requirement: Layer sidecar binary format
 

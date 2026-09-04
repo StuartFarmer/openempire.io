@@ -16,6 +16,14 @@ produced a coherent but different game. The objective is the same game, faster.
 What remains is the straightforward thing: run the per-tile work on the GPU,
 keep the per-player bookkeeping where it is, and prove the results.
 
+OpenFront acceptance is defined only by `docs/OpenFrontLiveReference.md`:
+verdantia `801065038163313`, `2069060768539590`; spqr
+`4964847657180561`. The checkpoint hashes `1208077788489980`,
+`2322560228707292`, and `4764841754597059` are superseded historical
+measurements, not gates. The shared farm-candidate canonicalisation tried at
+that checkpoint was not retained; current OpenFront remains insertion-ordered
+and frozen.
+
 Most of it exists. Verified against the CPU: supply flood exact on
 19,789/19,789 tiles; food-shed flood 100% cell agreement with 0 differing tiles;
 crop CA bit-identical; district ledger 0 of 57 districts off with identical
@@ -88,19 +96,18 @@ frontier accumulating weight until it passes the draw — deterministic given th
 set — and the frontier is a handful of tiles, not a territory. A single-invocation
 pass can walk it in exactly the same order and pick exactly the same tile.
 
-CORRECTION, found in implementation: that was true of the CITY draw and false of
-the PATCH draw. `addCityTiles` sorts its frontier ascending and says why;
+CHECKPOINT CORRECTION, found in implementation: that was true of the CITY draw
+and false of the PATCH draw. `addCityTiles` sorts its frontier ascending and says why;
 `placePatch` never did, so its candidates came out in the order it walks the
 field's tiles — which is the insertion history of the player's farm-maturity
 Map. The walk accumulates weight until it passes the draw, so that history
 decided which plot a field grew: two identical fields built in a different
 sequence expand differently, and after the cutover the CPU does not hold that
-Map at all. The patch draw is therefore canonicalised the same way the city draw
-already was (task 1.8a), which is a fix on its own terms — a draw should be a
-function of the board — and it is what gives the serial pass an order to
-reproduce. It changes which plot is chosen, so the reference hashes are
-re-recorded once, in this change, and both rulesets move together because they
-run the same simulation today (task 4.3).
+Map at all. Task 1.8a therefore tried canonicalising the shared patch draw like
+the city draw. That experiment was later removed and is not part of the active
+design: current shared/OpenFront farm candidates retain their insertion order,
+and OpenFront was not rebaselined. Task 4.3's resulting hashes are superseded
+checkpoint history only.
 
 So: parallelise building the frontier and its weights, which is the O(territory)
 part, and run the draw itself SERIALLY in one thread, which is the O(frontier)
@@ -165,8 +172,10 @@ as a goal, and with it:
   fidelity nicety but a BUG FIX, because `urban_pick` was weighting by the
   ungated base suitability rather than the shed-gated product, so it had the
   wrong distribution, not merely a different sample from the right one.
-- **1.8a survives on its own merits.** A draw whose outcome depends on the
-  insertion history of a JavaScript Map is a defect whatever runs it.
+- **1.8a does not survive into shared/OpenFront.** Its canonicalisation was a
+  checkpoint experiment. OpenFront keeps the frozen insertion-ordered behavior;
+  LeanFront's device draw is evaluated under D9's isolation and determinism
+  gates without changing the shared CPU draw.
 
 The gate becomes four things instead of one: per-pass isolation agreement on
 IDENTICAL inputs (which is what has actually been catching bugs — the vacuous
@@ -206,7 +215,8 @@ Two different properties, and conflating them would be an error. WGSL specifies
 the last bits — accepted. But a float `atomicAdd` completes in nondeterministic
 order and therefore varies RUN TO RUN on the same device, which is not a rounding
 difference but an unreproducible game. Every reduction stays integer, and the
-shed tie-break and canonical frontier ordering remain load-bearing.
+shed tie-break and the existing city-frontier ordering remain load-bearing. The
+shared farm-patch candidates do not gain a canonical order.
 
 **D6 — Cut over the economy as a UNIT, behind the ruleset.**
 Injecting one consumer at a time is what failed: a consumer whose producer is
@@ -228,16 +238,13 @@ survives is everything that computes.
 
 ## Risks / Trade-offs
 
-- **f32 rounding may still break hash identity somewhere unmeasured.** The ledger
+- **f32 rounding may still create unmeasured LeanFront divergence.** The ledger
   is exact and capacity is 1 milli in 400,000, but that is two passes at two
-  ticks. If a hash diverges, the response is to integerise the offending term
-  rather than to relax the gate — the whole value of D2 is that the gate is
-  binary.
-- **A serial draw is a one-thread pass in a parallel pipeline.** Measured at
-  n = 1 placement per player per tick and a frontier of at most 66 tiles, so
-  ~4,200 iterations per tick across the board — cheap, but a single GPU lane is
-  far slower than a CPU one, and this is a serialisation point. Worth timing once
-  it exists, and worth re-measuring if the frontier predicate ever widens.
+  ticks. D9 requires each divergence to be explained and bounded while the
+  frozen OpenFront hashes remain exact.
+- **The GPU weighted draw may choose a different tile from the CPU draw.** D9
+  accepts the correct distribution rather than reproducing OpenFront's
+  insertion history; isolation agreement and same-device replay are the gates.
 - **A unit cutover has a wide diagnosis surface.** Mitigated by D6's isolation
   rule; the passes that lack isolation verification (task 1) get it before the
   switch, not after.
@@ -255,8 +262,9 @@ survives is everything that computes.
    reads it (D3), and re-run the ledger A/B until it is clean.
 4. Wire the ruleset through to the shipping worker and switch `leanfront` as a
    unit (D6).
-5. Verify: hash identity where D2 says it must hold; tolerance where it says it
-   cannot; then measure the tick cost against the 108 ms/tick baseline.
+5. Verify D9's four gates, including the frozen OpenFront hashes from
+   `docs/OpenFrontLiveReference.md`; then measure tick cost against the 108
+   ms/tick baseline.
 6. Re-baseline LeanFront on the GPU sweep host and record its own reference set.
 7. Retire the scaffolding (D8).
 8. Rollback at any point: revert the ruleset switch. OpenFront never depends on
@@ -264,6 +272,7 @@ survives is everything that computes.
 
 ## Open Questions
 
-_None outstanding._ Placement is resolved by D2: it moves to the GPU like
-everything else, but its DRAW runs serially so the result is identical rather
-than merely equidistributed.
+_None outstanding._ Placement is resolved by D9: LeanFront's GPU path keeps the
+parallel weighted draw and is gated on the correct distribution plus
+same-device determinism. Shared/OpenFront farm candidates remain unchanged and
+insertion-ordered.

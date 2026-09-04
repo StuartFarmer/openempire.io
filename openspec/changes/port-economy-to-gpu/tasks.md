@@ -9,6 +9,14 @@ Everything here is verified in ISOLATION against the CPU before anything
 switches. That is the only cheap place to catch bugs, because the cutover
 (section 3) moves the whole economy at once by necessity.
 
+OpenFront acceptance is defined only by `docs/OpenFrontLiveReference.md`:
+verdantia `801065038163313`, `2069060768539590`; spqr
+`4964847657180561`. The GPU-checkpoint hashes `1208077788489980`,
+`2322560228707292`, and `4764841754597059` recorded below are superseded
+historical measurements, never current acceptance gates. The checkpoint's
+shared farm-candidate canonicalisation was not retained: current OpenFront
+remains insertion-ordered and frozen.
+
 Already done and verified:
 
 - [x] 1.1 Supply flood — exact on 19,789/19,789 tiles.
@@ -20,16 +28,18 @@ Already done and verified:
 
 Remaining:
 
-- [x] 1.8a CANONICALISE the patch draw on the CPU, because D2's premise was only
-      HALF true. The city draw already sorts its frontier ascending
+- [x] 1.8a CHECKPOINT EXPERIMENT: canonicalise the patch draw on the CPU,
+      because D2's premise was only HALF true. The city draw already sorts its frontier ascending
       (`UrbanGrowth.addCityTiles`); the patch draw never did — its candidates
       come out in the order `placePatch` walks `fieldTiles`, which is the
       INSERTION HISTORY of the player's farm-maturity Map. The weighted walk
       accumulates until it passes the draw, so that history decided which plot a
       field grew: two identical fields built in a different sequence expand
       differently, and nothing the GPU can see reconstructs it. Sorted by tile
-      ref, as the city draw is, so the serial pass in 1.8 has an order to
-      reproduce.
+      ref, as the city draw is, so the serial pass in 1.8 had an order to
+      reproduce. This experimental shared-core edit was later removed and is
+      not part of the active change: OpenFront's farm candidates still use
+      their existing insertion order.
 - [x] 1.8b MEASURE whether an f32 draw can pick a different tile, before writing
       a shader that assumes either answer. `DrawProbe.ts` (a seam like the
       provider seams, inert unless a probe installs an observer) plus
@@ -477,11 +487,12 @@ Remaining:
       consumers this unblocks, §6 the unit switch. This task stays open here as
       the record of where the work stopped and why.
 
-- [x] 3.3 OpenFront stays on the CPU, verified two ways: no economy is
-      constructed at all under `--ruleset openfront` (the live check reports no
-      device and no dispatch), and its reference hashes reproduce exactly —
-      verdantia `1208077788489980`, `2322560228707292` — after every change in
-      this section.
+- [x] 3.3 At the GPU checkpoint, OpenFront stayed on the CPU, verified two ways:
+      no economy was constructed under `--ruleset openfront` (the live check
+      reported no device and no dispatch), and the then-current verdantia hashes
+      `1208077788489980`, `2322560228707292` reproduced. Those hashes are
+      superseded historical measurements, not acceptance gates; the current
+      frozen gate is `docs/OpenFrontLiveReference.md`.
 
 ## 3b. What the port can actually be worth
 
@@ -585,18 +596,18 @@ gate item (a) and the only one of the four that does not need the switch.
       cells assigned differently — one tick of ownership churn rather than a
       disagreement about the flood.
 
-- [x] 4.3 OpenFront's reference hashes are RE-RECORDED, once, by 1.8a — the
-      canonical patch order changes which plot a field grows, and both rulesets
-      run the same simulation today, so it could not be confined to LeanFront.
-      New set at 4000 ticks, seed-prefix `base`: verdantia (2 runs, nations 20,
+- [x] 4.3 SUPERSEDED CHECKPOINT RECORD: the experimental 1.8a canonical patch
+      order changed which plot a field grew and produced this one-off set at
+      4000 ticks, seed-prefix `base`: verdantia (2 runs, nations 20,
       bots 40) `1208077788489980`, `2322560228707292`; spqr (1 run, nations 0,
-      bots 50) `4764841754597059`. Repro check IDENTICAL. Snowball metrics
+      bots 50) `4764841754597059`. Repro check was IDENTICAL. Snowball metrics
       against the old set — verdantia leader 24.7/21.5% → 17.7/25.1%, gini
       0.716/0.631 → 0.668/0.698, firstElim 1053/803 → 853/803, alive 19/15 →
       20/16; spqr leader 12.8% → 17.4%, gini 0.312 → 0.305, firstElim 803
-      unchanged, alive 15 → 13. Same seed noise band as the last re-baseline,
-      and spqr is a single run. Every hash from here on is measured against THIS
-      set.
+      unchanged, alive 15 → 13. The shared canonicalisation was later removed;
+      current OpenFront remains insertion-ordered and was not rebaselined. These
+      three hashes are historical only and MUST NOT be used as acceptance gates;
+      use `docs/OpenFrontLiveReference.md` and its current hashes instead.
 - [ ] 4.4 Same-device replay: one seed, two runs, identical. NOT RUNNABLE AS
       WRITTEN, and the reason is worth stating so it is not attempted blind:
       `BalanceGame.worker` runs the CPU sim and only RECORDS the adapter as

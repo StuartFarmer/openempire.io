@@ -13,13 +13,10 @@ import {
 /**
  * The ruleset seam (src/core/game/Rulesets.ts).
  *
- * The important test here is the IDENTITY one. The seam ships with zero
- * divergence on purpose — rules change only through OpenSpec changes, so
- * inventing simplifications to make the seam look useful is exactly what the
- * boundary forbids. What the seam has to earn instead is TRUST: prove that
- * selecting `leanfront` today changes nothing, and the first specified
- * divergence has a green baseline to move off, with any hash difference
- * attributable to that change alone.
+ * The important test here is Config identity. Configured rules change only
+ * through OpenSpec changes, so inventing simplifications to make the seam look
+ * useful is exactly what the boundary forbids. Runtime implementations are
+ * selected separately and are outside this test.
  */
 
 describe("ruleset registry", () => {
@@ -68,7 +65,7 @@ describe("ruleset registry", () => {
   });
 });
 
-describe("leanfront is currently identical to openfront", () => {
+describe("leanfront and openfront Configs are currently identical", () => {
   const gameConfig = {
     gameMap: "Plains",
     gameMode: "FFA",

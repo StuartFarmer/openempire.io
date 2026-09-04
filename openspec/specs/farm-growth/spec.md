@@ -1,7 +1,7 @@
 # farm-growth Specification
 
 ## Purpose
-TBD - created by archiving change rework-persistent-tiles-and-burn. Update Purpose after archive.
+Define labor-gated farm coverage, persistent field claims, and first-claim ownership between farm and urban growth.
 ## Requirements
 ### Requirement: Labor is a coverage gate, not a growth rate
 

@@ -489,8 +489,9 @@ and that is the only reason a scatter was ever needed.
       cumulative measurement beats the CPU. Not before — a partial switch is
       SLOWER than none, because the dispatch and upload are paid once per tick
       regardless.
-- [ ] 6.2 OpenFront stays on the CPU: no device constructed, reference hashes
-      unchanged — verdantia `1208077788489980`, `2322560228707292`.
+- [ ] 6.2 OpenFront stays on the CPU: no device constructed, and the frozen
+      reference in `docs/OpenFrontLiveReference.md` remains exact — verdantia
+      `801065038163313`, `2069060768539590`; spqr `4964847657180561`.
 - [ ] 6.3 Live in the shell, both rulesets, at the late-game horizon rather than
       on the first thousand ticks.
 
@@ -498,7 +499,8 @@ and that is the only reason a scatter was ever needed.
 
 - [ ] 7.1 The gate from `gpu-economy`: per-pass isolation on identical inputs,
       same-seed replay on one device, balance metrics inside the harness's noise
-      band, OpenFront's hashes unchanged.
+      band, and the OpenFront hashes in `docs/OpenFrontLiveReference.md`
+      unchanged.
 - [ ] 7.2 Late-game cost against the baseline — `FullGamePerf`, spqr, 9000
       ticks: mean 51.3 ms, p95 101, p99 120, max 255, 505 of 9000 ticks over
       budget. The tail is what makes the game unplayable and the tail is what
