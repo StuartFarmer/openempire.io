@@ -19,8 +19,14 @@ fn toFx(value: f32) -> u32 {
   return u32(max(0.0, round(value * 256.0)));
 }
 
+fn toUiFx(value: f32) -> u32 {
+  let scaled = round(max(0.0, value) * 256.0);
+  if (scaled >= 4294967040.0) { return 0xffffffffu; }
+  return u32(scaled);
+}
+
 fn affordable(totalFood: f32, costFx: u32) -> bool {
-  return toFx(totalFood) >= costFx;
+  return totalFood >= f32(costFx) / 256.0;
 }
 
 fn attackCommit(requested: f32, totalPeople: f32, availableFood: f32,

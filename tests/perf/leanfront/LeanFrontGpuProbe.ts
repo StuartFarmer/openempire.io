@@ -56,6 +56,14 @@ export interface LeanFrontProbeResult {
   ticks: number;
   capturedFarm: number;
   captureTicks: number;
+  wideBudget: {
+    totalFood: number;
+    totalPeople: number;
+    flatCostRemoved: number;
+    attackCommit: number;
+    internalAttackSpend: number;
+    uiAttackSpendFx: number;
+  };
 }
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -245,6 +253,13 @@ function hashBuffers(buffers: readonly ArrayBufferLike[]): string {
   return hash.toString(16).padStart(8, "0");
 }
 
+function f32FromBits(bits: number): number {
+  const bytes = new ArrayBuffer(4);
+  const view = new DataView(bytes);
+  view.setUint32(0, bits, true);
+  return view.getFloat32(0, true);
+}
+
 async function proveGrowthMicrocase(
   compiled: CompiledFieldSystem,
 ): Promise<void> {
@@ -292,21 +307,32 @@ async function proveGrowthMicrocase(
 
 async function proveWideSumMicrocase(
   compiled: CompiledFieldSystem,
-): Promise<void> {
+): Promise<LeanFrontProbeResult["wideBudget"]> {
   const kernel = await createKernel(compiled);
   try {
     const params = defaultParams(compiled);
     params.farmGrowthRate = 0;
+    params.cityGrowthRate = 0;
+    params.cityLevelCost = 4;
+    params.attackCostPerPerson = 0.02;
     kernel.writeUniform("P", compiled.writeParams(params, DEFAULT_SEED));
-    const owner = new Uint32Array(TILES).fill(1);
-    const farmLevel = new Uint32Array(TILES).fill(40_000);
-    const food = new Float32Array(TILES).fill(40_000);
-    owner[0] = 0;
-    farmLevel[0] = 0;
-    food[0] = 0;
+    const owner = new Uint32Array(TILES);
+    const farmLevel = new Uint32Array(TILES);
+    const food = new Float32Array(TILES);
+    const troops = new Float32Array(TILES);
+    const farmTile = at(1, 0);
+    const buildTile = at(8, 8);
+    const peopleTile = at(15, 15);
+    const expectedFood = 20_000_000;
+    const expectedPeople = 1_000_000_000;
+    owner[farmTile] = owner[buildTile] = owner[peopleTile] = 1;
+    farmLevel[farmTile] = expectedFood;
+    food[farmTile] = expectedFood;
+    troops[peopleTile] = expectedPeople;
     kernel.writeBuffer("owner", owner);
     kernel.writeBuffer("farmLevel", farmLevel);
     kernel.writeBuffer("food", food);
+    kernel.writeBuffer("troops", troops);
     await dispatchTick(
       kernel,
       compiled,
@@ -314,18 +340,18 @@ async function proveWideSumMicrocase(
       Array.from({ length: PLAYERS }, () => ({})),
     );
     const totals = compiled.decodeScalars(await kernel.readBuffer("S")).values;
-    const expected = (TILES - 1) * 40_000;
     assert(
-      expected * 256 > 0x7fffffff,
-      "wide-sum probe did not exceed the old aggregate i32 range",
+      expectedFood > 16_777_216,
+      "wide-budget probe did not exceed the u32 fixed-point range",
     );
     assert(
-      (totals.totalFood as number[])[1] === expected &&
-        (totals.totalFarmLevels as number[])[1] === expected,
-      `wide sum lost values: expected ${expected}, got food ${(totals.totalFood as number[])[1]} and levels ${(totals.totalFarmLevels as number[])[1]}`,
+      (totals.totalFood as number[])[1] === expectedFood &&
+        (totals.totalFarmLevels as number[])[1] === expectedFood &&
+        (totals.totalPeople as number[])[1] === expectedPeople,
+      "wide sum lost a high single-tile food, level, or people value",
     );
 
-    const action = await dispatchTick(
+    const flatAction = await dispatchTick(
       kernel,
       compiled,
       2,
@@ -334,26 +360,68 @@ async function proveWideSumMicrocase(
         (_, player): PlayerInput =>
           player === 1
             ? {
-                actionKind: LEAN_ACTION.farm,
-                actionTile: 1,
+                alive: 1,
+                attacking: 0,
+                commit: 1,
+                actionKind: LEAN_ACTION.city,
+                actionTile: buildTile,
                 actionTick: 2,
               }
             : {},
       ),
     );
     assert(
-      decodeLeanResult(action.outputs[1].actionResult).code ===
-        LEAN_RESULT.accepted && action.outputs[1].foodSpendFx === 64,
+      decodeLeanResult(flatAction.outputs[1].actionResult).code ===
+        LEAN_RESULT.accepted && flatAction.outputs[1].foodSpendFx === 4 * 256,
       "food budgeting rejected or mispriced an action above the old i32 range",
     );
     const after = await readSnapshot(kernel, compiled);
-    const removed = expected - sumFood(after, 1);
+    const removed = expectedFood - sumFood(after, 1);
     assert(
-      after.farmLevel[1] === 40_001 &&
-        Math.abs(removed - action.outputs[1].foodSpendFx / 256) <
-          (TILES - 1) / 256,
-      "wide-budget debit exceeded one fixed-point quantum per farm",
+      after.cityLevel[buildTile] === 1 && Math.abs(removed - 4) < 1 / 256,
+      `single-farm wide debit removed ${removed}, expected 4 within one quantum`,
     );
+
+    const attack = await dispatchTick(
+      kernel,
+      compiled,
+      3,
+      Array.from(
+        { length: PLAYERS },
+        (_, player): PlayerInput =>
+          player === 1
+            ? {
+                alive: 1,
+                attacking: 1,
+                commit: 1,
+                targetX: 0,
+                targetY: 0,
+              }
+            : {},
+      ),
+    );
+    const attackCommit = f32FromBits(attack.outputs[1].attackCommitBits);
+    const internalSpend = f32FromBits(attack.outputs[1].foodSpendBits);
+    const available = expectedFood - 4;
+    assert(
+      Math.abs(
+        attackCommit -
+          available / (expectedPeople * params.attackCostPerPerson),
+      ) <= 1e-6 && internalSpend === available,
+      `wide attack budget narrowed: commit ${attackCommit}, spend ${internalSpend}`,
+    );
+    assert(
+      attack.outputs[1].foodSpendFx === 0xffffffff,
+      "UI spend did not saturate explicitly while internal spend stayed wide",
+    );
+    return {
+      totalFood: expectedFood,
+      totalPeople: expectedPeople,
+      flatCostRemoved: removed,
+      attackCommit,
+      internalAttackSpend: internalSpend,
+      uiAttackSpendFx: attack.outputs[1].foodSpendFx,
+    };
   } finally {
     kernel.destroy();
   }
@@ -537,7 +605,7 @@ export async function runLeanFrontGpuProbe(): Promise<LeanFrontProbeResult> {
   };
   const compiled = await compileFieldSystem(probeSystem);
   await proveGrowthMicrocase(compiled);
-  await proveWideSumMicrocase(compiled);
+  const wideBudget = await proveWideSumMicrocase(compiled);
   await proveActionArbitrationAndSpawnLatch(compiled);
   const kernel = await createKernel(compiled);
   const params = defaultParams(compiled);
@@ -905,6 +973,7 @@ export async function runLeanFrontGpuProbe(): Promise<LeanFrontProbeResult> {
       ticks: final.tick,
       capturedFarm: borderFarm,
       captureTicks: captureTick - 70,
+      wideBudget,
     };
   } finally {
     kernel.destroy();

@@ -10,8 +10,9 @@ fn update(x: i32, y: i32, i: u32) -> f32 {
   let me = layers::owner::val(i);
   var next = layers::food::val(i);
   if (me != 0u) {
-    let keep = bitcast<f32>(playerOutputs::foodKeepBits(me));
-    next = max(0.0, next * keep);
+    let spend = bitcast<f32>(playerOutputs::foodSpendBits(me));
+    let inverseTotal = bitcast<f32>(playerOutputs::foodInverseTotalBits(me));
+    next = max(0.0, next - next * inverseTotal * spend);
   }
 
   var farm = layers::farmLevel::val(i);

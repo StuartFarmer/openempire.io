@@ -6,22 +6,30 @@ import package::playerOutputs;
 import package::sim;
 import package::sim::{tick, scalar_tilesOwned, scalar_totalFood, scalar_totalPeople};
 import package::lib::actions::resolveAction;
-import package::lib::economy::{toFx, attackCommit};
+import package::lib::economy::{toUiFx, attackCommit};
 
-fn resolvedSpendFx(player: u32, discreteCostFx: u32) -> u32 {
+struct ResolvedBudget {
+  spend: f32,
+  inverseTotal: f32,
+  commit: f32,
+}
+
+fn resolvedBudget(player: u32, discreteCostFx: u32) -> ResolvedBudget {
   let intent = players::val(player);
-  let totalFx = toFx(sim::scalar_totalFood(player));
-  let reservedFx = min(totalFx, discreteCostFx);
-  let available = f32(totalFx - reservedFx) / 256.0;
+  let total = max(0.0, sim::scalar_totalFood(player));
+  let reserved = min(total, f32(discreteCostFx) / 256.0);
+  let available = max(0.0, total - reserved);
   let attacking = intent.alive != 0u && intent.attacking != 0u;
   let commit = select(0.0, attackCommit(
     intent.commit, sim::scalar_totalPeople(player), available,
     params::attackCostPerPerson(),
   ), attacking);
-  let attackFx = toFx(commit * sim::scalar_totalPeople(player) *
+  let attackSpend = max(0.0, commit * sim::scalar_totalPeople(player) *
     params::attackCostPerPerson());
-  return select(reservedFx + attackFx, totalFx,
-    attackFx > totalFx - reservedFx);
+  let spend = min(total, reserved + attackSpend);
+  var inverseTotal = 0.0;
+  if (total > 0.0) { inverseTotal = 1.0 / total; }
+  return ResolvedBudget(spend, inverseTotal, commit);
 }
 
 fn init(x: i32, y: i32, i: u32) -> u32 { return 0u; }
@@ -46,11 +54,12 @@ fn update(x: i32, y: i32, i: u32) -> u32 {
   playerOutputs::set_resolvedActionTile(i, action.actionTile);
   playerOutputs::set_spawnCityTile(i, resolved.spawnCityTile);
   playerOutputs::set_spawnFarmTile(i, resolved.spawnFarmTile);
-  let spendFx = resolvedSpendFx(i, d.costFx);
-  let totalFx = toFx(sim::scalar_totalFood(i));
-  let keep = select(1.0, f32(totalFx - spendFx) / f32(totalFx), totalFx > 0u);
-  playerOutputs::set_foodSpendFx(i, spendFx);
-  playerOutputs::set_foodKeepBits(i, bitcast<u32>(keep));
+  let budget = resolvedBudget(i, d.costFx);
+  // foodSpendFx is UI-only and saturates; state transitions use the wide f32.
+  playerOutputs::set_foodSpendFx(i, toUiFx(budget.spend));
+  playerOutputs::set_foodSpendBits(i, bitcast<u32>(budget.spend));
+  playerOutputs::set_foodInverseTotalBits(i, bitcast<u32>(budget.inverseTotal));
+  playerOutputs::set_attackCommitBits(i, bitcast<u32>(budget.commit));
   if (action.actionTick == sim::tick()) {
     playerOutputs::set_actionResult(i, (sim::tick() << 8u) | d.result);
   }

@@ -68,7 +68,9 @@ test("declares only the simple economy state and tuning surface", async () => {
     "spawnCityTile",
     "spawnFarmTile",
     "hasSpawned",
-    "foodKeepBits",
+    "foodSpendBits",
+    "foodInverseTotalBits",
+    "attackCommitBits",
   ]);
   expect(leanfront.scalars).toEqual({
     totalFood: { reduce: "sum", layer: "food", groupBy: "owner" },
@@ -310,7 +312,9 @@ test("two nearby same-tick spawns use one linked player-priority reservation dec
     const source = leanfront.modules[`layers/${name}.wesl`];
     expect(source).not.toMatch(/fn firstSpawnFarmTile/);
     expect(source).not.toContain("resolveAction");
-    expect(source).toMatch(/playerOutputs::resolved(Result|CostFx)/);
+    expect(source).toMatch(
+      /playerOutputs::(resolved(Result|CostFx)|attackCommitBits)/,
+    );
     const pass = compiled.kernelConfig.passes.find(
       ({ name: passName }) => passName === `stock/${name}`,
     );
@@ -405,6 +409,27 @@ test("documents debit error as less than one quantum per contributing farm", () 
     "less than one `1 / 256` quantum per contributing farm",
   );
   expect(plan).toContain("contributingFarmCount / 256");
+});
+
+test("budgets and debits wide food totals without narrowing through u32", () => {
+  const command = leanfront.modules["layers/command.wesl"] ?? "";
+  const food = leanfront.modules["layers/food.wesl"] ?? "";
+  const incursion = leanfront.modules["layers/incursion.wesl"] ?? "";
+  const economy = leanfront.modules["lib/economy.wesl"] ?? "";
+
+  expect(command).not.toContain("toFx(sim::scalar_totalFood");
+  expect(command).toContain("toUiFx(budget.spend)");
+  expect(command).toContain("set_foodSpendBits");
+  expect(command).toContain("set_foodInverseTotalBits");
+  expect(command).toContain("set_attackCommitBits");
+  expect(food).toMatch(
+    /next = max\(0\.0, next - next \* inverseTotal \* spend\)/,
+  );
+  expect(incursion).not.toContain("toFx(sim::scalar_totalFood");
+  expect(incursion).toContain("playerOutputs::attackCommitBits(p)");
+  expect(economy).toMatch(
+    /fn affordable[\s\S]*totalFood >= f32\(costFx\) \/ 256\.0/,
+  );
 });
 
 test("maps the human's first click to spawn and later clicks to attack", () => {

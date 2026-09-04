@@ -3,18 +3,10 @@ import package::params;
 import package::layers;
 import package::players;
 import package::playerOutputs;
-import package::sim;
-import package::lib::economy::{toFx, attackCommit};
 import package::lib::conquest::packAttack;
 
 fn effectiveCommit(p: u32) -> f32 {
-  let intent = players::val(p);
-  if (intent.alive == 0u || intent.attacking == 0u) { return 0.0; }
-  let totalFx = toFx(sim::scalar_totalFood(p));
-  let costFx = min(totalFx, playerOutputs::resolvedCostFx(p));
-  let available = f32(totalFx - costFx) / 256.0;
-  return attackCommit(intent.commit, sim::scalar_totalPeople(p), available,
-    params::attackCostPerPerson());
+  return bitcast<f32>(playerOutputs::attackCommitBits(p));
 }
 
 fn contribution(nx: i32, ny: i32, tx: i32, ty: i32) -> f32 {

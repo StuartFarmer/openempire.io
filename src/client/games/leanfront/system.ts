@@ -128,7 +128,9 @@ export const leanfront = defineFieldSystem({
       "spawnCityTile",
       "spawnFarmTile",
       "hasSpawned",
-      "foodKeepBits",
+      "foodSpendBits",
+      "foodInverseTotalBits",
+      "attackCommitBits",
     ],
   },
 
