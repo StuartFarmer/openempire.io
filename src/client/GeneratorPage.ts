@@ -207,7 +207,7 @@ export class GeneratorPage extends LitElement {
           <div class="min-w-0 flex flex-col gap-3">
             <div class="flex items-center justify-between gap-3 flex-wrap">
               <h1 class="text-2xl font-semibold">Map Generator</h1>
-              <div class="flex gap-2">
+              <div class="flex flex-wrap gap-2">
                 <button
                   class="px-3 py-2 bg-white text-black text-sm font-medium"
                   @click=${this.regenerate}

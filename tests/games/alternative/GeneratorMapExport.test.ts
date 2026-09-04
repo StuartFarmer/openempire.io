@@ -95,13 +95,17 @@ describe("generator map export", () => {
     const revokeObjectUrl = vi
       .spyOn(URL, "revokeObjectURL")
       .mockImplementation(() => undefined);
+    let downloadName: string | undefined;
     const click = vi
       .spyOn(HTMLAnchorElement.prototype, "click")
-      .mockImplementation(() => undefined);
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        downloadName = this.download;
+      });
 
     try {
       button?.click();
       expect(downloads).toHaveLength(1);
+      expect(downloadName).toBe("hydro.bin");
 
       const bytes = await readBlob(downloads[0]);
       const generated = (
