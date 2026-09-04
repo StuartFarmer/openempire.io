@@ -16,7 +16,7 @@ role.
 
 ### Requirement: One national food pool
 
-(Amended: purchases only.) The pool mechanics are unchanged (production in, consumption out, buffer-then-famine, `granaryBase + granaryPerFarm × farms` cap), but nothing draws the pool except eating: structures are seed-gated and free (tribal-buildings spec), so food is purely the famine buffer.
+(Amended: purchases only.) The pool mechanics SHALL remain unchanged (production in, consumption out, buffer-then-famine, `granaryBase + granaryPerFarm × farms` cap), but nothing draws the pool except eating: structures are seed-gated and free (tribal-buildings spec), so food is purely the famine buffer.
 
 #### Scenario: Food buys time, not buildings
 
