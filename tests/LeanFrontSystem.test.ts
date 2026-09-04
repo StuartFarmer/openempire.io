@@ -121,6 +121,28 @@ test("plot shaders never derive a new plot from neighboring plots", () => {
   expect(farm).toContain("actionTile");
 });
 
+test("troops diffuse pair-symmetrically only across same-owner neighbors", () => {
+  const troops = leanfront.modules["layers/troops.wesl"];
+  const city = leanfront.modules["layers/cityLevel.wesl"];
+  const farm = leanfront.modules["layers/farmLevel.wesl"];
+
+  expect(troops).toContain("fn peopleMovement");
+  expect(troops).toMatch(/layers::owner::at\(n\.x, n\.y\) != owner/);
+  expect(troops).toMatch(/layers::troops::at\(n\.x, n\.y\) - stock/);
+  expect(troops).toMatch(/PEOPLE_MOVE_RATE \/ 8\.0/);
+  expect(troops).toContain("var next = old + peopleMovement(x, y, me, old)");
+  expect(city).not.toMatch(/cityLevel::at|farmLevel::at/);
+  expect(farm).not.toMatch(/cityLevel::at|farmLevel::at/);
+
+  const low = 1;
+  const high = 7;
+  const pairDelta = (high - low) * (0.08 / 8);
+  const moved = [low + pairDelta, high - pairDelta];
+  expect(moved[0]).toBeGreaterThan(low);
+  expect(moved[1]).toBeLessThan(high);
+  expect(moved[0] + moved[1]).toBeCloseTo(low + high, 12);
+});
+
 test("mounts LeanFront on the field path and submits queued actions", () => {
   const shell = readFileSync("src/client/GameShellPage.ts", "utf8");
   expect(shell).toContain(
