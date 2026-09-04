@@ -13,17 +13,17 @@ only when OpenFront's reference behavior remains intact.
 
 ## Current State
 
-The deep `feat/economy-as-fields` branch contains the complete playable game and
-177 commits beyond `main`. Its clean committed checkpoint is `0c3c412a0`. The
-working tree also contains an active, uncommitted GPU-economy cutover: LeanFront
-constructs `GpuEconomy`, dispatches it before core ticks, and currently serves
-the farm CA and district ledger while other per-tile consumers remain on the
-CPU.
+The shallow `foundation/openempire-v0` branch contains the playable shared
+foundation and two selectable games. OpenFront Live and LeanFront share
+`GameShellPage`, terrain composition, `ShellSimProtocol`, and the core
+simulation. `src/client/games/registry.ts` owns the game-ID selection;
+`ShellSim.worker.ts` creates the selected runtime through that registry.
 
-OpenFront Live and LeanFront already share `GameShellPage`, `CameraRenderer`,
-terrain composition, `ShellSimProtocol`, and the core simulation. Their
-selection is currently spread across `GameShellPage`, `ShellSim.worker.ts`, and
-`Rulesets.ts`; the two overlay shaders are copies.
+Both current runtimes are CPU-only no-ops before the existing core tick.
+LeanFront's owned runtime is the dynamic-import boundary for a later GPU
+economy cutover; OpenFront never imports or initializes it. Both systems use
+the shared territory/mask overlay while their owned layer modules remain free to
+diverge.
 
 ## Ownership Boundary
 
@@ -62,7 +62,7 @@ After the freeze gate passes, development on these rules pauses.
 
 ### LeanFront
 
-LeanFront owns its GPU economy, uploader, economy shaders, experimental provider
+LeanFront owns its runtime, layer modules, future GPU economy and provider
 seams, future simplified economy rules, and any LeanFront-specific tuning or
 presentation. It may be incomplete on its active branch without weakening the
 OpenFront reference or shared-foundation checks.
@@ -91,7 +91,7 @@ would predict future requirements instead of serving current ones.
 
 Existing shared directories stay where they are. Moving working common code for
 organizational symmetry would add risk without improving isolation. Only
-game-specific entry points and LeanFront GPU code move under explicit ownership.
+game-specific entry points move under explicit ownership.
 
 ```text
 src/client/
@@ -107,8 +107,8 @@ src/client/
     │   └── runtime.ts             CPU runtime; no GPU setup
     └── leanfront/
         ├── system.ts              picker metadata
-        ├── runtime.ts             GPU lifecycle and pre-tick dispatch
-        └── economy/               GPU economy, uploader, and WESL passes
+        ├── runtime.ts             future GPU lifecycle boundary
+        └── layers/                LeanFront-owned WESL modules
 ```
 
 The common worker host depends on this lifecycle:
@@ -121,10 +121,10 @@ interface LiveGameRuntime {
 ```
 
 OpenFront's implementation is a no-op before the existing synchronous core
-tick. LeanFront creates and owns `GpuEconomy`, awaits its dispatch in
-`beforeTick`, and disposes its providers when the game ends. Runtime selection
-occurs in the game registry/factory; `ShellSim.worker.ts` contains no
-LeanFront-specific branch.
+tick. LeanFront's current implementation is also a no-op; a future LeanFront
+GPU economy belongs behind its `beforeTick`/`dispose` lifecycle. Runtime
+selection occurs through dynamic imports in the game registry/factory;
+`ShellSim.worker.ts` contains no LeanFront-specific branch.
 
 `GameShellPage.ts` reads one registry entry for the selected system, view,
 ruleset, and worker game ID. It no longer separately implements
