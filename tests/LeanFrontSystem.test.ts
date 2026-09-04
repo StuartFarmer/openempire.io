@@ -150,6 +150,32 @@ test("mounts LeanFront on the field path and submits queued actions", () => {
   );
   expect(shell).toContain("composeTerrain(leanfront)");
   expect(shell).toContain("ticks = this.beginSimulationBatch(ticks);");
+  expect(shell).toContain('readBuffer("cityLevel", 1, tile)');
+});
+
+test("reports a rejected action even when the next frame starts during readback", async () => {
+  const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  const { GameShellPage } = await import("../src/client/GameShellPage");
+  warning.mockRestore();
+  const page = new GameShellPage();
+  const subject = page as any;
+  subject.systemId = "leanfront";
+  subject.kernel = {
+    readBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(4)),
+  };
+  subject.compiled = {
+    scalarNames: [],
+    playerOutputNames: ["actionResult"],
+    localPlayer: 1,
+    decodePlayerOutputs: () => {
+      subject.inFlight = true;
+      return [{}, { actionResult: (9 << 8) | LEAN_RESULT.wrongType }];
+    },
+  };
+
+  await subject.readScalars();
+
+  expect(subject.status).toBe("Action rejected: wrong plot type");
 });
 
 test("two nearby same-tick spawns use one linked player-priority reservation decision", async () => {

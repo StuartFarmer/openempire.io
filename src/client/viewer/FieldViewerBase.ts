@@ -705,7 +705,7 @@ export abstract class FieldViewerBase extends LitElement {
     }
   }
 
-  private async readScalars(): Promise<void> {
+  protected async readScalars(): Promise<void> {
     if (!this.kernel || !this.compiled || this.inFlight) return;
     if (
       this.compiled.scalarNames.length === 0 &&

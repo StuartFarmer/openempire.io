@@ -22,6 +22,7 @@ import {
   type FlagEntry,
 } from "./flags/FlagCatalog";
 import { findFoodPreset, foodPresets, presetKnobChanges } from "./FoodPresets";
+import { decodeLeanResult, LEAN_RESULT } from "./games/leanfront/actions";
 import { leanfront } from "./games/leanfront/system";
 import {
   getLiveGame,
@@ -233,6 +234,16 @@ export class GameShellPage extends FieldViewerBase {
   } | null = null;
   private seasonActive = false;
   private tickCount = 0;
+  @state() private commitment = 0.6;
+  @state() private leanfrontHover: {
+    tile: number;
+    owner: number;
+    troops: number;
+    cityLevel: number;
+    farmLevel: number;
+    food: number;
+  } | null = null;
+  private lastLeanfrontActionResult = 0;
   // --- OpenFront-live: the sim runs in a Web Worker (move-shell-sim-to-worker).
   // The worker owns every Game read; the main thread applies conduit deltas to
   // these persistent GPU buffers and drives the HUD/hover/labels from the small
@@ -742,11 +753,7 @@ export class GameShellPage extends FieldViewerBase {
     const container = this.querySelector<HTMLDivElement>("#shell-labels");
     if (!container) return;
     const canvas = this.querySelector<HTMLCanvasElement>("#shell-canvas");
-    if (
-      this.selectedLiveGame() === undefined ||
-      this.inSpawn ||
-      !canvas
-    ) {
+    if (this.selectedLiveGame() === undefined || this.inSpawn || !canvas) {
       if (this.frontLabelPool.size > 0) {
         for (const el of this.frontLabelPool.values()) el.remove();
         this.frontLabelPool.clear();
@@ -1228,6 +1235,8 @@ export class GameShellPage extends FieldViewerBase {
     this.playerName.clear();
     this.playerStat.clear();
     this.frontLabelsData = [];
+    this.leanfrontHover = null;
+    this.lastLeanfrontActionResult = 0;
     this.clearLabels();
   }
 
@@ -1753,8 +1762,8 @@ export class GameShellPage extends FieldViewerBase {
       this.renderOpenfront();
       return;
     }
-    if (ticks <= 0) return;
     ticks = this.beginSimulationBatch(ticks);
+    if (ticks <= 0) return;
     this.tickCount += ticks;
     const week = Math.floor(((this.tickCount % YEAR_TICKS) / YEAR_TICKS) * 52);
     if (week !== this.weekReadout) this.weekReadout = week;
@@ -1782,6 +1791,81 @@ export class GameShellPage extends FieldViewerBase {
       .finally(() => {
         this.inFlight = false;
       });
+  }
+
+  protected async readScalars(): Promise<void> {
+    if (this.inFlight) return;
+    await super.readScalars();
+    if (this.systemId !== "leanfront" || !this.kernel || !this.compiled) {
+      if (this.leanfrontHover !== null) this.leanfrontHover = null;
+      return;
+    }
+
+    const localPlayer = this.compiled.localPlayer;
+    const packed = this.playerOutputReadout[localPlayer]?.actionResult ?? 0;
+    if (packed !== 0 && packed !== this.lastLeanfrontActionResult) {
+      this.lastLeanfrontActionResult = packed;
+      const { code } = decodeLeanResult(packed);
+      const reason =
+        code === LEAN_RESULT.unaffordable
+          ? "not enough food"
+          : code === LEAN_RESULT.notOwned
+            ? "not owned"
+            : code === LEAN_RESULT.impassable
+              ? "impassable"
+              : code === LEAN_RESULT.wrongType
+                ? "wrong plot type"
+                : code === LEAN_RESULT.overflow
+                  ? "level limit reached"
+                  : code === LEAN_RESULT.invalid
+                    ? "invalid action"
+                    : "";
+      this.status = reason === "" ? "" : `Action rejected: ${reason}`;
+    }
+
+    const hover = this.hoverTile;
+    if (
+      hover === null ||
+      hover.x < 0 ||
+      hover.y < 0 ||
+      hover.x >= this.mapWidth ||
+      hover.y >= this.mapHeight
+    ) {
+      if (this.leanfrontHover !== null) this.leanfrontHover = null;
+      return;
+    }
+    const tile = hover.y * this.mapWidth + hover.x;
+    const kernel = this.kernel;
+    let words: ArrayBuffer[];
+    try {
+      words = await Promise.all([
+        kernel.readBuffer("owner", 1, tile),
+        kernel.readBuffer("troops", 1, tile),
+        kernel.readBuffer("cityLevel", 1, tile),
+        kernel.readBuffer("farmLevel", 1, tile),
+        kernel.readBuffer("food", 1, tile),
+      ]);
+    } catch {
+      return; // The kernel may have been replaced while the reads were pending.
+    }
+    const currentHover = this.hoverTile;
+    if (
+      this.kernel !== kernel ||
+      this.systemId !== "leanfront" ||
+      currentHover === null ||
+      currentHover.y * this.mapWidth + currentHover.x !== tile
+    ) {
+      return;
+    }
+    const [owner, troops, cityLevel, farmLevel, food] = words;
+    this.leanfrontHover = {
+      tile,
+      owner: new Uint32Array(owner)[0],
+      troops: new Float32Array(troops)[0],
+      cityLevel: new Uint32Array(cityLevel)[0],
+      farmLevel: new Uint32Array(farmLevel)[0],
+      food: new Float32Array(food)[0],
+    };
   }
 
   /**
@@ -2122,11 +2206,44 @@ export class GameShellPage extends FieldViewerBase {
   // --- hover readout (terrain) — overrides the base's generic rows ------------
 
   protected hoverRows(hx: number, hy: number): [string, string][] {
+    if (this.systemId === "leanfront") return this.leanfrontHoverRows(hx, hy);
     // OpenFront-live: a rich game + terrain readout.
     if (this.selectedLiveGame() !== undefined)
       return this.openfrontHoverRows(hx, hy);
     if (!this.isTerrain()) return super.hoverRows(hx, hy);
     return this.terrainHoverRows(hx, hy) ?? super.hoverRows(hx, hy);
+  }
+
+  private leanfrontHoverRows(hx: number, hy: number): [string, string][] {
+    const tile = hy * this.mapWidth + hx;
+    const data = this.leanfrontHover;
+    if (data?.tile !== tile) return [["tile", `${hx}, ${hy}`]];
+    const city = data.cityLevel > 0;
+    const farm = data.farmLevel > 0;
+    const level = city ? data.cityLevel : farm ? data.farmLevel : 0;
+    const stock = city ? data.troops : farm ? data.food : data.troops;
+    const perLevel = city
+      ? this.paramValues.cityCapacityPerLevel
+      : farm
+        ? this.paramValues.farmCapacityPerLevel
+        : 0;
+    const rate = city
+      ? this.paramValues.cityGrowthRate
+      : farm
+        ? this.paramValues.farmGrowthRate
+        : 0;
+    const capacity = perLevel * level;
+    const growth =
+      capacity > 0 && stock > 0 ? rate * stock * Math.log(capacity / stock) : 0;
+    return [
+      ["tile", `${hx}, ${hy}`],
+      ["owner", data.owner === 0 ? "unclaimed" : String(data.owner)],
+      ["plot", city ? "city" : farm ? "farm" : "empty"],
+      ["level", String(level)],
+      [city || !farm ? "people" : "food", stock.toFixed(2)],
+      ["capacity", capacity.toFixed(2)],
+      ["growth/tick", growth.toFixed(3)],
+    ];
   }
 
   /** The terrain readout (elevation/surface/climate/biome) from the derived
@@ -2557,7 +2674,9 @@ export class GameShellPage extends FieldViewerBase {
 
         ${this.selectedLiveGame() !== undefined ? this.renderPlayerHud() : null}
         ${this.renderStatsPanel()}
-        ${game && this.selectedLiveGame() === undefined ? this.renderSimPanel() : null}
+        ${game && this.selectedLiveGame() === undefined
+          ? this.renderSimPanel()
+          : null}
         ${this.showKnobs && this.derivedOk && this.derivedConfig
           ? this.renderKnobs(this.derivedConfig)
           : null}
@@ -2665,9 +2784,31 @@ export class GameShellPage extends FieldViewerBase {
   /** Sim-system panel: scalar readouts + generic param sliders. */
   private renderSimPanel() {
     const compiled = this.compiled;
-    const scalars = Object.entries(this.scalarReadout);
+    const localPlayer = compiled?.localPlayer ?? 0;
+    const scalars =
+      this.systemId === "leanfront"
+        ? ([
+            [
+              "people",
+              (this.scalarReadout.totalPeople as number[] | undefined)?.[
+                localPlayer
+              ] ?? 0,
+            ],
+            [
+              "food",
+              (this.scalarReadout.totalFood as number[] | undefined)?.[
+                localPlayer
+              ] ?? 0,
+            ],
+            [
+              "spend",
+              (this.playerOutputReadout[localPlayer]?.foodSpendFx ?? 0) / 256,
+            ],
+          ] satisfies [string, number][])
+        : Object.entries(this.scalarReadout);
     const params = (compiled?.paramList ?? []).filter((p) => !p.hidden);
-    if (scalars.length === 0 && params.length === 0) return null;
+    const hasCommit = compiled?.playerFieldNames.includes("commit") ?? false;
+    if (scalars.length === 0 && params.length === 0 && !hasCommit) return null;
     return html`
       <div
         class="absolute top-16 right-3 flex flex-col gap-1.5 text-xs text-white bg-black/60 backdrop-blur px-3 py-3 rounded w-72 max-h-[80vh] overflow-auto"
@@ -2683,6 +2824,40 @@ export class GameShellPage extends FieldViewerBase {
                     >
                   </div>`,
               )}
+            </div>`
+          : null}
+        ${hasCommit
+          ? html`<div
+              class="flex items-center gap-2 pb-1 border-b border-white/10"
+            >
+              <span class="w-16 text-white/70">commit</span>
+              <input
+                type="range"
+                class="flex-1"
+                min="0"
+                max="1"
+                step="0.05"
+                .value=${String(this.commitment)}
+                @input=${(e: Event) => {
+                  this.commitment = (
+                    e.target as HTMLInputElement
+                  ).valueAsNumber;
+                  this.mergePlayerIntent(localPlayer, {
+                    alive: 1,
+                    commit: this.commitment,
+                  });
+                }}
+              />
+              <span class="w-10 text-right text-white/90 tabular-nums"
+                >${Math.round(this.commitment * 100)}%</span
+              >
+              <button
+                class="border border-white/20 px-2 py-1 hover:bg-white/10"
+                @click=${() =>
+                  this.mergePlayerIntent(localPlayer, { attacking: 0 })}
+              >
+                stop
+              </button>
             </div>`
           : null}
         ${params.map(

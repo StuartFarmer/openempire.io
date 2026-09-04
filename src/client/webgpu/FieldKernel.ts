@@ -650,25 +650,31 @@ export class FieldKernel {
   /**
    * Read a buffer back to the CPU (ping-pong: the current read facet).
    *
-   * `elements` reads only a PREFIX. That is what makes a compacted list worth
-   * compacting: the buffer is sized for the worst case, but only the entries a
-   * counting pass actually wrote need to cross, so the copy is bounded by the
-   * size of the answer rather than by the capacity reserved for it.
+   * `elements` bounds the range beginning at `firstElement`. With the default
+   * offset this retains the prefix-read behavior used by compacted lists.
    */
-  async readBuffer(name: string, elements?: number): Promise<ArrayBuffer> {
+  async readBuffer(
+    name: string,
+    elements?: number,
+    firstElement = 0,
+  ): Promise<ArrayBuffer> {
     const spec = this.bufferSpecs.get(name);
     if (!spec?.readable) {
       throw new Error(`Buffer "${name}" is not readable (set readable)`);
+    }
+    if (!Number.isInteger(firstElement) || firstElement < 0) {
+      throw new RangeError("firstElement must be a non-negative integer");
     }
     const buffers = this.buffersOf(name);
     const source = spec.pingPong
       ? buffers[this.polarity.get(name) ?? 0]
       : buffers[0];
     const capacity = spec.count ?? this.widthValue * this.heightValue;
+    const available = Math.max(0, capacity - firstElement);
     const wanted =
-      elements === undefined ? capacity : Math.min(elements, capacity);
-    // A zero-length copy is illegal, and a mapped range must be 4-aligned.
-    const bytes = Math.max(4, wanted * 4);
+      elements === undefined ? available : Math.min(elements, available);
+    if (wanted <= 0) return new ArrayBuffer(0);
+    const bytes = wanted * 4;
     const staging = this.device.createBuffer({
       label: `field-staging-${name}`,
       size: bytes,
@@ -677,7 +683,7 @@ export class FieldKernel {
     const encoder = this.device.createCommandEncoder({
       label: `field-read-${name}`,
     });
-    encoder.copyBufferToBuffer(source, 0, staging, 0, bytes);
+    encoder.copyBufferToBuffer(source, firstElement * 4, staging, 0, bytes);
     this.device.queue.submit([encoder.finish()]);
     await staging.mapAsync(1 /* GPUMapMode.READ */);
     const copy = staging.getMappedRange().slice(0);
