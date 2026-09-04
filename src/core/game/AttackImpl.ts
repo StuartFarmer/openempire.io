@@ -115,13 +115,14 @@ export class AttackImpl implements Attack {
     const spent = Math.min(have, Math.max(0, Math.floor(n)));
     if (spent <= 0) return 0;
     const left = have - spent;
-    if (left === 0) this._troopsAt.delete(tile);
-    else this._troopsAt.set(tile, left);
+    // Keep a drained front tile in the field so seep can refill it from its
+    // neighbouring front tiles on the next tick.
+    this._troopsAt.set(tile, left);
     this._troopsSum -= spent;
     return spent;
   }
 
-  /** Front tiles that currently hold troops. */
+  /** Tracked front tiles, including a drained tile awaiting seep. */
   frontTiles(): IterableIterator<TileRef> {
     return this._troopsAt.keys();
   }

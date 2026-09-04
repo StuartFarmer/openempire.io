@@ -51,15 +51,22 @@ function stretch(game: Game, x: number, y: number, half = 5): TileRef[] {
 }
 
 /** Attacker pushes into the defender at `y`. */
-function pushAt(game: Game, attacker: Player, defender: Player, y: number) {
+function pushAt(
+  game: Game,
+  attacker: Player,
+  defender: Player,
+  y: number,
+  troops = 20_000,
+  half = 5,
+) {
   game.addExecution(
     new AttackExecution(
-      20_000,
+      troops,
       attacker,
       defender.id(),
       null,
       true,
-      stretch(game, SEAM, y),
+      stretch(game, SEAM, y, half),
     ),
   );
 }
@@ -174,6 +181,148 @@ describe("opposing pushes meet only where they touch", () => {
 });
 
 describe("the front pays for its own advance", () => {
+  test("exhausting one front locally does not stall a distant push", async () => {
+    const { game, attacker, defender } = await fixture();
+    pushAt(game, attacker, defender, NORTH);
+    pushAt(game, attacker, defender, SOUTH);
+    ticks(game, 1);
+
+    const north = attacker
+      .outgoingAttacks()
+      .find((attack) =>
+        [...attack.frontTiles()].some((tile) => game.y(tile) < HEIGHT / 2),
+      );
+    const south = attacker
+      .outgoingAttacks()
+      .find((attack) =>
+        [...attack.frontTiles()].some((tile) => game.y(tile) >= HEIGHT / 2),
+      );
+    expect(north).toBeDefined();
+    expect(south).toBeDefined();
+
+    let northernDefenderTilesBefore = 0;
+    let southernDefenderTilesBefore = 0;
+    for (let y = 0; y < HEIGHT; y++) {
+      for (let x = 80; x < SEAM; x++) {
+        if (game.owner(game.ref(x, y)) !== defender) continue;
+        if (y < HEIGHT / 2) northernDefenderTilesBefore++;
+        else southernDefenderTilesBefore++;
+      }
+    }
+    for (const tile of north!.frontTiles()) {
+      north!.spendAt(tile, north!.troopsAt(tile));
+    }
+
+    ticks(game, 2);
+
+    let northernDefenderTilesAfter = 0;
+    let southernDefenderTilesAfter = 0;
+    for (let y = 0; y < HEIGHT; y++) {
+      for (let x = 80; x < SEAM; x++) {
+        if (game.owner(game.ref(x, y)) !== defender) continue;
+        if (y < HEIGHT / 2) northernDefenderTilesAfter++;
+        else southernDefenderTilesAfter++;
+      }
+    }
+    expect(northernDefenderTilesAfter).toBe(northernDefenderTilesBefore);
+    expect(south!.isActive()).toBe(true);
+    expect(southernDefenderTilesAfter).toBeLessThan(
+      southernDefenderTilesBefore,
+    );
+  });
+
+  test("a narrower commitment captures more per seeded front tile", async () => {
+    const narrow = await fixture();
+    pushAt(
+      narrow.game,
+      narrow.attacker,
+      narrow.defender,
+      HEIGHT / 2,
+      20_000,
+      1,
+    );
+    ticks(narrow.game, 4);
+    let narrowCaptured = 0;
+    for (let y = HEIGHT / 2 - 1; y <= HEIGHT / 2 + 1; y++) {
+      for (let x = 80; x < SEAM; x++) {
+        if (narrow.game.owner(narrow.game.ref(x, y)) === narrow.attacker) {
+          narrowCaptured++;
+        }
+      }
+    }
+
+    const wide = await fixture();
+    pushAt(wide.game, wide.attacker, wide.defender, HEIGHT / 2, 20_000, 10);
+    ticks(wide.game, 4);
+    let wideCaptured = 0;
+    for (let y = HEIGHT / 2 - 10; y <= HEIGHT / 2 + 10; y++) {
+      for (let x = 80; x < SEAM; x++) {
+        if (wide.game.owner(wide.game.ref(x, y)) === wide.attacker) {
+          wideCaptured++;
+        }
+      }
+    }
+
+    expect(narrowCaptured / 3).toBeGreaterThan(wideCaptured / 21);
+  });
+
+  test("seep refills a drained front tile without creating troops", async () => {
+    const { game, attacker, defender } = await fixture();
+    pushAt(game, attacker, defender, NORTH);
+    ticks(game, 1);
+    const attack = attacker.outgoingAttacks()[0];
+    const middle = [...attack.frontTiles()].find((tile) => {
+      if (attack.troopsAt(tile) <= 0) return false;
+      let positiveNeighbors = 0;
+      game.forEachNeighbor(tile, (neighbor) => {
+        if (attack.troopsAt(neighbor) > 0) positiveNeighbors++;
+      });
+      return positiveNeighbors >= 2;
+    });
+    expect(middle).toBeDefined();
+
+    attack.spendAt(middle!, attack.troopsAt(middle!));
+    const totalBefore = attack.troops();
+    ticks(game, 1);
+
+    expect(attack.troopsAt(middle!)).toBeGreaterThan(0);
+    expect(
+      [...attack.frontTiles()].reduce(
+        (sum, tile) => sum + attack.troopsAt(tile),
+        attack.reserve(),
+      ),
+    ).toBeLessThanOrEqual(totalBefore);
+  });
+
+  test("zero seep leaves a drained front tile empty", async () => {
+    const { game, attacker, defender } = await fixture();
+    game.config().setFoodOverride("frontSeepFraction", 0);
+    pushAt(game, attacker, defender, NORTH);
+    ticks(game, 1);
+    const attack = attacker.outgoingAttacks()[0];
+    const middle = [...attack.frontTiles()].find((tile) => {
+      if (attack.troopsAt(tile) <= 0) return false;
+      let positiveNeighbors = 0;
+      game.forEachNeighbor(tile, (neighbor) => {
+        if (attack.troopsAt(neighbor) > 0) positiveNeighbors++;
+      });
+      return positiveNeighbors >= 2;
+    });
+    expect(middle).toBeDefined();
+
+    attack.spendAt(middle!, attack.troopsAt(middle!));
+    const totalBefore = attack.troops();
+    ticks(game, 1);
+
+    expect(attack.troopsAt(middle!)).toBe(0);
+    expect(
+      [...attack.frontTiles()].reduce(
+        (sum, tile) => sum + attack.troopsAt(tile),
+        attack.reserve(),
+      ),
+    ).toBeLessThanOrEqual(totalBefore);
+  });
+
   test("troops are never created or destroyed by seep", async () => {
     const { game, attacker, defender } = await fixture();
     pushAt(game, attacker, defender, NORTH);
