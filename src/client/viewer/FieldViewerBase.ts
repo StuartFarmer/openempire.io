@@ -53,6 +53,14 @@ export function playerActionBatchSize(
     : requestedTicks;
 }
 
+export function fixedClockPlayerActionBatch(
+  accumulator: number,
+  queues: (Record<string, number>[] | undefined)[],
+): { ticks: number; accumulator: number } {
+  const ticks = playerActionBatchSize(Math.floor(accumulator), queues);
+  return { ticks, accumulator: accumulator - ticks };
+}
+
 export abstract class FieldViewerBase extends LitElement {
   @state() protected systemId = LAB_SYSTEMS[0]?.id ?? "";
   @state() protected mapKey = "Verdantia";
@@ -362,8 +370,12 @@ export abstract class FieldViewerBase extends LitElement {
             this.accumulator + dt * this.ticksPerSecond,
             MAX_TICKS_PER_FRAME,
           );
-          ticks = Math.floor(this.accumulator);
-          this.accumulator -= ticks;
+          const batch = fixedClockPlayerActionBatch(
+            this.accumulator,
+            this.playerActionQueues,
+          );
+          ticks = batch.ticks;
+          this.accumulator = batch.accumulator;
         }
         if (ticks > 0 || this.needsRedraw) {
           this.needsRedraw = false;

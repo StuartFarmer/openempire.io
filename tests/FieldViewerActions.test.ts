@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   dequeuePlayerActions,
+  fixedClockPlayerActionBatch,
   playerActionBatchSize,
 } from "../src/client/viewer/FieldViewerBase";
 
@@ -26,5 +27,11 @@ describe("field player action queue", () => {
   test("limits a command-bearing submission to one tick", () => {
     expect(playerActionBatchSize(8, [undefined, [{ actionKind: 2 }]])).toBe(1);
     expect(playerActionBatchSize(8, [undefined, []])).toBe(8);
+  });
+
+  test("keeps fixed-clock ticks that an action-bearing batch cannot submit", () => {
+    expect(
+      fixedClockPlayerActionBatch(8, [undefined, [{ actionKind: 2 }]]),
+    ).toEqual({ ticks: 1, accumulator: 7 });
   });
 });
