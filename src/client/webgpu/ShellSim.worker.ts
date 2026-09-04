@@ -603,6 +603,7 @@ async function loop(): Promise<void> {
   if (!running || !gr) return;
   const start = performance.now();
   await stepAndPost();
+  if (!running || !gr) return;
   const budget = ambient ? TICK_MS * AMBIENT_TICK_SCALE : TICK_MS;
   const delay = turbo ? 0 : Math.max(0, budget - (performance.now() - start));
   timer = setTimeout(() => void loop(), delay);

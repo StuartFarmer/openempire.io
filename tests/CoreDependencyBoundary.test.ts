@@ -51,5 +51,8 @@ describe("core dependency boundary", () => {
     expect(workerSource).not.toContain("GpuEconomy");
     expect(openfrontSource).not.toMatch(/leanfront|GpuEconomy/);
     expect(registrySource).toContain('import("./leanfront/runtime")');
+    expect(workerSource).toContain(
+      "await stepAndPost();\n  if (!running || !gr) return;\n  const budget",
+    );
   });
 });
