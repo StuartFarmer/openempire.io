@@ -100,9 +100,10 @@ const SHELL_CLIMATE_DEFAULTS = {
 // derivation (climate → drainage → biome → colors from the map's primary
 // fields, with live climate knobs + seasons + a rich hover readout) or any sim
 // system (world, settlement, empire, grazing, territory), ticked at the game
-// clock with brushes and generic param/scalar panels. OpenFront is the one LIVE
-// game driven by the real CPU sim in the ShellSim worker; LeanFront follows the
-// field path. The registry lookup gates the worker path. The shared machinery
+// clock with brushes and generic param/scalar panels. OpenFront and the original
+// LeanFront are live games driven by the CPU sim in the ShellSim worker;
+// LeanFront Simple follows the field path. The registry lookup gates the worker
+// path. The shared machinery
 // (headless kernel on the camera's device, tick loop, turbo, brushes) lives in
 // FieldViewerBase; this page adds the camera, the terrain derivation on the base
 // kernel, and the terrain-specific panels. Baked terrain-colors.png (via
