@@ -1,12 +1,8 @@
-# Spec delta: farm-growth (rework-persistent-tiles-and-burn)
+# farm-growth Specification
 
-Replaces the "reversion to wild" model from rework-settlement-ecology: worked
-land is permanent. A field tile that loses its crop drops to an **initial**
-farmland state (seed soil) and stays a claimed field tile, regrowing in place —
-it never yields back to wild or to the city automaton.
-
-## MODIFIED Requirements
-
+## Purpose
+TBD - created by archiving change rework-persistent-tiles-and-burn. Update Purpose after archive.
+## Requirements
 ### Requirement: Labor is a coverage gate, not a growth rate
 
 A claimed field tile SHALL be **tilled** only while the field's shed-cell labor pool covers it at `farmersPerFieldTile`, with coverage assigned in deterministic rank order (maturity, then suitability). Only tilled tiles produce food and run their tenure clock. Claimed tiles left uncovered SHALL lie **fallow**: they produce nothing and their establishment senesces. A fallow tile senescing below the claim threshold SHALL NOT die or revert to wild — instead it SHALL settle at an **initial farmland** floor (`farmSeedMilli`), remaining a claimed field tile of its owner, ready to regrow when labor and suitability return. The tile's land-use zone (`Field`) SHALL persist. This coverage gate REPLACES the labor yield-multiplier of the prior task — labor is applied exactly once.
@@ -39,11 +35,3 @@ Claimed field tiles SHALL be ineligible for urban growth, and city tiles SHALL b
 
 - **WHEN** a player's field or city tile is neither conquered nor the player eliminated
 - **THEN** the tile keeps its land-use zone indefinitely regardless of crop or population decline
-
-## REMOVED Requirements
-
-### Requirement: A dead field yields to the city
-
-**Reason**: Worked land is now permanent — a fallow field settles at an initial farmland floor and regrows rather than reverting to wild, so it never becomes available to the city automaton. (This removes the "Land SHALL move between the automata only by death: a tile that reverts to wild … is thereafter claimable by either" rule from rework-settlement-ecology.)
-
-**Migration**: `FarmGrowth.ts` senescence no longer clears maturity to 0 / drops the claim; it floors maturity at `farmSeedMilli` and leaves `_landUse = Field`. The urban CA's precedence check already skips `Field`-zoned tiles, so no city-side change is needed; any test asserting a senesced field tile becomes city-claimable is updated to assert it stays farmland.

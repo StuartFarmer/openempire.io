@@ -6,7 +6,7 @@ keeps the tile's type for the new owner, burns it for the heal duration
 brown "battle-worn" tint is replaced by a burn/scorch look that drives a
 per-tile fire effect.
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: A damaged tile is unproductive until fully healed
 
@@ -40,8 +40,6 @@ The renderer SHALL render a damaged tile as **burnt ground**: freshly damaged ti
 
 - **WHEN** the player looks at a recently contested corridor
 - **THEN** tiles show a scorch intensity proportional to remaining damage, fading to normal terrain as they heal
-
-## ADDED Requirements
 
 ### Requirement: Every conquered tile is burnt, and the fire is shown
 
