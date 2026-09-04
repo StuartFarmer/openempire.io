@@ -63,7 +63,7 @@ async function loadWorker(beforeTick: () => Promise<void>) {
     bots: 0,
     cdnBase: "",
     assetManifest: {},
-    ruleset: "leanfront",
+    ruleset: "openfront",
   });
   await flushMicrotasks();
 

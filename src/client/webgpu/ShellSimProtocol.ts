@@ -63,8 +63,7 @@ export type ShellSimIn =
       /** Front-page backdrop: nobody is going to place a spawn, so the sim
        *  needs the spawn phase to end on a timer instead of on a human. */
       ambient?: boolean;
-      /** Which game's Config and live runtime to use. Omitted = `openfront`;
-       *  LeanFront may install its GPU economy before each worker tick. */
+      /** OpenFront's worker Config and runtime. Omitted = `openfront`. */
       ruleset?: RulesetID;
     }
   | { type: "running"; running: boolean; turbo: boolean }

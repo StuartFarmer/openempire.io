@@ -46,6 +46,7 @@ describe("core dependency boundary", () => {
       "utf8",
     );
     const registrySource = readFileSync("src/client/games/registry.ts", "utf8");
+    const runnerSource = readFileSync("src/core/GameRunner.ts", "utf8");
     const leanfrontSystemSource = readFileSync(
       "src/client/games/leanfront/system.ts",
       "utf8",
@@ -60,6 +61,8 @@ describe("core dependency boundary", () => {
     expect(registrySource).not.toMatch(/^import .*leanfront\/runtime/m);
     expect(registrySource).not.toContain("GpuEconomy");
     expect(registrySource).not.toContain("leanfront");
+    expect(runnerSource).not.toContain("leanfront/runtime");
+    expect(runnerSource).not.toContain("GpuEconomy");
     expect(leanfrontSystemSource).toContain('import.meta.glob("./**/*.wesl"');
     expect(leanfrontSystemSource).not.toContain(
       'import.meta.glob("./layers/**/*.wesl"',
