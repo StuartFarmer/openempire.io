@@ -55,6 +55,7 @@ describe("intent brushes and player outputs", () => {
     expect(compiled.kernelConfig.passes.map((p) => p.name)).not.toContain(
       "brush/city",
     );
+    expect(passByName(compiled, "stock/value").binds).toContain("PO!");
     expect(compiled.kernelConfig.buffers).toContainEqual(
       expect.objectContaining({
         name: "PO",

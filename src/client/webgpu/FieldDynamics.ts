@@ -978,7 +978,7 @@ struct Brush {
     ...(use.params ? ["P"] : []),
     ...(needsSimBinding(use) ? ["S:Sim"] : []),
     ...(use.players ? ["PL"] : []),
-    ...(use.playerOutputs ? ["PO"] : []),
+    ...(use.playerOutputs ? ["PO!"] : []),
     ...[...use.layers].sort().map(readBind),
   ];
 
