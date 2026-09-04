@@ -1,7 +1,7 @@
 # tile-damage Specification
 
 ## Purpose
-TBD - created by archiving change rework-persistent-tiles-and-burn. Update Purpose after archive.
+Define how combat damage blocks productivity, persists land use, and renders deterministic burn and fire effects while tiles heal.
 ## Requirements
 ### Requirement: A damaged tile is unproductive until fully healed
 

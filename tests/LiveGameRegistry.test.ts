@@ -1,7 +1,21 @@
-import { describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+
+const createLeanRuntime = vi.hoisted(() =>
+  vi.fn(async () => ({
+    async beforeTick(): Promise<void> {},
+    dispose(): void {},
+  })),
+);
+
+vi.mock("../src/client/games/leanfront/runtime", () => ({
+  createRuntime: createLeanRuntime,
+}));
+
 import { getLiveGame, LIVE_GAMES } from "../src/client/games/registry";
 
 describe("live-game registry", () => {
+  beforeEach(() => createLeanRuntime.mockClear());
+
   test("contains exactly the two selectable live games", () => {
     expect(LIVE_GAMES.map((entry) => entry.id)).toEqual([
       "openfront",

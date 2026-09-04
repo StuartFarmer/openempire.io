@@ -46,12 +46,19 @@ off), and both floods driving a live game at **411/411 identical hashes over
   dense slot rather than by tile ref. A tile-indexed accumulator is grid-sized
   (8 MB each on spqr), so "read back the small results" would have cost more
   than the planes it replaces.
-- **BIT-IDENTICAL, verified by seeded hash.** Every per-tile consumer moves, so
-  no plane is ever read back; and the placement draws — which looked unportable —
-  become identical rather than merely equidistributed by building the frontier in
-  parallel and walking the DRAW serially, since a frontier is a handful of tiles.
-  That leaves f32 rounding as the only permitted divergence, already measured at
-  1 milli in 400,000 on the one term where it appears.
+- **VERIFIED PASS BY PASS, not by seeded hash.** Bit-identity was the original
+  contract and is not achievable in a form worth having: the CPU's distance
+  fields refresh every ten ticks and are read stale in between, so matching its
+  hashes means reproducing its cache staleness on purpose. A GPU that floods
+  every tick computes a BETTER answer — measured at 370 of 168,314 spqr tiles
+  carrying a placement weight 0.16-14.7% from the CPU's, all with the same shed
+  cell, which is snapshot age and nothing else. So the gate is four things: each
+  pass agreeing with the CPU function it replaces on IDENTICAL inputs, same-seed
+  replay on a device, balance metrics inside the harness's seed-noise band, and
+  OpenFront's hashes untouched. The first is what has actually been catching
+  bugs — a probe measuring a board no game occupies, a damage flag set only on
+  tiles carrying crop, and a placement draw weighting by the ungated base
+  suitability instead of the shed-gated product.
 - **Determinism becomes per-device for the GPU path.** Reproducible from a seed
   on a given machine, not bit-identical across GPU vendors — WGSL specifies only
   2.5 ULP on division. Order-INDEPENDENCE stays mandatory and is stricter than
@@ -70,22 +77,35 @@ off), and both floods driving a live game at **411/411 identical hashes over
 
 ### Modified Capabilities
 
-_None._ No rule changes. Placement — the one piece that looked as though it must
-change seeded outcomes — is made identical by drawing serially, so this change
-alters no requirement, and the seeded hashes are the proof.
+_None._ No rule changes. The GPU path may compute a per-tile quantity more
+accurately than the CPU does — the distance fields are the case, since it floods
+every tick where the CPU reads a snapshot up to ten ticks old — but a more
+accurate evaluation of the same rule is not a different rule, and every such
+difference is named and bounded rather than discovered.
+
+The GPU checkpoint evaluated ordering the shared field-expansion candidates by
+tile ref, but that experiment was not retained. Current shared/OpenFront farm
+candidates remain insertion-ordered, and OpenFront was not rebaselined for this
+change. Checkpoint hashes `1208077788489980`, `2322560228707292`, and
+`4764841754597059` are superseded historical measurements, never acceptance
+gates. The only current OpenFront source is `docs/OpenFrontLiveReference.md`:
+verdantia `801065038163313`, `2069060768539590`; spqr
+`4964847657180561`.
 
 ## Impact
 
-- `src/client/economy/fields/passes/*.wesl` — three passes remain: patch
-  application (the credit stream and labour gate as per-slot state), tenure
-  aging, and the acres histogram. Everything else exists and is verified.
+- `src/client/games/leanfront/economy/fields/passes/*.wesl` — tenure aging, the acres histogram,
+  the PRNG and the city draw's real (shed-gated) weight have landed and are
+  verified; patch application is the one pass still missing. The serial draw
+  that D2 called for is NOT built and is not needed — the exponential race
+  already there reproduces the distribution, which is the contract now.
 - `src/core/execution/utils/` — the provider seams (`setSupplyProvider`,
   `setShedFloodProvider`, `setDistrictYieldProvider`) already exist and are
   tested; the remaining consumers need theirs.
-- `src/client/webgpu/ShellSim.worker.ts` — has never been wired to any of this.
-  The ruleset already reaches it (`Rulesets.ts`, verified live), but selects only
-  a `Config`.
-- `src/client/economy/upload.ts` — the plane mirroring, staleness checks and
+- `src/client/webgpu/ShellSim.worker.ts` — hosts the generic live-game runtime;
+  LeanFront's registered runtime can dispatch the GPU economy before a core
+  tick, while OpenFront's runtime remains CPU-only.
+- `src/client/games/leanfront/economy/upload.ts` — the plane mirroring, staleness checks and
   decline paths exist to keep two copies of the state in step. Under GPU
   ownership there is one copy; they are retired with the cutover, not carried.
 - `tests/perf/balance/` — the sweep already runs under headless Chromium

@@ -3,16 +3,15 @@ import liveGameView from "../shared/live-game.wesl?raw";
 
 // LeanFront — a FORK of the `openfront` system, selectable alongside it in the
 // shell picker so mechanics can be simplified here without disturbing the
-// reference game. Today it is a faithful clone: the same live CPU simulation
-// (one `ShellSim` worker), the same maps, the same conduits and the same
-// overlay shader — the two entries render identically. The point is the seam,
-// not a difference: this folder's layers are LeanFront's own copies, free to
-// diverge, while the shell treats any registered live game generically.
+// reference game. It shares the maps, worker conduits, and overlay shader, while
+// its live-game runtime may install the in-progress GPU economy before each core
+// tick. This folder's layers are LeanFront's own copies, free to diverge, while
+// the shell treats any registered live game generically.
 //
 // Divergence guide:
 //   • rendering / legibility → this folder's wesl + `params` below;
-//   • actual game RULES (src/core) → an OpenSpec change, per CLAUDE.md; a
-//     ruleset flag would ride along on the worker's `init` message.
+//   • actual game RULES (src/core) → an OpenSpec change, per CLAUDE.md;
+//   • runtime implementation → `runtime.ts`, selected by the worker's ruleset.
 export const leanfront = defineFieldSystem({
   id: "leanfront",
   name: "LeanFront (live)",
@@ -45,7 +44,7 @@ export const leanfront = defineFieldSystem({
     leanfront: { source: liveGameView },
   },
 
-  modules: import.meta.glob("./**/*.wesl", {
+  modules: import.meta.glob("./layers/**/*.wesl", {
     query: "?raw",
     import: "default",
     eager: true,

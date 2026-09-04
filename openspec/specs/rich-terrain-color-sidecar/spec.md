@@ -1,7 +1,7 @@
 # rich-terrain-color-sidecar Specification
 
 ## Purpose
-TBD - created by archiving change add-rich-terrain-color-sidecar. Update Purpose after archive.
+Define export, baking, loading, and rendering of optional full-resolution rich terrain-color sidecars.
 ## Requirements
 ### Requirement: Generator exports rich terrain colors
 

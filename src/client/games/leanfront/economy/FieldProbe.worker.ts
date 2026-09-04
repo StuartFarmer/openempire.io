@@ -12,9 +12,9 @@
  * ways, compares, and posts the verdict. The GPU result is discarded — no sim
  * state is touched — so this can run against the shipping game with zero risk.
  */
-import { assetUrl, type AssetManifest } from "../../core/AssetUrls";
-import { supplyField } from "../../core/execution/utils/SupplyField";
-import { FetchGameMapLoader } from "../../core/game/FetchGameMapLoader";
+import { assetUrl, type AssetManifest } from "../../../../core/AssetUrls";
+import { supplyField } from "../../../../core/execution/utils/SupplyField";
+import { FetchGameMapLoader } from "../../../../core/game/FetchGameMapLoader";
 import {
   Difficulty,
   GameMapType,
@@ -22,12 +22,12 @@ import {
   GameType,
   UnitType,
   type Player,
-} from "../../core/game/Game";
-import { createGameRunner } from "../../core/GameRunner";
-import type { GameStartInfo } from "../../core/Schemas";
-import { generateID } from "../../core/Util";
-import { compileFieldSystem } from "../webgpu/FieldDynamics";
-import { FieldKernel } from "../webgpu/FieldKernel";
+} from "../../../../core/game/Game";
+import { createGameRunner } from "../../../../core/GameRunner";
+import type { GameStartInfo } from "../../../../core/Schemas";
+import { generateID } from "../../../../core/Util";
+import { compileFieldSystem } from "../../../webgpu/FieldDynamics";
+import { FieldKernel } from "../../../webgpu/FieldKernel";
 import { CUTOFF_RADII, economyFields } from "./fields/system";
 import { buildEconomyInputs } from "./inputs";
 import { EconomyFieldUploader } from "./upload";
@@ -171,7 +171,7 @@ async function run(msg: FieldProbeIn): Promise<FieldProbeOut> {
   // human here to end the phase, so tick it out the way the ambient backdrop
   // does: nations place spawns, then the game runs.
   const { SpawnTimerExecution } =
-    await import("../../core/execution/SpawnTimerExecution");
+    await import("../../../../core/execution/SpawnTimerExecution");
   game.addExecution(new SpawnTimerExecution());
   let turn = 0;
   const tick = () => {
@@ -193,7 +193,8 @@ async function run(msg: FieldProbeIn): Promise<FieldProbeOut> {
 
   // ── The CPU's own fields, timed. `supplyField` caches on a cadence, so this
   // is the cost of the recompute the sim would pay this refresh.
-  const { foodShedField } = await import("../../core/execution/utils/FoodShed");
+  const { foodShedField } =
+    await import("../../../../core/execution/utils/FoodShed");
   const cpuStart = performance.now();
   const cpuSupply = new Int32Array(n).fill(-1);
   const cpuCell = new Int32Array(n).fill(-1);
@@ -258,6 +259,12 @@ async function run(msg: FieldProbeIn): Promise<FieldProbeOut> {
       fieldTileStorageMilli: f.fieldTileStorageMilli,
       fieldTileYieldMilli: f.fieldTileYieldMilli,
       tenureHalfTicks: f.tenureHalfTicks,
+      foodShedRadius: f.foodShedRadius,
+      foodShedPower: f.foodShedPower,
+      wFoodShed: f.wFoodShed,
+      fieldPatchCostMilli: f.fieldPatchCostMilli,
+      fieldPatchDriveCapMilli: f.fieldPatchDriveCapMilli,
+      farmersPerFieldTile: f.farmersPerFieldTile,
       tickSeed: game.ticks() >>> 0,
     },
   );
@@ -487,7 +494,7 @@ async function run(msg: FieldProbeIn): Promise<FieldProbeOut> {
   // so what is being tested is the consumer's arithmetic and not the cache
   // staleness already characterised above.
   const { urbanSuitability } =
-    await import("../../core/execution/utils/UrbanGrowth");
+    await import("../../../../core/execution/utils/UrbanGrowth");
   // Density is a LIVE sim quantity and the probe has ticked ~60 times since the
   // planes were first uploaded. Refresh it (and re-run the pipeline) so the
   // comparison is against the same state the CPU is about to read, rather than
@@ -517,7 +524,8 @@ async function run(msg: FieldProbeIn): Promise<FieldProbeOut> {
   // same maturity the CPU did. Excludes tiles the other phases touched in that
   // tick (a new plot placed, ground urbanized or conquered) — those are entity
   // work, not the ripen CA.
-  const { isFallow } = await import("../../core/execution/utils/FoodShed");
+  const { isFallow } =
+    await import("../../../../core/execution/utils/FoodShed");
   const before = new Float32Array(n);
   const flagsPlane = new Uint32Array(n);
   const tenurePlane = new Float32Array(n);
@@ -531,7 +539,7 @@ async function run(msg: FieldProbeIn): Promise<FieldProbeOut> {
     if (game.plotAt(t) !== undefined) flagsPlane[t] |= 64; // any plot at all
     tenurePlane[t] = game.tileTenure(t);
   }
-  const { LandUse } = await import("../../core/game/Game");
+  const { LandUse } = await import("../../../../core/game/Game");
   for (const p of game.players()) {
     if (!p.isAlive()) continue;
     const shed = foodShedField(game, p);
@@ -782,7 +790,7 @@ async function run(msg: FieldProbeIn): Promise<FieldProbeOut> {
   const gpuRoom = new Uint32Array(await kernel.readBuffer("roomCount"));
   const roomReadbackMs = performance.now() - tRoom;
   const { assessUrbanRoom } =
-    await import("../../core/execution/utils/EconomyModel");
+    await import("../../../../core/execution/utils/EconomyModel");
   // Same staleness caveat as everywhere else: the CPU counts over its CACHED
   // supply field while the GPU counts over the fresh flood, so only players
   // whose field is current are required to match.

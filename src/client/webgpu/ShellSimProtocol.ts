@@ -63,9 +63,8 @@ export type ShellSimIn =
       /** Front-page backdrop: nobody is going to place a spawn, so the sim
        *  needs the spawn phase to end on a timer instead of on a human. */
       ambient?: boolean;
-      /** Which game's rules to run (see core/game/Rulesets.ts). Omitted =
-       *  `openfront`. The seam ships with zero divergence: `leanfront` is
-       *  currently bit-identical, proven by tests/Rulesets.test.ts. */
+      /** Which game's Config and live runtime to use. Omitted = `openfront`;
+       *  LeanFront may install its GPU economy before each worker tick. */
       ruleset?: RulesetID;
     }
   | { type: "running"; running: boolean; turbo: boolean }

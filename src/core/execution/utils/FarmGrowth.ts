@@ -2,6 +2,7 @@ import { Game, LandUse, Player, UnitType } from "../../game/Game";
 import { TileRef } from "../../game/GameMap";
 import { PseudoRandom } from "../../PseudoRandom";
 import { simpleHash } from "../../Util";
+import { observeDraw } from "./DrawProbe";
 import { isFallow, PlayerFoodShed } from "./FoodShed";
 
 /**
@@ -93,6 +94,28 @@ export function waterAccess(mg: Game, tile: TileRef): number {
   return waterN + f.wShore * shore;
 }
 
+/**
+ * A source of the farm CA other than this file's own two phases — the same
+ * injection point the floods and the district ledger have, and for the same
+ * reason: `src/core` cannot reach a GPU, so a compute-shader crop CA has to be
+ * offered in rather than branched to.
+ *
+ * `apply` returns true when it has advanced the player's maturity for this
+ * tick, in which case the CPU's ripen and patch phases are skipped entirely.
+ * Returning false falls back, so a provider that is not ready degrades instead
+ * of freezing the crop.
+ */
+export interface FarmTickProvider {
+  apply(mg: Game, player: Player, shed: PlayerFoodShed): boolean;
+}
+
+let externalFarm: FarmTickProvider | null = null;
+
+/** Install (or clear, with null) the external farm CA. */
+export function setFarmTickProvider(p: FarmTickProvider | null): void {
+  externalFarm = p;
+}
+
 /** Per-player plot-growth credit, keyed by nucleus tile. Process-local like
  *  the shed/supply caches (rebuilt empty on reload — pacing state, not truth). */
 const patchCredits = new WeakMap<Player, Map<TileRef, number>>();
@@ -124,6 +147,11 @@ const patchCredits = new WeakMap<Player, Map<TileRef, number>>();
  *   field SIZE at the moment of expansion.
  */
 export function farmTick(mg: Game, player: Player, shed: PlayerFoodShed): void {
+  // THE WHOLE TICK, or none of it. Ripening and patch placement both write
+  // maturity and the second reads what the first produced, so a provider that
+  // served only one of them would leave the two halves a tick apart — the same
+  // split that broke the ledger cutover.
+  if (externalFarm !== null && externalFarm.apply(mg, player, shed)) return;
   const f = mg.config().food();
   const claim = f.fieldClaimMilli;
 
@@ -306,15 +334,17 @@ function placePatch(
   );
   let total = 0;
   for (const w of weights) total += w;
-  let r = rand.nextFloat(0, total);
+  const r = rand.nextFloat(0, total);
+  let acc = r;
   let pick = candidates.length - 1;
   for (let i = 0; i < candidates.length; i++) {
-    r -= weights[i];
-    if (r <= 0) {
+    acc -= weights[i];
+    if (acc <= 0) {
       pick = i;
       break;
     }
   }
+  observeDraw("patch", weights, r, pick);
   player.setFarmMaturity(candidates[pick], claim);
   return true;
 }

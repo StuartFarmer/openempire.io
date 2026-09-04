@@ -1,4 +1,4 @@
-import { Game, Player, UnitType } from "../../core/game/Game";
+import { Game, Player, UnitType } from "../../../../core/game/Game";
 
 /**
  * The uploads the GPU economy fields read: one per-tile plane each for the

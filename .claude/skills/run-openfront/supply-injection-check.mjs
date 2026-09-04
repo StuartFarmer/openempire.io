@@ -40,7 +40,9 @@ const runOne = (mode, seed) =>
         await import("/src/core/AssetUrls.ts");
       const { GameMapType } = await import("/src/core/game/Game.ts");
       const Worker = (
-        await import("/src/client/economy/SupplyInjection.worker.ts?worker&inline")
+        await import(
+          "/src/client/games/leanfront/economy/SupplyInjection.worker.ts?worker&inline"
+        )
       ).default;
       const worker = new Worker();
       const result = await new Promise((resolve, reject) => {

@@ -19,14 +19,14 @@
  * between-ticks scheduling, the plane mapping, or determinism shows up
  * immediately as a hash divergence and names the tick it happened on.
  */
-import { assetUrl, type AssetManifest } from "../../core/AssetUrls";
-import { setDistrictYieldProvider } from "../../core/execution/utils/FoodEconomy";
+import { assetUrl, type AssetManifest } from "../../../../core/AssetUrls";
+import { setDistrictYieldProvider } from "../../../../core/execution/utils/FoodEconomy";
 import {
   peekFoodShed,
   setShedFloodProvider,
-} from "../../core/execution/utils/FoodShed";
-import { setSupplyProvider } from "../../core/execution/utils/SupplyField";
-import { FetchGameMapLoader } from "../../core/game/FetchGameMapLoader";
+} from "../../../../core/execution/utils/FoodShed";
+import { setSupplyProvider } from "../../../../core/execution/utils/SupplyField";
+import { FetchGameMapLoader } from "../../../../core/game/FetchGameMapLoader";
 import {
   Difficulty,
   GameMapType,
@@ -35,12 +35,18 @@ import {
   UnitType,
   type Game,
   type Player,
-} from "../../core/game/Game";
-import { GameUpdateType, type HashUpdate } from "../../core/game/GameUpdates";
-import { createGameRunner, type GameRunner } from "../../core/GameRunner";
-import type { GameStartInfo } from "../../core/Schemas";
-import { compileFieldSystem } from "../webgpu/FieldDynamics";
-import { FieldKernel } from "../webgpu/FieldKernel";
+} from "../../../../core/game/Game";
+import {
+  GameUpdateType,
+  type HashUpdate,
+} from "../../../../core/game/GameUpdates";
+import {
+  createGameRunner,
+  type GameRunner,
+} from "../../../../core/GameRunner";
+import type { GameStartInfo } from "../../../../core/Schemas";
+import { compileFieldSystem } from "../../../webgpu/FieldDynamics";
+import { FieldKernel } from "../../../webgpu/FieldKernel";
 import { CUTOFF_RADII, economyFields } from "./fields/system";
 import { EconomyFieldUploader } from "./upload";
 
@@ -171,7 +177,7 @@ async function buildGame(
     },
   );
   const { SpawnTimerExecution } =
-    await import("../../core/execution/SpawnTimerExecution");
+    await import("../../../../core/execution/SpawnTimerExecution");
   gameRef = gr.game;
   gr.game.addExecution(new SpawnTimerExecution());
   return { gr, game: gr.game, hashes, hashTicks };
@@ -253,6 +259,12 @@ async function run(msg: SupplyInjectionIn): Promise<SupplyInjectionOut> {
         fieldTileStorageMilli: f.fieldTileStorageMilli,
         fieldTileYieldMilli: f.fieldTileYieldMilli,
         tenureHalfTicks: f.tenureHalfTicks,
+        foodShedRadius: f.foodShedRadius,
+        foodShedPower: f.foodShedPower,
+        wFoodShed: f.wFoodShed,
+        fieldPatchCostMilli: f.fieldPatchCostMilli,
+        fieldPatchDriveCapMilli: f.fieldPatchDriveCapMilli,
+        farmersPerFieldTile: f.farmersPerFieldTile,
         tickSeed: 0,
       },
     );

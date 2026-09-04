@@ -74,7 +74,7 @@ except where this change's spec says otherwise.
 
 - `src/core/game/Rulesets.ts` — `leanfront` stops being an empty Config subclass
   and starts selecting a different simulation host.
-- `src/client/economy/` — the uploader's plane mirroring, the injection seams
+- `src/client/games/leanfront/economy/` — the uploader's plane mirroring, the injection seams
   (`setSupplyProvider`, `setShedFloodProvider`, `setDistrictYieldProvider`), the
   staleness/decline logic and the drift probe are all scaffolding for keeping two
   copies in step. They are not needed under GPU ownership and should be retired

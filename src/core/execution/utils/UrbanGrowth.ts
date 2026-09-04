@@ -2,6 +2,7 @@ import { Game, LandUse, Player, UnitType } from "../../game/Game";
 import { TileRef } from "../../game/GameMap";
 import { PseudoRandom } from "../../PseudoRandom";
 import { simpleHash } from "../../Util";
+import { observeDraw } from "./DrawProbe";
 import { foodTick } from "./FoodEconomy";
 import { foodShedField, foodShedPotential } from "./FoodShed";
 import { seedAwardTick } from "./SeedAwards";
@@ -277,14 +278,20 @@ function weightedPick(
   weightOf: (t: TileRef) => number,
   rand: PseudoRandom,
 ): TileRef | null {
+  const weights = pool.map(weightOf);
   let total = 0;
-  for (const t of pool) total += weightOf(t);
+  for (const w of weights) total += w;
   if (total <= 0) return null;
-  let r = rand.nextFloat(0, total);
-  for (const t of pool) {
-    r -= weightOf(t);
-    if (r <= 0) return t;
+  const r = rand.nextFloat(0, total);
+  let acc = r;
+  for (let i = 0; i < pool.length; i++) {
+    acc -= weights[i];
+    if (acc <= 0) {
+      observeDraw("urban", weights, r, i);
+      return pool[i];
+    }
   }
+  observeDraw("urban", weights, r, pool.length - 1);
   return pool[pool.length - 1];
 }
 

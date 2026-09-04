@@ -2,7 +2,7 @@
 
 ## Purpose
 
-TBD - created by archiving change add-map-layer-sidecars. Update Purpose after archive.
+Define deterministic browser map generation, preview, metadata, source-file export, and compatibility with the existing map compilation pipeline.
 
 ## Requirements
 

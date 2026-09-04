@@ -117,7 +117,8 @@ export const KNOB_HELP: Partial<Record<keyof FoodConfig, KnobHelp>> = {
 
   // ── Front / combat shape ─────────────────────────────────────────────
   frontSeepFraction: {
-    affects: "Fraction of a front tile's troops shared to neighbours each tick.",
+    affects:
+      "Fraction of a front tile's troops shared to neighbours each tick.",
     up: "Force re-averages fast; position matters less (toward one global pool).",
     down: "Rigid fronts — each stretch fights alone and can't be reinforced.",
   },
@@ -139,7 +140,8 @@ export const KNOB_HELP: Partial<Record<keyof FoodConfig, KnobHelp>> = {
     down: "Cities mature into dense cores quickly.",
   },
   tenureSaturationRatio: {
-    affects: "Housing-fill fraction a city must hit before it ages (gains tenure).",
+    affects:
+      "Housing-fill fraction a city must hit before it ages (gains tenure).",
     up: "Only fully-packed cities gain stability.",
     down: "Cities mature even when only partly full.",
   },
@@ -235,7 +237,8 @@ export const KNOB_HELP: Partial<Record<keyof FoodConfig, KnobHelp>> = {
     down: "Ideal band shrinks from the warm side; hot land underperforms.",
   },
   tempMaxN: {
-    affects: "Hottest temperature crops tolerate before heat stress kills yield.",
+    affects:
+      "Hottest temperature crops tolerate before heat stress kills yield.",
     up: "Crops survive hotter ground; tropics stay productive.",
     down: "Heat stress bites sooner; hot land becomes unfarmable.",
   },
@@ -257,7 +260,8 @@ export const KNOB_HELP: Partial<Record<keyof FoodConfig, KnobHelp>> = {
 
   // ── Supply lines & war logistics ─────────────────────────────────────
   supplyRadius: {
-    affects: "Distance from a settlement at which supply quality falls to half.",
+    affects:
+      "Distance from a settlement at which supply quality falls to half.",
     up: "Logistics reach far; armies stay supplied deep in the field.",
     down: "Tight supply; you must build settlements to project power.",
   },
@@ -284,7 +288,8 @@ export const KNOB_HELP: Partial<Record<keyof FoodConfig, KnobHelp>> = {
 
   // ── Urban growth ─────────────────────────────────────────────────────
   urbanGrowthRate: {
-    affects: "Fraction of the gap to a city's food-supported size closed per tick.",
+    affects:
+      "Fraction of the gap to a city's food-supported size closed per tick.",
     up: "Cities race toward their carrying capacity.",
     down: "Slow, bounded city growth.",
   },

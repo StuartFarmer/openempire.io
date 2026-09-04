@@ -391,6 +391,18 @@ function recompute(mg: Game, player: Player, s: PlayerFoodShed): void {
     for (const t of supplied.tiles) {
       const cell = supplied.cell[t];
       if (cell < 0) continue;
+      // The flood's CELLS must be farms this shed still has. An external flood
+      // is computed from a snapshot, so a farm destroyed since then still
+      // appears as a source — and every later pass assumes `srcFarmOf` names a
+      // member of `farms` (`cellClaims.get(farm)!.push(...)` threw on exactly
+      // this, inside `foodTick`, which aborted the economy for the rest of the
+      // tick and looked like a 5x speed-up while the board starved).
+      if (s.farmIndex.get(cell) === undefined) continue;
+      // The farm nuclei are ALREADY in `queue`, seeded above at distance zero.
+      // An external flood reports them too (they are covered tiles), and
+      // pushing them a second time puts duplicates in `s.tiles` — which every
+      // later pass walks, so each nucleus's residents would be pooled twice.
+      if (stamp[t] === run) continue;
       stamp[t] = run;
       distOf[t] = supplied.dist[t];
       srcFarmOf[t] = cell;

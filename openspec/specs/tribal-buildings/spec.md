@@ -1,7 +1,7 @@
 # tribal-buildings Specification
 
 ## Purpose
-TBD - created by archiving change rework-persistent-tiles-and-burn. Update Purpose after archive.
+Define conquest behavior that transfers and burns tribal economy plots while retaining destructive treatment for DefensePosts.
 ## Requirements
 ### Requirement: Captured plots are burnt, not razed
 

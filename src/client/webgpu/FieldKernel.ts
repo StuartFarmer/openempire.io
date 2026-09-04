@@ -647,8 +647,15 @@ export class FieldKernel {
     );
   }
 
-  /** Read a buffer back to the CPU (ping-pong: the current read facet). */
-  async readBuffer(name: string): Promise<ArrayBuffer> {
+  /**
+   * Read a buffer back to the CPU (ping-pong: the current read facet).
+   *
+   * `elements` reads only a PREFIX. That is what makes a compacted list worth
+   * compacting: the buffer is sized for the worst case, but only the entries a
+   * counting pass actually wrote need to cross, so the copy is bounded by the
+   * size of the answer rather than by the capacity reserved for it.
+   */
+  async readBuffer(name: string, elements?: number): Promise<ArrayBuffer> {
     const spec = this.bufferSpecs.get(name);
     if (!spec?.readable) {
       throw new Error(`Buffer "${name}" is not readable (set readable)`);
@@ -657,7 +664,11 @@ export class FieldKernel {
     const source = spec.pingPong
       ? buffers[this.polarity.get(name) ?? 0]
       : buffers[0];
-    const bytes = (spec.count ?? this.widthValue * this.heightValue) * 4;
+    const capacity = spec.count ?? this.widthValue * this.heightValue;
+    const wanted =
+      elements === undefined ? capacity : Math.min(elements, capacity);
+    // A zero-length copy is illegal, and a mapped range must be 4-aligned.
+    const bytes = Math.max(4, wanted * 4);
     const staging = this.device.createBuffer({
       label: `field-staging-${name}`,
       size: bytes,

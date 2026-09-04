@@ -64,7 +64,7 @@ const result = await page.evaluate(
       await import("/src/client/webgpu/FieldDynamics.ts");
     const { FieldKernel } = await import("/src/client/webgpu/FieldKernel.ts");
     const { economyFields, CUTOFF_RADII } =
-      await import("/src/client/economy/fields/system.ts");
+      await import("/src/client/games/leanfront/economy/fields/system.ts");
     const { FOOD_DEFAULTS } =
       await import("/src/core/configuration/FoodConfig.ts");
     const d = FOOD_DEFAULTS;
@@ -273,7 +273,7 @@ if (SCALE) {
         await import("/src/client/webgpu/FieldDynamics.ts");
       const { FieldKernel } = await import("/src/client/webgpu/FieldKernel.ts");
       const { economyFields, CUTOFF_RADII } =
-        await import("/src/client/economy/fields/system.ts");
+        await import("/src/client/games/leanfront/economy/fields/system.ts");
       const { FOOD_DEFAULTS: d } =
         await import("/src/core/configuration/FoodConfig.ts");
       const compiled = await compileFieldSystem(
