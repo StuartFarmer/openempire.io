@@ -184,8 +184,7 @@ async function main(): Promise<void> {
         pop += p.foodFlow().population;
         tiles += p.numTilesOwned();
       }
-      let dmgTiles = 0;
-      for (const _ of game.tileDamageEntries()) dmgTiles += 1;
+      const dmgTiles = Array.from(game.tileDamageEntries()).length;
       const avg = (v: number) => (v / acc.n).toFixed(0);
       log(
         [
