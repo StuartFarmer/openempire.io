@@ -707,22 +707,28 @@ export abstract class FieldViewerBase extends LitElement {
 
   protected async readScalars(): Promise<void> {
     if (!this.kernel || !this.compiled || this.inFlight) return;
+    const kernel = this.kernel;
+    const compiled = this.compiled;
     if (
-      this.compiled.scalarNames.length === 0 &&
-      this.compiled.playerOutputNames.length === 0
+      compiled.scalarNames.length === 0 &&
+      compiled.playerOutputNames.length === 0
     ) {
       return;
     }
     try {
-      if (this.compiled.scalarNames.length > 0) {
-        const data = await this.kernel.readBuffer("S");
-        const decoded = this.compiled.decodeScalars(data);
+      const [scalarData, playerOutputData] = await Promise.all([
+        compiled.scalarNames.length > 0 ? kernel.readBuffer("S") : null,
+        compiled.playerOutputNames.length > 0 ? kernel.readBuffer("PO") : null,
+      ]);
+      if (this.kernel !== kernel || this.compiled !== compiled) return;
+      if (scalarData !== null) {
+        const decoded = compiled.decodeScalars(scalarData);
         this.scalarReadout = decoded.values;
         this.tickReadout = decoded.tick;
       }
-      if (this.compiled.playerOutputNames.length > 0) {
-        const data = await this.kernel.readBuffer("PO");
-        this.playerOutputReadout = this.compiled.decodePlayerOutputs(data);
+      if (playerOutputData !== null) {
+        this.playerOutputReadout =
+          compiled.decodePlayerOutputs(playerOutputData);
       }
     } catch {
       // Torn down mid-read; ignore.

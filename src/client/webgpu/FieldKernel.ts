@@ -665,6 +665,12 @@ export class FieldKernel {
     if (!Number.isInteger(firstElement) || firstElement < 0) {
       throw new RangeError("firstElement must be a non-negative integer");
     }
+    if (
+      elements !== undefined &&
+      (!Number.isInteger(elements) || elements < 0)
+    ) {
+      throw new RangeError("elements must be a non-negative integer");
+    }
     const buffers = this.buffersOf(name);
     const source = spec.pingPong
       ? buffers[this.polarity.get(name) ?? 0]

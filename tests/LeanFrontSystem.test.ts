@@ -151,6 +151,7 @@ test("mounts LeanFront on the field path and submits queued actions", () => {
   expect(shell).toContain("composeTerrain(leanfront)");
   expect(shell).toContain("ticks = this.beginSimulationBatch(ticks);");
   expect(shell).toContain('readBuffer("cityLevel", 1, tile)');
+  expect(shell).toContain('aria-label="Attack commitment"');
 });
 
 test("reports a rejected action even when the next frame starts during readback", async () => {
@@ -176,6 +177,85 @@ test("reports a rejected action even when the next frame starts during readback"
   await subject.readScalars();
 
   expect(subject.status).toBe("Action rejected: wrong plot type");
+});
+
+test.each(["kernel", "compiled"] as const)(
+  "discards a whole readback when the %s generation changes",
+  async (changedState) => {
+    const warning = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+    const { GameShellPage } = await import("../src/client/GameShellPage");
+    warning.mockRestore();
+    const subject = new GameShellPage() as any;
+    const scalarReadout = { stable: 1 };
+    const playerOutputReadout = [
+      {},
+      { actionResult: (7 << 8) | LEAN_RESULT.wrongType },
+    ];
+    const decodeScalars = vi.fn(() => ({ tick: 7, values: { stale: 2 } }));
+    const decodePlayerOutputs = vi.fn(() => playerOutputReadout);
+    const compiled = {
+      scalarNames: ["totalPeople"],
+      playerOutputNames: ["actionResult"],
+      localPlayer: 1,
+      decodeScalars,
+      decodePlayerOutputs,
+    };
+    const replacementKernel = {
+      readBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(4)),
+    };
+    let changed = false;
+    const kernel = {
+      readBuffer: vi.fn(async () => {
+        if (!changed) {
+          changed = true;
+          if (changedState === "kernel") subject.kernel = replacementKernel;
+          else subject.compiled = { ...compiled };
+        }
+        return new ArrayBuffer(4);
+      }),
+    };
+    subject.systemId = "leanfront";
+    subject.kernel = kernel;
+    subject.compiled = compiled;
+    subject.scalarReadout = scalarReadout;
+    subject.playerOutputReadout = playerOutputReadout;
+    subject.status = "keep me";
+
+    await subject.readScalars();
+
+    expect(decodeScalars).not.toHaveBeenCalled();
+    expect(decodePlayerOutputs).not.toHaveBeenCalled();
+    expect(subject.scalarReadout).toBe(scalarReadout);
+    expect(subject.playerOutputReadout).toBe(playerOutputReadout);
+    expect(subject.status).toBe("keep me");
+  },
+);
+
+test("an accepted action leaves shared status unchanged", async () => {
+  const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  const { GameShellPage } = await import("../src/client/GameShellPage");
+  warning.mockRestore();
+  const subject = new GameShellPage() as any;
+  subject.systemId = "leanfront";
+  subject.kernel = {
+    readBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(4)),
+  };
+  subject.compiled = {
+    scalarNames: [],
+    playerOutputNames: ["actionResult"],
+    localPlayer: 1,
+    decodePlayerOutputs: () => [
+      {},
+      { actionResult: (10 << 8) | LEAN_RESULT.accepted },
+    ],
+  };
+  subject.status = "keep me";
+
+  await subject.readScalars();
+
+  expect(subject.status).toBe("keep me");
 });
 
 test("two nearby same-tick spawns use one linked player-priority reservation decision", async () => {

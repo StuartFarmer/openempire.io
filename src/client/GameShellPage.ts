@@ -1794,33 +1794,36 @@ export class GameShellPage extends FieldViewerBase {
   }
 
   protected async readScalars(): Promise<void> {
-    if (this.inFlight) return;
+    if (!this.kernel || !this.compiled || this.inFlight) return;
+    const kernel = this.kernel;
+    const compiled = this.compiled;
     await super.readScalars();
-    if (this.systemId !== "leanfront" || !this.kernel || !this.compiled) {
+    if (this.kernel !== kernel || this.compiled !== compiled) return;
+    if (this.systemId !== "leanfront") {
       if (this.leanfrontHover !== null) this.leanfrontHover = null;
       return;
     }
 
-    const localPlayer = this.compiled.localPlayer;
+    const localPlayer = compiled.localPlayer;
     const packed = this.playerOutputReadout[localPlayer]?.actionResult ?? 0;
     if (packed !== 0 && packed !== this.lastLeanfrontActionResult) {
       this.lastLeanfrontActionResult = packed;
       const { code } = decodeLeanResult(packed);
-      const reason =
-        code === LEAN_RESULT.unaffordable
-          ? "not enough food"
-          : code === LEAN_RESULT.notOwned
-            ? "not owned"
-            : code === LEAN_RESULT.impassable
-              ? "impassable"
-              : code === LEAN_RESULT.wrongType
-                ? "wrong plot type"
-                : code === LEAN_RESULT.overflow
-                  ? "level limit reached"
-                  : code === LEAN_RESULT.invalid
-                    ? "invalid action"
-                    : "";
-      this.status = reason === "" ? "" : `Action rejected: ${reason}`;
+      if (code !== LEAN_RESULT.accepted) {
+        const reason =
+          code === LEAN_RESULT.unaffordable
+            ? "not enough food"
+            : code === LEAN_RESULT.notOwned
+              ? "not owned"
+              : code === LEAN_RESULT.impassable
+                ? "impassable"
+                : code === LEAN_RESULT.wrongType
+                  ? "wrong plot type"
+                  : code === LEAN_RESULT.overflow
+                    ? "level limit reached"
+                    : "invalid action";
+        this.status = `Action rejected: ${reason}`;
+      }
     }
 
     const hover = this.hoverTile;
@@ -1835,7 +1838,6 @@ export class GameShellPage extends FieldViewerBase {
       return;
     }
     const tile = hover.y * this.mapWidth + hover.x;
-    const kernel = this.kernel;
     let words: ArrayBuffer[];
     try {
       words = await Promise.all([
@@ -1851,6 +1853,7 @@ export class GameShellPage extends FieldViewerBase {
     const currentHover = this.hoverTile;
     if (
       this.kernel !== kernel ||
+      this.compiled !== compiled ||
       this.systemId !== "leanfront" ||
       currentHover === null ||
       currentHover.y * this.mapWidth + currentHover.x !== tile
@@ -2837,6 +2840,7 @@ export class GameShellPage extends FieldViewerBase {
                 min="0"
                 max="1"
                 step="0.05"
+                aria-label="Attack commitment"
                 .value=${String(this.commitment)}
                 @input=${(e: Event) => {
                   this.commitment = (

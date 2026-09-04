@@ -65,4 +65,16 @@ describe("FieldKernel.readBuffer", () => {
     );
     expect(copyBufferToBuffer).not.toHaveBeenCalled();
   });
+
+  test.each([-1, 1.5, Number.NaN])(
+    "rejects invalid element count %s",
+    async (elements) => {
+      const { kernel, copyBufferToBuffer } = readableKernel();
+
+      await expect(kernel.readBuffer("food", elements, 0)).rejects.toThrow(
+        "elements",
+      );
+      expect(copyBufferToBuffer).not.toHaveBeenCalled();
+    },
+  );
 });
