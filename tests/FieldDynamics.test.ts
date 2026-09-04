@@ -6,10 +6,104 @@ import {
 } from "../src/client/lab/systems/terrain/system";
 import {
   compileFieldSystem,
+  defineFieldSystem,
   FieldDynamicsError,
   type CompiledFieldSystem,
   type FieldSystem,
 } from "../src/client/webgpu/FieldDynamics";
+
+describe("intent brushes and player outputs", () => {
+  const system = defineFieldSystem({
+    id: "intent-contract",
+    name: "intent contract",
+    players: {
+      count: 3,
+      localPlayer: 1,
+      fields: { actionKind: "u32", actionTile: "u32", actionTick: "u32" },
+      outputs: ["actionResult", "foodSpendFx"],
+    },
+    brushes: {
+      direct: { target: "value", mode: "set", value: 1, radius: 2 },
+      city: { intent: 2, radius: 0 },
+    },
+    views: { value: { layer: "value", ramp: ["#000000", "#ffffff"] } },
+    modules: {
+      "layers/value.wesl": `
+      import package::playerOutputs;
+      fn init(x: i32, y: i32, i: u32) -> f32 { return 0.0; }
+      fn update(x: i32, y: i32, i: u32) -> f32 {
+        if (i == 0u) { playerOutputs::set_actionResult(1u, 9u); }
+        return 0.0;
+      }`,
+    },
+  });
+
+  test("compiles one-shot intent brushes and persistent player outputs", async () => {
+    const compiled = await compileFieldSystem(system);
+    expect(compiled.localPlayer).toBe(1);
+    expect(compiled.playerFieldNames).toEqual([
+      "actionKind",
+      "actionTile",
+      "actionTick",
+    ]);
+    expect(compiled.playerOutputNames).toEqual(["actionResult", "foodSpendFx"]);
+    expect(compiled.intentForBrush("city")).toBe(2);
+    expect(compiled.intentForBrush("direct")).toBeUndefined();
+    expect(compiled.kernelConfig.passes.map((p) => p.name)).toContain(
+      "brush/direct",
+    );
+    expect(compiled.kernelConfig.passes.map((p) => p.name)).not.toContain(
+      "brush/city",
+    );
+    expect(compiled.kernelConfig.buffers).toContainEqual(
+      expect.objectContaining({
+        name: "PO",
+        type: "u32",
+        count: 6,
+        readable: true,
+        clearable: true,
+      }),
+    );
+    const data = new ArrayBuffer(6 * 4);
+    const view = new DataView(data);
+    view.setUint32(2 * 2 * 4, 7, true);
+    view.setUint32((2 * 2 + 1) * 4, 11, true);
+    expect(compiled.decodePlayerOutputs(data)[2]).toEqual({
+      actionResult: 7,
+      foodSpendFx: 11,
+    });
+  });
+
+  test("diagnoses invalid player output contracts", async () => {
+    await expect(
+      compileFieldSystem({
+        ...system,
+        players: { ...system.players!, localPlayer: 3 },
+      }),
+    ).rejects.toThrow(/players\.localPlayer/);
+    await expect(
+      compileFieldSystem({
+        ...system,
+        players: { ...system.players!, outputs: ["ok", "ok", "not valid"] },
+      }),
+    ).rejects.toThrow(/players\.outputs/);
+    await expect(
+      compileFieldSystem({
+        ...system,
+        players: { count: 3, fields: {} },
+      }),
+    ).rejects.toThrow(/brushes\.city.*actionKind/);
+    await expect(
+      compileFieldSystem({
+        ...system,
+        players: { count: 3, fields: { actionKind: "u32" } },
+        brushes: undefined,
+      }),
+    ).rejects.toThrow(
+      /package::playerOutputs requires declared players\.outputs/,
+    );
+  });
+});
 
 function passByName(compiled: CompiledFieldSystem, name: string) {
   const pass = compiled.kernelConfig.passes.find((p) => p.name === name);

@@ -76,13 +76,20 @@ export interface FieldReduceSpec {
   groupBy?: string;
 }
 
-export interface FieldBrushSpec {
+export interface FieldPaintBrushSpec {
   /** Must be a dynamic layer (map layers are read-only). */
   target: string;
   mode: "set" | "add";
   value: number;
   radius: number;
 }
+
+export interface FieldIntentBrushSpec {
+  intent: number;
+  radius: number;
+}
+
+export type FieldBrushSpec = FieldPaintBrushSpec | FieldIntentBrushSpec;
 
 export interface FieldViewSpec {
   /** Show any layer directly… */
@@ -103,8 +110,12 @@ export interface FieldViewSpec {
 export interface FieldPlayersSpec {
   /** Number of player slots (group ids run 0..count-1). */
   count: number;
+  /** The human player's slot (defaults to 0). */
+  localPlayer?: number;
   /** Per-player input fields, CPU-written via writePlayers(). */
   fields: Record<string, "f32" | "u32">;
+  /** CPU-readable u32 words written by GPU layer code. */
+  outputs?: readonly string[];
 }
 
 /** Context handed to a system's `input` hook for one gesture. Pointer
@@ -323,6 +334,9 @@ export interface CompiledFieldSystem {
   mapLayers: readonly string[];
   /** Player slots (0 when the system has no players block). */
   playerCount: number;
+  localPlayer: number;
+  playerFieldNames: readonly string[];
+  playerOutputNames: readonly string[];
   writeParams(
     values: Readonly<Record<string, number>>,
     seed: number,
@@ -332,6 +346,8 @@ export interface CompiledFieldSystem {
     players: ReadonlyArray<Readonly<Record<string, number>>>,
   ): ArrayBuffer;
   encodeBrush(name: string, x: number, y: number, radius?: number): ArrayBuffer;
+  intentForBrush(name: string): number | undefined;
+  decodePlayerOutputs(data: ArrayBuffer): Record<string, number>[];
   decodeScalars(data: ArrayBuffer): {
     tick: number;
     values: Record<string, number | number[]>;
@@ -383,7 +399,6 @@ const RESERVED_LAYER_NAMES = new Set([
   "main",
   "init",
   "update",
-  "value",
   "seed",
 ]);
 
@@ -471,6 +486,7 @@ interface ScalarSlot {
 interface ImportsUse {
   params: boolean;
   players: boolean;
+  playerOutputs: boolean;
   simItems: Set<string>; // tick | rand | noise | scalar_<name>
   layers: Set<string>;
 }
@@ -496,6 +512,8 @@ export async function compileFieldSystem(
   const playersSpec = system.players ?? null;
   const playerCount = playersSpec?.count ?? 0;
   const playerFields = Object.entries(playersSpec?.fields ?? {});
+  const playerOutputs = [...(playersSpec?.outputs ?? [])];
+  const localPlayer = playersSpec?.localPlayer ?? 0;
 
   // --- discover dynamic layers (type = fn init return type) -----------------
   const layerFiles = Object.keys(sourceModules)
@@ -605,10 +623,24 @@ export async function compileFieldSystem(
     if (playerFields.length === 0) {
       diagnostics.push("players.fields must declare at least one field");
     }
+    if (
+      !Number.isInteger(localPlayer) ||
+      localPlayer < 0 ||
+      localPlayer >= playerCount
+    ) {
+      diagnostics.push("players.localPlayer must be in 0..count-1");
+    }
     for (const [name] of playerFields) {
       if (!IDENT.test(name) || ["val", "count"].includes(name)) {
         diagnostics.push(`players.fields.${name}: invalid or reserved name`);
       }
+    }
+    const seenOutputs = new Set<string>();
+    for (const name of playerOutputs) {
+      if (!IDENT.test(name) || seenOutputs.has(name)) {
+        diagnostics.push(`players.outputs.${name}: invalid or duplicate name`);
+      }
+      seenOutputs.add(name);
     }
   }
   for (const [name, spec] of scalars) {
@@ -641,11 +673,21 @@ export async function compileFieldSystem(
     }
   }
   for (const [name, spec] of brushes) {
-    if (!dynamicLayers.has(spec.target)) {
+    if ("target" in spec && !dynamicLayers.has(spec.target)) {
       diagnostics.push(
         MAP_LAYER_NAMES.includes(spec.target)
           ? `brushes.${name}: "${spec.target}" is a map layer (read-only)`
           : `brushes.${name}: target "${spec.target}" is not a dynamic layer`,
+      );
+    }
+    if (
+      !("target" in spec) &&
+      ["actionKind", "actionTile", "actionTick"].some(
+        (field) => playersSpec?.fields[field] !== "u32",
+      )
+    ) {
+      diagnostics.push(
+        `brushes.${name}: intent requires players.fields.actionKind, actionTile, and actionTick as u32`,
       );
     }
   }
@@ -762,6 +804,7 @@ struct Brush {
     const use: ImportsUse = {
       params: false,
       players: false,
+      playerOutputs: false,
       simItems: new Set(),
       layers: new Set(),
     };
@@ -770,11 +813,11 @@ struct Brush {
       .replace(/\/\/[^\n]*/g, "");
     const namespaceAliases = new Map<
       string,
-      "layers" | "params" | "sim" | "players"
+      "layers" | "params" | "sim" | "players" | "playerOutputs"
     >();
 
     const registerItem = (
-      registry: "layers" | "params" | "sim" | "players",
+      registry: "layers" | "params" | "sim" | "players" | "playerOutputs",
       item: string,
     ): void => {
       switch (registry) {
@@ -814,6 +857,23 @@ struct Brush {
           use.players = true;
           return;
         }
+        case "playerOutputs": {
+          if (playerOutputs.length === 0) {
+            diagnostics.push(
+              `${path}: package::playerOutputs requires declared players.outputs`,
+            );
+            return;
+          }
+          if (
+            item !== "" &&
+            !playerOutputs.includes(item.replace(/^set_/, ""))
+          ) {
+            diagnostics.push(`${path}: playerOutputs has no item "${item}"`);
+            return;
+          }
+          use.playerOutputs = true;
+          return;
+        }
         case "sim": {
           const scalarMatch = /^scalar_(\w+)$/.exec(item);
           if (scalarMatch && !system.scalars?.[scalarMatch[1]]) {
@@ -840,7 +900,7 @@ struct Brush {
       body = body.replace(statement[0], "");
       const text = statement[1].replace(/\s+/g, " ").trim();
       const namespaced =
-        /^package::(layers|params|sim|players|layer|param|api)(?:::(.+))?(?:\s+as\s+\w+)?$/.exec(
+        /^package::(layers|params|sim|players|playerOutputs|layer|param|api)(?:::(.+))?(?:\s+as\s+\w+)?$/.exec(
           text,
         );
       if (!namespaced) continue; // kernel/lib/views/super: wesl handles it
@@ -851,10 +911,16 @@ struct Brush {
         );
         continue;
       }
-      const registry = registryRaw as "layers" | "params" | "sim" | "players";
+      const registry = registryRaw as
+        | "layers"
+        | "params"
+        | "sim"
+        | "players"
+        | "playerOutputs";
       if (rest === undefined || /^as \w+$/.test(rest.trim())) {
         const aliasMatch = /\bas\s+(\w+)\s*$/.exec(text);
         namespaceAliases.set(aliasMatch?.[1] ?? registry, registry);
+        if (registry === "playerOutputs") registerItem(registry, "");
         continue;
       }
       const itemsText = rest.replace(/\s+as\s+\w+\s*$/, "");
@@ -880,7 +946,7 @@ struct Brush {
 
     const scanQualified = (
       alias: string,
-      registry: "layers" | "params" | "sim" | "players",
+      registry: "layers" | "params" | "sim" | "players" | "playerOutputs",
     ): void => {
       const pattern =
         registry === "layers"
@@ -897,6 +963,7 @@ struct Brush {
     scanQualified("package::params", "params");
     scanQualified("package::sim", "sim");
     scanQualified("package::players", "players");
+    scanQualified("package::playerOutputs", "playerOutputs");
 
     return use;
   };
@@ -905,12 +972,13 @@ struct Brush {
   const needsSimBinding = (use: ImportsUse): boolean =>
     [...use.simItems].some((item) => item !== "noise");
 
-  // Canonical binding order: GRID(0), P, S, PL, layers sorted by name, then
+  // Canonical binding order: GRID(0), P, S, PL, PO, layers sorted by name, then
   // the pass-specific write/out targets appended by the root builder.
   const bindsFor = (use: ImportsUse): string[] => [
     ...(use.params ? ["P"] : []),
     ...(needsSimBinding(use) ? ["S:Sim"] : []),
     ...(use.players ? ["PL"] : []),
+    ...(use.playerOutputs ? ["PO"] : []),
     ...[...use.layers].sort().map(readBind),
   ];
 
@@ -936,6 +1004,17 @@ struct Brush {
         `@group(0) @binding(${indexOf("PL")}) var<storage, read> PLAYERS: array<Player, ${playerCount}>;`,
         `fn val(p: u32) -> Player { return PLAYERS[min(p, ${playerCount - 1}u)]; }`,
         `fn count() -> u32 { return ${playerCount}u; }`,
+      ].join("\n");
+    }
+
+    if (use.playerOutputs) {
+      modules["playerOutputs.wesl"] = [
+        `struct PlayerOutput {\n${playerOutputs.map((name) => `  ${name}: u32,`).join("\n")}\n}`,
+        `@group(0) @binding(${indexOf("PO")}) var<storage, read_write> PLAYER_OUTPUTS: array<PlayerOutput, ${playerCount}>;`,
+        ...playerOutputs.map(
+          (name) =>
+            `fn set_${name}(p: u32, value: u32) { PLAYER_OUTPUTS[min(p, ${playerCount - 1}u)].${name} = value; }`,
+        ),
       ].join("\n");
     }
 
@@ -1190,6 +1269,7 @@ ${wantsOceanMask ? "  if (land::val(i) == 0.0) { color = vec3f(0.055, 0.13, 0.20
   }
 
   for (const [name, spec] of brushes) {
+    if (!("target" in spec)) continue;
     if (!dynamicLayers.has(spec.target)) continue;
     const t = spec.target;
     const type = typeOf(t);
@@ -1379,6 +1459,17 @@ ${oceanMask ? "  if (land[i] == 0.0) { color = vec3f(0.055, 0.13, 0.20); }" : ""
           } satisfies FieldBufferSpec,
         ]
       : []),
+    ...(playerOutputs.length > 0
+      ? [
+          {
+            name: "PO",
+            type: "u32",
+            count: playerCount * Math.max(1, playerOutputs.length),
+            clearable: true,
+            readable: true,
+          } satisfies FieldBufferSpec,
+        ]
+      : []),
   ];
 
   // Uniforms. A game composed onto terrain has BOTH the generated game `Params`
@@ -1423,6 +1514,9 @@ ${oceanMask ? "  if (land[i] == 0.0) { color = vec3f(0.055, 0.13, 0.20); }" : ""
     derivedNames: derivedFields.map(([name]) => name),
     mapLayers,
     playerCount,
+    localPlayer,
+    playerFieldNames: playerFields.map(([name]) => name),
+    playerOutputNames: playerOutputs,
 
     writeParams(values, seed) {
       const data = new ArrayBuffer(paramsBytes);
@@ -1455,6 +1549,9 @@ ${oceanMask ? "  if (land[i] == 0.0) { color = vec3f(0.055, 0.13, 0.20); }" : ""
     encodeBrush(name, x, y, radius) {
       const spec = system.brushes?.[name];
       if (!spec) throw new Error(`Unknown brush "${name}"`);
+      if (!("target" in spec)) {
+        throw new Error(`Intent brush "${name}" has no GPU pass`);
+      }
       const data = new ArrayBuffer(32);
       const view = new DataView(data);
       view.setFloat32(0, x, true);
@@ -1463,6 +1560,23 @@ ${oceanMask ? "  if (land[i] == 0.0) { color = vec3f(0.055, 0.13, 0.20); }" : ""
       view.setFloat32(12, spec.value, true);
       view.setUint32(16, spec.mode === "add" ? 1 : 0, true);
       return data;
+    },
+
+    intentForBrush(name) {
+      const spec = system.brushes?.[name];
+      return spec && !("target" in spec) ? spec.intent : undefined;
+    },
+
+    decodePlayerOutputs(data) {
+      const view = new DataView(data);
+      return Array.from({ length: playerCount }, (_, p) =>
+        Object.fromEntries(
+          playerOutputs.map((name, index) => [
+            name,
+            view.getUint32((p * playerOutputs.length + index) * 4, true),
+          ]),
+        ),
+      );
     },
 
     decodeScalars(data) {
