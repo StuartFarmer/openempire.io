@@ -30,6 +30,8 @@ import { DEFAULT_RULESET } from "../../core/game/Rulesets";
 import { createGameRunner, GameRunner } from "../../core/GameRunner";
 import type { GameStartInfo, Intent, StampedIntent } from "../../core/Schemas";
 import { generateID } from "../../core/Util";
+import type { LiveGameRuntime } from "../games/LiveGameRuntime";
+import { createLiveGameRuntime } from "../games/registry";
 import {
   packTransportShips,
   type ShellFrontLabel,
@@ -47,6 +49,7 @@ const UNIT_DIFF_EVERY = 6;
 
 let gr: GameRunner | null = null;
 let game: Game | null = null;
+let runtime: LiveGameRuntime | null = null;
 let clientID = "";
 let turn = 0;
 let running = false;
@@ -116,6 +119,8 @@ function computePlot(g: Game, tile: number): number {
 }
 
 async function init(msg: Extract<ShellSimIn, { type: "init" }>): Promise<void> {
+  runtime?.dispose();
+  runtime = null;
   globalThis.__ASSET_MANIFEST__ = msg.assetManifest;
   globalThis.__CDN_BASE__ = msg.cdnBase;
   clientID = generateID();
@@ -149,6 +154,7 @@ async function init(msg: Extract<ShellSimIn, { type: "init" }>): Promise<void> {
     msg.ruleset ?? DEFAULT_RULESET,
   );
   game = gr.game;
+  runtime = await createLiveGameRuntime(msg.ruleset ?? DEFAULT_RULESET, game);
   // Singleplayer has NO spawn timer (GameRunner only adds SpawnTimerExecution
   // for multiplayer) — the phase ends when a HUMAN picks a spawn. The backdrop
   // has no human, so without this the world sits in the spawn phase forever
@@ -582,8 +588,9 @@ function buildFrame(g: Game): {
   return { frame, transfer };
 }
 
-function stepAndPost(): void {
+async function stepAndPost(): Promise<void> {
   if (!gr || !game) return;
+  await runtime?.beforeTick();
   gr.addTurn({ turnNumber: turn++, intents: queued });
   queued = [];
   pending = null;
@@ -592,20 +599,20 @@ function stepAndPost(): void {
   post(frame, transfer);
 }
 
-function loop(): void {
+async function loop(): Promise<void> {
   if (!running || !gr) return;
   const start = performance.now();
-  stepAndPost();
+  await stepAndPost();
   const budget = ambient ? TICK_MS * AMBIENT_TICK_SCALE : TICK_MS;
   const delay = turbo ? 0 : Math.max(0, budget - (performance.now() - start));
-  timer = setTimeout(loop, delay);
+  timer = setTimeout(() => void loop(), delay);
 }
 
 function setRunning(run: boolean, tb: boolean): void {
   turbo = tb;
   if (run && !running) {
     running = true;
-    loop();
+    void loop();
   } else if (!run) {
     running = false;
     if (timer) clearTimeout(timer);

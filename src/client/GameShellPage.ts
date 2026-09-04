@@ -1047,8 +1047,8 @@ export class GameShellPage extends FieldViewerBase {
     // Summaries.
     if (this.mySmallID !== f.mySmallID) {
       this.mySmallID = f.mySmallID;
-      // Tell the view which slot is ours — the overlay darkens every tile that
-      // is not flagged here (see views/openfront.wesl).
+      // Tell the view which slot is ours — the shared overlay darkens every
+      // tile that is not flagged here (see games/shared/live-game.wesl).
       if (this.mySmallID > 0) {
         this.mergePlayerIntent(this.mySmallID, { mine: 1 });
         this.flushPlayers();

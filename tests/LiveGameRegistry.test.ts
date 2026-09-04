@@ -17,4 +17,12 @@ describe("live-game registry", () => {
       lean.system.views[lean.view].source,
     );
   });
+
+  test("both games expose the same two-method lifecycle", async () => {
+    for (const entry of LIVE_GAMES) {
+      const runtime = await entry.createRuntime({} as never);
+      await expect(runtime.beforeTick()).resolves.toBeUndefined();
+      expect(() => runtime.dispose()).not.toThrow();
+    }
+  });
 });

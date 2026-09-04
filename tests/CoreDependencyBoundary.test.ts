@@ -35,4 +35,21 @@ describe("core dependency boundary", () => {
 
     expect(violations).toEqual([]);
   });
+
+  test("live game runtimes stay isolated from the worker host", () => {
+    const workerSource = readFileSync(
+      "src/client/webgpu/ShellSim.worker.ts",
+      "utf8",
+    );
+    const openfrontSource = readFileSync(
+      "src/client/games/openfront/runtime.ts",
+      "utf8",
+    );
+    const registrySource = readFileSync("src/client/games/registry.ts", "utf8");
+
+    expect(workerSource).not.toContain('=== "leanfront"');
+    expect(workerSource).not.toContain("GpuEconomy");
+    expect(openfrontSource).not.toMatch(/leanfront|GpuEconomy/);
+    expect(registrySource).toContain('import("./leanfront/runtime")');
+  });
 });
