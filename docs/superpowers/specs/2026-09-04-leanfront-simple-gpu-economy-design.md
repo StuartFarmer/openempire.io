@@ -53,13 +53,19 @@ Two alternatives were rejected:
 
 ### Persistent per-tile fields
 
-| Field      | Type  | Meaning |
-|------------|-------|---------|
-| `owner`    | `u32` | Player id; zero is neutral. |
-| `troops`   | `f32` | People/manpower currently on the tile. |
-| `plotType` | `u32` | `0 = empty`, `1 = city`, `2 = farm`. |
-| `level`    | `u32` | Number of identical plot levels stacked on the tile. |
-| `food`     | `f32` | Food stored on a farm tile; zero elsewhere. |
+| Field       | Type  | Meaning                                       |
+| ----------- | ----- | --------------------------------------------- |
+| `owner`     | `u32` | Player id; zero is neutral.                   |
+| `troops`    | `f32` | People/manpower currently on the tile.        |
+| `cityLevel` | `u32` | City level; zero when the tile is not a city. |
+| `farmLevel` | `u32` | Farm level; zero when the tile is not a farm. |
+| `food`      | `f32` | Food stored on a farm tile; zero elsewhere.   |
+
+`plotType` and `level` remain the semantic model exposed to players. On the
+GPU they are encoded by the mutually exclusive `cityLevel` and `farmLevel`
+fields: both zero means empty, otherwise the nonzero field supplies both type
+and level. This keeps the persistent state at five fields and makes per-player
+city/farm-level reductions direct, avoiding another conditional reduction pass.
 
 The existing transient `incursion` field remains for combat. The existing
 `pop` field is removed: `troops` is the single people/manpower resource.
@@ -82,7 +88,7 @@ not a second authoritative copy of tile state.
 
 ## Plot construction and upgrades
 
-Only player or AI intents change `plotType` or `level`:
+Only player or AI intents change a tile's derived `plotType` or `level`:
 
 ```text
 Empty   --paint city--> City level 1
@@ -102,8 +108,8 @@ Any plot --raze-------> Empty
   representation is rejected.
 - Building creates only the selected tile. It never changes a neighbor.
 
-`plotType == empty` implies `level == 0`; a non-farm tile always has zero food.
-Intent validation preserves these invariants.
+`cityLevel` and `farmLevel` may not both be nonzero; a non-farm tile always has
+zero food. Intent validation preserves these invariants.
 
 Flat per-level costs make a level exactly one tile-equivalent of added economy.
 Expansion buys distributed production; upgrading buys compact, defensible
