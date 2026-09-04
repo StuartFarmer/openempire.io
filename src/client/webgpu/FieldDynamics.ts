@@ -125,12 +125,18 @@ export interface InputContext {
   readonly mapWidth: number;
   readonly mapHeight: number;
   readonly running: boolean;
-  /** The human's player slot (0 by convention). */
+  /** The human's player slot. */
   readonly localPlayer: number;
+  /** Last scalar readback (per-player arrays for groupBy scalars). */
+  readonly scalars: Record<string, number | number[]>;
   /** Stamp a declared brush at a tile — runs the existing brush pass. */
   stamp(brush: string, x: number, y: number): void;
   /** Merge fields into a player's next intent (flushed via writePlayers). */
   setPlayer(p: number, fields: Record<string, number>): void;
+  /** Queue one discrete player action for a future simulation tick. */
+  queuePlayer(p: number, fields: Record<string, number>): void;
+  /** Current CPU-side persistent intent, for target updates that merge. */
+  player(p: number): Readonly<Record<string, number>>;
 }
 
 /** A system's input mapping — pointer/key gestures → brush stamps or player
@@ -163,6 +169,8 @@ export interface AIContext {
   rand(): number;
   /** Write player p's next intent (flushed via writePlayers). */
   setPlayer(p: number, fields: Record<string, number>): void;
+  /** Queue one discrete player action for a future simulation tick. */
+  queuePlayer(p: number, fields: Record<string, number>): void;
 }
 
 /** A system's bot driver — writes non-human players' intents on a schedule. */

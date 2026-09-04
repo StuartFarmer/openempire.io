@@ -34,6 +34,25 @@ const MAX_SCALE = 32;
 // click — the WebGL model: drag pans, a click that doesn't move acts.
 const CLICK_DRAG_THRESHOLD_SQ = 6 * 6;
 
+export function dequeuePlayerActions(
+  queues: (Record<string, number>[] | undefined)[],
+  actionTick: number,
+): (Record<string, number> | undefined)[] {
+  return queues.map((queue) => {
+    const action = queue?.shift();
+    return action === undefined ? undefined : { ...action, actionTick };
+  });
+}
+
+export function playerActionBatchSize(
+  requestedTicks: number,
+  queues: (Record<string, number>[] | undefined)[],
+): number {
+  return queues.some((queue) => (queue?.length ?? 0) > 0)
+    ? Math.min(1, requestedTicks)
+    : requestedTicks;
+}
+
 export abstract class FieldViewerBase extends LitElement {
   @state() protected systemId = LAB_SYSTEMS[0]?.id ?? "";
   @state() protected mapKey = "Verdantia";
@@ -46,6 +65,7 @@ export abstract class FieldViewerBase extends LitElement {
   @state() protected turbo = false;
   @state() protected status = "";
   @state() protected scalarReadout: Record<string, number | number[]> = {};
+  @state() protected playerOutputReadout: Record<string, number>[] = [];
   @state() protected tickReadout = 0;
   @state() protected gpuMs = 0;
   @state() protected ticksPerSec = 0;
@@ -115,13 +135,20 @@ export abstract class FieldViewerBase extends LitElement {
 
   // --- player intents (input + AI write here) ---------------------------------
   private playerIntents: (Record<string, number> | undefined)[] = [];
+  private playerActionQueues: (Record<string, number>[] | undefined)[] = [];
   private playersDirty = false;
   private aiClock = 0;
+  private submittedTick = 0;
 
   /** Merge fields into a player's next intent record (input + ai both call). */
   protected mergePlayerIntent(p: number, fields: Record<string, number>): void {
     this.playerIntents[p] = { ...this.playerIntents[p], ...fields };
     this.playersDirty = true;
+  }
+
+  /** Queue a discrete action without merging it into persistent intent. */
+  private queuePlayerAction(p: number, fields: Record<string, number>): void {
+    (this.playerActionQueues[p] ??= []).push(fields);
   }
 
   /** Upload the accumulated per-player intents to the PL buffer. */
@@ -160,10 +187,11 @@ export abstract class FieldViewerBase extends LitElement {
       tick: this.tickReadout,
       mapWidth: this.mapWidth,
       mapHeight: this.mapHeight,
-      localPlayer: 0,
+      localPlayer: this.compiled.localPlayer,
       scalars: this.scalarReadout,
       rand,
       setPlayer: (p, fields) => this.mergePlayerIntent(p, fields),
+      queuePlayer: (p, fields) => this.queuePlayerAction(p, fields),
     };
     ai.decide(ctx);
     this.flushPlayers();
@@ -174,9 +202,12 @@ export abstract class FieldViewerBase extends LitElement {
       mapWidth: this.mapWidth,
       mapHeight: this.mapHeight,
       running: this.running,
-      localPlayer: 0,
+      localPlayer: this.compiled?.localPlayer ?? 0,
+      scalars: this.scalarReadout,
       stamp: (brush, x, y) => this.stampBrush(brush, x, y),
       setPlayer: (p, fields) => this.mergePlayerIntent(p, fields),
+      queuePlayer: (p, fields) => this.queuePlayerAction(p, fields),
+      player: (p) => this.playerIntents[p] ?? {},
     };
   }
 
@@ -240,6 +271,9 @@ export abstract class FieldViewerBase extends LitElement {
       this.kernel = kernel;
       this.mapWidth = width;
       this.mapHeight = height;
+      this.playerActionQueues = [];
+      this.submittedTick = 0;
+      this.playerOutputReadout = [];
       if (!compiled.viewNames.includes(this.view)) {
         this.view = compiled.viewNames[0] ?? "";
       }
@@ -286,6 +320,7 @@ export abstract class FieldViewerBase extends LitElement {
       this.status = "";
       this.tickReadout = 0;
       this.scalarReadout = {};
+      this.playerOutputReadout = [];
     } catch (error) {
       this.status = (error as Error).message;
     }
@@ -294,6 +329,11 @@ export abstract class FieldViewerBase extends LitElement {
   protected async resetState(): Promise<void> {
     if (!this.kernel || !this.compiled) return;
     this.kernel.clearBuffer("S");
+    if (this.compiled.playerOutputNames.length > 0)
+      this.kernel.clearBuffer("PO");
+    this.playerActionQueues = [];
+    this.submittedTick = 0;
+    this.playerOutputReadout = [];
     const frame = this.kernel.beginFrame();
     this.compiled.runInit(frame);
     this.compiled.runView(frame, this.view);
@@ -567,6 +607,25 @@ export abstract class FieldViewerBase extends LitElement {
     this.encodeFrame(ticks);
   }
 
+  /** Prepare one GPU submission, including at most one queued action per player. */
+  protected beginSimulationBatch(requestedTicks: number): number {
+    if (requestedTicks <= 0) return 0;
+    const ticks = playerActionBatchSize(
+      requestedTicks,
+      this.playerActionQueues,
+    );
+    const actions = dequeuePlayerActions(
+      this.playerActionQueues,
+      this.submittedTick + 1,
+    );
+    actions.forEach((action, p) => {
+      if (action !== undefined) this.mergePlayerIntent(p, action);
+    });
+    this.flushPlayers();
+    this.submittedTick += ticks;
+    return ticks;
+  }
+
   /** Whether the mounted system is an on-demand derivation (no per-tick sim). */
   protected isDeriveSystem(): boolean {
     return !!this.compiled?.system.derive;
@@ -574,6 +633,7 @@ export abstract class FieldViewerBase extends LitElement {
 
   private encodeFrame(ticks: number): void {
     if (!this.kernel || !this.compiled) return;
+    ticks = this.beginSimulationBatch(ticks);
     this.inFlight = true;
     const frame = this.kernel.beginFrame();
     for (let t = 0; t < ticks; t += 1) {
@@ -608,7 +668,7 @@ export abstract class FieldViewerBase extends LitElement {
       while (this.turbo && this.running && this.kernel && this.compiled) {
         const kernel = this.kernel;
         const compiled = this.compiled;
-        const batch = this.turboBatch;
+        const batch = this.beginSimulationBatch(this.turboBatch);
         const frame = kernel.beginFrame();
         for (let t = 0; t < batch; t += 1) compiled.runTick(kernel, frame);
         const now = performance.now();
@@ -635,12 +695,23 @@ export abstract class FieldViewerBase extends LitElement {
 
   private async readScalars(): Promise<void> {
     if (!this.kernel || !this.compiled || this.inFlight) return;
-    if (this.compiled.scalarNames.length === 0) return;
+    if (
+      this.compiled.scalarNames.length === 0 &&
+      this.compiled.playerOutputNames.length === 0
+    ) {
+      return;
+    }
     try {
-      const data = await this.kernel.readBuffer("S");
-      const decoded = this.compiled.decodeScalars(data);
-      this.scalarReadout = decoded.values;
-      this.tickReadout = decoded.tick;
+      if (this.compiled.scalarNames.length > 0) {
+        const data = await this.kernel.readBuffer("S");
+        const decoded = this.compiled.decodeScalars(data);
+        this.scalarReadout = decoded.values;
+        this.tickReadout = decoded.tick;
+      }
+      if (this.compiled.playerOutputNames.length > 0) {
+        const data = await this.kernel.readBuffer("PO");
+        this.playerOutputReadout = this.compiled.decodePlayerOutputs(data);
+      }
     } catch {
       // Torn down mid-read; ignore.
     }
@@ -674,6 +745,14 @@ export abstract class FieldViewerBase extends LitElement {
   /** Stamp a declared brush at map-tile coords — the base brush pass. */
   protected stampBrush(brush: string, x: number, y: number): void {
     if (!this.kernel || !this.compiled || brush === "") return;
+    const intent = this.compiled.intentForBrush(brush);
+    if (intent !== undefined) {
+      this.queuePlayerAction(this.compiled.localPlayer, {
+        actionKind: intent,
+        actionTile: y * this.mapWidth + x,
+      });
+      return;
+    }
     this.kernel.writeUniform("B", this.compiled.encodeBrush(brush, x, y));
     const frame = this.kernel.beginFrame();
     frame.pass(this.compiled.brushPass(brush));
@@ -691,6 +770,10 @@ export abstract class FieldViewerBase extends LitElement {
    * callers (the camera shell) pan only when it returns false.
    */
   protected onTileGesture(x: number, y: number, event: PointerEvent): boolean {
+    if (this.paintTool() && this.brush !== "") {
+      this.stampBrush(this.brush, x, y);
+      return true;
+    }
     const input = this.compiled?.system.input;
     if (input?.onTile) {
       const consumed = input.onTile(this.inputContext(), x, y, event);
