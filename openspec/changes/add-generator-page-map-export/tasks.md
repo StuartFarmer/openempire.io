@@ -17,3 +17,5 @@
 - [ ] 3.2 Manually export one map, place it under `map-generator/assets/maps/<map_name>`, and run `npm run gen-maps`.
 - [ ] 3.3 Verify the generated map appears in the normal map picker.
 - [ ] 3.4 Launch a single-player game on the generated map and verify original OpenFront spawn, expansion, overlays, and combat run on it.
+
+Freeze attempt (Chromium 149.0.7827.55, 2026-09-04): the page exported its five advertised files (`image.png`, `terrain-colors.png`, `layers.bin`, `elevation.bin`, `info.json`) without a page or console error, but exposes no `hydro.bin` download. `npm run gen-maps` therefore stopped with `map foundation-freeze-check has no hydro.bin (required; run derive-layers.ts to retrofit)`. Tasks 3.2–3.4 remain open; source and partial generated output were moved recoverably to `/tmp/openempire-foundation-freeze-check`.

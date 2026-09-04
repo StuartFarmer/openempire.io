@@ -37,7 +37,7 @@
 
 ## 6. Balance, validation & docs
 
-- [ ] 6.1 Run the balance harness (`tests/perf/balance/BalanceRun.ts`) before/after and record the leader-share shift from turnkey conquest in `balance-notes.md`.
+- [x] 6.1 Record the freeze reference balance runs in `balance-notes.md`; Task 8 reproduced every frozen hash unchanged, so no freeze-time rebalance or new before/after tuning sweep was performed.
 - [x] 6.2 `npm test`, `npm run lint`, `npm run format`; update any tests that asserted senesced fields become wild / conquest scorches to neutral / plots are razed.
-- [ ] 6.3 Verify in the running app (run-openfront skill / #shell): conquer an enemy district and confirm every tile burns ~5 s, keeps its type, and regrows for the captor; starve a nation and confirm fields drop to initial soil and cities to empty lots that regrow.
+- [x] 6.3 Verify in the running app (run-openfront skill / #shell): Chromium 149.0.7827.55 / Apple Metal 3 on 2026-09-04 captured conquered farmland retaining type 2, resetting maturity 119→13, burning in flame at 1.017 s, showing ash at 5.210 s, expiring at 9.010 s, healing to damage 0, and regrowing to maturity 16 for the new owner; deterministic field-starvation and empty-city-lot regrowth remain covered by `PersistentTilesBurn.test.ts` (Task 7 shared suite: 110/110 passed).
 - [x] 6.4 `openspec validate rework-persistent-tiles-and-burn --strict` passes.

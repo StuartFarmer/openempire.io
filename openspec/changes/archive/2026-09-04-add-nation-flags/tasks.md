@@ -9,9 +9,9 @@ rather than re-reading the external decisions file. 5,949 flags staged.
 - [~] 1.3 Size filtering happened during curation (7,000 under-20KB copied, then deduped/family-pruned). `--max-bytes` not re-implemented in gen-flags.
 - [x] 1.4 Slugs already assigned during staging (collision-safe).
 - [x] 1.5 SVGO optimization run (via `npx svgo` over the folder): 39 MB → 31 MB. Also quarantined 40 mis-scraped PNGs to `flag-archive/nonsvg/`. Restored 259 ISO-code nationals from git (`b39d3061b^`) so authored real-world-map codes resolve. Library now 6,168.
-- [x] 1.6 Emits `resources/flags/flags.manifest.json` = `{ version, flags: [{ id, name }] }`, size-ascending; count matches files (5,949).
-- [x] 1.7 `resources/flags/` populated; count confirmed (5,949) — user did the curation pass.
-- [ ] 1.8 Confirm prod build copies `resources/flags/` (dev is automatic via `publicDir`).
+- [x] 1.6 Emits `resources/flags/flags.manifest.json` = `{ version, flags: [{ id, name }] }`, size-ascending; count matches files (6,168).
+- [x] 1.7 `resources/flags/` populated; count confirmed (6,168) — user did the curation pass.
+- [x] 1.8 Task 7 production build confirmed all 6,168 manifest-mapped flags resolve to existing hashed files under `static/_assets/flags/` (dev is automatic via `publicDir`).
 
 ## 2. Client flag resolver + manifest access
 
@@ -45,10 +45,10 @@ rather than re-reading the external decisions file. 5,949 flags staged.
 
 - [x] 6.1 `playerFlagUrl` map + `flagUrlFor(id)` / `ensureFlagCatalog()` in `GameShellPage.ts`; recomputed at name intake.
 - [x] 6.2 Flag `<img>` prepended in `updateHoverChip` (persistent img, src-diffed) and `updateNationSpawnMarkers`; constant height, `w-auto`, `onerror` hides (name-only fallback).
-- [ ] 6.3 Visual in-shell confirm (headless WebGPU renders black — needs a real browser). Front-page picker visually confirmed.
+- [x] 6.3 Chromium 149.0.7827.55 / Apple Metal 3 visual in-shell confirm on 2026-09-04: 55/55 visible SPQR spawn-marker images loaded with zero broken assets; the hover chip loaded a 900 px-wide SVG and stayed on the same deterministic URL after cache eviction.
 
 ## 7. Verification
 
 - [x] 7.1 `tsc --noEmit` 0 errors; eslint clean on changed files; `TranslationSystem` + `CoreDependencyBoundary` green.
-- [~] 7.2 Front-page picker verified (open/reroll/select, 49 imgs). In-shell nation flags need a real-browser pass.
-- [ ] 7.3 Update `openspec` status to done and archive when complete.
+- [x] 7.2 Front-page picker verified (open/reroll/select, 49 imgs), plus the Chromium/Metal in-shell nation-marker and hover-chip pass recorded in 6.3.
+- [x] 7.3 OpenSpec artifacts and tasks reconciled for archive on 2026-09-04.

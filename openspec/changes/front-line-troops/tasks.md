@@ -44,9 +44,9 @@
 - [x] 7.3 **The reported bug:** an enemy pushing at one end of a long border is completely unaffected — same troops, still advancing — when the defender counters at the far end.
 - [x] 7.4 Countering onto the stretch actually being pressed annihilates both sides locally, bounded by the smaller local force.
 - [x] 7.5 A counter far larger than the incoming push reduces only the portion of it that its front touches.
-- [ ] (not written — covered indirectly by 7.11 conservation) 7.6 A stretch that exhausts its troops stops taking tiles while other stretches keep advancing.
-- [ ] (not written) 7.7 Concentration: the same total committed narrowly takes tiles at a lower per-tile cost than committed wide.
-- [ ] (not written) 7.8 Seep: an exhausted stretch regains troops from neighbours over subsequent ticks; at fraction 0 the field does not redistribute.
+- [x] 7.6 A stretch that exhausts its troops stops taking tiles while other stretches keep advancing (`FrontLineTroops.test.ts`, Task 7 shared suite: 110/110 passed).
+- [x] 7.7 Concentration: the same total committed narrowly takes tiles at a lower per-tile cost than committed wide (`FrontLineTroops.test.ts`, Task 7 shared suite: 110/110 passed).
+- [x] 7.8 Seep: an exhausted stretch regains troops from neighbours over subsequent ticks; at fraction 0 the field does not redistribute (`FrontLineTroops.test.ts`, Task 7 shared suite: 110/110 passed).
 - [x] 7.9 Determinism: the same seeded game yields an identical field at every tick.
 - [x] 7.10 `setTroops` rescales rather than collapsing the distribution (retreat/merge path).
 - [x] 7.11 Total conservation: seep, clash and advance never create or leak troops.
@@ -56,6 +56,6 @@
 - [x] 8.1 Full suite green against the known-failing baseline in CLAUDE.md (the five client files).
 - [x] 8.2 Harness sweep over `frontSeepFraction`; record in `balance-notes.md`.
 - [x] 8.3 Check conquest pace and `firstElim` against the pre-change baseline; front stalling into stalemate is the risk to watch.
-- [ ] (not run) 8.4 `tests/perf` — confirm the per-tile bookkeeping and seep pass have not regressed tick time.
+- [x] 8.4 `tests/perf` — Task 8 performance smoke completed 1,000 game ticks at 810 ticks/s (mean 1.23 ms, p95 1.94 ms, p99 3.27 ms, max 13.7 ms; 0 ticks over 100 ms).
 - [x] 8.5 `npm run lint` and `npm run format`.
-- [ ] (not run) 8.6 Play-verify in the shell: counter one end of a contested border and confirm the enemy push at the other end is untouched.
+- [ ] 8.6 Play-verify in the shell: counter one end of a contested border and confirm the enemy push at the other end is untouched. Freeze attempt: Chromium 149.0.7827.55 / Apple Metal 3 on 2026-09-04 produced no incoming human front during a 120-second live observation, so this visual gate remains open; deterministic correctness remains covered by 7.3.
