@@ -130,16 +130,13 @@ func processMap(ctx context.Context, name string, isTest bool) error {
 		"height":         result.Map.Height,
 		"num_land_tiles": result.Map.NumLandTiles,
 	}
+	// map4x is the pathfinding minimap, not a playable size.
 	manifest["map4x"] = map[string]interface{}{
 		"width":          result.Map4x.Width,
 		"height":         result.Map4x.Height,
 		"num_land_tiles": result.Map4x.NumLandTiles,
 	}
-	manifest["map16x"] = map[string]interface{}{
-		"width":          result.Map16x.Width,
-		"height":         result.Map16x.Height,
-		"num_land_tiles": result.Map16x.NumLandTiles,
-	}
+	delete(manifest, "map16x")
 
 	mapDir := filepath.Join(outputMapBaseDir, name)
 	if err := os.MkdirAll(mapDir, 0755); err != nil {
@@ -151,11 +148,123 @@ func processMap(ctx context.Context, name string, isTest bool) error {
 	if err := os.WriteFile(filepath.Join(mapDir, "map4x.bin"), result.Map4x.Data, 0644); err != nil {
 		return fmt.Errorf("failed to write combined binary for %s: %w", name, err)
 	}
-	if err := os.WriteFile(filepath.Join(mapDir, "map16x.bin"), result.Map16x.Data, 0644); err != nil {
-		return fmt.Errorf("failed to write combined binary for %s: %w", name, err)
-	}
 	if err := os.WriteFile(filepath.Join(mapDir, "thumbnail.webp"), result.Thumbnail, 0644); err != nil {
 		return fmt.Errorf("failed to write thumbnail for %s: %w", name, err)
+	}
+	copiedTerrainColors, err := copyOptionalFile(
+		filepath.Join(inputMapDir, name, "terrain-colors.png"),
+		filepath.Join(mapDir, "terrain-colors.png"),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to copy terrain color sidecar for %s: %w", name, err)
+	}
+	if copiedTerrainColors {
+		manifest["terrain_colors"] = true
+	} else if !isTest {
+		// Shipped maps must carry the color sidecar — there is exactly one
+		// rendering path. Retrofit with: npx tsx map-generator/derive-layers.ts
+		return fmt.Errorf("map %s has no terrain-colors.png (required; run derive-layers.ts to retrofit)", name)
+	} else {
+		delete(manifest, "terrain_colors")
+	}
+
+	// layers.bin sidecar: 6 Uint8 planes (crop, metal, oil, temperature,
+	// humidity, water) at full resolution — see src/core/game/MapLayers.ts
+	// (LAYER_NAMES) for the format. Keep this count in sync with LAYER_NAMES.
+	// The baker only copies and size-checks; it never parses planes.
+	copiedLayers, err := copyOptionalSizedFile(
+		filepath.Join(inputMapDir, name, "layers.bin"),
+		filepath.Join(mapDir, "layers.bin"),
+		6*result.Map.Width*result.Map.Height,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to copy layers sidecar for %s: %w", name, err)
+	}
+	if copiedLayers {
+		manifest["layers"] = true
+	} else if !isTest {
+		// Shipped maps must carry the layer sidecar — there is exactly one
+		// game mode. Retrofit with: npx tsx map-generator/derive-layers.ts
+		return fmt.Errorf("map %s has no layers.bin (required; run derive-layers.ts to retrofit)", name)
+	} else {
+		delete(manifest, "layers")
+	}
+
+	// elevation.bin sidecar: one u16 little-endian plane (width × height × 2
+	// bytes) — the primary field runtime terrain derivation starts from. See
+	// src/core/game/ElevationMap.ts for the format. The baker only copies and
+	// size-checks; it never parses the plane. The world_engine render config
+	// travels from info.json into manifest.json via the manifest passthrough.
+	elevationPath := filepath.Join(inputMapDir, name, "elevation.bin")
+	elevationData, err := os.ReadFile(elevationPath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("failed to read elevation sidecar for %s: %w", name, err)
+		}
+		if !isTest {
+			// Shipped maps must carry the elevation sidecar. Retrofit with:
+			// npx tsx map-generator/derive-layers.ts
+			return fmt.Errorf("map %s has no elevation.bin (required; run derive-layers.ts to retrofit)", name)
+		}
+		delete(manifest, "elevation")
+	} else {
+		expectedElevationSize := 2 * result.Map.Width * result.Map.Height
+		if len(elevationData) != expectedElevationSize {
+			return fmt.Errorf("map %s elevation.bin size mismatch: got %d bytes, expected %d",
+				name, len(elevationData), expectedElevationSize)
+		}
+		if err := os.WriteFile(filepath.Join(mapDir, "elevation.bin"), elevationData, 0644); err != nil {
+			return fmt.Errorf("failed to write elevation sidecar for %s: %w", name, err)
+		}
+		manifest["elevation"] = true
+	}
+
+	// hydro.bin sidecar: two Uint8 planes (lake, river) at full resolution —
+	// see src/core/game/HydroMap.ts (HYDRO_PLANE_NAMES). Keeps lakes and
+	// rivers distinct for rendering. Copy + size-check only.
+	hydroPath := filepath.Join(inputMapDir, name, "hydro.bin")
+	hydroData, err := os.ReadFile(hydroPath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("failed to read hydro sidecar for %s: %w", name, err)
+		}
+		if !isTest {
+			return fmt.Errorf("map %s has no hydro.bin (required; run derive-layers.ts to retrofit)", name)
+		}
+		delete(manifest, "hydro")
+	} else {
+		expectedHydroSize := 2 * result.Map.Width * result.Map.Height
+		if len(hydroData) != expectedHydroSize {
+			return fmt.Errorf("map %s hydro.bin size mismatch: got %d bytes, expected %d",
+				name, len(hydroData), expectedHydroSize)
+		}
+		if err := os.WriteFile(filepath.Join(mapDir, "hydro.bin"), hydroData, 0644); err != nil {
+			return fmt.Errorf("failed to write hydro sidecar for %s: %w", name, err)
+		}
+		manifest["hydro"] = true
+	}
+
+	// season.bin sidecar: OPTIONAL two Uint8 planes (amplitude, phase) — the
+	// real seasonal cycle fit from monthly data (see src/core/game/SeasonMap.ts).
+	// Only real-data maps carry it; generated maps use the latitude model, so
+	// absence is fine (no error). Copy + size-check only.
+	seasonPath := filepath.Join(inputMapDir, name, "season.bin")
+	seasonData, err := os.ReadFile(seasonPath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("failed to read season sidecar for %s: %w", name, err)
+		}
+		delete(manifest, "season")
+	} else {
+		expectedSeasonSize := 2 * result.Map.Width * result.Map.Height
+		if len(seasonData) != expectedSeasonSize {
+			return fmt.Errorf("map %s season.bin size mismatch: got %d bytes, expected %d",
+				name, len(seasonData), expectedSeasonSize)
+		}
+		if err := os.WriteFile(filepath.Join(mapDir, "season.bin"), seasonData, 0644); err != nil {
+			return fmt.Errorf("failed to write season sidecar for %s: %w", name, err)
+		}
+		manifest["season"] = true
 	}
 
 	// Serialize the updated manifest to JSON
@@ -168,6 +277,42 @@ func processMap(ctx context.Context, name string, isTest bool) error {
 		return fmt.Errorf("failed to write manifest for %s: %w", name, err)
 	}
 	return nil
+}
+
+func copyOptionalFile(src string, dst string) (bool, error) {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return false, err
+	}
+	return true, os.WriteFile(dst, data, 0644)
+}
+
+// copyOptionalSizedFile copies src to dst like copyOptionalFile, but skips the
+// copy (with a warning) when the file exists and its size doesn't match
+// expectedSize — a stale or truncated sidecar must not ship.
+func copyOptionalSizedFile(src string, dst string, expectedSize int) (bool, error) {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	if len(data) != expectedSize {
+		slog.Warn("skipping sidecar with unexpected size",
+			"file", src, "size", len(data), "expected", expectedSize)
+		return false, nil
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return false, err
+	}
+	return true, os.WriteFile(dst, data, 0644)
 }
 
 // parseMapsFlag validates and parses the --maps command-line argument.

@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   id="Malay flag"
+   height="550"
+   width="825"
+   version="1.0">
+  <title
+     id="title3560">Federation of Malaya Flag</title>
+  <metadata
+     id="metadata3546">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title>Federation of Malaya Flag</dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs3544" />
+  <rect
+     style="fill:#ffffff"
+     id="rect6"
+     y="0"
+     x="0"
+     height="550"
+     width="825" />
+  <rect
+     style="fill:#cc0001;fill-opacity:1"
+     id="rect18"
+     y="500"
+     x="0"
+     height="50"
+     width="825" />
+  <use
+     xlink:href="#rect18"
+     height="550"
+     width="1100"
+     y="0"
+     x="0"
+     style="fill:#cc0001"
+     id="use2777"
+     transform="translate(0,-100)" />
+  <use
+     xlink:href="#rect18"
+     height="550"
+     width="1100"
+     y="0"
+     x="0"
+     style="fill:#cc0001"
+     id="use2779"
+     transform="translate(0,-200)" />
+  <use
+     xlink:href="#rect18"
+     height="550"
+     width="1100"
+     y="0"
+     x="0"
+     style="fill:#cc0001"
+     id="use2781"
+     transform="translate(0,-300)" />
+  <use
+     xlink:href="#rect18"
+     height="550"
+     width="1100"
+     y="0"
+     x="0"
+     style="fill:#cc0001"
+     id="use2783"
+     transform="translate(0,-400)" />
+  <use
+     xlink:href="#rect18"
+     height="550"
+     width="1100"
+     y="0"
+     x="0"
+     style="fill:#cc0001"
+     id="use2785"
+     transform="translate(0,-500)" />
+  <rect
+     style="fill:#010066;fill-opacity:1"
+     id="rect20"
+     y="0"
+     x="0"
+     height="350"
+     width="412.5" />
+  <path
+     style="fill:#ffcc00;fill-rule:evenodd"
+     id="path22"
+     d="m 190.35475,289.00373 c 7.429,-0.56 13.817,-2.16 20.541,-3.424 -89.836,46.534 -189.878,-23.679 -182.584,-119.82 6.265,-82.575 96.053,-144.389 180.302,-102.703 -78.895,-10.744 -140.362,35.796 -140.362,111.833 0,64.24 42.57,105.192 103.845,114.114 3.464,1.896 14.794,1.896 18.258,0 z" />
+  <polygon
+     style="fill:#ffcc00"
+     id="polygon24"
+     transform="translate(-45.23525,16.49973)"
+     points="300.318,58.733 329.007,105.523 357.696,58.733 356.533,113.605 405.963,89.754 375.32,135.286 429.8,141.945 379.403,163.683 421.635,198.738 367.485,189.779 384.06,242.1 343.351,205.289 329.007,258.268 329.007,258.268 314.662,205.289 273.954,242.1 290.528,189.779 236.378,198.738 278.61,163.683 228.214,141.945 282.693,135.286 252.049,89.752 301.479,113.605 " />
+</svg>

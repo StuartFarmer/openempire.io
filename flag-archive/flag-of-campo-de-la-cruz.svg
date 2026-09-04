@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="750"
+   height="500"
+   id="svg2"
+   version="1.0"
+   inkscape:version="0.46"
+   sodipodi:docname="Flag_of_Campo_de_la_Cruz.svg"
+   sodipodi:version="0.32"
+   inkscape:output_extension="org.inkscape.output.svg.inkscape">
+  <defs
+     id="defs4" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="1.014"
+     inkscape:cx="375"
+     inkscape:cy="250"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     inkscape:snap-bbox="true"
+     inkscape:snap-object-midpoints="true"
+     inkscape:object-paths="true"
+     inkscape:snap-nodes="false"
+     inkscape:window-width="1024"
+     inkscape:window-height="712"
+     inkscape:window-x="-4"
+     inkscape:window-y="-4"
+     inkscape:window-maximized="1" />
+  <metadata
+     id="metadata7">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Capa 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(0,-332.36218)">
+    <rect
+       style="fill:#246900;fill-opacity:1;stroke:none"
+       id="rect3719"
+       width="749.96063"
+       height="262.81427"
+       x="0.055043444"
+       y="569.54474" />
+    <rect
+       style="fill:#ffffff;fill-opacity:1;stroke:none"
+       id="rect3717"
+       width="749.24164"
+       height="239.56189"
+       x="0.073558062"
+       y="332.60434" />
+    <path
+       style="fill:#d00000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="M 0.07330268,332.2867 L 318.68336,570.00313 L 0.0651533,832.44301 L 0.07330268,332.2867 z"
+       id="path2937"
+       sodipodi:nodetypes="cccc" />
+    <path
+       id="path3715"
+       style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.65585423px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="M 128.21487,577.96445 L 127.97537,660.49898 L 84.575256,660.31075 L 84.671776,577.87022 L 41.917072,578.14817 L 41.917072,534.74765 L 84.671776,534.59696 L 84.575256,491.7805 L 127.97537,491.59227 L 128.21487,534.50274 L 170.98776,534.74765 L 170.98776,578.14817 L 128.21487,577.96445 z"
+       sodipodi:nodetypes="ccccccccccccc" />
+  </g>
+</svg>

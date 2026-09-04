@@ -8,6 +8,11 @@ import {
   GameUpdateType,
   UnitIncomingUpdate,
 } from "../../../core/game/GameUpdates";
+import {
+  CancelAttackIntentEvent,
+  CancelBoatIntentEvent,
+  SendAttackIntentEvent,
+} from "../../board/BoardEvents";
 import { Controller } from "../../Controller";
 import { themeProvider } from "../../theme/ThemeProvider";
 import {
@@ -15,11 +20,6 @@ import {
   GoToPositionEvent,
   GoToUnitEvent,
 } from "../../TransformHandler";
-import {
-  CancelAttackIntentEvent,
-  CancelBoatIntentEvent,
-  SendAttackIntentEvent,
-} from "../../Transport";
 import { UIState } from "../../UIState";
 import { renderTroops, translateText } from "../../Utils";
 import { GameView, PlayerView, UnitView } from "../../view";

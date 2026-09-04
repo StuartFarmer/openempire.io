@@ -62,7 +62,6 @@ type MapResult struct {
 	Thumbnail []byte
 	Map       MapInfo
 	Map4x     MapInfo
-	Map16x    MapInfo
 }
 
 // MapInfo contains the serialized map data and metadata for a specific scale.
@@ -177,9 +176,6 @@ func GenerateMap(ctx context.Context, args GeneratorArgs) (MapResult, error) {
 	processWater(ctx, terrain4x, false)
 	setImpassableNeighborWaterDepth(ctx, terrain4x)
 
-	terrain16x := createMiniMap(terrain4x)
-	processWater(ctx, terrain16x, false)
-	setImpassableNeighborWaterDepth(ctx, terrain16x)
 
 	thumb := createMapThumbnail(ctx, terrain4x, 0.5)
 	webp, err := convertToWebP(ThumbData{
@@ -195,12 +191,9 @@ func GenerateMap(ctx context.Context, args GeneratorArgs) (MapResult, error) {
 	terrain = nil
 	mapData4x, numLandTiles4x := packTerrain(ctx, terrain4x)
 	terrain4x = nil
-	mapData16x, numLandTiles16x := packTerrain(ctx, terrain16x)
-	terrain16x = nil
 
 	logger.Debug(fmt.Sprintf("Land Tile Count (1x): %d", mapNumLandTiles))
 	logger.Debug(fmt.Sprintf("Land Tile Count (4x): %d", numLandTiles4x))
-	logger.Debug(fmt.Sprintf("Land Tile Count (16x): %d", numLandTiles16x))
 
 	if mapNumLandTiles == 0 {
 		return MapResult{}, fmt.Errorf("Map has 0 land tiles")
@@ -221,12 +214,6 @@ func GenerateMap(ctx context.Context, args GeneratorArgs) (MapResult, error) {
 			Width:        width / 2,
 			Height:       height / 2,
 			NumLandTiles: numLandTiles4x,
-		},
-		Map16x: MapInfo{
-			Data:         mapData16x,
-			Width:        width / 4,
-			Height:       height / 4,
-			NumLandTiles: numLandTiles16x,
 		},
 		Thumbnail: webp,
 	}, nil

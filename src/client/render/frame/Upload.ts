@@ -28,10 +28,12 @@ export interface FrameUploadTarget {
     dirtyRowMax: number,
   ): void;
   uploadRailroadState(data: Uint8Array): void;
+  uploadPlotState(data: Uint8Array, maturity: Uint8Array): void;
   applyRailroadDust(tileRefs: number[]): void;
   updateUnits(units: ReadonlyMap<number, UnitState>, gameTick: number): void;
   updateStructures(units: ReadonlyMap<number, UnitState>): void;
   applyDeadUnits(deadUnits: DeadUnitFx[]): void;
+  applyBurns(tileRefs: number[]): void;
   applyConquestEvents(events: ConquestFx[]): void;
   applyBonusEvents(events: BonusEvent[]): void;
   updateAttackRings(rings: AttackRingInput[]): void;
@@ -83,6 +85,11 @@ export function uploadFrameData(
     }
   }
 
+  // --- Tribal plots ---
+  if (frame.plotDirty) {
+    view.uploadPlotState(frame.plotState, frame.plotMaturity);
+  }
+
   // --- Units + structures ---
   view.updateUnits(frame.units, frame.tick);
   if (frame.structuresDirty) {
@@ -92,6 +99,9 @@ export function uploadFrameData(
   // --- Ephemeral effects ---
   if (frame.events.deadUnits.length > 0) {
     view.applyDeadUnits(frame.events.deadUnits);
+  }
+  if (frame.events.burnTiles.length > 0) {
+    view.applyBurns(frame.events.burnTiles);
   }
   if (frame.events.conquestEvents.length > 0) {
     view.applyConquestEvents(frame.events.conquestEvents);

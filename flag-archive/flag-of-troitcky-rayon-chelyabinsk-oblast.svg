@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" xmlns:xlink="http://www.w3.org/1999/xlink">
+ <defs>
+  <style type="text/css">
+   <![CDATA[
+    .fil1 {fill:#00923f}
+    .fil2 {fill:#fff500}
+    .fil0 {fill:#da251d}
+   ]]>
+  </style>
+ </defs>
+  <rect class="fil1" width="900" height="600"/>
+  <polygon class="fil0" points="0,0 0,300 450,0 "/>
+  <polygon class="fil0" points="0,600 450,600 900,300 900,0"/>
+  <g id="Tw">
+   <rect class="fil2" x="120" y="140" width="60" height="120"/>
+   <rect class="fil2" x="90" y="170" width="120" height="60"/>
+  </g>
+<use xlink:href="#Tw" transform="translate(300 0)"/> 
+<use xlink:href="#Tw" transform="translate(600 0)"/> 
+</svg>

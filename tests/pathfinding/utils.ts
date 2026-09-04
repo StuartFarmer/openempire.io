@@ -4,7 +4,6 @@ import { fileURLToPath } from "url";
 import {
   Difficulty,
   Game,
-  GameMapSize,
   GameMapType,
   GameMode,
   GameType,
@@ -12,6 +11,7 @@ import {
 } from "../../src/core/game/Game";
 import { createGame, GameImpl } from "../../src/core/game/GameImpl";
 import { TileRef } from "../../src/core/game/GameMap";
+import { expectedLayersByteLength } from "../../src/core/game/MapLayers";
 import {
   genTerrainFromBin,
   MapManifest,
@@ -252,13 +252,18 @@ export async function setupFromPath(
     fs.readFileSync(manifestPath, "utf8"),
   ) satisfies MapManifest;
 
-  const gameMap = await genTerrainFromBin(manifest.map, mapBinBuffer);
+  const gameMap = await genTerrainFromBin(
+    manifest.map,
+    mapBinBuffer,
+    new Uint8Array(
+      expectedLayersByteLength(manifest.map.width, manifest.map.height),
+    ),
+  );
   const miniGameMap = await genTerrainFromBin(manifest.map4x, miniMapBinBuffer);
 
   const config = new TestConfig(
     {
-      gameMap: GameMapType.Asia,
-      gameMapSize: GameMapSize.Normal,
+      gameMap: GameMapType.Verdantia,
       gameMode: GameMode.FFA,
       gameType: GameType.Singleplayer,
       difficulty: Difficulty.Medium,

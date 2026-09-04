@@ -16,12 +16,16 @@
 
 import type { GhostPreviewData, RendererConfig, UnitState } from "../../types";
 import {
+  TRIBAL_PLOT_TYPE_INDEX,
+  UT_BARN,
   UT_CITY,
   UT_DEFENSE_POST,
   UT_FACTORY,
+  UT_FARMLAND,
   UT_MISSILE_SILO,
   UT_PORT,
   UT_SAM_LAUNCHER,
+  UT_SETTLEMENT,
 } from "../../types";
 import { DynamicInstanceBuffer } from "../DynamicBuffer";
 import type { RenderSettings } from "../RenderSettings";
@@ -136,6 +140,11 @@ export class StructurePass {
         this.typeToAtlasCol.set(header.unitTypes[i], col);
       }
     }
+    // Tribal-age structures have no atlas art yet (TODO: real sprites) —
+    // reuse the visually-nearest existing columns so they render.
+    this.typeToAtlasCol.set(UT_SETTLEMENT, STRUCTURE_ORDER.indexOf(UT_CITY));
+    this.typeToAtlasCol.set(UT_FARMLAND, STRUCTURE_ORDER.indexOf(UT_FACTORY));
+    this.typeToAtlasCol.set(UT_BARN, STRUCTURE_ORDER.indexOf(UT_PORT));
 
     // Compile shaders
     this.program = createProgram(
@@ -285,6 +294,8 @@ export class StructurePass {
 
     for (const unit of units.values()) {
       if (!unit.isActive) continue;
+      // Tribal plots render as painted 2×2 patterns (PlotPass), not sprites.
+      if (TRIBAL_PLOT_TYPE_INDEX.has(unit.unitType)) continue;
       const atlasIdx = this.typeToAtlasCol.get(unit.unitType);
       if (atlasIdx === undefined) continue;
 

@@ -1,4 +1,8 @@
-import { Config, NukeMagnitude } from "../../src/core/configuration/Config";
+import {
+  Config,
+  FoodConfig,
+  NukeMagnitude,
+} from "../../src/core/configuration/Config";
 import {
   Game,
   Player,
@@ -10,6 +14,39 @@ import { TileRef } from "../../src/core/game/GameMap";
 
 export class TestConfig extends Config {
   private _proximityBonusPortsNb: number = 0;
+  private _inertFood: boolean = false;
+
+  /**
+   * Neutralize the food economy for tests that exercise other systems:
+   * nobody eats, ages, breeds, or bleeds to supply attrition, so troop
+   * counts only change when the test changes them. Setup() enables this
+   * automatically for games created without explicit layer data; economy
+   * tests pass a layersFill and get the real knobs.
+   */
+  setInertFood(inert: boolean): void {
+    this._inertFood = inert;
+  }
+
+  food(): FoodConfig {
+    const base = super.food();
+    if (!this._inertFood) return base;
+    return {
+      ...base,
+      idleConsumptionMilli: 0,
+      moveConsumptionMilli: 0,
+      fightConsumptionMilli: 0,
+      warSupplyAttrition: 0,
+      decayNumer: 0,
+      avgLifespanTicks: Number.MAX_SAFE_INTEGER,
+      baseBirthRate: 0,
+      urbanGrowthRate: 0,
+      // Nobody eats, so food-runway war-share scaling would read "rich"
+      // (infinite runway) — pin the scales flat so inert games keep the
+      // legacy maxWarShare exactly (rework-ai-war-strategy).
+      warShareLeanScale: 1,
+      warShareRichScale: 1,
+    };
+  }
   private _defaultNukeSpeed: number = 4;
   private _spawnImmunityDuration: number = 0;
   private _nationSpawnImmunityDuration: number = 0;

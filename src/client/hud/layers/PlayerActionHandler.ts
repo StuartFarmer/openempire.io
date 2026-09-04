@@ -13,7 +13,7 @@ import {
   SendEmojiIntentEvent,
   SendSpawnIntentEvent,
   SendTargetPlayerIntentEvent,
-} from "../../Transport";
+} from "../../board/BoardEvents";
 import { UIState } from "../../UIState";
 import { PlayerView } from "../../view";
 
@@ -23,11 +23,18 @@ export class PlayerActionHandler {
     private uiState: UIState,
   ) {}
 
-  handleAttack(player: PlayerView, targetId: string | null) {
+  handleAttack(
+    player: PlayerView,
+    targetId: string | null,
+    // A concentrated push from this stretch of the player's border (the drag-
+    // along-border gesture); omit for the classic whole-border advance.
+    sourceTiles?: readonly TileRef[],
+  ) {
     this.eventBus.emit(
       new SendAttackIntentEvent(
         targetId,
         this.uiState.attackRatio * player.troops(),
+        sourceTiles,
       ),
     );
   }

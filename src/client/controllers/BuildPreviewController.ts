@@ -15,30 +15,40 @@ import {
 import {
   BuildableUnit,
   PlayerBuildableUnitType,
+  TribalStructures,
   UnitType,
 } from "../../core/game/Game";
 import { TileRef } from "../../core/game/GameMap";
 import { UserSettings } from "../../core/game/UserSettings";
+import {
+  BuildUnitIntentEvent,
+  SendUpgradeStructureIntentEvent,
+} from "../board/BoardEvents";
 import { Controller } from "../Controller";
 import {
   ConfirmGhostStructureEvent,
+  MouseDownEvent,
   MouseMoveEvent,
   MouseUpEvent,
+  PaintDragEvent,
 } from "../InputHandler";
 import { MapRenderer, buildNukeTrajectory } from "../render/gl";
 import type { SAMInfo } from "../render/gl/utils/NukeTrajectory";
 import type { GhostPreviewData } from "../render/types";
 import { TransformHandler } from "../TransformHandler";
-import {
-  BuildUnitIntentEvent,
-  SendUpgradeStructureIntentEvent,
-} from "../Transport";
 import { UIState } from "../UIState";
 import { GameView } from "../view";
 
-/** True for nuke types (AtomBomb, HydrogenBomb): ghost is preserved after placement so user can place multiple or keep selection (Enter/key confirm). */
+/**
+ * True for nuke types (ghost preserved so the user can place multiple) and
+ * for tribal plots (paint mode is sticky — exit via Escape/right-click).
+ */
 export function shouldPreserveGhostAfterBuild(unitType: UnitType): boolean {
-  return unitType === UnitType.AtomBomb || unitType === UnitType.HydrogenBomb;
+  return (
+    unitType === UnitType.AtomBomb ||
+    unitType === UnitType.HydrogenBomb ||
+    TribalStructures.has(unitType)
+  );
 }
 
 /**
@@ -101,6 +111,8 @@ export class BuildPreviewController implements Controller {
   init() {
     this.eventBus.on(MouseMoveEvent, (e) => this.moveGhost(e));
     this.eventBus.on(MouseUpEvent, (e) => this.requestConfirmStructure(e));
+    this.eventBus.on(MouseDownEvent, () => this.paintedAnchors.clear());
+    this.eventBus.on(PaintDragEvent, (e) => this.paintAt(e.x, e.y));
     this.eventBus.on(ConfirmGhostStructureEvent, () =>
       this.requestConfirmStructure(
         new MouseUpEvent(this.mousePos.x, this.mousePos.y),
@@ -493,13 +505,57 @@ export class BuildPreviewController implements Controller {
     }
   }
 
+  /** Tiles attempted during the current paint stroke (cleared on pointer down). */
+  private readonly paintedAnchors: Set<number> = new Set();
+
+  /**
+   * Stroke painting (ported from the reference foundation
+   * ConstructionController): one build intent per new valid tile the cursor
+   * crosses while the pointer is held. Plain per-stroke tile dedupe — plots
+   * are single tiles. Cheap client-side prechecks only; the sim re-validates
+   * authoritatively (cost, exact ownership, occupancy).
+   */
+  private paintAt(screenX: number, screenY: number): void {
+    if (!this.ghostUnit) return;
+    const type = this.ghostUnit.buildableUnit.type;
+    // All tribal plots stroke-paint (playtest: click-drag everywhere).
+    if (!TribalStructures.has(type)) return;
+    this.mousePos.x = screenX;
+    this.mousePos.y = screenY;
+
+    const tile = this.transformHandler.screenToWorldCoordinates(
+      screenX,
+      screenY,
+    );
+    if (!this.game.isValidCoord(tile.x, tile.y)) return;
+    const anchor = this.game.ref(tile.x, tile.y);
+    if (this.paintedAnchors.has(anchor)) return;
+
+    // Cheap validity: on-map (above), mine, land, unplotted.
+    const me = this.game.myPlayer();
+    if (me === null) return;
+    if (
+      !this.game.isLand(anchor) ||
+      this.game.ownerID(anchor) !== me.smallID() ||
+      this.game.plotStateAt(anchor) !== 0
+    ) {
+      return;
+    }
+
+    this.paintedAnchors.add(anchor);
+    this.eventBus.emit(new BuildUnitIntentEvent(type, anchor, undefined));
+  }
+
   private createStructure(e: MouseUpEvent) {
     if (!this.ghostUnit) return;
     if (
       this.ghostUnit.buildableUnit.canBuild === false &&
       this.ghostUnit.buildableUnit.canUpgrade === false
     ) {
-      this.removeGhostStructure();
+      // Paint mode: an invalid spot fails silently — the mode persists.
+      if (!TribalStructures.has(this.ghostUnit.buildableUnit.type)) {
+        this.removeGhostStructure();
+      }
       return;
     }
     const tile = this.transformHandler.screenToWorldCoordinates(e.x, e.y);

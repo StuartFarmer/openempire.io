@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="780" height="520" viewBox="0 0 780 520">
+<desc>Wuchang uprising flag (October 10 1911) and Republic of China army flag (ca. 1913-1928)</desc>
+<rect width="780" height="520" fill="#EF0000"/>
+<g transform="translate(390 260)">
+<g id="c">
+<path d="M-35.5 0 L0 -200 L35.5 0z"/>
+</g>
+<use href="#c" transform="rotate(40)"/>
+<use href="#c" transform="rotate(80)"/>
+<use href="#c" transform="rotate(120)"/>
+<use href="#c" transform="rotate(160)"/>
+<use href="#c" transform="rotate(200)"/>
+<use href="#c" transform="rotate(240)"/>
+<use href="#c" transform="rotate(280)"/>
+<use href="#c" transform="rotate(320)"/>
+</g>
+<g fill="#FFEF00" transform="translate(390 260)">
+<g id="d">
+<circle cy="-200" r="19"/>
+<circle cx="36.63889" cy="41.3664" r="12.66667"/>
+</g>
+<use href="#d" transform="rotate(40)"/>
+<use href="#d" transform="rotate(80)"/>
+<use href="#d" transform="rotate(120)"/>
+<use href="#d" transform="rotate(160)"/>
+<use href="#d" transform="rotate(200)"/>
+<use href="#d" transform="rotate(240)"/>
+<use href="#d" transform="rotate(280)"/>
+<use href="#d" transform="rotate(320)"/>
+<circle r="12.66667"/>
+</g>
+</svg>

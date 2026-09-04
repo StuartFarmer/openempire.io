@@ -1,0 +1,5 @@
+<svg width="1200" height="600" xmlns="http://www.w3.org/2000/svg">
+    <path fill="#cd0000" d="M0 0h1200v600H0z" style="fill:#ce0000;fill-opacity:1"/>
+    <path fill="#0091fa" d="M0 0h150v600H0z" style="fill:#0092fa;fill-opacity:1"/>
+    <path fill="gold" d="M247.204 132.418H190l46.187 35.609L218.814 225 265 189.837 311.187 225l-17.373-56.973L340 132.418h-57.203L265 75z" style="fill:#ffd800;fill-opacity:1"/>
+</svg>

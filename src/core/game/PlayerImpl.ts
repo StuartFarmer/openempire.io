@@ -1,3 +1,8 @@
+import {
+  EMPTY_URBAN_LOT_BYTE,
+  tenureCurve,
+  urbanRenderByte,
+} from "../execution/utils/TileTenure";
 import { PseudoRandom } from "../PseudoRandom";
 import { ClientID } from "../Schemas";
 import {
@@ -22,6 +27,7 @@ import {
   EmojiMessage,
   GameMode,
   Gold,
+  LandUse,
   MutableAlliance,
   Player,
   PlayerBuildable,
@@ -35,6 +41,7 @@ import {
   Team,
   TerraNullius,
   Tick,
+  TribalStructures,
   Unit,
   UnitParams,
   UnitType,
@@ -42,17 +49,17 @@ import {
 import { GameImpl } from "./GameImpl";
 import { andFN, manhattanDistFN, TileRef } from "./GameMap";
 import {
-  ATTACK_DELTA_INCOMING,
-  ATTACK_DELTA_OUTGOING,
-  diffPlayerUpdate,
-  packAttackTroopDeltas,
-} from "./GameUpdateUtils";
-import {
   AllianceView,
   AttackUpdate,
   GameUpdateType,
   PlayerUpdate,
 } from "./GameUpdates";
+import {
+  ATTACK_DELTA_INCOMING,
+  ATTACK_DELTA_OUTGOING,
+  diffPlayerUpdate,
+  packAttackTroopDeltas,
+} from "./GameUpdateUtils";
 import {
   bestShoreDeploymentSource,
   canBuildTransportShip,
@@ -96,6 +103,62 @@ export class PlayerImpl implements Player {
 
   private _gold: bigint;
   private _troops: bigint;
+
+  // ── Tribal-age food economy (layered maps only) ─────────────────────────
+  /** Food stock in milliunits (1000 milli = 1 displayed food). */
+  public _foodMilli: bigint = 0n;
+  /** Sum of owned tiles' crop-layer bytes — maintained by GameImpl on
+   *  conquer/relinquish, never recomputed by scanning. */
+  public _fertilitySum: number = 0;
+  /** Last tick's food flow breakdown (display units), for UI/stats. */
+  public _foodFlow = {
+    production: 0,
+    consumption: 0,
+    starvedTroops: 0,
+    capacity: 0,
+    population: 0,
+  };
+  /** Fractional birth/death carry so small populations still change smoothly
+   *  (demographics apply whole people; the remainder accumulates). _deathCredit
+   *  is old age (civilians), _starveCredit is famine (everyone). */
+  public _birthCredit = 0;
+  public _deathCredit = 0;
+  public _starveCredit = 0;
+  /** Famine credit for DEPLOYED troops (task 4.2: the war cohort feeds by
+   *  requisition and starves separately from the civilian districts). */
+  public _warStarveCredit = 0;
+  /**
+   * Allocation slider (add-food-allocation): fraction of each tick's
+   * production offered to the population; the rest banks into storage.
+   * Set via the food_allocation intent; initialized from Config.food().
+   */
+  private _foodPopulationShare: number = 1;
+
+  // ── Urban core growth (add-urban-core-growth) ───────────────────────────
+  /** Founded capital tile, or null before founding. */
+  private _core: TileRef | null = null;
+  /** Per-tile population — people living on each tile (0..popPerDensity).
+   *  Absent = 0 (unsettled). Σ ≈ the nation's settled population. */
+  public _density = new Map<TileRef, number>();
+  /** Cached Σ density in milliunits, kept in sync by setDensity(). */
+  private _urbanAreaMilli = 0;
+  /** Extra housing from tile tenure (rework-settlement-ecology): Σ over city
+   *  tiles of (capMult−1)·popPerDensity, refreshed by TileTenure.tenureTick. */
+  public _tenureCapacityBonus = 0;
+  // Seed awards (rework-settlement-ecology): the population high-water mark
+  // and banked founding pairs, maintained by SeedAwards.seedAwardTick.
+  public _peakPopulation = 0;
+  public _settlementsAwarded = 0;
+  public _farmSeeds = 0;
+  public _settlementSeeds = 0;
+  /** Per-Farmland-tile maturity M∈[0,1] in milliunits (add-urban-core-growth). */
+  public _farmMaturity = new Map<TileRef, number>();
+  /** Persistent land-use zone of every tile this player has ever developed
+   *  (LandUse). Set when a tile is first BUILT (density > 0 → Urban; farm
+   *  maturity ≥ claim → Field); NEVER cleared by death — only by conquest /
+   *  relinquish, which drop the entry directly. A built tile keeps its zone so
+   *  it regrows as its own type and the other automaton can't poach it. */
+  public _landUse = new Map<TileRef, LandUse>();
 
   markedTraitorTick = -1;
   markedDoomsdayClockTick = -1;
@@ -147,7 +210,11 @@ export class PlayerImpl implements Player {
     private readonly _team: Team | null,
   ) {
     this._troops = toInt(startTroops);
-    this._gold = mg.config().startingGold(playerInfo);
+    // Tribal age: no gold — the food stake is the survival budget
+    // (enough for the first farms, not for comfort).
+    this._gold = 0n;
+    this._foodMilli = BigInt(mg.config().food().startingFood) * 1000n;
+    this._foodPopulationShare = mg.config().food().defaultPopulationShare;
     this._pseudo_random = new PseudoRandom(simpleHash(this.playerInfo.id));
   }
 
@@ -298,6 +365,19 @@ export class PlayerImpl implements Player {
       }
     }
 
+    const foodFields = {
+      food: Number(this.food()),
+      foodProduction: this._foodFlow.production,
+      foodConsumption: this._foodFlow.consumption,
+      foodStarved: this._foodFlow.starvedTroops,
+      foodCapacity: this._foodFlow.capacity,
+      foodPopulationShare: this._foodPopulationShare,
+      urbanArea: this.urbanArea(),
+      tenureCapacityBonus: this._tenureCapacityBonus,
+      farmSeeds: this._farmSeeds,
+      settlementSeeds: this._settlementSeeds,
+    };
+
     return {
       type: GameUpdateType.Player,
       clientID: this.clientID(),
@@ -312,6 +392,7 @@ export class PlayerImpl implements Player {
       tilesOwned: this.numTilesOwned(),
       gold: this._gold,
       troops: this.troops(),
+      ...foodFields,
       allies: allies,
       embargoes: embargoes,
       isTraitor: this.isTraitor(),
@@ -1145,6 +1226,177 @@ export class PlayerImpl implements Player {
     return this._gold;
   }
 
+  /**
+   * Per-field local stocks (rework-settlement-ecology task 4.3): nucleus
+   * tile → banked milli-food. The district's granary — grown by tile
+   * tenure, drawn by local shortfall, gone when the nucleus dies. The old
+   * global `_foodMilli` survives as the CAMP stock (baseStorage cap): the
+   * spawn stake the young nation eats while its first field ramps.
+   */
+  public _fieldStockMilli = new Map<TileRef, number>();
+
+  /** Total food stock in display units: camp stock + every field granary. */
+  food(): Gold {
+    let fieldMilli = 0;
+    for (const [, v] of this._fieldStockMilli) fieldMilli += v;
+    return (this._foodMilli + BigInt(Math.floor(fieldMilli))) / 1000n;
+  }
+
+  addFood(toAdd: Gold): void {
+    this._foodMilli += toAdd * 1000n;
+  }
+
+  removeFood(toRemove: Gold): Gold {
+    if (toRemove <= 0n) {
+      return 0n;
+    }
+    const removedMilli = minInt(this._foodMilli, toRemove * 1000n);
+    this._foodMilli -= removedMilli;
+    return removedMilli / 1000n;
+  }
+
+  fertilitySum(): number {
+    return this._fertilitySum;
+  }
+
+  foodFlow(): {
+    production: number;
+    consumption: number;
+    starvedTroops: number;
+    capacity: number;
+    population: number;
+  } {
+    return this._foodFlow;
+  }
+
+  foodPopulationShare(): number {
+    return this._foodPopulationShare;
+  }
+
+  setFoodPopulationShare(share: number): void {
+    this._foodPopulationShare = Math.max(0, Math.min(1, share));
+  }
+
+  // ── Urban core growth (add-urban-core-growth) ───────────────────────────
+  core(): TileRef | null {
+    return this._core;
+  }
+
+  setCore(tile: TileRef): void {
+    this._core = tile;
+  }
+
+  /** People living on a tile (0..popPerDensity); absent = 0 (unsettled). */
+  density(tile: TileRef): number {
+    return this._density.get(tile) ?? 0;
+  }
+
+  /** Set the tile's population (people, 0..popPerDensity), maintaining the sum.
+   *  A full tile holds popPerDensity people; the field is per-tile so a future
+   *  combat/movement layer can draw people from specific tiles. */
+  setDensity(tile: TileRef, people: number): void {
+    const full = this.mg.config().food().popPerDensity;
+    const v = people <= 0 ? 0 : people >= full ? full : Math.round(people);
+    const prev = this._density.get(tile) ?? 0;
+    if (v === prev) return;
+    this._urbanAreaMilli += v - prev;
+    if (v === 0) {
+      this._density.delete(tile);
+    } else {
+      this._density.set(tile, v);
+      // A tile that has ever housed people is Urban ground forever — the zone
+      // outlives the population (see LandUse). Death (v === 0) leaves it set.
+      this._landUse.set(tile, LandUse.Urban);
+    }
+    // Emit a render delta when the displayed byte changes: fill fraction
+    // shaded by the tile's age (rework-settlement-ecology) — young suburbs
+    // draw dim, old cores bright. Same formula as TileTenure's aging tick.
+    const g = tenureCurve(this.mg, this.mg.tileTenure(tile));
+    // Persistent tiles (rework-persistent-tiles-and-burn): a vacated tile that
+    // KEEPS its Urban zone renders as an empty developed lot (byte 1 — a faint
+    // wash), distinct from wild ground (byte 0) and from an occupied full tile
+    // (byte ≥ 140). Density is binary (full or 0), so byte 1 never collides.
+    const byte =
+      v === 0 && this._landUse.get(tile) === LandUse.Urban
+        ? EMPTY_URBAN_LOT_BYTE
+        : urbanRenderByte(v, full, g);
+    const prevByte = urbanRenderByte(prev, full, g);
+    if (byte !== prevByte) this.mg.recordDensityUpdate(tile, byte);
+  }
+
+  /** Extra housing from tile tenure (rework-settlement-ecology). */
+  tenureCapacityBonus(): number {
+    return this._tenureCapacityBonus;
+  }
+
+  /** Banked farm seeds (half of each founding pair). */
+  farmSeeds(): number {
+    return this._farmSeeds;
+  }
+
+  /** Banked Settlement seeds (the other half of each founding pair). */
+  settlementSeeds(): number {
+    return this._settlementSeeds;
+  }
+
+  densityEntries(): IterableIterator<[TileRef, number]> {
+    return this._density.entries();
+  }
+
+  /** Urban area in tile-equivalents (Σ people / popPerDensity). */
+  urbanArea(): number {
+    return this._urbanAreaMilli / this.mg.config().food().popPerDensity;
+  }
+
+  farmMaturity(tile: TileRef): number {
+    return this._farmMaturity.get(tile) ?? 0;
+  }
+
+  /** Set farm maturity (milliunits 0..1000) on a Farmland tile. */
+  setFarmMaturity(tile: TileRef, milli: number): void {
+    const prev = this._farmMaturity.get(tile) ?? 0;
+    const v = milli <= 0 ? 0 : milli >= 1000 ? 1000 : Math.round(milli);
+    if (v === 0) this._farmMaturity.delete(tile);
+    else this._farmMaturity.set(tile, v);
+    // A tile cultivated to the claim threshold is Field ground forever — the
+    // zone outlives the crop (see LandUse). Senescence (v === 0) leaves it set;
+    // sub-claim establishment that dies back was never "built", so isn't zoned.
+    if (v >= this.mg.config().food().fieldClaimMilli) {
+      this._landUse.set(tile, LandUse.Field);
+    }
+    // Field overlay (rework-settlement-ecology §1b): emit the render delta
+    // only when the display BYTE moves — ripening advances ~1 byte/tick, so
+    // this is the same upload-flood guard the damage channel uses.
+    const prevQ = Math.round((prev * 255) / 1000);
+    const nextQ = Math.round((v * 255) / 1000);
+    if (nextQ !== prevQ) {
+      this.mg.fieldUpdatePairs.push(tile | (nextQ << 24));
+    }
+  }
+
+  farmMaturityEntries(): IterableIterator<[TileRef, number]> {
+    return this._farmMaturity.entries();
+  }
+
+  landUse(tile: TileRef): LandUse | undefined {
+    return this._landUse.get(tile);
+  }
+
+  isFieldTile(tile: TileRef): boolean {
+    // The Field ZONE is the authority (rework-persistent-tiles-and-burn): a
+    // tile that has ever reached the claim threshold stays a field tile — even
+    // after senescing back to the initial-farmland floor — so worked land is
+    // permanent and regrows in place rather than reverting to wild.
+    if (this._landUse.get(tile) === LandUse.Field) return true;
+    if (this.farmMaturity(tile) >= this.mg.config().food().fieldClaimMilli) {
+      return true;
+    }
+    // A Farmland nucleus is claimed from the moment it stands, even while
+    // its establishment is still below the threshold.
+    const plot = this.mg.plotAt(tile);
+    return plot?.type() === UnitType.Farmland && plot.owner() === this;
+  }
+
   addGold(toAdd: Gold, tile?: TileRef): void {
     this._gold += toAdd;
     if (tile) {
@@ -1216,7 +1468,14 @@ export class PlayerImpl implements Player {
     );
     this._units.push(b);
     this.recordUnitConstructed(type);
-    this.removeGold(cost);
+    this.removeCost(type, cost);
+    // Spend a banked seed (rework-settlement-ecology). Floored at zero: the
+    // pre-placed spawn kit plants before any award ticks.
+    if (type === UnitType.Settlement) {
+      this._settlementSeeds = Math.max(0, this._settlementSeeds - 1);
+    } else if (type === UnitType.Farmland) {
+      this._farmSeeds = Math.max(0, this._farmSeeds - 1);
+    }
     this.removeTroops("troops" in params ? (params.troops ?? 0) : 0);
     this.mg.addUpdate(b.toUpdate());
     this.mg.addUnit(b);
@@ -1250,6 +1509,22 @@ export class PlayerImpl implements Player {
     return closest?.unit ?? false;
   }
 
+  /** The balance the given unit type's cost is paid from (gold or food). */
+  private costBalance(unitType: UnitType): Gold {
+    return this.mg.unitInfo(unitType).costResource === "food"
+      ? this.food()
+      : this._gold;
+  }
+
+  /** Deduct a unit cost from the resource its unit info names. */
+  private removeCost(unitType: UnitType, cost: Gold): void {
+    if (this.mg.unitInfo(unitType).costResource === "food") {
+      this.removeFood(cost);
+    } else {
+      this.removeGold(cost);
+    }
+  }
+
   private canBuildUnitType(
     unitType: UnitType,
     knownCost: Gold | null = null,
@@ -1258,7 +1533,15 @@ export class PlayerImpl implements Player {
       return false;
     }
     const cost = knownCost ?? this.mg.unitInfo(unitType).cost(this.mg, this);
-    if (this._gold < cost) {
+    if (this.costBalance(unitType) < cost) {
+      return false;
+    }
+    // Awarded seeds, not purchases (rework-settlement-ecology): placing a
+    // Settlement or Farmland requires a banked seed of that type.
+    if (unitType === UnitType.Settlement && this._settlementSeeds < 1) {
+      return false;
+    }
+    if (unitType === UnitType.Farmland && this._farmSeeds < 1) {
       return false;
     }
     if (unitType !== UnitType.MIRVWarhead && !this.isAlive()) {
@@ -1299,7 +1582,7 @@ export class PlayerImpl implements Player {
 
   upgradeUnit(unit: Unit) {
     const cost = this.mg.unitInfo(unit.type()).cost(this.mg, this);
-    this.removeGold(cost);
+    this.removeCost(unit.type(), cost);
     unit.increaseLevel();
     this.recordUnitConstructed(unit.type());
   }
@@ -1407,9 +1690,52 @@ export class PlayerImpl implements Player {
       case UnitType.City:
       case UnitType.Factory:
         return this.landBasedStructureSpawn(targetTile, validTiles);
+      case UnitType.Settlement:
+      case UnitType.Farmland:
+        return this.plotSpawn(unitType, targetTile);
+      case UnitType.Barn:
+        // Storage is grown, not built (rework-settlement-ecology task 4.3).
+        return false;
       default:
         assertNever(unitType);
     }
+  }
+
+  /**
+   * Tribal plot placement (add-tile-painted-structures): one structure per
+   * tile of owned, passable land. Deliberately no structureMinDist —
+   * districts pack tile-by-tile.
+   */
+  private plotSpawn(unitType: UnitType, anchor: TileRef): TileRef | false {
+    if (
+      !this.mg.isLand(anchor) ||
+      this.mg.isImpassable(anchor) ||
+      this.mg.owner(anchor) !== this ||
+      this.mg.plotAt(anchor) !== undefined
+    ) {
+      return false;
+    }
+    // Battle-worn ground (rework-settlement-ecology): no rebuilding on
+    // smoking ground — a damaged tile refuses plots until fully healed.
+    if (this.mg.tileDamage(anchor) > 0) {
+      return false;
+    }
+    // First claim holds (rework-settlement-ecology §1b): a claimed field
+    // tile refuses all plots — a new nucleus belongs on unclaimed ground.
+    if (this.isFieldTile(anchor)) {
+      return false;
+    }
+    // Mutual exclusivity (add-urban-core-growth): Farmland and a full city tile
+    // are never the same tile — a farm cannot be planted on a fully-settled city
+    // tile, and the city never spreads onto a farm tile (see UrbanGrowth).
+    // Unsettled land (no people) is fair game for farming.
+    if (
+      unitType === UnitType.Farmland &&
+      this.density(anchor) >= this.mg.config().food().popPerDensity
+    ) {
+      return false;
+    }
+    return anchor;
   }
 
   nukeSpawn(tile: TileRef, nukeType: UnitType): TileRef | false {
@@ -1525,10 +1851,16 @@ export class PlayerImpl implements Player {
     const searchRadius = 15;
     const searchRadiusSquared = searchRadius ** 2;
 
+    // Spacing applies between conventional structures only: tribal PLOTS
+    // (tile-painted districts) pack tile-by-tile and must not reserve a
+    // structureMinDist radius around themselves.
+    const spacedStructures = Structures.types.filter(
+      (t) => !TribalStructures.has(t),
+    );
     const nearbyUnits = this.mg.nearbyUnits(
       tile,
       searchRadius * 2,
-      Structures.types,
+      spacedStructures,
       undefined,
       true,
     );
@@ -1539,6 +1871,10 @@ export class PlayerImpl implements Player {
       );
     });
     const validSet: Set<TileRef> = new Set(nearbyTiles);
+    // A tile already holding a plot cannot also hold a structure.
+    for (const t of nearbyTiles) {
+      if (this.mg.plotAt(t) !== undefined) validSet.delete(t);
+    }
 
     const minDistSquared = this.mg.config().structureMinDist() ** 2;
     for (const t of nearbyTiles) {

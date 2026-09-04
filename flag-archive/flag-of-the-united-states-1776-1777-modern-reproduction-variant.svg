@@ -1,0 +1,15 @@
+<svg width="117" height="78" xmlns="http://www.w3.org/2000/svg">
+ <title>Grand Union Flag</title>
+
+ <clipPath id="c">
+  <path d="m0,0l50,0l0,50l-50,0l0,-50z" id="svg_1"/>
+ </clipPath>
+ <g>
+  <title>Layer 1</title>
+  <path d="m0,0l45,0l0,45l-45,0l0,-45z" fill="#0000ff" id="svg_2"/>
+  <path d="m0,21l45,0m-24,-21l0,45" stroke="#fff" stroke-width="10" id="svg_3"/>
+  <path d="m0,0l45,45m-3,-45l-42,42" stroke="#fff" stroke-width="6" clip-path="url(#c)" id="svg_4"/>
+  <path d="m42,0l6,3l-6,3l0,6l6,3l-6,3l0,6l6,3l-6,3l0,6l6,3l-6,3l-42,0l0,36l117,0l0,-78l-75,0z" fill="#fff" id="svg_5"/>
+  <path stroke="#ff0000" d="m0,21l42,0m-21,-21l0,42m21,-39l75,0m0,12l-75,0m0,12l75,0m0,12l-75,0m-42,12l117,0m0,12l-117,0m0,12l117,0" stroke-width="6" id="svg_6"/>
+ </g>
+</svg>

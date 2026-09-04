@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="700">
+  <path fill="#fff" fill-rule="evenodd" d="M0 0h900v700H0z"/>
+  <path fill="#bc002d" fill-rule="evenodd" d="M642.63 350c0 106.39-86.25 192.63-192.63 192.63S257.37 456.38 257.37 350 343.62 157.37 450 157.37 642.63 243.62 642.63 350z" paint-order="stroke fill markers"/>
+  <path d="m432.45 187.45-50.97 48.86c28.83 21.12 29.65 66.86 31 112.75 1.91 64.81-6.96 101.78-30.06 105.23-4.16.62-6.72 2.01-6.58 5.4 1.44 34.03 20.65 50.44 50.03 56.61 21.49-7.18 35.4-22.94 46.98-41.34-2.1-67.48 1.93-130.48 18.33-214.23 4.24-21.66-20.08-54.88-58.73-73.29z" style="-inkscape-stroke:none;font-variation-settings:normal" transform="translate(7.72 -1.88)"/>
+  <path d="M331.68 298.09c-.17 39.14-14.67 71.91-51.44 94.78 28.4 22.49 78.6 19.3 100.89-32.65 13.42-31.27-13.1-50.5-49.45-62.13z" style="-inkscape-stroke:none;font-variation-settings:normal" transform="translate(7.72 -1.88)"/>
+  <path d="M500.62 318.3c20.12 19.1 39.32 38.76 39.37 71.75 0 5.68 2.38 13.29 8.13 16.95 14.43 9.17 49.73 18.67 55.31-11.63 8.31-45.1-42.39-85.83-102.82-77.07z" style="-inkscape-stroke:none;font-variation-settings:normal" transform="translate(7.72 -1.88)"/>
+  <g fill-rule="evenodd">
+    <path d="M0 1.38h900v100H0z"/>
+    <path d="M0 127.37h900v30H0z"/>
+    <path d="M0 542.63h900v75.5H0z"/>
+    <path d="M0 641.94h900v30H0z"/>
+  </g>
+</svg>

@@ -129,11 +129,6 @@ export enum RankedType {
 export const isGameMode = (value: unknown): value is GameMode =>
   isEnumValue(GameMode, value);
 
-export enum GameMapSize {
-  Compact = "Compact",
-  Normal = "Normal",
-}
-
 export interface PublicGameModifiers {
   isCompact?: boolean;
   isRandomSpawn?: boolean;
@@ -151,6 +146,12 @@ export interface PublicGameModifiers {
 
 export interface UnitInfo {
   cost: (game: Game, player: Player) => Gold;
+  /**
+   * Which resource the cost is paid from. Defaults to gold. Tribal-age
+   * buildings cost food; later ages add metal/oil entries here rather than
+   * new plumbing.
+   */
+  costResource?: "gold" | "food";
   maxHealth?: number;
   damage?: number;
   constructionDuration?: number;
@@ -183,7 +184,19 @@ export enum UnitType {
   MIRVWarhead = "MIRV Warhead",
   Train = "Train",
   Factory = "Factory",
+  // Tribal-age food economy (layered maps only — see add-tribal-food-economy)
+  Settlement = "Settlement",
+  Farmland = "Farmland",
+  Barn = "Barn",
 }
+
+/** Tribal-age buildings — placed from awarded seeds (rework-settlement-
+ *  ecology). The Barn is GONE as a buildable: storage is grown from stable
+ *  farmland (task 4.3); the enum member survives only for old references. */
+export const TribalStructures = unitTypeGroup([
+  UnitType.Settlement,
+  UnitType.Farmland,
+] as const);
 
 export enum TrainType {
   Engine = "Engine",
@@ -212,6 +225,7 @@ export const Structures = unitTypeGroup([
   UnitType.MissileSilo,
   UnitType.Port,
   UnitType.Factory,
+  ...TribalStructures.types,
 ] as const);
 
 export const BuildMenus = unitTypeGroup([
@@ -288,6 +302,12 @@ export interface UnitParamsMap {
   [UnitType.MIRVWarhead]: {
     targetTile?: number;
   };
+
+  [UnitType.Settlement]: Record<string, never>;
+
+  [UnitType.Farmland]: Record<string, never>;
+
+  [UnitType.Barn]: Record<string, never>;
 }
 
 // Type helper to get params type for a specific unit type
@@ -306,6 +326,10 @@ export class Nation {
   constructor(
     public readonly spawnCell: Cell | undefined,
     public readonly playerInfo: PlayerInfo,
+    /** Resolved cosmetic flag ref for this nation's shell label (a single
+     *  `flag:<slug>`/ISO code). Undefined → the shell assigns a deterministic
+     *  one. The sim never reads this. */
+    public readonly flag?: string,
   ) {}
 }
 
@@ -347,6 +371,21 @@ export enum PlayerType {
   Nation = "NATION",
 }
 
+/**
+ * Persistent zoning of a DEVELOPED tile. Once a tile is BUILT — urbanized by
+ * the city CA or cultivated as a claimed field — it keeps its zone forever.
+ * Death (the population starves out; crops senesce) clears the live density /
+ * maturity but NOT the zone: dead city ground stays reserved for the city and
+ * regrows as city, dead field ground stays reserved for the farm and regrows
+ * as field. The two automata never poach each other's ground, living OR dead —
+ * a built tile never reverts to wild. Only losing the tile itself (conquest or
+ * relinquish) clears the zone.
+ */
+export enum LandUse {
+  Urban = 1,
+  Field = 2,
+}
+
 export interface Execution {
   isActive(): boolean;
   activeDuringSpawnPhase(): boolean;
@@ -368,10 +407,27 @@ export interface Attack {
   delete(): void;
   // The tile the attack originated from, mostly used for boat attacks.
   sourceTile(): TileRef | null;
+  // Most recently conquered tile — the attack's supply-line anchor
+  // (add-supply-lines). Null until the first conquest.
+  frontTile(): TileRef | null;
+  setFrontTile(tile: TileRef): void;
   addBorderTile(tile: TileRef): void;
   removeBorderTile(tile: TileRef): void;
   clearBorder(): void;
   borderSize(): number;
+  /** Force at one front tile (front-line-troops). `troops()` is the sum of
+   *  this field plus any unplaced reserve. */
+  troopsAt(tile: TileRef): number;
+  addTroopsAt(tile: TileRef, n: number): void;
+  /** Take up to `n` from a tile; returns how many were actually there. */
+  spendAt(tile: TileRef, n: number): number;
+  frontTiles(): IterableIterator<TileRef>;
+  /** Troops not yet placed on a front tile. */
+  reserve(): number;
+  /** Spread the reserve over the current front (once per tick). */
+  flushReserve(): void;
+  /** Spread `n` troops evenly and deterministically over `tiles`. */
+  distributeOver(tiles: readonly TileRef[], n: number): void;
   clusteredPositions(): TileRef[];
 }
 
@@ -583,6 +639,64 @@ export interface Player {
   addTroops(troops: number): void;
   removeTroops(troops: number): number;
 
+  // Food economy (see add-tribal-food-economy)
+  /** Food stock in display units. */
+  food(): Gold;
+  addFood(toAdd: Gold): void;
+  removeFood(toRemove: Gold): Gold;
+  /** Sum of owned tiles' crop-layer bytes (production input). */
+  fertilitySum(): number;
+  /** Last food tick's flow breakdown, display units. */
+  foodFlow(): {
+    production: number;
+    consumption: number;
+    starvedTroops: number;
+    /** Food-supported population = productionMilli / idleConsumptionMilli. */
+    capacity: number;
+    /** Total living population (idle + deployed) after this tick's births and
+     *  deaths — drives the city footprint and the population-death loss. */
+    population: number;
+  };
+  /** Allocation slider: production fraction fed to the population (0..1). */
+  foodPopulationShare(): number;
+  setFoodPopulationShare(share: number): void;
+
+  // Urban core growth (add-urban-core-growth): the city is a self-growing
+  // density field founded from a Core, replacing painted plots.
+  core(): TileRef | null;
+  setCore(tile: TileRef): void;
+  /** Urban density on a tile in milliunits (0..1000); absent = 0. */
+  density(tile: TileRef): number;
+  setDensity(tile: TileRef, milli: number): void;
+  densityEntries(): IterableIterator<[TileRef, number]>;
+  /** Urban area in tile-equivalents (Σ density). */
+  urbanArea(): number;
+  /** Extra housing from tile tenure (rework-settlement-ecology): old city
+   *  tiles hold more people. Refreshed each tick by TileTenure.tenureTick. */
+  tenureCapacityBonus(): number;
+  /** Banked farm seeds — half of each founding pair awarded at
+   *  peak-population milestones, spent by placement
+   *  (rework-settlement-ecology). */
+  farmSeeds(): number;
+  /** Banked Settlement seeds — the other half of each founding pair. */
+  settlementSeeds(): number;
+  /** Farm maturity M∈[0,1] on a Farmland tile in milliunits (0..1000). */
+  farmMaturity(tile: TileRef): number;
+  setFarmMaturity(tile: TileRef, milli: number): void;
+  farmMaturityEntries(): IterableIterator<[TileRef, number]>;
+  /** True when the tile is a CLAIMED field tile of this player (farm CA,
+   *  rework-settlement-ecology §1b): establishment ≥ fieldClaimMilli, or the
+   *  tile hosts one of this player's Farmland nuclei. Claimed field tiles are
+   *  invisible to the city CA and vice versa — first claim holds; a tile
+   *  merely establishing (below the threshold) counts as wild. */
+  isFieldTile(tile: TileRef): boolean;
+  /** Persistent zoning of a developed tile (LandUse), or undefined if the tile
+   *  was never built. Survives the tile's DEATH — a starved-out city tile
+   *  stays LandUse.Urban, a senesced field stays LandUse.Field — so the ground
+   *  regrows as its own type and is never poached by the other automaton. Only
+   *  conquest / relinquish clears it. */
+  landUse(tile: TileRef): LandUse | undefined;
+
   // Units
   units(...types: UnitType[]): Unit[];
   unitCount(type: UnitType): number;
@@ -745,6 +859,20 @@ export interface Game extends GameMap {
   drainPackedMotionPlans(): Uint32Array | null;
   drainPackedPlayerUpdates(): Float64Array | null;
   drainPackedAttackUpdates(): Float64Array | null;
+  // Urban density render deltas (add-urban-core-growth): packed
+  // `tile | (byte<<24)`, byte = round(density/1000·255).
+  recordDensityUpdate(tile: TileRef, byte: number): void;
+  drainPackedDensityUpdates(): Uint32Array | null;
+  // Tile combat-damage render deltas (rework-settlement-ecology): same
+  // packing, byte = round(damage/1000·255); byte 0 = fully healed.
+  drainPackedDamageUpdates(): Uint32Array | null;
+  /** Field-maturity render deltas (rework-settlement-ecology §1b): packed
+   *  `tile | (byte<<24)`, byte = round(maturity/1000·255). */
+  drainPackedFieldUpdates(): Uint32Array | null;
+  /** Burn events (rework-persistent-tiles-and-burn): raw TileRefs of tiles set
+   *  ablaze this tick (every tile taken in combat) — each lights a one-shot
+   *  fire in the renderers. */
+  drainPackedBurns(): Uint32Array | null;
   setWinner(winner: Player | Team, allPlayersStats: AllPlayersStats): void;
   getWinner(): Player | Team | null;
   config(): Config;
@@ -810,6 +938,30 @@ export interface Game extends GameMap {
 
   numTilesWithFallout(): number;
   stats(): Stats;
+
+  // Tribal single-tile plots (add-tile-painted-structures)
+  /** The footprint tiles of a plot at `anchor` (currently just [anchor]). */
+  plotTiles(anchor: TileRef): TileRef[];
+  /** The tribal plot (if any) covering this tile. */
+  plotAt(tile: TileRef): Unit | undefined;
+
+  // Tile combat damage (rework-settlement-ecology): battle-worn ground.
+  /** Remaining combat damage on a tile (milli, 0..1000; 0 = fully healed). */
+  tileDamage(tile: TileRef): number;
+  /** Add combat damage to a tile (milli, clamped to 1000). */
+  addTileDamage(tile: TileRef, milli: number): void;
+  /** All tiles with damage > 0 (sparse; deterministic insertion order). */
+  tileDamageEntries(): IterableIterator<[TileRef, number]>;
+
+  // Tile stability (rework-settlement-ecology): the demand-gated tenure
+  // clock. Owner-agnostic — stability is the tile's continuous life; an
+  // ownership flip hard-resets it, vacancy decays it slowly.
+  /** Accrued tenure of a tile (milli-ticks; 0 = raw land). */
+  tileTenure(tile: TileRef): number;
+  /** Set a tile's tenure (milli-ticks; ≤0 deletes the entry). */
+  setTileTenure(tile: TileRef, milli: number): void;
+  /** All tiles with tenure > 0 (sparse; deterministic insertion order). */
+  tileTenureEntries(): IterableIterator<[TileRef, number]>;
 
   addUpdate(update: GameUpdate): void;
   railNetwork(): RailNetwork;

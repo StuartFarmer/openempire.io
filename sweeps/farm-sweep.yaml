@@ -1,0 +1,26 @@
+name: farm-sweep
+method: random        # or grid
+samples: 120
+seed: 7               # same seed ⇒ same cells, always
+
+run:                  # game axes; any of these can take `values:` and become a sweep axis
+  map: verdantia
+  ticks: 12000
+  nations: 25
+  bots: 0
+  seeds: 3            # games per cell — the across-seed spread is reported as std_*
+
+parameters:
+  farmProductionMilli: { values: [10, 25, 50, 75, 100, 150, 200, 300, 500, 1000] }
+  farmGrowthRate: { values: [0.01, 0.025, 0.05, 0.075, 0.1, 0.15, 0.2, 0.3, 0.5] }
+  farmSenesceRate: { values: [0.01, 0.025, 0.05, 0.075, 0.1, 0.15, 0.2, 0.3, 0.5] }
+  tempOptLoN: { values: [0, 0.1, 0.2, 0.3, 0.4, 0.49] }
+  tempOptHiN: { values: [0.51, 0.6, 0.7, 0.8, 0.9, 1] }
+  waterWiltN: { values: [0.01, 0.025, 0.05, 0.075, 0.1, 0.15, 0.2, 0.3, 0.5, 0.75] }
+  waterFullN: { values: [0.01, 0.025, 0.05, 0.075, 0.1, 0.15, 0.2, 0.3, 0.5, 0.75] }
+  humidityWeight: { values: [0.01, 0.025, 0.05, 0.075, 0.1, 0.15, 0.2, 0.3, 0.5, 0.75] }
+
+solutions: 6          # export this many *diverse* in-band configs
+presets: flat
+
+

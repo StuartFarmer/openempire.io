@@ -9,7 +9,11 @@
 
 import { EventBus } from "../../core/EventBus";
 import { Controller } from "../Controller";
-import { AlternateViewEvent, ToggleCoordinateGridEvent } from "../InputHandler";
+import {
+  AlternateViewEvent,
+  ToggleCoordinateGridEvent,
+  ToggleFertilityOverlayEvent,
+} from "../InputHandler";
 import { MapRenderer } from "../render/gl";
 
 export class ViewModeController implements Controller {
@@ -24,6 +28,10 @@ export class ViewModeController implements Controller {
     );
     this.eventBus.on(ToggleCoordinateGridEvent, (e) =>
       this.view.setGridView(e.enabled),
+    );
+    // Baked soil tints (fertility/suitability; cycled from the BuildBar).
+    this.eventBus.on(ToggleFertilityOverlayEvent, (e) =>
+      this.view.setSoilOverlay(e.mode),
     );
   }
 }

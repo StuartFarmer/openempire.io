@@ -113,13 +113,12 @@ export function trackGLInit(
   renderer: string,
   maxTextureSize?: number,
 ): void {
-  window.gtag?.("event", "gl_init", {
-    status,
-    renderer: status === "ok" ? "" : renderer,
-    ...(maxTextureSize !== undefined && {
-      max_texture_size: maxTextureSize,
-    }),
-  });
+  if (status === "ok") return;
+  console.warn(
+    `gl_init: ${status}`,
+    renderer,
+    maxTextureSize !== undefined ? `maxTextureSize=${maxTextureSize}` : "",
+  );
 }
 
 /**

@@ -2,7 +2,6 @@ import { PseudoRandom } from "../PseudoRandom";
 import { GameStartInfo } from "../Schemas";
 import {
   Cell,
-  GameMapSize,
   GameMode,
   GameType,
   HumansVsNations,
@@ -11,6 +10,28 @@ import {
   PlayerType,
 } from "./Game";
 import { AdditionalNation, Nation as ManifestNation } from "./TerrainMapLoader";
+
+/**
+ * Resolve an authored nation flag to a single ref. A single ref → itself; a list
+ * (historical flags) → one deterministic pick indexed by a hash of `seed` (the
+ * nation's already-assigned id). Crucially this does NOT draw from the sim PRNG,
+ * so a map carrying flag data produces the byte-identical simulation as one
+ * without — flags are purely cosmetic and the sim never branches on them.
+ */
+function resolveNationFlag(
+  flag: string | string[] | undefined,
+  seed: string,
+): string | undefined {
+  if (flag === undefined) return undefined;
+  if (typeof flag === "string") return flag;
+  if (flag.length === 0) return undefined;
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return flag[(h >>> 0) % flag.length];
+}
 
 /**
  * Creates the nations array for a game.
@@ -32,15 +53,21 @@ export function createNationsForGame(
   numHumans: number,
   random: PseudoRandom,
 ): Nation[] {
-  const toNation = (n: ManifestNation): Nation =>
-    new Nation(
+  const toNation = (n: ManifestNation): Nation => {
+    const info = new PlayerInfo(
+      n.name,
+      PlayerType.Nation,
+      null,
+      random.nextID(),
+    );
+    return new Nation(
       n.coordinates !== undefined
         ? new Cell(n.coordinates[0], n.coordinates[1])
         : undefined,
-      new PlayerInfo(n.name, PlayerType.Nation, null, random.nextID()),
+      info,
+      resolveNationFlag(n.flag, info.id),
     );
-
-  const isCompactMap = gameStart.config.gameMapSize === GameMapSize.Compact;
+  };
 
   const isHumansVsNations =
     gameStart.config.gameMode === GameMode.Team &&
@@ -71,17 +98,6 @@ export function createNationsForGame(
         toNation,
         random,
       );
-    }
-
-    // For compact maps, use only 25% of nations (minimum 1)
-    if (isCompactMap) {
-      const targetCount = getCompactMapNationCount(
-        manifestNations.length,
-        true,
-      );
-      const shuffled = random.shuffleArray(manifestNations);
-      const slicedNations = shuffled.slice(0, targetCount);
-      return slicedNations.map(toNation);
     }
   }
 
@@ -118,11 +134,14 @@ function createRandomNations(
         extra.coordinates !== undefined
           ? new Cell(extra.coordinates[0], extra.coordinates[1])
           : undefined;
+      const info = new PlayerInfo(
+        extra.name,
+        PlayerType.Nation,
+        null,
+        random.nextID(),
+      );
       nations.push(
-        new Nation(
-          spawnCell,
-          new PlayerInfo(extra.name, PlayerType.Nation, null, random.nextID()),
-        ),
+        new Nation(spawnCell, info, resolveNationFlag(extra.flag, info.id)),
       );
       usedNames.add(extra.name);
     }
@@ -140,20 +159,6 @@ function createRandomNations(
     );
   }
   return nations;
-}
-
-// For compact maps, only 25% of nations are used (minimum 1).
-export function getCompactMapNationCount(
-  manifestNationCount: number,
-  isCompactMap: boolean,
-): number {
-  if (manifestNationCount === 0) {
-    return 0;
-  }
-  if (isCompactMap) {
-    return Math.max(1, Math.floor(manifestNationCount * 0.25));
-  }
-  return manifestNationCount;
 }
 
 function generateUniqueNationName(

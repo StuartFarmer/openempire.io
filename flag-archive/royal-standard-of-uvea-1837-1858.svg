@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   height="600"
+   width="900"
+   version="1.1"
+   viewBox="0 0 150 100"
+   id="svg10"
+   sodipodi:docname="Royal_Standard_of_Uvea_(1837-1858).svg"
+   inkscape:version="0.92.3 (2405546, 2018-03-11)">
+  <defs
+     id="defs14" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="732"
+     inkscape:window-height="480"
+     id="namedview12"
+     showgrid="false"
+     inkscape:zoom="0.31555556"
+     inkscape:cx="450"
+     inkscape:cy="300"
+     inkscape:window-x="795"
+     inkscape:window-y="271"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="g8" />
+  <metadata
+     id="metadata2">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     transform="matrix(2.7777778,0,0,2.7777778,-1.6343577e-7,-177.77778)"
+     id="g8">
+    <path
+       d="M9.193262E-8,64h54.00000291v36h-54.00000291z"
+       fill="#ed2939"
+       id="path4"
+       style="fill:#cd1226;fill-opacity:1" />
+    <path
+       d="m16.416667,89.095645,9.941916-6.454228-6.454228,9.941916,14.191292,0-6.454236-9.941916,9.941923,6.454228,0-14.191283-9.941923,6.454227,6.454236-9.941915-14.191292,0,6.454228,9.941915-9.941916-6.454227z"
+       fill="#FFF"
+       id="path6" />
+  </g>
+</svg>

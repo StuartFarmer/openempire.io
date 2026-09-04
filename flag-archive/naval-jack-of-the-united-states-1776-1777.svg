@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1235" height="650">
+<defs><rect width="1235" height="50" fill="#BF0A30" id="a" /></defs>
+<rect width="1235" height="650" fill="#FFF" />
+<use xlink:href="#a" y="0" />
+<use xlink:href="#a" y="100" />
+<use xlink:href="#a" y="200" />
+<use xlink:href="#a" y="300" />
+<use xlink:href="#a" y="400" />
+<use xlink:href="#a" y="500" />
+<use xlink:href="#a" y="600" />
+</svg>

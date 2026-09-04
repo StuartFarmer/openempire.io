@@ -12,6 +12,7 @@
  */
 
 import type { Config } from "../../../core/configuration/Config";
+import type { BoardMap } from "../../../core/game/BoardMap";
 import type {
   AttackRingInput,
   BonusEvent,
@@ -28,6 +29,7 @@ import type {
   TilePair,
   UnitState,
 } from "../types";
+import type { SoilOverlayMode } from "./passes/FertilityOverlayPass";
 import type { SpawnCenter } from "./passes/SpawnOverlayPass";
 import type { AttackTroopLabel } from "./passes/WorldTextPass";
 import { GPURenderer } from "./Renderer";
@@ -54,8 +56,9 @@ export class MapRenderer {
     // is re-used when a GPURenderer is recreated after a context restore,
     // preserving any user overrides that were applied to it.
     private settings: RenderSettings,
-    private raf?: typeof requestAnimationFrame,
-    private caf?: typeof cancelAnimationFrame,
+    private raf: typeof requestAnimationFrame | undefined,
+    private caf: typeof cancelAnimationFrame | undefined,
+    private boardMap: BoardMap,
   ) {
     this.initRenderer();
 
@@ -85,6 +88,7 @@ export class MapRenderer {
       this.settings,
       this.raf,
       this.caf,
+      this.boardMap,
     );
 
     const rect = this.canvas.getBoundingClientRect();
@@ -161,6 +165,10 @@ export class MapRenderer {
   setPlayerSpawn(smallID: number, x: number, y: number): void {
     this.renderer?.setPlayerSpawn(smallID, x, y);
   }
+  uploadPlotState(data: Uint8Array, maturity: Uint8Array): void {
+    this.renderer?.uploadPlotState(data, maturity);
+  }
+
   uploadRailroadState(data: Uint8Array): void {
     this.renderer?.uploadRailroadState(data);
   }
@@ -186,6 +194,10 @@ export class MapRenderer {
   }
   applyDeadUnits(deadUnits: DeadUnitFx[]): void {
     this.renderer?.applyDeadUnits(deadUnits);
+  }
+
+  applyBurns(tileRefs: number[]): void {
+    this.renderer?.applyBurns(tileRefs);
   }
   applyConquestEvents(events: ConquestFx[]): void {
     this.renderer?.applyConquestEvents(events);
@@ -263,6 +275,39 @@ export class MapRenderer {
   }
   setAltView(active: boolean): void {
     this.renderer?.setAltView(active);
+  }
+  /** Full upload of the urban density field (add-urban-core-growth). */
+  updateDensityField(density: Uint8Array): void {
+    this.renderer?.updateDensityField(density);
+  }
+  /** Sub-upload the tiles whose density changed this tick. */
+  applyDensityDelta(refs: readonly number[], density: Uint8Array): void {
+    this.renderer?.applyDensityDelta(refs, density);
+  }
+  /** Set the soil-overlay cycle state: off → fertility → suitability. */
+  setSoilOverlay(mode: SoilOverlayMode): void {
+    this.renderer?.setSoilOverlay(mode);
+  }
+  soilOverlayMode(): SoilOverlayMode {
+    return this.renderer?.soilOverlayMode() ?? "off";
+  }
+  /** Whether a soil plane has been uploaded (each is baked once). */
+  soilOverlayHasField(plane: "fertility" | "suitability"): boolean {
+    return this.renderer?.soilOverlayHasField(plane) ?? false;
+  }
+  /** Push a baked soil plane (map-sized R8 bytes; 0 = water). */
+  updateSoilOverlay(
+    plane: Uint8Array,
+    which: "fertility" | "suitability",
+  ): void {
+    this.renderer?.updateSoilOverlay(plane, which);
+  }
+  /** Concentrated-push aim preview: toggle + push a map-sized R8 segment mask. */
+  setSegmentHighlight(active: boolean): void {
+    this.renderer?.setSegmentHighlight(active);
+  }
+  updateSegmentHighlight(mask: Uint8Array): void {
+    this.renderer?.updateSegmentHighlight(mask);
   }
   setGridView(active: boolean): void {
     this.renderer?.setGridView(active);

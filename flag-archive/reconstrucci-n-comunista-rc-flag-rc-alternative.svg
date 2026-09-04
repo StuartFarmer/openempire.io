@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="675px" height="450px" enable-background="new 0 0 675 450" version="1.1" viewBox="0 0 675 450" xml:space="preserve" xmlns="http://www.w3.org/2000/svg">
+<g transform="translate(-.5 49.5)">
+	<path d="m0.5 0.5h675v300h-675z" fill="#fcdd09"/>
+</g><path d="m0 300h675v150h-675z" fill="#630b57" stroke-width=".57735"/>
+<g transform="translate(-.5 -.5)">
+	<path d="m0.5 0.5h675v150h-675z" fill="#da121a"/>
+</g>
+	<polygon points="338 161.3 353.93 210.34 405.5 210.35 363.78 240.66 379.72 289.7 338 259.39 296.28 289.7 312.22 240.66 270.5 210.35 322.06 210.34" fill="#DA121A"/>
+</svg>

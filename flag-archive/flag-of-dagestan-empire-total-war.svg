@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="750"
+   height="500"
+   viewBox="-72 -28 120 80"
+   id="svg2"
+   version="1.1"
+   inkscape:version="0.48.4 r9939"
+   sodipodi:docname="Flag_of_Dagestán_(Empire_Total_War).svg">
+  <metadata
+     id="metadata26">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs24" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1366"
+     inkscape:window-height="716"
+     id="namedview22"
+     showgrid="false"
+     inkscape:zoom="0.998"
+     inkscape:cx="375"
+     inkscape:cy="250"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg2" />
+  <rect
+     x="-72"
+     y="-28.032064"
+     width="120.14429"
+     height="80.032066"
+     id="rect4"
+     style="fill:#006233" />
+  <circle
+     cy="8"
+     r="31"
+     id="circle6"
+     cx="0"
+     sodipodi:cx="0"
+     sodipodi:cy="8"
+     sodipodi:rx="31"
+     sodipodi:ry="31"
+     transform="matrix(0.83433534,0,0,0.83366733,-11.927856,3.5806012)"
+     style="fill:#ffc400;fill-opacity:1" />
+  <circle
+     r="30"
+     id="circle8"
+     cx="0"
+     cy="0"
+     sodipodi:cx="0"
+     sodipodi:cy="0"
+     sodipodi:rx="30"
+     sodipodi:ry="30"
+     transform="matrix(0.83433534,0,0,0.83366733,-11.927856,3.5806012)"
+     style="fill:#006233" />
+  <path
+     sodipodi:type="star"
+     style="fill:#ffc400;fill-opacity:1;stroke:none"
+     id="path3003"
+     sodipodi:sides="4"
+     sodipodi:cx="-154.05627"
+     sodipodi:cy="126.64966"
+     sodipodi:r1="57.109383"
+     sodipodi:r2="13.64971"
+     sodipodi:arg1="0.77001476"
+     sodipodi:arg2="1.5386105"
+     inkscape:flatsided="false"
+     inkscape:rounded="0"
+     inkscape:randomized="0"
+     d="m -113.05743,166.40612 -40.55959,-26.11382 -40.19571,27.35621 26.11382,-40.5596 -27.35621,-40.195711 40.55959,26.113821 40.19571,-27.35621 -26.11381,40.5596 z"
+     transform="matrix(0.09588365,-0.09280664,0.092881,0.09580688,-20.782373,-23.058968)"
+     inkscape:transform-center-x="3.2616819"
+     inkscape:transform-center-y="0.26432066" />
+  <path
+     inkscape:transform-center-y="0.26432066"
+     inkscape:transform-center-x="3.2616819"
+     transform="matrix(0.09588365,-0.09280664,0.092881,0.09580688,2.7125101,-23.058968)"
+     d="m -113.05743,166.40612 -40.55959,-26.11382 -40.19571,27.35621 26.11382,-40.5596 -27.35621,-40.195711 40.55959,26.113821 40.19571,-27.35621 -26.11381,40.5596 z"
+     inkscape:randomized="0"
+     inkscape:rounded="0"
+     inkscape:flatsided="false"
+     sodipodi:arg2="1.5386105"
+     sodipodi:arg1="0.77001476"
+     sodipodi:r2="13.64971"
+     sodipodi:r1="57.109383"
+     sodipodi:cy="126.64966"
+     sodipodi:cx="-154.05627"
+     sodipodi:sides="4"
+     id="path3005"
+     style="fill:#ffc400;fill-opacity:1;stroke:none"
+     sodipodi:type="star" />
+  <path
+     sodipodi:type="star"
+     style="fill:#ffc400;fill-opacity:1;stroke:none"
+     id="path3003-1"
+     sodipodi:sides="4"
+     sodipodi:cx="-154.05627"
+     sodipodi:cy="126.64966"
+     sodipodi:r1="57.109383"
+     sodipodi:r2="13.64971"
+     sodipodi:arg1="0.77001476"
+     sodipodi:arg2="1.5386105"
+     inkscape:flatsided="false"
+     inkscape:rounded="0"
+     inkscape:randomized="0"
+     d="m -113.05743,166.40612 -40.55959,-26.11382 -40.19571,27.35621 26.11382,-40.5596 -27.35621,-40.195711 40.55959,26.113821 40.19571,-27.35621 -26.11381,40.5596 z"
+     transform="matrix(0.09588365,-0.09280664,0.092881,0.09580688,-8.9598121,-33.781435)"
+     inkscape:transform-center-x="0.52186909"
+     inkscape:transform-center-y="0.042285758" />
+</svg>

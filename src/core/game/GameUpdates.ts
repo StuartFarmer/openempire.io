@@ -55,6 +55,32 @@ export interface GameUpdateViewData {
    */
   packedAttackUpdates?: Float64Array;
   /**
+   * Packed urban-density deltas as `tile | (byte<<24)` uint32 words
+   * (add-urban-core-growth), byte = round(density/1000·255) of the tile's
+   * owner. Absent when no tile's density changed.
+   */
+  packedDensityUpdates?: Uint32Array;
+  /**
+   * Packed tile combat-damage deltas as `tile | (byte<<24)` uint32 words
+   * (rework-settlement-ecology), byte = round(damage/1000·255). Byte 0 means
+   * fully healed. Absent when no tile's damage changed.
+   */
+  packedDamageUpdates?: Uint32Array;
+  /**
+   * Packed field-maturity deltas as `tile | (byte<<24)` uint32 words
+   * (rework-settlement-ecology §1b), byte = round(maturity/1000·255). Byte 0
+   * means the tile left the field (reverted, razed, conquered). Absent when
+   * no tile's maturity byte changed.
+   */
+  packedFieldUpdates?: Uint32Array;
+  /**
+   * Packed burn events (rework-persistent-tiles-and-burn): raw TileRefs of
+   * tiles set ablaze this tick — every tile taken in combat. Each becomes a
+   * one-shot fire in the renderers (replacing the old dead-unit-only trigger,
+   * so a whole captured district burns). Absent when no tile was burned.
+   */
+  packedBurns?: Uint32Array;
+  /**
    * Name placement per player. Only present on ticks where the worker
    * recomputed placements (spawn ticks, the first ticks, every 30th tick,
    * spawn end) — between those the values wouldn't change, so the record is
@@ -229,6 +255,20 @@ export interface PlayerUpdate {
   tilesOwned?: number;
   gold?: Gold;
   troops?: number;
+  // Food economy fields — present only on layered games (hasFoodEconomy).
+  // Display units; they churn per tick and travel via the partial diff.
+  food?: number;
+  foodProduction?: number;
+  foodConsumption?: number;
+  foodStarved?: number;
+  foodCapacity?: number;
+  foodPopulationShare?: number;
+  urbanArea?: number;
+  /** Extra housing from tile tenure (rework-settlement-ecology). */
+  tenureCapacityBonus?: number;
+  /** Banked seeds (rework-settlement-ecology) — drive the BuildBar counters. */
+  farmSeeds?: number;
+  settlementSeeds?: number;
   allies?: number[];
   embargoes?: Set<PlayerID>;
   isTraitor?: boolean;

@@ -25,6 +25,10 @@ export interface FrameData {
   readonly tileState: Uint16Array;
   readonly trailState: Uint16Array;
   readonly railroadState: Uint8Array;
+  /** Tribal 2×2 plot patterns per tile (see frame/PlotCache.ts encoding). */
+  readonly plotState: Uint8Array;
+  /** Per-tile Farmland maturity 0..255 (drives the growth variant). */
+  readonly plotMaturity: Uint8Array;
   readonly units: ReadonlyMap<number, UnitState>;
   readonly players: ReadonlyMap<number, PlayerState>;
   readonly names: ReadonlyMap<string, NameEntry>;
@@ -44,6 +48,7 @@ export interface FrameData {
   readonly changedTiles: TilePair[] | null;
   readonly railroadDirty: boolean;
   readonly revealedRailTiles: number[];
+  readonly plotDirty: boolean;
 
   /**
    * Trail dirty row range for partial GPU upload.

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   version="1.0"
+   width="600"
+   height="400"
+   id="svg18"
+   sodipodi:docname="Flag_of_Khiva_(1922-1923).svg"
+   inkscape:version="1.1.1 (3bf5ae0d25, 2021-09-20)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs22" />
+  <sodipodi:namedview
+     id="namedview20"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     showgrid="false"
+     inkscape:zoom="1.965"
+     inkscape:cx="300"
+     inkscape:cy="200"
+     inkscape:window-width="1920"
+     inkscape:window-height="1007"
+     inkscape:window-x="-9"
+     inkscape:window-y="-9"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg18" />
+  <rect
+     width="600"
+     height="400"
+     style="fill:#cd0000;fill-opacity:1"
+     id="rect2" />
+  <rect
+     width="300"
+     height="200"
+     style="fill:#009a30;fill-opacity:1"
+     id="rect4" />
+  <path
+     d="M 110,100 C 98.96,100 90,108.96 90,120 C 90,121.02438 90.069961,122.01693 90.21875,123 C 91.151719,118.44453 95.17,115 100,115 C 105.52,115 110,119.48 110,125 L 111.15625,139.96875 L 115,190 L 185,190 L 188.84375,139.96875 L 190,125 C 190,119.48 194.48,115 200,115 C 204.83,115 208.84828,118.44453 209.78125,123 C 209.93004,122.01693 210,121.02438 210,120 C 210,108.96 201.04,100 190,100 C 178.96,100 170,108.96 170,120 C 170,114.48 165.52,110 160,110 C 154.48,110 150,114.48 150,120 C 150,114.48 145.52,110 140,110 C 134.48,110 130,114.48 130,120 C 130,108.96 121.04,100 110,100 z"
+     style="fill:#ffd700;stroke:#000000;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round;fill-opacity:1"
+     id="path6" />
+  <g
+     transform="matrix(1.3547638,-0.7476676,0.8033835,1.2608089,312.08359,-159.59027)"
+     style="fill:#cd0000;stroke:#000000;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round;fill-opacity:1"
+     id="g12">
+    <path
+       d="M -183.0625,121.03125 C -181.55246,123.26578 -181.99628,127.22489 -182.40625,130.09375 C -183.17923,135.50282 -188.2095,142.59375 -195.9375,142.59375 C -202.06331,142.59375 -207.32135,139.04566 -209.21875,133.5625 L -218.59375,135.75 L -217.46875,140.625 L -209.40625,138.8125 C -206.88149,143.95122 -201.60861,147.5 -195.5,147.5 C -186.944,147.5 -180,140.556 -180,132 C -180,127.79299 -180.33864,123.82492 -183.0625,121.03125 z"
+       id="path8"
+       style="fill:#cd0000;fill-opacity:1" />
+    <path
+       d="M -198,110 C -202.0228,110 -205.125,120.69595 -205.125,124.71875 C -205.125,128.63665 -202.44985,123.16508 -198.59375,122.875 L -199.5,153.90625 L -196.5,153.90625 L -197.40625,122.9375 C -193.71894,123.66009 -190.632,127.41029 -190.632,123.68117 C -190.632,119.65837 -193.97719,110 -198,110 z"
+       id="path10"
+       style="fill:#cd0000;fill-opacity:1" />
+  </g>
+  <path
+     d="M -50,125 L -44.41604,142.31434 L -26.223587,142.27458 L -40.964962,152.93566 L -35.305369,170.22543 L -50,159.5 L -64.694632,170.22542 L -59.035038,152.93566 L -73.776413,142.27457 L -55.58396,142.31434 L -50,125 z"
+     transform="matrix(0.8514879,0,0,0.8514879,192.57439,-58.435988)"
+     style="fill:#ffd700;fill-opacity:1"
+     id="path14" />
+  <path
+     d="M 150.5,9.84375 C 122.9,9.84375 100.5,32.24375 100.5,59.84375 C 100.5,62.269365 100.66565,64.666386 101,67 C 104.45683,48.824155 125.315,34.84375 150.5,34.84375 C 175.685,34.84375 196.54316,48.824155 200,67 C 200.33435,64.666386 200.5,62.269365 200.5,59.84375 C 200.5,32.24375 178.1,9.84375 150.5,9.84375 z"
+     style="fill:#ffd700;fill-opacity:1"
+     id="path16" />
+</svg>

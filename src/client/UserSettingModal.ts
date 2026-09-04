@@ -326,10 +326,6 @@ export class UserSettingModal extends BaseModal {
     );
   }
 
-  private togglePerformanceOverlay() {
-    this.userSettings.togglePerformanceOverlay();
-  }
-
   protected modalConfig() {
     return {
       tabs: [
@@ -851,15 +847,6 @@ export class UserSettingModal extends BaseModal {
         id="go-to-player-toggle"
         .checked=${this.userSettings.goToPlayer()}
         @change=${this.toggleGoToPlayer}
-      ></setting-toggle>
-
-      <!-- 📱 Performance Overlay -->
-      <setting-toggle
-        label="${translateText("user_setting.performance_overlay_label")}"
-        description="${translateText("user_setting.performance_overlay_desc")}"
-        id="performance-overlay-toggle"
-        .checked=${this.userSettings.performanceOverlay()}
-        @change=${this.togglePerformanceOverlay}
       ></setting-toggle>
 
       <!-- ⚔️ Attack Ratio -->

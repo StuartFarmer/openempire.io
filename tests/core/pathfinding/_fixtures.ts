@@ -3,13 +3,13 @@
 import {
   Difficulty,
   Game,
-  GameMapSize,
   GameMapType,
   GameMode,
   GameType,
 } from "../../../src/core/game/Game";
 import { createGame as createGameImpl } from "../../../src/core/game/GameImpl";
 import { GameMapImpl } from "../../../src/core/game/GameMap";
+import { expectedLayersByteLength } from "../../../src/core/game/MapLayers";
 import { UserSettings } from "../../../src/core/game/UserSettings";
 import { GameConfig } from "../../../src/core/Schemas";
 import { TestConfig } from "../../util/TestConfig";
@@ -89,7 +89,13 @@ export function createGame(data: TestMapData): Game {
 
   computeShoreline(terrain, width, height);
 
-  const gameMap = new GameMapImpl(width, height, terrain, numLand);
+  const gameMap = new GameMapImpl(
+    width,
+    height,
+    terrain,
+    numLand,
+    new Uint8Array(expectedLayersByteLength(width, height)),
+  );
 
   // Create miniMap (2x2→1, water if ANY water)
   const miniWidth = Math.ceil(width / 2);
@@ -131,8 +137,7 @@ export function createGame(data: TestMapData): Game {
   );
 
   const gameConfig: GameConfig = {
-    gameMap: GameMapType.Asia,
-    gameMapSize: GameMapSize.Normal,
+    gameMap: GameMapType.Verdantia,
     gameMode: GameMode.FFA,
     gameType: GameType.Singleplayer,
     difficulty: Difficulty.Medium,

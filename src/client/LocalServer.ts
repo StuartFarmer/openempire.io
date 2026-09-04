@@ -18,13 +18,13 @@ import {
   decompressGameRecord,
   replacer,
 } from "../core/Util";
-import { getPersistentID } from "./Auth";
 import { LobbyConfig } from "./ClientGameRunner";
 import {
   GameSpeedDownIntentEvent,
   GameSpeedUpIntentEvent,
   ReplaySpeedChangeEvent,
 } from "./InputHandler";
+import { getPersistentID } from "./PersistentID";
 import {
   defaultReplaySpeedMultiplier,
   ReplaySpeedMultiplier,

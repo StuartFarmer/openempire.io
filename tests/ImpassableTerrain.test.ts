@@ -8,7 +8,6 @@ import { AiAttackBehavior } from "../src/core/execution/utils/AiAttackBehavior";
 import {
   Difficulty,
   Game,
-  GameMapSize,
   GameMapType,
   GameMode,
   GameType,
@@ -19,6 +18,7 @@ import {
   UnitType,
 } from "../src/core/game/Game";
 import { createGame } from "../src/core/game/GameImpl";
+import { expectedLayersByteLength } from "../src/core/game/MapLayers";
 import { genTerrainFromBin } from "../src/core/game/TerrainMapLoader";
 import { UserSettings } from "../src/core/game/UserSettings";
 import { PseudoRandom } from "../src/core/PseudoRandom";
@@ -71,6 +71,7 @@ async function setupImpassableGame(humans: PlayerInfo[] = []): Promise<Game> {
   const gameMap = await genTerrainFromBin(
     { width: MAP_W, height: MAP_H, num_land_tiles: full.numLandTiles },
     full.data,
+    new Uint8Array(expectedLayersByteLength(MAP_W, MAP_H)),
   );
   const miniGameMap = await genTerrainFromBin(
     { width: MINI_W, height: MINI_H, num_land_tiles: mini.numLandTiles },
@@ -78,8 +79,7 @@ async function setupImpassableGame(humans: PlayerInfo[] = []): Promise<Game> {
   );
 
   const gameConfig: GameConfig = {
-    gameMap: GameMapType.Asia,
-    gameMapSize: GameMapSize.Normal,
+    gameMap: GameMapType.Verdantia,
     gameMode: GameMode.FFA,
     gameType: GameType.Singleplayer,
     difficulty: Difficulty.Medium,

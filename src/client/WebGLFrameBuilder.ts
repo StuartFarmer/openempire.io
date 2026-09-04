@@ -2,6 +2,7 @@ import { Colord, colord } from "colord";
 import { base64url } from "jose";
 import { assetUrl } from "../core/AssetUrls";
 import {
+  type Cosmetics,
   findEffect,
   findEffectForSlot,
   isNukeExplosionEffect,
@@ -11,9 +12,9 @@ import {
   TRAIL_EFFECT_TYPES,
   type TrailEffectAttributes,
 } from "../core/CosmeticSchemas";
-import { decodePatternData } from "../core/PatternDecoder";
+import { climateSuitability } from "../core/execution/utils/FarmGrowth";
 import { PlayerType } from "../core/game/Game";
-import { getCachedCosmetics } from "./Cosmetics";
+import { decodePatternData } from "../core/PatternDecoder";
 import { uploadFrameData } from "./render/frame/Upload";
 // Type-only: a value import would pull GPURenderer and its `.glsl?raw` shader
 // imports into any non-Vite consumer (e.g. the Node perf harness).
@@ -58,6 +59,12 @@ void _EFFECT_BLOCK_ORDER;
 
 // Detonating bomb → nuke-explosion slot.
 // Only these unit types produce a shockwave; plain MIRV splits and never detonates.
+// The cosmetics service was removed; no catalog ever loads, so every
+// effect/pattern lookup falls back to default rendering.
+function getCachedCosmetics(): Cosmetics | null {
+  return null;
+}
+
 const UNIT_TYPE_TO_NUKE_TYPE: Readonly<Record<string, NukeExplosionType>> = {
   [UT_ATOM_BOMB]: "atom",
   [UT_HYDROGEN_BOMB]: "hydro",
@@ -188,8 +195,53 @@ export class WebGLFrameBuilder {
     this.syncLocalPlayer(gameView);
     this.syncSpawnOverlay(gameView);
     this.syncTerrainDeltas(gameView);
+    this.syncDensityField(gameView);
+    this.syncFertilityOverlay(gameView);
     this.resolveDeadUnitExplosions(gameView);
     uploadFrameData(this.view, gameView.frameData());
+  }
+
+  private densityUploaded = false;
+
+  /**
+   * Push the urban density field (add-urban-core-growth): a full upload on
+   * the first tick, then per-tile deltas for the handful of tiles that
+   * change as the city grows.
+   */
+  private syncDensityField(gameView: GameView): void {
+    if (!this.densityUploaded) {
+      this.view.updateDensityField(gameView.densityStateBuffer());
+      this.densityUploaded = true;
+      return;
+    }
+    const changed = gameView.recentlyUpdatedDensityTiles();
+    if (changed.length > 0) {
+      this.view.applyDensityDelta(changed, gameView.densityStateBuffer());
+    }
+  }
+
+  /**
+   * Bake + upload the active soil-overlay plane (rework-settlement-ecology):
+   * fertility is the raw `crop` layer the food tick reads; suitability is the
+   * Liebig-min climate-suitability field (climateSuitability). Re-encoded so
+   * the shader can tell water (0, transparent) from genuinely barren land
+   * (clamped to 1). Each plane is static for the whole game, so it's computed
+   * lazily on the first tick its mode is cycled on and never again.
+   */
+  private syncFertilityOverlay(gameView: GameView): void {
+    const mode = this.view.soilOverlayMode();
+    if (mode === "off" || this.view.soilOverlayHasField(mode)) return;
+    const n = gameView.width() * gameView.height();
+    const plane = new Uint8Array(n);
+    for (let ref = 0; ref < n; ref++) {
+      if (!gameView.isLand(ref) || gameView.isImpassable(ref)) continue;
+      const v =
+        mode === "fertility"
+          ? gameView.layer("crop", ref)
+          : Math.round(climateSuitability(gameView, ref) * 255);
+      plane[ref] = Math.max(1, v);
+    }
+    this.view.updateSoilOverlay(plane, mode);
   }
 
   /**

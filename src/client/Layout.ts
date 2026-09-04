@@ -12,10 +12,9 @@ export function initLayout() {
       sidebar.style.display = "flex";
     }
 
-    if (!hb) {
-      console.error("Hamburger button not found");
-      return;
-    }
+    // No hamburger on the front page any more (the nav bar was removed) —
+    // nothing to wire up, and that is not an error.
+    if (!hb) return;
 
     // Disable fallback inline handler now that JS is loaded
     hb.onclick = null;

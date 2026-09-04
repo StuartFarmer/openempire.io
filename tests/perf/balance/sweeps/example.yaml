@@ -1,0 +1,62 @@
+# Example sweep: find urban-economy configs that land the territory Gini in
+# a playable band without collapsing the field of nations.
+#
+#   npx tsx tests/perf/balance/Sweep.ts tests/perf/balance/sweeps/example.yaml
+#
+# Start with `--dry-run` to see how big the space is before paying for it.
+# Ranges below bracket the shipped defaults in FoodConfig.ts (wCong 1.8,
+# popPerDensity 10000, urbanGrowthRate 0.1, supplyRadius 10) — when you add an
+# axis, check the default first so the sweep brackets it rather than hunting
+# in some unrelated corner of the space.
+
+name: urban-flatten
+method: random
+samples: 60
+seed: 7
+
+run:
+  map: verdantia
+  ticks: 3000
+  nations: 25
+  bots: 40
+  difficulty: Medium
+  seeds: 2 # games per cell; raise to 3+ before trusting a narrow result
+  sample: 250 # metric sampling cadence, in ticks
+
+parameters:
+  # Pinned: present in every cell, never varied. Pin a knob here when you
+  # want the sweep run against a non-default baseline.
+  supplyRadius: { value: 10 }
+
+  # The axes under test.
+  wCong: { min: 1.2, max: 2.6 }
+  popPerDensity: { values: [7000, 10000, 13000, 16000] }
+  urbanGrowthRate:
+    distribution: log_uniform
+    min: 0.04
+    max: 0.25
+
+  # A named group. Flip `enabled` to false to gate this whole region out of
+  # the search without deleting it — the fast way to ask "is it these knobs
+  # or those knobs?" between two runs.
+  starvation:
+    enabled: false
+    parameters:
+      minFedForLife: { values: [0.02, 0.05, 0.1] }
+      baseBirthRate: { min: 0.01, max: 0.04 }
+
+# What "good" means. Cells inside every target band and every constraint are
+# solutions; the driver exports a diverse spread of them as presets.
+targets:
+  - metric: mean_finalGini
+    goal: 0.52
+    tolerance: 0.04
+
+constraints:
+  - metric: mean_finalAlive
+    min: 15
+  - metric: mean_finalLeaderShare
+    max: 0.2
+
+solutions: 6
+presets: flat

@@ -1,0 +1,31 @@
+# Tasks: add-tile-painted-structures
+
+## 1. Core: plots + adjacency
+
+- [x] 1.1 GameImpl plot-occupancy index (Map<TileRef, Unit> over 2×2 footprints, maintained on build/delete); tribal placement = 4 tiles land+owned+unoccupied, no min-dist; expose occupancy check + per-player anchor lookup for adjacency
+- [x] 1.2 FoodConfig v3: plot costs (150/40/60) + costGrowthPerOwned (0.03) + per-plot effects (pop 3000, storage 1500, farmProductionMilli 80) + adjacencyBonus (0.1)
+- [x] 1.3 Adjacency-aware effects: farm production in foodTick; settlement cap in Config.maxTroops; barn storage in foodTick — all via anchor-distance-2 neighbor counts
+- [x] 1.4 Core tests: packing/overlap/ownership placement rules, adjacency arithmetic (belt vs scattered), cost growth curve, capture keeps plots painted
+
+## 2. Bots
+
+- [x] 2.1 Plot painting heuristics: farmland scoring = fertility + adjacency; settlements/barns cluster; verify bots build dozens of plots and survive (test + harness census)
+
+## 3. Client (paint UX + rendering)
+
+- [x] 3.1 Per-tile plot-type buffer → GL texture; terrain composite paints per-type 2×2 patterns (farmland tilled rows etc.); StructurePass skips tribal types
+- [x] 3.2 Paint mode: sticky placement (no exit on build), drag-paint one intent per new valid anchor, right-click/Escape exits; 2×2 ghost with validity coloring
+- [x] 3.3 In-game verify on verdantia: paint a farm belt by dragging, patterns render, adjacency visible in production readout
+
+## 4. Balance + gates
+
+- [x] 4.1 Harness re-sweep; balance-notes entry; verify plots-per-game census (dozens per nation) and sane leader share
+- [x] 4.2 tsc/lint/full vitest at baseline
+
+## 5. Revision — single-tile plots (playtest feedback)
+
+- [x] 5.1 Core: footprint = one tile (occupancy 1:1, distance-1 adjacency, single-tile placement); tribal construction time removed entirely
+- [x] 5.2 Client: 2×2 pattern INSIDE the tile (shader quadrant from sub-tile UV; farmland colors derived from the tile's own terrain color per the reference FarmlandBuilding), settlement/barn as reference palette tiles; stroke painting for Farmland + sticky single for Settlement/Barn ported from the reference FoundationConstructionController; fix the invisible-structure bug (paint on unit add, no construction state)
+- [x] 5.3 Re-verify in-game + harness; balance-notes entry
+- [x] 5.4 Persistent build bar (layered maps): bottom HUD right of the control panel, combined row centered; icons + live costs + affordability; click arms paint/placement, re-click/Escape/right-click disarms; radial menu loses its build entry on layered maps (classic unchanged); in-game verify
+- [x] 5.5 Playtest revision 2: stroke painting for ALL tribal plots (settlement/barn too); land harvest removed (landHarvestMilli 0 — farms are the only food source); ghost infrastructure replaced by a real spawn starter kit (1 Settlement + 3 Farmland painted free at settle, re-settles re-kit); bot farm placement gains a fertility floor (no wasteland farm-spam)

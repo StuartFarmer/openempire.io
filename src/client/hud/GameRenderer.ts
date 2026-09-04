@@ -5,6 +5,7 @@ import { AttackingTroopsController } from "../controllers/AttackingTroopsControl
 import { BuildPreviewController } from "../controllers/BuildPreviewController";
 import { HoverHighlightController } from "../controllers/HoverHighlightController";
 import { LiveStatsController } from "../controllers/LiveStatsController";
+import { SegmentHighlightController } from "../controllers/SegmentHighlightController";
 import { SoundEffectController } from "../controllers/SoundEffectController";
 import { StructureHighlightController } from "../controllers/StructureHighlightController";
 import { ViewModeController } from "../controllers/ViewModeController";
@@ -14,33 +15,28 @@ import { MapRenderer } from "../render/gl";
 import { TransformHandler } from "../TransformHandler";
 import { UIState } from "../UIState";
 import { GameView } from "../view";
-import { FrameProfiler } from "./FrameProfiler";
 import { ActionableEvents } from "./layers/ActionableEvents";
 import { AlertFrame } from "./layers/AlertFrame";
 import { AttacksDisplay } from "./layers/AttacksDisplay";
+import { BuildBar } from "./layers/BuildBar";
 import { BuildMenu } from "./layers/BuildMenu";
-import { ChatDisplay } from "./layers/ChatDisplay";
-import { ChatModal } from "./layers/ChatModal";
 import { ControlPanel } from "./layers/ControlPanel";
-import { EmojiTable } from "./layers/EmojiTable";
+import { EconPanel } from "./layers/EconPanel";
 import { EventsDisplay } from "./layers/EventsDisplay";
 import { GameLeftSidebar } from "./layers/GameLeftSidebar";
 import { GameRightSidebar } from "./layers/GameRightSidebar";
 import { GraphicsSettingsModal } from "./layers/GraphicsSettingsModal";
 import { HeadsUpMessage } from "./layers/HeadsUpMessage";
 import { ImmunityTimer } from "./layers/ImmunityTimer";
-import { InGamePromo } from "./layers/InGamePromo";
 import { Leaderboard } from "./layers/Leaderboard";
 import { MainRadialMenu } from "./layers/MainRadialMenu";
-import { MultiTabModal } from "./layers/MultiTabModal";
-import { PerformanceOverlay } from "./layers/PerformanceOverlay";
 import { PlayerInfoOverlay } from "./layers/PlayerInfoOverlay";
 import { PlayerPanel } from "./layers/PlayerPanel";
 import { ReplayPanel } from "./layers/ReplayPanel";
 import { SettingsModal } from "./layers/SettingsModal";
 import { SpawnTimer } from "./layers/SpawnTimer";
 import { TeamStats } from "./layers/TeamStats";
-import { UnitDisplay } from "./layers/UnitDisplay";
+import { TuningPanel } from "./layers/TuningPanel";
 import { WinModal } from "./layers/WinModal";
 import { loadAllSprites } from "./SpriteLoader";
 
@@ -66,15 +62,6 @@ export function createRenderer(
   ) as GameStartingModal;
   startingModal.hide();
 
-  // TODO maybe append this to document instead of querying for them?
-  const emojiTable = document.querySelector("emoji-table") as EmojiTable;
-  if (!emojiTable || !(emojiTable instanceof EmojiTable)) {
-    console.error("EmojiTable element not found in the DOM");
-  }
-  emojiTable.transformHandler = transformHandler;
-  emojiTable.game = game;
-  emojiTable.initEventBus(eventBus);
-
   const buildMenu = document.querySelector("build-menu") as BuildMenu;
   if (!buildMenu || !(buildMenu instanceof BuildMenu)) {
     console.error("BuildMenu element not found in the DOM");
@@ -99,6 +86,20 @@ export function createRenderer(
   }
   gameLeftSidebar.game = game;
   gameLeftSidebar.eventBus = eventBus;
+
+  const econPanel = document.querySelector("econ-panel") as EconPanel;
+  if (!(econPanel instanceof EconPanel)) {
+    console.error("EconPanel element not found in the DOM");
+  }
+  econPanel.eventBus = eventBus;
+  econPanel.game = game;
+
+  const tuningPanel = document.querySelector("tuning-panel") as TuningPanel;
+  if (!(tuningPanel instanceof TuningPanel)) {
+    console.error("TuningPanel element not found in the DOM");
+  }
+  tuningPanel.eventBus = eventBus;
+  tuningPanel.game = game;
 
   const teamStats = document.querySelector("team-stats") as TeamStats;
   if (!teamStats || !(teamStats instanceof TeamStats)) {
@@ -144,13 +145,6 @@ export function createRenderer(
   attacksDisplay.eventBus = eventBus;
   attacksDisplay.game = game;
   attacksDisplay.uiState = uiState;
-
-  const chatDisplay = document.querySelector("chat-display") as ChatDisplay;
-  if (!(chatDisplay instanceof ChatDisplay)) {
-    console.error("chat display not found");
-  }
-  chatDisplay.eventBus = eventBus;
-  chatDisplay.game = game;
 
   const playerInfo = document.querySelector(
     "player-info-overlay",
@@ -203,13 +197,13 @@ export function createRenderer(
   graphicsSettingsModal.userSettings = userSettings;
   graphicsSettingsModal.eventBus = eventBus;
 
-  const unitDisplay = document.querySelector("unit-display") as UnitDisplay;
-  if (!(unitDisplay instanceof UnitDisplay)) {
-    console.error("unit display not found");
+  const buildBar = document.querySelector("build-bar") as BuildBar;
+  if (!(buildBar instanceof BuildBar)) {
+    console.error("build bar not found");
   }
-  unitDisplay.game = game;
-  unitDisplay.eventBus = eventBus;
-  unitDisplay.uiState = uiState;
+  buildBar.game = game;
+  buildBar.eventBus = eventBus;
+  buildBar.uiState = uiState;
 
   const playerPanel = document.querySelector("player-panel") as PlayerPanel;
   if (!(playerPanel instanceof PlayerPanel)) {
@@ -217,25 +211,9 @@ export function createRenderer(
   }
   playerPanel.g = game;
   playerPanel.initEventBus(eventBus);
-  playerPanel.emojiTable = emojiTable;
   playerPanel.uiState = uiState;
 
   playerPanel.setRole(playerRole);
-
-  const chatModal = document.querySelector("chat-modal") as ChatModal;
-  if (!(chatModal instanceof ChatModal)) {
-    console.error("chat modal not found");
-  }
-  chatModal.g = game;
-  chatModal.initEventBus(eventBus);
-
-  const multiTabModal = document.querySelector(
-    "multi-tab-modal",
-  ) as MultiTabModal;
-  if (!(multiTabModal instanceof MultiTabModal)) {
-    console.error("multi-tab modal not found");
-  }
-  multiTabModal.game = game;
 
   const headsUpMessage = document.querySelector(
     "heads-up-message",
@@ -244,15 +222,6 @@ export function createRenderer(
     console.error("heads-up message not found");
   }
   headsUpMessage.game = game;
-
-  const performanceOverlay = document.querySelector(
-    "performance-overlay",
-  ) as PerformanceOverlay;
-  if (!(performanceOverlay instanceof PerformanceOverlay)) {
-    console.error("performance overlay not found");
-  }
-  performanceOverlay.eventBus = eventBus;
-  performanceOverlay.userSettings = userSettings;
 
   const alertFrame = document.querySelector("alert-frame") as AlertFrame;
   if (!(alertFrame instanceof AlertFrame)) {
@@ -277,12 +246,6 @@ export function createRenderer(
   immunityTimer.game = game;
   immunityTimer.eventBus = eventBus;
 
-  const inGamePromo = document.querySelector("in-game-promo") as InGamePromo;
-  if (!(inGamePromo instanceof InGamePromo)) {
-    console.error("in-game promo not found");
-  }
-  inGamePromo.game = game;
-
   const layers: Controller[] = [
     new WarshipSelectionController(game, eventBus, transformHandler, view),
     new BuildPreviewController(
@@ -294,6 +257,7 @@ export function createRenderer(
       userSettings,
     ),
     new HoverHighlightController(game, eventBus, transformHandler, view),
+    new SegmentHighlightController(game, eventBus, transformHandler, view),
     new LiveStatsController(game, eventBus),
     new StructureHighlightController(eventBus, view),
     new ViewModeController(eventBus, view),
@@ -302,22 +266,22 @@ export function createRenderer(
     eventsDisplay,
     actionableEvents,
     attacksDisplay,
-    chatDisplay,
     buildMenu,
     new MainRadialMenu(
       eventBus,
       game,
       transformHandler,
-      emojiTable as EmojiTable,
       buildMenu,
       uiState,
       playerPanel,
     ),
+    econPanel,
+    tuningPanel,
     spawnTimer,
     immunityTimer,
     leaderboard,
     gameLeftSidebar,
-    unitDisplay,
+    buildBar,
     gameRightSidebar,
     controlPanel,
     playerInfo,
@@ -328,18 +292,10 @@ export function createRenderer(
     teamStats,
     playerPanel,
     headsUpMessage,
-    multiTabModal,
-    inGamePromo,
     alertFrame,
-    performanceOverlay,
   ];
 
-  return new GameRenderer(
-    transformHandler,
-    uiState,
-    layers,
-    performanceOverlay,
-  );
+  return new GameRenderer(transformHandler, uiState, layers);
 }
 
 export class GameRenderer {
@@ -349,7 +305,6 @@ export class GameRenderer {
     public transformHandler: TransformHandler,
     public uiState: UIState,
     private layers: Controller[],
-    private performanceOverlay: PerformanceOverlay,
   ) {}
 
   initialize() {
@@ -369,9 +324,6 @@ export class GameRenderer {
 
   tick() {
     const nowMs = performance.now();
-    const shouldProfileTick = FrameProfiler.isEnabled();
-
-    const tickLayerDurations: Record<string, number> = {};
 
     for (const layer of this.layers) {
       if (!layer.tick) {
@@ -391,17 +343,7 @@ export class GameRenderer {
       state.lastTickAtMs = nowMs;
       this.layerTickState.set(layer, state);
 
-      const tickStart = shouldProfileTick ? performance.now() : 0;
       layer.tick();
-      if (shouldProfileTick && tickStart !== 0) {
-        const duration = performance.now() - tickStart;
-        const label = layer.constructor?.name ?? "UnknownLayer";
-        tickLayerDurations[label] = (tickLayerDurations[label] ?? 0) + duration;
-      }
-    }
-
-    if (shouldProfileTick) {
-      this.performanceOverlay.updateTickLayerMetrics(tickLayerDurations);
     }
   }
 }

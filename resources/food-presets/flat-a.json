@@ -1,0 +1,30 @@
+{
+  "name": "flat-a",
+  "description": "farm-sweep solution 1/6 — ",
+  "source": "sweep farm-sweep · cell farmGrowthRate=0.5,farmProductionMilli=1000,farmSenesceRate=0.15,humidityWeight=0.15,tempOptHiN=0.51,tempOptLoN=0,waterFullN=0.15,waterWiltN=0.01",
+  "overrides": {
+    "farmProductionMilli": 1000,
+    "farmGrowthRate": 0.5,
+    "farmSenesceRate": 0.15,
+    "tempOptLoN": 0,
+    "tempOptHiN": 0.51,
+    "waterWiltN": 0.01,
+    "waterFullN": 0.15,
+    "humidityWeight": 0.15
+  },
+  "metrics": {
+    "mean_finalGini": 0.3374,
+    "mean_finalLeaderShare": 0.4401,
+    "mean_finalAlive": 4.6667,
+    "mean_totalStarved": 295642,
+    "mean_urbanAreaTotal": 372.6667
+  },
+  "run": {
+    "map": "Verdantia",
+    "ticks": 12000,
+    "nations": 25,
+    "bots": 0,
+    "difficulty": "Medium",
+    "seeds": 3
+  }
+}

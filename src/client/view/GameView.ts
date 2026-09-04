@@ -6,7 +6,6 @@ import {
   TerrainType,
   TerraNullius,
   Tick,
-  Unit,
   UnitInfo,
   UnitType,
 } from "../../core/game/Game";
@@ -17,6 +16,7 @@ import {
   SpawnPhaseEndUpdate,
 } from "../../core/game/GameUpdates";
 import { ATTACK_DELTA_OUTGOING } from "../../core/game/GameUpdateUtils";
+import { LayerName } from "../../core/game/MapLayers";
 import {
   MotionPlanRecord,
   unpackMotionPlans,
@@ -32,6 +32,7 @@ import { extractAttackRings } from "../render/frame/derive/AttackRings";
 import { extractNukeTelegraphs } from "../render/frame/derive/NukeTelegraphs";
 import { computePlayerStatus } from "../render/frame/derive/PlayerStatus";
 import { buildRelationMatrix } from "../render/frame/derive/RelationMatrix";
+import { PLOT_TYPE_INDEX, PlotCache } from "../render/frame/PlotCache";
 import { RailroadCache } from "../render/frame/RailroadCache";
 import { TrailManager } from "../render/frame/TrailManager";
 import type { FrameData, NameEntry, TilePair } from "../render/types";
@@ -85,6 +86,14 @@ export class GameView implements GameMap {
   // ── FrameData accumulators (renderer-bound state) ─────────────────────
   private trailManager!: TrailManager;
   private railroadCache!: RailroadCache;
+  private plotCache!: PlotCache;
+  // Urban density field (add-urban-core-growth).
+  private densityState!: Uint8Array;
+  private densityChanged: TileRef[] = [];
+  /** Tiles WE painted as Farmland ground from packedFieldUpdates
+   *  (restore-organic-growth) — never real structure plots, so releases can
+   *  clear paint without erasing a standing unit's plot. */
+  private fieldPainted = new Set<TileRef>();
   /** Long-lived NameEntry map for the renderer's NamePass. */
   private _names = new Map<string, NameEntry>();
   /** Reusable scratch buffers for per-tick deltas. */
@@ -112,7 +121,7 @@ export class GameView implements GameMap {
   /** Alliance clusters: allies changed, or a player was added. */
   private _clustersDirty = true;
 
-  private unitGrid: UnitGrid;
+  private unitGrid: UnitGrid<UnitView>;
   private unitMotionPlans = new Map<
     number,
     {
@@ -143,28 +152,29 @@ export class GameView implements GameMap {
   ) {
     this._map = this._mapData.gameMap;
     this.lastUpdate = null;
-    this.unitGrid = new UnitGrid(this._map);
+    this.unitGrid = new UnitGrid<UnitView>(this._map);
     this._cosmetics = new Map(
       humans.map((h) => [h.clientID, h.cosmetics ?? {}]),
     );
     for (const nation of this._mapData.nations) {
       // Nations don't have client ids, so we use their name as the key instead.
-      this._cosmetics.set(nation.name, {
-        flag: nation.flag ? `/flags/${nation.flag}.svg` : undefined,
-      } satisfies PlayerCosmetics);
+      // Flag assets are not part of the lean build; nations render unflagged.
+      this._cosmetics.set(nation.name, {} satisfies PlayerCosmetics);
     }
     for (const extra of this._mapData.additionalNations) {
       // Only set if not already provided by a manifest nation with the same name.
       if (this._cosmetics.has(extra.name)) continue;
-      this._cosmetics.set(extra.name, {
-        flag: extra.flag ? `/flags/${extra.flag}.svg` : undefined,
-      } satisfies PlayerCosmetics);
+      this._cosmetics.set(extra.name, {} satisfies PlayerCosmetics);
     }
 
     const mapW = this._map.width();
     const mapH = this._map.height();
     this.trailManager = new TrailManager(mapW, mapH);
     this.railroadCache = new RailroadCache(mapW, mapH);
+    this.plotCache = new PlotCache(mapW, mapH);
+    // Urban density field (add-urban-core-growth): per-tile built-up density
+    // (0..255), applied from packedDensityUpdates and rendered by DensityPass.
+    this.densityState = new Uint8Array(mapW * mapH);
 
     // Long-lived FrameData. Most fields are mutable references to long-lived
     // buffers (tileState, trailState, etc.); some (_changedTilesScratch,
@@ -177,6 +187,8 @@ export class GameView implements GameMap {
       tileState: this._map.tileStateBuffer(),
       trailState: this.trailManager.getTrailState(),
       railroadState: this.railroadCache.railroadState,
+      plotState: this.plotCache.plotState,
+      plotMaturity: this.plotCache.plotMaturity,
       units: this._unitStates,
       players: this._playerStates,
       names: this._names,
@@ -184,10 +196,12 @@ export class GameView implements GameMap {
         deadUnits: [],
         conquestEvents: [],
         bonusEvents: [],
+        burnTiles: [],
       },
       changedTiles: this._changedTilesScratch,
       railroadDirty: false,
       revealedRailTiles: this.railroadCache.revealedRailTiles,
+      plotDirty: false,
       trailDirtyRowMin: 0,
       trailDirtyRowMax: -1,
       // Derived data — populated each tick by populateFrame(). Empty defaults
@@ -285,6 +299,49 @@ export class GameView implements GameMap {
     if (gu.packedMotionPlans) {
       const records = unpackMotionPlans(gu.packedMotionPlans);
       this.applyMotionPlanRecords(records);
+    }
+
+    // Urban density deltas: word = `tile | (byte<<24)`.
+    this.densityChanged = [];
+    if (gu.packedDensityUpdates) {
+      const dens = gu.packedDensityUpdates;
+      for (let i = 0; i < dens.length; i++) {
+        const word = dens[i];
+        const tile = word & 0xffffff;
+        this.densityState[tile] = word >>> 24;
+        this.densityChanged.push(tile);
+      }
+    }
+
+    // Worked-field deltas (restore-organic-growth): word = `tile | (byte<<24)`,
+    // byte = maturity 0..255, 0 = released. Worked tiles are painted with the
+    // Farmland plot pattern; the maturity byte drives which growth variant the
+    // shader draws (Initial → Planted → Growing → Grown, and back down as the
+    // field senesces). A field reads as brown tilled plots that green up and
+    // ripen to gold one by one. Only paint we added ourselves is ever cleared;
+    // real structure plots (tracked by the unit add/remove path below) are
+    // never touched.
+    if (gu.packedFieldUpdates) {
+      const fld = gu.packedFieldUpdates;
+      const farmlandPlot = (PLOT_TYPE_INDEX.get(UnitType.Farmland) ?? 0) + 1;
+      for (let i = 0; i < fld.length; i++) {
+        const word = fld[i];
+        const tile = word & 0xffffff;
+        const maturity = word >>> 24;
+        if (maturity !== 0) {
+          const cur = this.plotCache.plotStateAt(tile);
+          if (cur === 0) {
+            this.plotCache.addPlot(tile, UnitType.Farmland, maturity);
+            this.fieldPainted.add(tile);
+          } else if (cur === farmlandPlot) {
+            // Existing farmland tile (ours or a structure) — keep it ripening.
+            this.plotCache.setMaturity(tile, maturity);
+          }
+        } else if (this.fieldPainted.has(tile)) {
+          this.plotCache.removePlot(tile);
+          this.fieldPainted.delete(tile);
+        }
+      }
     }
 
     if (gu.updates === null) {
@@ -463,6 +520,9 @@ export class GameView implements GameMap {
         this._unitStates.set(update.id, unit.state);
         this.unitGrid.addUnit(unit);
         if (isStructure) this._structuresDirty = true;
+        if (PLOT_TYPE_INDEX.has(update.unitType)) {
+          this.plotCache.addPlot(unit.tile(), update.unitType);
+        }
       }
       if (!update.isActive) {
         this.unitGrid.removeUnit(unit);
@@ -472,6 +532,9 @@ export class GameView implements GameMap {
       if (!unit.isActive()) {
         // Wait until next tick to delete the unit.
         this.toDelete.add(unit.id());
+        if (PLOT_TYPE_INDEX.has(unit.type())) {
+          this.plotCache.removePlot(unit.tile());
+        }
         if (this.unitMotionPlans.delete(unit.id())) {
           this.markMotionPlannedUnitIdsDirty();
         }
@@ -548,6 +611,7 @@ export class GameView implements GameMap {
     f.tick = gu.tick;
     f.inSpawnPhase = this.startTick === null;
     f.railroadDirty = this.railroadCache.railroadDirty;
+    f.plotDirty = this.plotCache.plotDirty;
     f.trailDirtyRowMin = this.trailManager.dirtyRowMin;
     f.trailDirtyRowMax = this.trailManager.dirtyRowMax;
 
@@ -613,6 +677,7 @@ export class GameView implements GameMap {
 
     // Reset transient flags for next tick.
     this.railroadCache.clearDirty();
+    this.plotCache.clearDirty();
     this._structuresDirty = false;
   }
 
@@ -622,6 +687,7 @@ export class GameView implements GameMap {
     ev.deadUnits.length = 0;
     ev.conquestEvents.length = 0;
     ev.bonusEvents.length = 0;
+    ev.burnTiles.length = 0;
 
     for (const u of gu.updates[GameUpdateType.Unit] ?? []) {
       if (u.isActive) continue;
@@ -631,6 +697,14 @@ export class GameView implements GameMap {
         reachedTarget: u.reachedTarget,
         ownerSmallID: u.ownerID,
       });
+    }
+    // Burn events (rework-persistent-tiles-and-burn): every tile taken in
+    // combat lights a one-shot fire (PlotFirePass), so a whole captured
+    // district burns — not just a razed nucleus.
+    if (gu.packedBurns) {
+      for (let i = 0; i < gu.packedBurns.length; i++) {
+        ev.burnTiles.push(gu.packedBurns[i]);
+      }
     }
     const myID = this._myPlayer?.id();
     for (const c of gu.updates[GameUpdateType.ConquestEvent] ?? []) {
@@ -898,6 +972,16 @@ export class GameView implements GameMap {
     return this.updatedTiles;
   }
 
+  /** Urban density buffer (0..255 per tile) — add-urban-core-growth. */
+  densityStateBuffer(): Uint8Array {
+    return this.densityState;
+  }
+
+  /** Tiles whose density changed this tick (for delta uploads). */
+  recentlyUpdatedDensityTiles(): TileRef[] {
+    return this.densityChanged;
+  }
+
   recentlyUpdatedTerrainTiles(): TileRef[] {
     return this.updatedTerrainTiles;
   }
@@ -906,17 +990,9 @@ export class GameView implements GameMap {
     tile: TileRef,
     searchRange: number,
     types: UnitType | readonly UnitType[],
-    predicate?: UnitPredicate,
+    predicate?: UnitPredicate<UnitView>,
   ): Array<{ unit: UnitView; distSquared: number }> {
-    return this.unitGrid.nearbyUnits(
-      tile,
-      searchRange,
-      types,
-      predicate,
-    ) as Array<{
-      unit: UnitView;
-      distSquared: number;
-    }>;
+    return this.unitGrid.nearbyUnits(tile, searchRange, types, predicate);
   }
 
   hasUnitNearby(
@@ -947,7 +1023,7 @@ export class GameView implements GameMap {
       tile,
       searchRange,
       types,
-      predicate as (unit: Unit | UnitView) => boolean,
+      predicate,
       playerId,
       includeUnderConstruction,
     );
@@ -1226,6 +1302,13 @@ export class GameView implements GameMap {
   }
   numTilesWithFallout(): number {
     return this._map.numTilesWithFallout();
+  }
+  /** Tribal plot-type value at a tile (0 = none) — paint-mode prechecks. */
+  plotStateAt(ref: TileRef): number {
+    return this.plotCache.plotStateAt(ref);
+  }
+  layer(name: LayerName, ref: TileRef): number {
+    return this._map.layer(name, ref);
   }
   gameID(): GameID {
     return this._gameID;

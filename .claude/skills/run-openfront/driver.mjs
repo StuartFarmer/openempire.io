@@ -32,8 +32,13 @@ export async function launch({ viewport, rafIntervalMs } = {}) {
       : libs;
     env.FONTCONFIG_FILE = path.join(CACHE, "fonts.conf");
   }
+  // On macOS headless Chromium can use the real GPU via ANGLE Metal, which
+  // the renderer's software-GL gate requires. On the Linux host there is no
+  // GPU; SwiftShader + --disable-gpu is the only option.
+  const gpuArgs =
+    process.platform === "darwin" ? ["--use-angle=metal"] : ["--disable-gpu"];
   const browser = await chromium.launch({
-    args: ["--no-sandbox", "--disable-gpu"],
+    args: ["--no-sandbox", ...gpuArgs],
     env,
   });
   const context = await browser.newContext({
@@ -70,7 +75,10 @@ export async function gotoHome(page) {
 // The single-player button is labeled "SOLO!". There are multiple SOLO
 // buttons in the DOM (responsive layouts) — only one is visible.
 export async function openSoloModal(page) {
-  await page.locator("button:visible", { hasText: /solo/i }).first().click();
+  await page
+    .locator("button:visible", { hasText: /solo|singleplayer/i })
+    .first()
+    .click();
   await page.waitForTimeout(1500);
 }
 

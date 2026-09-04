@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="700">
+  <path fill="#005eb8" fill-rule="evenodd" d="M0 0h900v700H0z"/>
+  <path fill="#fff" fill-rule="evenodd" d="M0 220h900v260H0z"/>
+  <g stroke="#005eb8" stroke-width="6">
+    <g fill="#fff">
+      <path d="m493.95 345.64-64.12 294.23-12.47-2.72 63.9-293.2z" style="font-variation-settings:normal"/>
+      <path d="m406.05 345.64 64.12 294.23 12.47-2.72-63.9-293.2z" style="font-variation-settings:normal"/>
+      <path d="m526.75 224.5 111.75-88.83-126.36 267.41-68.52-62.29-43.42 58.5 107.86 228.26-11.54 5.46L261.5 135.67l111.75 88.83 76.75-97z" style="font-variation-settings:normal"/>
+      <path d="M456.38 339.73v301.14h-12.77V340.79z" style="font-variation-settings:normal"/>
+      <path d="m526.75 224.5 111.75-88.83-235.01 497.34-11.54-5.45 223.7-473.42" style="font-variation-settings:normal"/>
+    </g>
+    <path fill="#fff" d="M410.76 304.35c-64.03 47.55-107.25 118.21-90.83 176.02 55.01-12.53 96.74-58.11 130.07-124.61 33.33 66.5 75.07 112.09 130.07 124.61 16.42-57.81-26.8-128.47-90.83-176.02 13.2-65.4 3.65-113.12-39.24-177.88-42.89 64.76-52.44 112.48-39.24 177.88Z" style="font-variation-settings:normal"/>
+    <g fill="none">
+      <path stroke-linecap="round" d="M460.71 319.47A10.71 10.71 0 0 1 450 330.18a10.71 10.71 0 0 1-10.72-10.71A10.71 10.71 0 0 1 450 308.76a10.71 10.71 0 0 1 10.71 10.71z"/>
+      <path d="M450 308.75V128.7" style="font-variation-settings:normal"/>
+      <path d="M319.93 480.37c30.01-49.88 62.93-100.31 120.64-155.42" style="font-variation-settings:normal"/>
+      <path d="M580.07 480.37c-30.01-49.88-62.93-100.31-120.64-155.42" style="font-variation-settings:normal"/>
+    </g>
+  </g>
+</svg>

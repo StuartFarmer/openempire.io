@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="700">
+  <path fill="#fff" fill-rule="evenodd" d="M0 0h900v700H0z"/>
+  <path fill="#bc002d" fill-rule="evenodd" d="M450 101.41c-136.93 0-248.59 111.65-248.59 248.59S313.06 598.59 450 598.59 698.59 486.94 698.59 350 586.94 101.41 450 101.41zm0 60c104.51 0 188.59 84.08 188.59 188.59S554.51 538.59 450 538.59 261.41 454.51 261.41 350 345.49 161.41 450 161.41z" color="#000" paint-order="stroke fill markers" style="-inkscape-stroke:none"/>
+</svg>

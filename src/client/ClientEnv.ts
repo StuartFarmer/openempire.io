@@ -1,21 +1,13 @@
-import { JWK } from "jose";
-import { z } from "zod";
 import { GameID } from "../core/Schemas";
 import { simpleHash } from "../core/Util";
-import {
-  GameEnv,
-  JwksSchema,
-  parseGameEnv,
-} from "../core/configuration/Config";
+import { GameEnv, parseGameEnv } from "../core/configuration/Config";
 
 export class ClientEnv {
   private static values: ClientEnvValues | null = null;
-  private static publicKey: JWK | null = null;
 
   /** Test-only. */
   static reset(): void {
     ClientEnv.values = null;
-    ClientEnv.publicKey = null;
   }
 
   private static get(): ClientEnvValues {
@@ -28,8 +20,6 @@ export class ClientEnv {
       !bc ||
       bc.gameEnv === undefined ||
       bc.numWorkers === undefined ||
-      bc.turnstileSiteKey === undefined ||
-      bc.jwtAudience === undefined ||
       bc.instanceId === undefined ||
       bc.gitCommit === undefined
     ) {
@@ -38,8 +28,6 @@ export class ClientEnv {
     ClientEnv.values = {
       gameEnv: parseGameEnv(bc.gameEnv),
       numWorkers: bc.numWorkers,
-      turnstileSiteKey: bc.turnstileSiteKey,
-      jwtAudience: bc.jwtAudience,
       instanceId: bc.instanceId,
       gitCommit: bc.gitCommit,
     };
@@ -56,41 +44,11 @@ export class ClientEnv {
   static numWorkers(): number {
     return ClientEnv.get().numWorkers;
   }
-  static turnstileSiteKey(): string {
-    return ClientEnv.get().turnstileSiteKey;
-  }
-  static jwtAudience(): string {
-    return ClientEnv.get().jwtAudience;
-  }
   static instanceId(): string {
     return ClientEnv.get().instanceId;
   }
   static gitCommit(): string {
     return ClientEnv.get().gitCommit;
-  }
-  static jwtIssuer(): string {
-    const audience = ClientEnv.jwtAudience();
-    return audience === "localhost"
-      ? "http://localhost:8787"
-      : `https://api.${audience}`;
-  }
-  static async jwkPublicKey(): Promise<JWK> {
-    if (ClientEnv.publicKey) return ClientEnv.publicKey;
-    const jwksUrl = ClientEnv.jwtIssuer() + "/.well-known/jwks.json";
-    console.log(`Fetching JWKS from ${jwksUrl}`);
-    const response = await fetch(jwksUrl);
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`JWKS fetch failed: ${response.status} ${body}`);
-    }
-    const result = JwksSchema.safeParse(await response.json());
-    if (!result.success) {
-      const error = z.prettifyError(result.error);
-      console.error("Error parsing JWKS", error);
-      throw new Error("Invalid JWKS");
-    }
-    ClientEnv.publicKey = result.data.keys[0];
-    return ClientEnv.publicKey;
   }
   static turnIntervalMs(): number {
     return 100;
@@ -113,8 +71,6 @@ export class ClientEnv {
 export interface ClientEnvValues {
   gameEnv: GameEnv;
   numWorkers: number;
-  turnstileSiteKey: string;
-  jwtAudience: string;
   instanceId: string;
   gitCommit: string;
 }

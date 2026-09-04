@@ -1,4 +1,4 @@
-import { renderTroops } from "../../client/Utils";
+import { renderTroops } from "../formatting/NumberFormat";
 import {
   Execution,
   Game,

@@ -23,4 +23,7 @@ export interface FrameEvents {
   readonly deadUnits: DeadUnitFx[];
   readonly conquestEvents: ConquestFx[];
   readonly bonusEvents: BonusEvent[];
+  /** TileRefs set ablaze this tick (rework-persistent-tiles-and-burn): every
+   *  tile taken in combat, each lighting a one-shot PlotFirePass burn. */
+  readonly burnTiles: number[];
 }

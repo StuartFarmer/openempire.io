@@ -9,6 +9,7 @@ import {
 } from "../game/Game";
 import { GameMap, TileRef } from "../game/GameMap";
 import { calculateBoundingBox, getMode, inscribed, simpleHash } from "../Util";
+import { urbanTick } from "./utils/UrbanGrowth";
 
 interface ClusterTraversalState {
   visited: Uint32Array;
@@ -63,7 +64,14 @@ export class PlayerExecution implements Execution {
       const captor = this.mg!.player(owner.id());
       if (u.type() === UnitType.DefensePost) {
         u.delete(true, captor);
-      } else {
+      } else if (u.owner() !== captor) {
+        // Persistent tiles (rework-persistent-tiles-and-burn): tribal plots are
+        // captured-and-burnt, never razed. The plot transfers to the captor and
+        // its tile burns (combat damage, applied by the attack) for the heal
+        // duration, then regrows as the captor's own. capturedPlotRazeChance no
+        // longer governs conquest (kept defined in FoodConfig, dormant). The
+        // guard skips the degenerate case where the tile already resolves to
+        // the unit's owner (nothing to transfer).
         captor.captureUnit(u);
       }
     }
@@ -75,13 +83,11 @@ export class PlayerExecution implements Execution {
       return;
     }
 
-    const troopInc = this.config.troopIncreaseRate(this.player);
-    this.player.addTroops(troopInc);
-    const goldFromWorkers = this.config.goldAdditionRate(this.player);
-    this.player.addGold(goldFromWorkers);
-
-    // Record stats
-    this.mg.stats().goldWork(this.player, goldFromWorkers);
+    // The urban-core growth tick owns the density field,
+    // production/consumption, population growth/starvation, and area
+    // growth (Config.food knobs; see execution/utils/UrbanGrowth.ts).
+    // No gold in this age.
+    urbanTick(this.mg, this.player);
 
     for (const alliance of this.player.alliances()) {
       if (alliance.expiresAt() <= this.mg.ticks()) {

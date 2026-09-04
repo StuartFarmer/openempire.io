@@ -10,6 +10,7 @@ import type { Config } from "../../../../../core/configuration/Config";
 import type { ConquestFx, DeadUnitFx, RendererConfig } from "../../../types";
 import {
   STRUCTURE_TYPES,
+  TRIBAL_PLOT_TYPE_INDEX,
   UT_ATOM_BOMB,
   UT_HYDROGEN_BOMB,
   UT_MIRV_WARHEAD,
@@ -383,7 +384,12 @@ export class FxSpritePass {
       return;
     }
 
-    if (STRUCTURE_TYPES.has(typeName)) {
+    // Tribal plots burn down via PlotFirePass instead of the generic
+    // building explosion.
+    if (
+      STRUCTURE_TYPES.has(typeName) &&
+      !TRIBAL_PLOT_TYPE_INDEX.has(typeName)
+    ) {
       this.pushFx(x, y, FX_BUILDING_EXPLOSION, now);
     }
   }

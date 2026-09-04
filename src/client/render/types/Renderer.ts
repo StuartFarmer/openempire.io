@@ -60,6 +60,18 @@ export interface PlayerState {
   tilesOwned: number;
   gold: number;
   troops: number;
+  /** Food economy (layered games only; zero elsewhere), display units. */
+  food: number;
+  foodProduction: number;
+  foodConsumption: number;
+  foodStarved: number;
+  foodCapacity: number;
+  foodPopulationShare: number;
+  urbanArea: number;
+  /** Extra housing from tile tenure (rework-settlement-ecology). */
+  tenureCapacityBonus: number;
+  farmSeeds: number;
+  settlementSeeds: number;
   isTraitor: boolean;
   traitorRemainingTicks: number;
   inDoomsdayClock: boolean;

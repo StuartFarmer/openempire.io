@@ -1,0 +1,8 @@
+{
+  "id": "Tribalsmall",
+  "name": "Tribal Small",
+  "translation_key": "map.tribalsmall",
+  "categories": ["new", "fictional"],
+  "multiplayer_frequency": 0,
+  "nations": []
+}

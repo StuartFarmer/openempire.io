@@ -1,5 +1,3 @@
-import { placeName, placeSpawnName } from "../client/hud/NameBoxCalculator";
-import { Config } from "./configuration/Config";
 import { DoomsdayClockExecution } from "./execution/DoomsdayClockExecution";
 import { Executor } from "./execution/ExecutionManager";
 import { RecomputeRailClusterExecution } from "./execution/RecomputeRailClusterExecution";
@@ -26,7 +24,13 @@ import { createGame } from "./game/GameImpl";
 import { TileRef } from "./game/GameMap";
 import { GameMapLoader } from "./game/GameMapLoader";
 import { ErrorUpdate, GameUpdateViewData } from "./game/GameUpdates";
+import { placeName, placeSpawnName } from "./game/NamePlacement";
 import { createNationsForGame } from "./game/NationCreation";
+import {
+  createRulesetConfig,
+  DEFAULT_RULESET,
+  type RulesetID,
+} from "./game/Rulesets";
 import { loadTerrainMap as loadGameMap } from "./game/TerrainMapLoader";
 import { PseudoRandom } from "./PseudoRandom";
 import { ClientID, GameStartInfo, Turn } from "./Schemas";
@@ -37,13 +41,12 @@ export async function createGameRunner(
   clientID: ClientID | undefined,
   mapLoader: GameMapLoader,
   callBack: (gu: GameUpdateViewData | ErrorUpdate) => void,
+  /** Which game's rules to build. Defaults to `openfront`; see Rulesets.ts —
+   *  the seam ships with zero divergence and is proven identical. */
+  ruleset: RulesetID = DEFAULT_RULESET,
 ): Promise<GameRunner> {
-  const config = new Config(gameStart.config, null, false);
-  const gameMap = await loadGameMap(
-    gameStart.config.gameMap,
-    gameStart.config.gameMapSize,
-    mapLoader,
-  );
+  const config = createRulesetConfig(ruleset, gameStart.config, null, false);
+  const gameMap = await loadGameMap(gameStart.config.gameMap, mapLoader);
   const random = new PseudoRandom(simpleHash(gameStart.gameID));
 
   const humans = gameStart.players.map((p) => {
@@ -196,6 +199,10 @@ export class GameRunner {
     const packedMotionPlans = this.game.drainPackedMotionPlans();
     const packedPlayerUpdates = this.game.drainPackedPlayerUpdates();
     const packedAttackUpdates = this.game.drainPackedAttackUpdates();
+    const packedDensityUpdates = this.game.drainPackedDensityUpdates();
+    const packedDamageUpdates = this.game.drainPackedDamageUpdates();
+    const packedFieldUpdates = this.game.drainPackedFieldUpdates();
+    const packedBurns = this.game.drainPackedBurns();
 
     this.callBack({
       tick: this.game.ticks(),
@@ -203,6 +210,10 @@ export class GameRunner {
       ...(packedMotionPlans ? { packedMotionPlans } : {}),
       ...(packedPlayerUpdates ? { packedPlayerUpdates } : {}),
       ...(packedAttackUpdates ? { packedAttackUpdates } : {}),
+      ...(packedDensityUpdates ? { packedDensityUpdates } : {}),
+      ...(packedDamageUpdates ? { packedDamageUpdates } : {}),
+      ...(packedFieldUpdates ? { packedFieldUpdates } : {}),
+      ...(packedBurns ? { packedBurns } : {}),
       updates: updates,
       ...(viewDataChanged ? { playerNameViewData: this.playerViewData } : {}),
       tickExecutionDuration: tickExecutionDuration,

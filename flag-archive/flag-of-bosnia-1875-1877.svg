@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="641.68207"
+   height="350.42603"
+   id="svg2"
+   sodipodi:version="0.32"
+   inkscape:version="0.46"
+   inkscape:output_extension="org.inkscape.output.svg.inkscape"
+   sodipodi:docbase="C:\Documents and Settings\arman\Desktop"
+   sodipodi:docname="Flag of Bosnia (1875-1877).svg"
+   version="1.0">
+  <metadata
+     id="metadata11">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs9">
+    <inkscape:perspective
+       sodipodi:type="inkscape:persp3d"
+       inkscape:vp_x="0 : 46.860237 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_z="187.47638 : 46.860237 : 1"
+       inkscape:persp3d-origin="93.73819 : 31.240158 : 1"
+       id="perspective8" />
+    <inkscape:perspective
+       id="perspective2501"
+       inkscape:persp3d-origin="372.04724 : 350.78739 : 1"
+       inkscape:vp_z="744.09448 : 526.18109 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 526.18109 : 1"
+       sodipodi:type="inkscape:persp3d" />
+  </defs>
+  <sodipodi:namedview
+     inkscape:window-height="712"
+     inkscape:window-width="1024"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     guidetolerance="10.0"
+     gridtolerance="10.0"
+     objecttolerance="10.0"
+     borderopacity="1.0"
+     bordercolor="#666666"
+     pagecolor="#ffffff"
+     id="base"
+     inkscape:zoom="0.87877739"
+     inkscape:cx="317.50815"
+     inkscape:cy="250.59855"
+     inkscape:window-x="-4"
+     inkscape:window-y="-4"
+     inkscape:current-layer="svg2"
+     showgrid="false" />
+  <path
+     style="fill:#ffffff;fill-opacity:1;fill-rule:nonzero;stroke:none"
+     d="M 5.9421129e-05,175.95488 L 641.68214,175.90256 L 641.66779,-0.026159218 L -0.014284941,0.026160383 L 5.9421129e-05,175.95488 z"
+     id="path4" />
+  <path
+     style="fill:#d41414;fill-opacity:1;fill-rule:nonzero;stroke:none"
+     d="M 0.014287074,350.4522 L 641.69636,350.39988 L 641.68202,174.47116 L -5.7288187e-05,174.52348 L 0.014287074,350.4522 z"
+     id="path6" />
+  <path
+     sodipodi:type="arc"
+     style="opacity:1;fill:#d41414;fill-opacity:1;stroke:#000000;stroke-width:0;stroke-linecap:butt;stroke-miterlimit:4;stroke-dasharray:0,0;fill-rule:nonzero;stroke-dashoffset:0;marker-start:none"
+     id="path5356"
+     sodipodi:cx="196.29544"
+     sodipodi:cy="104.06101"
+     sodipodi:rx="49.500591"
+     sodipodi:ry="46.086758"
+     d="M 245.79603,104.06101 A 49.500591,46.086758 0 1 1 245.79487,103.74487 L 196.29544,104.06101 z"
+     sodipodi:start="0"
+     sodipodi:end="6.2763256"
+     transform="matrix(1.284788,0,0,1.2441551,56.184956,-36.786467)" />
+  <path
+     sodipodi:type="arc"
+     style="opacity:1;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.96200001;stroke-linecap:butt;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0"
+     id="path5358"
+     sodipodi:cx="241.24426"
+     sodipodi:cy="88.129791"
+     sodipodi:rx="53.483398"
+     sodipodi:ry="47.224701"
+     d="M 294.72766,88.129791 A 53.483398,47.224701 0 1 1 294.7264,87.805846 L 241.24426,88.129791 z"
+     sodipodi:start="0"
+     sodipodi:end="6.2763256"
+     transform="matrix(1,0,0,1.1084338,88.75968,-5.5734364)" />
+  <path
+     sodipodi:type="star"
+     style="opacity:1;fill:#d41414;fill-opacity:1;stroke:#000000;stroke-width:0;stroke-linecap:butt;stroke-miterlimit:4;stroke-dasharray:none"
+     id="path5342"
+     sodipodi:sides="6"
+     sodipodi:cx="304.96915"
+     sodipodi:cy="61.388092"
+     sodipodi:r1="39.188934"
+     sodipodi:r2="19.594467"
+     sodipodi:arg1="1.120135"
+     sodipodi:arg2="1.6437338"
+     inkscape:flatsided="false"
+     inkscape:rounded="0"
+     inkscape:randomized="0"
+     d="M 322.03832,96.664374 L 303.54124,80.930462 L 282.95357,93.808567 L 287.33101,69.922676 L 265.88441,58.532285 L 288.75891,50.380306 L 287.89998,26.11181 L 306.39705,41.845722 L 326.98472,28.967617 L 322.60729,52.853508 L 344.05389,64.243899 L 321.17938,72.395878 L 322.03832,96.664374 z"
+     transform="matrix(0.7541519,0.3378058,-0.3597739,0.7081028,140.3038,-52.669929)" />
+</svg>

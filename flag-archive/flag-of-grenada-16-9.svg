@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   inkscape:version="1.0.1 (3bc2e813f5, 2020-09-07)"
+   sodipodi:docname="greana.svg"
+   id="svg42"
+   viewBox="0 0 1600 900"
+   height="1080"
+   width="1920"
+   version="1.0">
+  <metadata
+     id="metadata46">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <sodipodi:namedview
+     inkscape:current-layer="svg42"
+     inkscape:window-maximized="1"
+     inkscape:window-y="27"
+     inkscape:window-x="0"
+     inkscape:cy="556.16258"
+     inkscape:cx="771.0543"
+     inkscape:zoom="0.27059199"
+     showgrid="false"
+     id="namedview44"
+     inkscape:window-height="665"
+     inkscape:window-width="1080"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0"
+     guidetolerance="10"
+     gridtolerance="10"
+     objecttolerance="10"
+     borderopacity="1"
+     bordercolor="#666666"
+     pagecolor="#ffffff"
+     inkscape:document-rotation="0" />
+  <defs
+     id="defs15">
+    <g
+       id="s">
+      <g
+         id="c">
+        <path
+           fill="#fcd116"
+           transform="rotate(18,0,-1)"
+           d="M 0,-1 V 0 H 0.5"
+           id="t" />
+        <use
+           height="100%"
+           width="100%"
+           y="0"
+           x="0"
+           id="use3"
+           transform="scale(-1,1)"
+           xlink:href="#t" />
+      </g>
+      <use
+         height="100%"
+         width="100%"
+         y="0"
+         x="0"
+         id="use6"
+         transform="rotate(72)"
+         xlink:href="#c" />
+      <use
+         height="100%"
+         width="100%"
+         y="0"
+         x="0"
+         id="use8"
+         transform="rotate(144)"
+         xlink:href="#c" />
+      <use
+         height="100%"
+         width="100%"
+         y="0"
+         x="0"
+         id="use10"
+         transform="rotate(-144)"
+         xlink:href="#c" />
+      <use
+         height="100%"
+         width="100%"
+         y="0"
+         x="0"
+         id="use12"
+         transform="rotate(-72)"
+         xlink:href="#c" />
+    </g>
+    <g
+       id="s-3">
+      <g
+         id="c-6">
+        <path
+           id="t-7"
+           d="M 0,-1 V 0 H 0.5"
+           transform="rotate(18,0,-1)"
+           fill="#fcd116" />
+        <use
+           height="100%"
+           width="100%"
+           y="0"
+           x="0"
+           xlink:href="#t-7"
+           transform="scale(-1,1)"
+           id="use148" />
+      </g>
+      <use
+         height="100%"
+         width="100%"
+         y="0"
+         x="0"
+         xlink:href="#c-6"
+         transform="rotate(72)"
+         id="use151" />
+      <use
+         height="100%"
+         width="100%"
+         y="0"
+         x="0"
+         xlink:href="#c-6"
+         transform="rotate(144)"
+         id="use153" />
+      <use
+         height="100%"
+         width="100%"
+         y="0"
+         x="0"
+         xlink:href="#c-6"
+         transform="rotate(-144)"
+         id="use155" />
+      <use
+         height="100%"
+         width="100%"
+         y="0"
+         x="0"
+         xlink:href="#c-6"
+         transform="rotate(-72)"
+         id="use157" />
+    </g>
+  </defs>
+  <rect
+     style="stroke-width:0.559017"
+     y="0"
+     x="0"
+     width="1600"
+     height="900"
+     fill="#ce1126"
+     id="rect17" />
+  <rect
+     style="stroke-width:0.559017"
+     x="134.39999"
+     y="126"
+     width="1331.2"
+     height="648"
+     fill="#007a5e"
+     id="rect19" />
+  <path
+     style="stroke-width:0.559017"
+     d="M 134.4,126 H 1465.6 L 134.4,774 h 1331.2 z"
+     fill="#fcd116"
+     id="path21" />
+  <g
+     id="g267"
+     transform="matrix(3,0,0,3,15.659465,0)"
+     style="stroke-width:0.333333">
+    <path
+       id="path183"
+       fill="#ce1126"
+       d="m 67.749,150.41 c 4.504,8.39 13.265,17.52 20.916,20.73 0.123,-8.52 -2.9,-19.44 -7.034,-28.14 z"
+       style="stroke-width:0.111111" />
+    <path
+       id="path185"
+       fill="#fcd116"
+       d="m 60.112,121.63 c 6.529,13.61 -16.933,46.08 22.156,53.69 -4.822,-6.58 -7.931,-17.44 -6.755,-26.16 8.201,3.12 16.83,12.25 20.317,19.23 10.23,-37.15 -26.24,-34.89 -35.718,-46.76 z"
+       style="stroke-width:0.111111" />
+  </g>
+  <g
+     id="g2899">
+    <circle
+       id="circle168"
+       fill="#ce1126"
+       r="108"
+       cy="450"
+       cx="800"
+       style="stroke-width:0.333333" />
+    <path
+       id="path2709"
+       d="M 705.80489,419.43619 H 894.0426 L 741.77586,530.0925 800,351 858.2241,530.0925 Z"
+       fill="#de0000"
+       style="fill:#fcd116;fill-opacity:1;stroke-width:0.833334" />
+  </g>
+  <g
+     id="g2740"
+     style="fill:#fcd116;fill-opacity:1"
+     transform="translate(0.04505,5.586245)">
+    <path
+       style="fill:#fcd116;fill-opacity:1;stroke-width:0.833333"
+       fill="#de0000"
+       d="m 1064.3392,44.9396 h 111.2315 L 1085.5948,110.3275 1120,4.5 l 34.4052,105.8275 z"
+       id="path2368" />
+    <path
+       id="path2379"
+       d="M 424.3392,44.93961 H 535.5707 L 445.5948,110.32751 480,4.5 514.4052,110.32751 Z"
+       fill="#de0000"
+       style="fill:#fcd116;fill-opacity:1;stroke-width:0.833333" />
+    <path
+       id="path2381"
+       d="M 744.3392,44.9396 H 855.5707 L 765.5948,110.3275 800,4.5 834.4052,110.3275 Z"
+       fill="#de0000"
+       style="fill:#fcd116;fill-opacity:1;stroke-width:0.833333" />
+    <path
+       style="fill:#fcd116;fill-opacity:1;stroke-width:0.833333"
+       fill="#de0000"
+       d="m 1064.3392,818.93961 h 111.2315 l -89.9759,65.3879 L 1120,778.5 l 34.4052,105.82751 z"
+       id="path2707" />
+    <path
+       id="path2711"
+       d="M 744.3392,818.93961 H 855.5707 L 765.5948,884.32751 800,778.5 834.4052,884.32751 Z"
+       fill="#de0000"
+       style="fill:#fcd116;fill-opacity:1;stroke-width:0.833333" />
+    <path
+       id="path2713"
+       d="M 424.3392,818.93961 H 535.5707 L 445.5948,884.32751 480,778.5 514.4052,884.32751 Z"
+       fill="#de0000"
+       style="fill:#fcd116;fill-opacity:1;stroke-width:0.833333" />
+  </g>
+</svg>

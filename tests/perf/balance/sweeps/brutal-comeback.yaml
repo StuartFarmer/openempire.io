@@ -1,0 +1,77 @@
+# Three objectives in tension — "brutal, but reversible":
+#
+#   ↑ mean_finalGini        concentrated territory, not a flat stalemate
+#   ↓ mean_finalAlive       decisive: few nations still standing at the end
+#   ↑ mean_leaderDrawdown   the top position gets knocked back off its peak
+#
+# The first two pull together (concentration eliminates people); the third
+# pulls against both, because a game that ends with three nations left ends
+# with a huge leader, and a huge leader at the end means no drawdown. So
+# there is no single winner — the result is a Pareto front, and which point
+# on it you want is a taste question you settle by playing them.
+#
+#   npx tsx tests/perf/balance/Sweep.ts tests/perf/balance/sweeps/brutal-comeback.yaml
+#
+# Budget: population × generations × seeds = 24 × 5 × 3 = 360 games ≈ 12 min.
+#
+# Measured baseline (rework-ai-war-strategy, default knobs, 3 seeds):
+#   finalGini 0.666 · finalAlive 24 · peakLeaderShare 0.198 ·
+#   leaderDrawdown 0.0011 (σ 0.0016)
+# Drawdown is ~zero at defaults because nobody snowballs in the first place:
+# the leader tops out near 20% of the map, so there is nothing to fall from.
+# The sweep therefore has to find configs that let someone get big AND let
+# the neighbours take it back — hence the threat knobs below.
+
+name: brutal-comeback
+method: nsga2
+population: 24
+generations: 5
+seed: 11
+
+run:
+  map: verdantia
+  ticks: 3000
+  nations: 25
+  bots: 40
+  difficulty: Medium
+  seeds: 3 # 3, not 2: drawdown's across-seed σ swamps it at 2
+
+parameters:
+  # Concentration levers — how big anyone can get (default popPerDensity
+  # 10000, supplyRadius 10). wCong and urbanGrowthRate are dropped: the
+  # earlier sweep measured both at |r| < 0.12 against every objective.
+  popPerDensity: { min: 5000, max: 20000, distribution: q_uniform, q: 500 }
+  supplyRadius: { min: 6, max: 24, distribution: int }
+
+  # War intensity (defaults: maxWarShare 0.2, warSupplyAttrition 0.05).
+  maxWarShare: { min: 0.1, max: 0.6 }
+  warSupplyAttrition: { distribution: log_uniform, min: 0.005, max: 0.2 }
+
+  # Anti-snowball levers from rework-ai-war-strategy — the only mechanism
+  # in the sim that can actually push a leader back down. threatPowerRatio
+  # is how much stronger a neighbour must be before we start hating it
+  # (LOWER = gang up sooner); threatDriftPerPass is how fast that hostility
+  # accumulates (HIGHER = faster); campaignMaxStalls is how long a nation
+  # keeps pressing a stalled war.
+  threatPowerRatio: { min: 1.1, max: 4.0 }
+  threatDriftPerPass: { min: 2, max: 40, distribution: int }
+  campaignMaxStalls: { min: 1, max: 6, distribution: int }
+
+objectives:
+  - metric: mean_finalGini
+    goal: maximize
+    tolerance: 0.02 # ≈ measured σ 0.0385 at 3 seeds, halved
+  - metric: mean_finalAlive
+    goal: minimize
+    tolerance: 0.5
+  - metric: mean_leaderDrawdown
+    goal: maximize
+    tolerance: 0.002 # ≈ measured σ 0.0016
+
+constraints:
+  # Don't count a world that wiped itself out as a "decisive" game.
+  - metric: mean_finalAlive
+    min: 2
+
+solutions: 6
+presets: brutal

@@ -1,6 +1,5 @@
 import {
   Difficulty,
-  GameMapSize,
   GameMapType,
   GameMode,
   GameType,
@@ -32,8 +31,7 @@ function makeAdditionalNations(names: string[]): AdditionalNation[] {
 
 function makeGameStart(targetNations: number): GameStartInfo {
   const config: GameConfig = {
-    gameMap: GameMapType.World,
-    gameMapSize: GameMapSize.Normal,
+    gameMap: GameMapType.Verdantia,
     gameMode: GameMode.FFA,
     gameType: GameType.Singleplayer,
     difficulty: Difficulty.Medium,
@@ -287,5 +285,82 @@ describe("createNationsForGame: additionalNations pool", () => {
     const names = nationNames(nations);
     expect(names).toHaveLength(8);
     expect(new Set(names).size).toBe(8);
+  });
+});
+
+describe("createNationsForGame: cosmetic flags", () => {
+  const identity = (nations: Nation[]) =>
+    nations.map((n) => [
+      n.playerInfo.id,
+      n.playerInfo.name,
+      n.spawnCell?.x,
+      n.spawnCell?.y,
+    ]);
+
+  test("carries a single authored flag onto the nation", () => {
+    const manifest: ManifestNation[] = [
+      { name: "Alpha", coordinates: [1, 1], flag: "flag:alpha" },
+      { name: "Beta", coordinates: [2, 2] },
+    ];
+    const nations = createNationsForGame(
+      makeGameStart(2),
+      manifest,
+      [],
+      0,
+      new PseudoRandom(1),
+    );
+    const alpha = nations.find((n) => n.playerInfo.name === "Alpha");
+    const beta = nations.find((n) => n.playerInfo.name === "Beta");
+    expect(alpha!.flag).toBe("flag:alpha");
+    expect(beta!.flag).toBeUndefined();
+  });
+
+  test("resolves a historical-flag list to one member, stably", () => {
+    const list = ["flag:a", "flag:b", "flag:c"];
+    const manifest: ManifestNation[] = [
+      { name: "Hist", coordinates: [1, 1], flag: list },
+    ];
+    const pick = (seed: number) =>
+      createNationsForGame(
+        makeGameStart(1),
+        manifest,
+        [],
+        0,
+        new PseudoRandom(seed),
+      )[0].flag;
+    // Deterministic for a fixed seed…
+    expect(pick(5)).toBe(pick(5));
+    // …and always a member of the list.
+    for (let s = 1; s <= 10; s++) expect(list).toContain(pick(s));
+  });
+
+  test("flag data does NOT perturb the simulation (identical nations)", () => {
+    const withoutFlags: ManifestNation[] = [];
+    const withFlags: ManifestNation[] = [];
+    for (let i = 0; i < 6; i++) {
+      withoutFlags.push({ name: `N${i}`, coordinates: [i, i] });
+      // Mix of single + list flags — neither may draw from the sim PRNG.
+      withFlags.push({
+        name: `N${i}`,
+        coordinates: [i, i],
+        flag: i % 2 === 0 ? "flag:single" : ["flag:x", "flag:y", "flag:z"],
+      });
+    }
+    const a = createNationsForGame(
+      makeGameStart(6),
+      withoutFlags,
+      [],
+      0,
+      new PseudoRandom(123),
+    );
+    const b = createNationsForGame(
+      makeGameStart(6),
+      withFlags,
+      [],
+      0,
+      new PseudoRandom(123),
+    );
+    // Same ids, names, and spawn cells → the PRNG stream was untouched by flags.
+    expect(identity(b)).toEqual(identity(a));
   });
 });

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="1000"
+   height="800"
+   version="1.1"
+   id="svg24064"
+   sodipodi:docname="Flag_of_Georgia_(1921).svg"
+   inkscape:version="1.2.1 (9c6d41e410, 2022-07-14)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs24068" />
+  <sodipodi:namedview
+     id="namedview24066"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false"
+     inkscape:zoom="1.09625"
+     inkscape:cx="501.25428"
+     inkscape:cy="400.4561"
+     inkscape:window-width="1920"
+     inkscape:window-height="1009"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg24064" />
+  <path
+     fill="#900"
+     d="M0 0h1000v800H0"
+     id="path24058" />
+  <path
+     fill="#fff"
+     d="M0 0h400v400H0"
+     id="path24060"
+     style="fill:#000000;fill-opacity:1" />
+  <path
+     d="M0 0h400v200H0"
+     id="path24062"
+     style="fill:#ffffff;fill-opacity:1" />
+</svg>

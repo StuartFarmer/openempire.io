@@ -95,7 +95,10 @@
     "embargoTintB": 0,
     "friendlyTintR": 0,
     "friendlyTintG": 1,
-    "friendlyTintB": 0
+    "friendlyTintB": 0,
+    "segmentHighlightR": 0.3,
+    "segmentHighlightG": 0.95,
+    "segmentHighlightB": 1
   },
   "affiliation": {
     "selfR": 0,
@@ -245,7 +248,10 @@
     "debrisFadeOut": 0.8,
     "conquestLifetimeMs": 2500,
     "conquestFadeIn": 0.1,
-    "conquestFadeOut": 0.6
+    "conquestFadeOut": 0.6,
+    "plotFireDurationMs": 5000,
+    "plotFireAshDurationMs": 4000,
+    "plotFireMaxActive": 96
   },
   "nukeTrajectory": {
     "lineWidth": 2.5,
@@ -334,6 +340,36 @@
   "altView": {
     "gridFontSize": 24,
     "recolorStructures": true
+  },
+  "fertilityOverlay": {
+    "alphaLow": 0.5,
+    "alphaHigh": 0.5,
+    "lowR": 0.58,
+    "lowG": 0.22,
+    "lowB": 0.1,
+    "highR": 0.12,
+    "highG": 0.75,
+    "highB": 0.25
+  },
+  "suitabilityOverlay": {
+    "alphaLow": 0.5,
+    "alphaHigh": 0.5,
+    "lowR": 0.5,
+    "lowG": 0.4,
+    "lowB": 0.24,
+    "highR": 0.15,
+    "highG": 0.45,
+    "highB": 0.9
+  },
+  "densityOverlay": {
+    "alphaLow": 0.18,
+    "alphaHigh": 0.8,
+    "lowR": 0.55,
+    "lowG": 0.5,
+    "lowB": 0.42,
+    "highR": 1.0,
+    "highG": 0.88,
+    "highB": 0.55
   },
   "tileDrip": {
     "bucketCount": 9

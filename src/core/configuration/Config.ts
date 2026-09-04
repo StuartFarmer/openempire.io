@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { PlayerView } from "../../client/view";
 import { AssetManifest } from "../AssetUrls";
 import { DoomsdayClockSpeed } from "../game/DoomsdayClock";
 import {
@@ -22,6 +21,29 @@ import { UserSettings } from "../game/UserSettings";
 import { GameConfig, TeamCountConfig } from "../Schemas";
 import { NukeType } from "../StatsSchemas";
 import { assertNever, sigmoid, toInt, within } from "../Util";
+import { FOOD_DEFAULTS, FoodConfig } from "./FoodConfig";
+
+export {
+  FOOD_DEFAULTS,
+  FOOD_TUNABLE_KEYS,
+  type FoodConfig,
+} from "./FoodConfig";
+
+interface EconomyPlayer {
+  type(): PlayerType;
+  isLobbyCreator(): boolean;
+  numTilesOwned(): number;
+  troops(): number;
+  units(type: UnitType): Array<{
+    isUnderConstruction(): boolean;
+    level(): number;
+  }>;
+  /** Built urban area (Σ density) — the carrying capacity. */
+  urbanArea(): number;
+  /** Extra housing from tile tenure (rework-settlement-ecology): old city
+   *  tiles hold more people than young ones. */
+  tenureCapacityBonus(): number;
+}
 
 declare global {
   interface Window {
@@ -31,8 +53,6 @@ declare global {
       cdnBase?: string;
       gameEnv?: string;
       numWorkers?: number;
-      turnstileSiteKey?: string;
-      jwtAudience?: string;
       instanceId?: string;
     };
   }
@@ -96,6 +116,72 @@ const DOOMSDAY_CLOCK_DEFAULTS = {
   drainRampSeconds: 50, // ramps LINEARLY to the max over this long
 };
 
+/**
+ * Per-difficulty AI levers (unify-layered-path). The vanilla game scaled
+ * bot/nation strength through its maxTroops formula; the layered economy
+ * scales three independent knobs instead: raw capacity, how often the AI
+ * acts, and how well it chooses. Humans are never scaled.
+ */
+export interface AiDifficultySettings {
+  /** Carrying-capacity multiplier applied in maxTroops (humans always 1). */
+  populationMultiplier: number;
+  /** Ticks between bot-tribe economy pulses (TribeExecution). */
+  tribePulseTicks: number;
+  /** Economy build attempts per nation structure pass. */
+  nationBuildBudget: number;
+  /**
+   * Placement precision: the AI picks uniformly among the top-k scored
+   * candidates (1 = always the argmax).
+   */
+  precisionTopK: number;
+  /**
+   * 0..1 scale on the attack-priority bonus for enemy Farmland/Settlement
+   * tiles — how sharply the AI hunts your economy.
+   */
+  resourceFocus: number;
+}
+
+const AI_DIFFICULTY: Record<
+  Difficulty,
+  Omit<AiDifficultySettings, "populationMultiplier"> & {
+    nationPopulationMultiplier: number;
+    botPopulationMultiplier: number;
+  }
+> = {
+  [Difficulty.Easy]: {
+    nationPopulationMultiplier: 0.5,
+    botPopulationMultiplier: 1 / 3,
+    tribePulseTicks: 40,
+    nationBuildBudget: 1,
+    precisionTopK: 4,
+    resourceFocus: 0.25,
+  },
+  [Difficulty.Medium]: {
+    nationPopulationMultiplier: 0.75,
+    botPopulationMultiplier: 1 / 3,
+    tribePulseTicks: 30,
+    nationBuildBudget: 2,
+    precisionTopK: 3,
+    resourceFocus: 0.5,
+  },
+  [Difficulty.Hard]: {
+    nationPopulationMultiplier: 1,
+    botPopulationMultiplier: 1 / 3,
+    tribePulseTicks: 25,
+    nationBuildBudget: 3,
+    precisionTopK: 2,
+    resourceFocus: 0.75,
+  },
+  [Difficulty.Impossible]: {
+    nationPopulationMultiplier: 1.25,
+    botPopulationMultiplier: 1 / 3,
+    tribePulseTicks: 20,
+    nationBuildBudget: 3,
+    precisionTopK: 1,
+    resourceFocus: 1,
+  },
+};
+
 export class Config {
   private unitInfoCache = new Map<UnitType, UnitInfo>();
   constructor(
@@ -153,10 +239,6 @@ export class Config {
       throw new Error("userSettings is null");
     }
     return this._userSettings;
-  }
-
-  cityTroopIncrease(): number {
-    return 250_000;
   }
 
   falloutDefenseModifier(falloutRatio: number): number {
@@ -246,7 +328,7 @@ export class Config {
   trainGold(
     rel: "self" | "team" | "ally" | "other",
     citiesVisited: number,
-    player: Player | PlayerView,
+    player: EconomyPlayer,
   ): Gold {
     // No penalty for the first 10 cities.
     citiesVisited = Math.max(0, citiesVisited - 9);
@@ -278,7 +360,7 @@ export class Config {
     return this.trainStationMaxRange() * 1.4142;
   }
 
-  tradeShipGold(dist: number, player: Player | PlayerView): Gold {
+  tradeShipGold(dist: number, player: EconomyPlayer): Gold {
     // Sigmoid: concave start, sharp S-curve middle, linear end - heavily punishes trades under range debuff.
     const debuff = this.tradeShipShortRangeDebuff();
     const baseGold =
@@ -437,6 +519,34 @@ export class Config {
           cost: () => 0n,
         };
         break;
+      case UnitType.Settlement:
+        info = {
+          // Awarded, not purchased (rework-settlement-ecology): placing one
+          // consumes a banked Settlement seed (peak-population ladder) and
+          // costs no food.
+          cost: () => 0n,
+          costResource: "food",
+          // NOT upgradable: plots multiply, they don't level. An upgradable
+          // tribal plot lets buildableUnits hijack a nearby build click into
+          // an instant, invisible level-up — the "built but nothing
+          // rendered, stats jumped" bug.
+        };
+        break;
+      case UnitType.Farmland:
+        info = {
+          // Awarded from peak territory; costs no food (see Settlement).
+          cost: () => 0n,
+          costResource: "food",
+        };
+        break;
+      case UnitType.Barn:
+        info = {
+          // Unbuildable (rework-settlement-ecology 4.3): storage is grown
+          // from stable farmland; plotSpawn refuses the Barn outright.
+          cost: () => 0n,
+          costResource: "food",
+        };
+        break;
       default:
         assertNever(type);
     }
@@ -445,13 +555,13 @@ export class Config {
     return info;
   }
 
-  private hasInfiniteGoldFor(player: Player | PlayerView): boolean {
+  private hasInfiniteGoldFor(player: EconomyPlayer): boolean {
     if (this.infiniteGold()) return true;
     const hc = this._gameConfig.hostCheats;
     return (hc?.infiniteGold ?? false) && player.isLobbyCreator();
   }
 
-  private hasInfiniteTroopsFor(player: Player | PlayerView): boolean {
+  private hasInfiniteTroopsFor(player: EconomyPlayer): boolean {
     if (this.infiniteTroops()) return true;
     return (
       (this._gameConfig.hostCheats?.infiniteTroops ?? false) &&
@@ -467,7 +577,7 @@ export class Config {
     );
   }
 
-  private goldMultiplierFor(player: Player | PlayerView): number {
+  private goldMultiplierFor(player: EconomyPlayer): number {
     const base = this.goldMultiplier();
     const hc = this._gameConfig.hostCheats;
     if (hc?.goldMultiplier && player.isLobbyCreator()) {
@@ -679,7 +789,11 @@ export class Config {
         largeAttackerSpeedBonus = (100_000 / attacker.numTilesOwned()) ** 0.6;
       }
 
-      const defenderTroopLoss = defender.troops() / defender.numTilesOwned();
+      // Guard the divide: a defender can transiently report 0 tiles (e.g. a
+      // failed/re-rolled spawn) while an attack against it is still live —
+      // Infinity here NaN-poisons the attack and crashes removeTroops.
+      const defenderTroopLoss =
+        defender.troops() / Math.max(1, defender.numTilesOwned());
       const traitorMod = defender.isTraitor() ? this.traitorDefenseDebuff() : 1;
       const currentAttackerLoss =
         within(defender.troops() / attackTroops, 0.6, 2) *
@@ -762,104 +876,73 @@ export class Config {
     }
   }
 
-  startManpower(playerInfo: PlayerInfo): number {
-    if (playerInfo.playerType === PlayerType.Bot) {
-      return 10_000;
-    }
-    if (playerInfo.playerType === PlayerType.Nation) {
-      switch (this._gameConfig.difficulty) {
-        case Difficulty.Easy:
-          return 12_500;
-        case Difficulty.Medium:
-          return 18_750;
-        case Difficulty.Hard:
-          return 25_000; // Like humans
-        case Difficulty.Impossible:
-          return 31_250;
-        default:
-          assertNever(this._gameConfig.difficulty);
-      }
-    }
-    return this.hasInfiniteTroopsForInfo(playerInfo) ? 1_000_000 : 25_000;
+  // Live tuning overrides (add-sim-tuning-panel): merged over FOOD_DEFAULTS.
+  private _foodOverrides: Partial<FoodConfig> = {};
+  private _foodMerged: FoodConfig | null = null;
+
+  food(): FoodConfig {
+    this._foodMerged ??= { ...FOOD_DEFAULTS, ...this._foodOverrides };
+    return this._foodMerged;
   }
 
-  maxTroops(player: Player | PlayerView): number {
-    const maxTroops =
-      player.type() === PlayerType.Human && this.hasInfiniteTroopsFor(player)
-        ? 1_000_000_000
-        : 2 * (Math.pow(player.numTilesOwned(), 0.6) * 1000 + 50000) +
-          player
-            .units(UnitType.City)
-            .filter((u) => !u.isUnderConstruction())
-            .map((city) => city.level())
-            .reduce((a, b) => a + b, 0) *
-            this.cityTroopIncrease();
-
-    if (player.type() === PlayerType.Bot) {
-      return maxTroops / 3;
-    }
-
-    if (player.type() === PlayerType.Human) {
-      return maxTroops;
-    }
-
-    switch (this._gameConfig.difficulty) {
-      case Difficulty.Easy:
-        return maxTroops * 0.5;
-      case Difficulty.Medium:
-        return maxTroops * 0.75;
-      case Difficulty.Hard:
-        return maxTroops * 1; // Like humans
-      case Difficulty.Impossible:
-        return maxTroops * 1.25;
-      default:
-        assertNever(this._gameConfig.difficulty);
-    }
-  }
-
-  troopIncreaseRate(player: Player | PlayerView): number {
-    const max = this.maxTroops(player);
-
-    let toAdd = 10 + Math.pow(player.troops(), 0.73) / 4;
-
-    const ratio = 1 - player.troops() / max;
-    toAdd *= ratio;
-
-    if (player.type() === PlayerType.Bot) {
-      toAdd *= 0.5;
-    }
-
-    if (player.type() === PlayerType.Nation) {
-      switch (this._gameConfig.difficulty) {
-        case Difficulty.Easy:
-          toAdd *= 0.9;
-          break;
-        case Difficulty.Medium:
-          toAdd *= 0.95;
-          break;
-        case Difficulty.Hard:
-          toAdd *= 1; // Like humans
-          break;
-        case Difficulty.Impossible:
-          toAdd *= 1.05;
-          break;
-        default:
-          assertNever(this._gameConfig.difficulty);
-      }
-    }
-
-    return Math.min(player.troops() + toAdd, max) - player.troops();
-  }
-
-  goldAdditionRate(player: Player | PlayerView): Gold {
-    const multiplier = this.goldMultiplierFor(player);
-    let baseRate: bigint;
-    if (player.type() === PlayerType.Bot) {
-      baseRate = 50n;
+  /** Apply one tuning-panel override; passing the default value un-pins it. */
+  setFoodOverride(key: keyof FoodConfig, value: number): void {
+    if (value === FOOD_DEFAULTS[key]) {
+      delete this._foodOverrides[key];
     } else {
-      baseRate = 100n;
+      this._foodOverrides[key] = value;
     }
-    return BigInt(Math.floor(Number(baseRate) * multiplier));
+    this._foodMerged = null;
+  }
+
+  foodOverrides(): Readonly<Partial<FoodConfig>> {
+    return this._foodOverrides;
+  }
+
+  /** Per-difficulty AI levers; humans always get multiplier 1 / argmax. */
+  aiDifficulty(type: PlayerType): AiDifficultySettings {
+    const d = AI_DIFFICULTY[this._gameConfig.difficulty];
+    const populationMultiplier =
+      type === PlayerType.Human
+        ? 1
+        : type === PlayerType.Bot
+          ? d.botPopulationMultiplier
+          : d.nationPopulationMultiplier;
+    return {
+      populationMultiplier,
+      tribePulseTicks: d.tribePulseTicks,
+      nationBuildBudget: d.nationBuildBudget,
+      precisionTopK: type === PlayerType.Human ? 1 : d.precisionTopK,
+      resourceFocus: d.resourceFocus,
+    };
+  }
+
+  /** Convert a built area in tiles to km² using the tileKm scale. */
+  urbanAreaKm2(areaTiles: number): number {
+    const km = this.food().tileKm;
+    return areaTiles * km * km;
+  }
+
+  maxTroops(player: EconomyPlayer): number {
+    if (
+      player.type() === PlayerType.Human &&
+      this.hasInfiniteTroopsFor(player)
+    ) {
+      return 1_000_000_000;
+    }
+    // Carrying capacity is the built urban area — the self-growing density
+    // field — not territory (add-urban-core-growth). A bigger city houses
+    // more people; conquered-but-unbuilt land grants nothing until it
+    // urbanizes. AI capacity scales with difficulty (unify-layered-path);
+    // humans are always at multiplier 1.
+    const f = this.food();
+    // Tenure bonus (rework-settlement-ecology): old city tiles house more
+    // people than young ones, so a stable city outgrows its footprint.
+    const capacity =
+      f.basePopulation +
+      player.urbanArea() * f.popPerDensity +
+      player.tenureCapacityBonus();
+    return capacity * this.aiDifficulty(player.type()).populationMultiplier;
   }
 
   nukeMagnitudes(unitType: UnitType): NukeMagnitude {

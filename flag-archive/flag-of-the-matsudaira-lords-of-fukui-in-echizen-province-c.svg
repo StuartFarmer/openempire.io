@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="900" height="700" version="1.1" xmlns="http://www.w3.org/2000/svg">
+ <g fill-rule="evenodd">
+  <path d="M0 0h900v700H0z" fill="#fff"/>
+  <path d="m785.32 0h74.82v700h-74.82z"/>
+  <path d="m710.5 0h43.6v700h-43.6z" fill="#bc002d"/>
+ </g>
+ <g transform="translate(-786.76 -45.441)" stroke="#fff" stroke-width="3">
+  <g transform="translate(786.75 45.441)">
+   <path d="m595.56 426.58c34.44-1.97 51.83-44.1 40.53-82.5-6.97-23.7-31.16-44.5-60.79-46.96-31.22-2.58-50.76 19.83-78.17 33.72a319.58 319.58 0 0 1-47.24 19.14c3.6 16.61 6.1 33.3 7.04 50.5 1.68 30.67-7.96 58.8 9.89 84.55 16.93 24.43 47.05 34.98 71.06 29.16 38.9-9.42 66.69-45.54 51.18-76.35z" fill="#bc002d" style="font-variation-settings:normal"/>
+   <g fill="none">
+    <path d="m601.78 385.46c3.5232-28.542-2.4485-58.779-13.893-85.836" style="font-variation-settings:normal"/>
+    <path d="m604.57 412.24c4.0708-4.4509 3.7396-11.397-3.1012-13.869-6.2352-2.2604-12.268-0.27045-15.825 3.7498-3.1054 3.5187-3.6399 7.9444-3.4005 12.69" stroke-linecap="round" style="font-variation-settings:normal"/>
+    <path d="m493.43 332.8c11.942 4.2158 27.772 9.337 38.595 15.932" style="font-variation-settings:normal"/>
+    <path d="m522.77 315.67a234.59 234.59 45 0 1 54.618 63.299" style="font-variation-settings:normal"/>
+    <path d="m597.57 397.34c6.2452-21.717 18.584-39.269 38.78-51.488" style="font-variation-settings:normal"/>
+    <path d="m617.61 360.74c2.0603-13.949 0.13151-30.928-1.4361-46.013" style="font-variation-settings:normal"/>
+    <path d="m577.38 378.98c3.6508 6.8767 9.8241 11.884 10.54 20.923" style="font-variation-settings:normal"/>
+    <path d="m578.9 334.19c-6.534-13.703-16.445-24.436-27.151-34.174" style="font-variation-settings:normal"/>
+    <path d="m546.42 383.18c-11.154-19.661-17.273-44.163-23.65-67.498" style="font-variation-settings:normal"/>
+    <path d="m505.94 366.61c-6.2336-10.123-8.7097-22.314-12.504-33.823" style="font-variation-settings:normal"/>
+    <path d="m551.74 300.01c-3.3708 13.538-4.5712 27.117-2.3074 40.757" style="font-variation-settings:normal"/>
+    <path d="m587.89 299.62c-9.1488 25.606-13.018 52.009-10.507 79.359" style="font-variation-settings:normal"/>
+    <path d="m616.18 314.72c-7.2821 9.7329-12.396 23.27-15.038 31.386" style="font-variation-settings:normal"/>
+    <path d="m556.57 463.78c-22.957 17.322-52.128 27.269-81.283 30.886" style="font-variation-settings:normal"/>
+    <path d="m581.15 452.8c-1.8192 5.7509-8.0004 8.9371-13.561 4.2486-5.0752-4.2696-6.3684-10.49-4.6651-15.58 1.4946-4.4487 5.0602-7.1244 9.2895-9.2899" stroke-linecap="round" style="font-variation-settings:normal"/>
+    <path d="m456.78 396.27c9.622 8.2342 21.972 19.383 33.095 25.458" style="font-variation-settings:normal"/>
+    <path d="m456.62 430.25a234.59 234.59 0 0 0 82.128 15.651" style="font-variation-settings:normal"/>
+    <path d="m564.75 454.19c-15.685 16.267-24.716 35.729-25.2 59.328" style="font-variation-settings:normal"/>
+    <path d="m543.08 489.85c-11.05 8.7586-26.718 15.578-40.566 21.763" style="font-variation-settings:normal"/>
+    <path d="m538.76 445.89c7.7808-0.27668 15.204 2.5658 23.39-1.3334" style="font-variation-settings:normal"/>
+    <path d="m500.73 469.6c-15.134 1.1928-29.385-2.0236-43.171-6.4263" style="font-variation-settings:normal"/>
+    <path d="m526.91 416.97c-22.604 0.17099-46.883 7.123-70.28 13.268" style="font-variation-settings:normal"/>
+    <path d="m492.32 390.2c-11.884-0.33696-23.68 3.6144-35.544 6.0832" style="font-variation-settings:normal"/>
+    <path d="m457.55 463.17c10.039-9.6884 21.199-17.517 34.143-22.377" style="font-variation-settings:normal"/>
+    <path d="m475.28 494.67c17.601-20.726 38.532-37.279 63.473-48.779" style="font-variation-settings:normal"/>
+    <path d="m502.5 511.62c4.7879-11.173 13.954-22.37 19.662-28.716" style="font-variation-settings:normal"/>
+   </g>
+   <path d="m304.15 426.58c-34.44-1.97-51.83-44.1-40.53-82.5 6.97-23.7 31.16-44.5 60.78-46.96 31.23-2.58 50.77 19.83 78.17 33.72a319.58 319.58 0 0 0 47.25 19.14c-3.6 16.61-6.1 33.3-7.04 50.5-1.68 30.67 7.96 58.8-9.89 84.55-16.93 24.43-47.05 34.98-71.06 29.16-38.9-9.42-66.69-45.54-51.18-76.35z" fill="#bc002d" style="font-variation-settings:normal"/>
+   <g fill="none">
+    <path d="m298 385.45c-3.5232-28.542 2.4485-58.779 13.893-85.836" style="font-variation-settings:normal"/>
+    <path d="m295.22 412.23c-4.0708-4.4509-3.7396-11.397 3.1012-13.869 6.2352-2.2604 12.268-0.27045 15.825 3.7498 3.1054 3.5187 3.6399 7.9444 3.4005 12.69" stroke-linecap="round" style="font-variation-settings:normal"/>
+    <path d="m406.35 332.79c-11.942 4.2158-27.772 9.337-38.595 15.932" style="font-variation-settings:normal"/>
+    <path d="m377.01 315.66a234.59 234.59 0 0 0-54.618 63.299" style="font-variation-settings:normal"/>
+    <path d="m302.22 397.33c-6.2452-21.717-18.584-39.269-38.78-51.488" style="font-variation-settings:normal"/>
+    <path d="m282.17 360.73c-2.0603-13.949-0.13151-30.928 1.4361-46.013" style="font-variation-settings:normal"/>
+    <path d="m322.4 378.97c-3.6508 6.8767-9.8241 11.884-10.54 20.923" style="font-variation-settings:normal"/>
+    <path d="m320.88 334.18c6.534-13.703 16.445-24.436 27.151-34.174" style="font-variation-settings:normal"/>
+    <path d="m353.37 383.17c11.154-19.661 17.273-44.163 23.65-67.498" style="font-variation-settings:normal"/>
+    <path d="m393.85 366.6c6.2336-10.123 8.7097-22.314 12.504-33.823" style="font-variation-settings:normal"/>
+    <path d="m348.04 300c3.3708 13.538 4.5712 27.117 2.3075 40.757" style="font-variation-settings:normal"/>
+    <path d="m311.89 299.61c9.1488 25.606 13.018 52.009 10.507 79.359" style="font-variation-settings:normal"/>
+    <path d="m283.6 314.71c7.2821 9.7329 12.396 23.27 15.038 31.386" style="font-variation-settings:normal"/>
+    <path d="m343.22 463.77c22.957 17.322 52.128 27.269 81.283 30.886" style="font-variation-settings:normal"/>
+    <path d="m318.63 452.79c1.8192 5.7509 8.0004 8.9371 13.561 4.2486 5.0752-4.2696 6.3684-10.49 4.6651-15.58-1.4946-4.4487-5.0601-7.1244-9.2895-9.2899" stroke-linecap="round" style="font-variation-settings:normal"/>
+    <path d="m443 396.26c-9.622 8.2342-21.972 19.383-33.095 25.458" style="font-variation-settings:normal"/>
+    <path d="m443.16 430.24a234.59 234.59 0 0 1-82.128 15.651" style="font-variation-settings:normal"/>
+    <path d="m335.03 454.18c15.685 16.267 24.716 35.729 25.2 59.328" style="font-variation-settings:normal"/>
+    <path d="m356.71 489.84c11.05 8.7586 26.718 15.578 40.566 21.763" style="font-variation-settings:normal"/>
+    <path d="m361.03 445.88c-7.7808-0.27668-15.204 2.5658-23.39-1.3334" style="font-variation-settings:normal"/>
+    <path d="m399.06 469.59c15.134 1.1928 29.385-2.0236 43.171-6.4263" style="font-variation-settings:normal"/>
+    <path d="m372.88 416.96c22.604 0.17099 46.883 7.123 70.28 13.268" style="font-variation-settings:normal"/>
+    <path d="m407.46 390.19c11.884-0.33696 23.68 3.6144 35.544 6.0832" style="font-variation-settings:normal"/>
+    <path d="m442.24 463.16c-10.039-9.6884-21.199-17.517-34.143-22.377" style="font-variation-settings:normal"/>
+    <path d="m424.5 494.66c-17.601-20.726-38.532-37.279-63.473-48.779" style="font-variation-settings:normal"/>
+    <path d="m397.28 511.61c-4.7879-11.173-13.954-22.37-19.662-28.716" style="font-variation-settings:normal"/>
+   </g>
+   <path d="m456.32 185.53c18.93-28.84 64.1-22.84 91.71 6.14 17.04 17.9 22.97 49.25 10.28 76.13-13.38 28.33-42.56 34.05-68.29 50.84a319.7 319.7 0 0 0-40.2 31.34 319.6 319.6 0 0 0-40.2-31.34c-25.73-16.8-54.92-22.51-68.29-50.84-12.69-26.89-6.76-58.24 10.28-76.13 27.6-28.98 72.78-34.98 91.7-6.14z" fill="#bc002d" style="font-variation-settings:normal"/>
+   <g fill="none">
+    <path d="m404.6 200.7c-26.48 11.22-49.68 31.51-67.39 54.95" style="font-variation-settings:normal"/>
+    <path d="m426.4 184.9c-5.89-1.3-11.74 2.46-10.46 9.62 1.16 6.53 5.9 10.76 11.16 11.83 4.6 0.93 8.7-0.82 12.69-3.4" stroke-linecap="round" style="font-variation-settings:normal"/>
+    <path d="m413.17 320.87c-2.32-12.45-5.8-28.72-5.5-41.39" style="font-variation-settings:normal"/>
+    <path d="m383.67 304.02a234.59 234.59 0 0 1 27.51-78.95" style="font-variation-settings:normal"/>
+    <path d="m417 198.41c-21.93 5.45-43.3 3.54-63.98-7.84" style="font-variation-settings:normal"/>
+    <path d="m375.28 199.35c-13.11 5.19-26.85 15.35-39.13 24.25" style="font-variation-settings:normal"/>
+    <path d="m411.19 225.07c4.13-6.6 5.38-14.45 12.85-19.59" style="font-variation-settings:normal"/>
+    <path d="m371.64 246.15c-8.6 12.51-12.94 26.46-16.02 40.6" style="font-variation-settings:normal"/>
+    <path d="m430.31 249.79c-11.45 19.49-29.61 37.04-46.63 54.23" style="font-variation-settings:normal"/>
+    <path d="m436.2 293.13c-5.65 10.46-14.97 18.7-23.04 27.74" style="font-variation-settings:normal"/>
+    <path d="m355.62 286.76c13.41-3.85 25.77-9.6 36.45-18.38" style="font-variation-settings:normal"/>
+    <path d="m337.21 255.65c26.75-4.88 51.55-14.73 73.98-30.58" style="font-variation-settings:normal"/>
+    <path d="m336.14 223.6c12.07 1.44 26.35-0.9 34.7-2.67" style="font-variation-settings:normal"/>
+    <path d="m495.04 200.7c26.48 11.22 49.68 31.51 67.39 54.95" style="font-variation-settings:normal"/>
+    <path d="m473.24 184.9c5.89-1.3 11.74 2.46 10.46 9.62-1.16 6.53-5.9 10.76-11.16 11.83-4.6 0.93-8.7-0.82-12.69-3.4" stroke-linecap="round" style="font-variation-settings:normal"/>
+    <path d="m486.47 320.87c2.32-12.45 5.8-28.72 5.5-41.39" style="font-variation-settings:normal"/>
+    <path d="m515.97 304.02a234.59 234.59 0 0 0-27.51-78.95" style="font-variation-settings:normal"/>
+    <path d="m482.64 198.41c21.93 5.45 43.3 3.54 63.98-7.84" style="font-variation-settings:normal"/>
+    <path d="m524.36 199.35c13.11 5.19 26.85 15.35 39.13 24.25" style="font-variation-settings:normal"/>
+    <path d="m488.45 225.07c-4.13-6.6-5.38-14.45-12.85-19.59" style="font-variation-settings:normal"/>
+    <path d="m528 246.15c8.6 12.51 12.94 26.46 16.02 40.6" style="font-variation-settings:normal"/>
+    <path d="m469.33 249.79c11.45 19.49 29.61 37.04 46.63 54.23" style="font-variation-settings:normal"/>
+    <path d="m463.44 293.13c5.65 10.46 14.97 18.7 23.04 27.74" style="font-variation-settings:normal"/>
+    <path d="m544.02 286.76c-13.41-3.85-25.77-9.6-36.45-18.38" style="font-variation-settings:normal"/>
+    <path d="m562.43 255.65c-26.75-4.88-51.55-14.73-73.98-30.58" style="font-variation-settings:normal"/>
+    <path d="m563.5 223.6c-12.07 1.44-26.35-0.9-34.7-2.67" style="font-variation-settings:normal"/>
+   </g>
+  </g>
+  <path d="m1358.3 543.2c19.23-15.8 27.9-37.48 17.39-58.35a15.93 15.93 0 0 0-5.32-5.2c-2.76-1.6-7.95-2.37-11.21-2.05-15.48 1.52-23.98-0.48-36.82-8.95-33.32-23.41-62-47.88-85.66-73.23 33.78 7.81 69.31 20.41 106.26 37.57 13.75 6.88 19.73 13.24 26.16 27.4 1.35 3 4.61 7.1 7.37 8.7a15.92 15.92 0 0 0 7.17 2c23.33-1.34 37.77-19.68 41.84-44.24a192.47 192.47 0 0 0 2.74-31.41c0-82.18-51.72-152.1-124.43-179.24-23.3-8.76-46.4-5.43-59.23 14.11a15.92 15.92 0 0 0-1.85 7.2c0 3.2 1.93 8.07 3.84 10.74 9.05 12.65 11.57 21 10.66 36.36-3.62 40.57-10.47 77.64-20.6 110.8-10.12-33.17-16.97-70.24-20.59-110.8-0.9-15.36 1.61-23.71 10.66-36.36 1.91-2.67 3.84-7.54 3.84-10.73 0-2.6-0.72-4.96-1.85-7.2-12.82-19.55-35.93-22.88-59.05-14.12-72.53 27.13-124.25 97.06-124.25 179.23 0 10.7 1.05 21.2 2.74 31.41 4.07 24.56 18.51 42.9 41.85 44.24 2.5-0.15 4.9-0.7 7.16-2 2.76-1.6 6.02-5.7 7.37-8.7 6.43-14.16 12.4-20.52 26.16-27.4 36.94-17.16 72.47-29.76 106.26-37.57-23.66 25.35-52.34 49.82-85.66 73.23-12.84 8.47-21.34 10.47-36.82 8.95-3.26-0.32-8.45 0.45-11.2 2.05a15.92 15.92 0 0 0-5.33 5.2c-10.5 20.87-1.84 42.55 17.4 58.35 33.04 27.18 75.36 43.65 121.5 43.65s88.46-16.47 121.51-43.65zm-356.94-147.76c0-130.03 105.41-235.44 235.44-235.44s235.44 105.41 235.44 235.44-105.41 235.44-235.44 235.44-235.44-105.41-235.44-235.44z" fill="#bc002d" fill-rule="evenodd"/>
+ </g>
+</svg>

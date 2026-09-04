@@ -1,7 +1,6 @@
 import { html, LitElement } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
-import { crazyGamesSDK } from "src/client/CrazyGamesSDK";
-import { PauseGameIntentEvent } from "src/client/Transport";
+import { PauseGameIntentEvent } from "src/client/board/BoardEvents";
 import { assetUrl } from "../../../core/AssetUrls";
 import { EventBus } from "../../../core/EventBus";
 import { UserSettings } from "../../../core/game/UserSettings";
@@ -109,11 +108,6 @@ export class SettingsModal extends LitElement implements Controller {
 
   private pauseGame(pause: boolean) {
     if (this.shouldPause && !this.wasPausedWhenOpened) {
-      if (pause) {
-        crazyGamesSDK.gameplayStop();
-      } else {
-        crazyGamesSDK.gameplayStart();
-      }
       this.eventBus.emit(new PauseGameIntentEvent(pause));
     }
   }
@@ -156,11 +150,6 @@ export class SettingsModal extends LitElement implements Controller {
 
   private onToggleAttackingTroopsOverlayButtonClick() {
     this.userSettings.toggleAttackingTroopsOverlay();
-    this.requestUpdate();
-  }
-
-  private onTogglePerformanceOverlayButtonClick() {
-    this.userSettings.togglePerformanceOverlay();
     this.requestUpdate();
   }
 
@@ -499,31 +488,6 @@ export class SettingsModal extends LitElement implements Controller {
               >
                 ${translateText("user_setting.development_only")}
               </div>
-
-              <button
-                class="flex gap-3 items-center w-full text-left p-3 hover:bg-slate-700 rounded-sm text-white transition-colors"
-                @click="${this.onTogglePerformanceOverlayButtonClick}"
-              >
-                <img
-                  src=${settingsIcon}
-                  alt="performanceIcon"
-                  width="20"
-                  height="20"
-                />
-                <div class="flex-1">
-                  <div class="font-medium">
-                    ${translateText("user_setting.performance_overlay_label")}
-                  </div>
-                  <div class="text-sm text-slate-400">
-                    ${translateText("user_setting.performance_overlay_desc")}
-                  </div>
-                </div>
-                <div class="text-sm text-slate-400">
-                  ${this.userSettings.performanceOverlay()
-                    ? translateText("user_setting.on")
-                    : translateText("user_setting.off")}
-                </div>
-              </button>
 
               <button
                 class="flex gap-3 items-center w-full text-left p-3 hover:bg-slate-700 rounded-sm text-white transition-colors"

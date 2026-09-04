@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   version="1.1"
+   width="780"
+   height="390"
+   id="svg6"
+   sodipodi:docname="Flag of_the Tuvan_People's Republic (1943-1944) Possible Variant.svg"
+   inkscape:version="1.0.1 (3bc2e813f5, 2020-09-07)">
+  <metadata
+     id="metadata12">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs10" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1920"
+     inkscape:window-height="1001"
+     id="namedview8"
+     showgrid="false"
+     inkscape:zoom="1.5576923"
+     inkscape:cx="66.865195"
+     inkscape:cy="114.24059"
+     inkscape:window-x="-9"
+     inkscape:window-y="-9"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg6" />
+  <rect
+     width="780"
+     height="390"
+     x="0"
+     y="0"
+     style="fill:#cc0000"
+     id="rect2" />
+  <text
+     x="126.99972"
+     y="97"
+     style="font-weight:bold;font-size:100px;font-family:'Liberation Serif';fill:#ffd700"
+     id="text4">TAP</text>
+  <path
+     id="hammer_head"
+     class="st0"
+     d="m 49.334727,29.016688 -20.368876,19.94951 10.850301,11.16543 9.38758,-9.70516 c 18.294873,19.0958 32.507243,33.9456 50.169003,52.389902 4.890275,5.21203 13.404595,-1.88711 7.946705,-7.907902 -18.666015,-18.7139 -31.590325,-32.21576 -51.042265,-51.82826 l 11.52708,-11.92928 z"
+     style="fill:#ffd700;stroke-width:0.221464;fill-opacity:1" />
+  <path
+     id="sickle_handle"
+     class="st0"
+     d="m 48.636121,85.001098 c 36.436914,34.799312 95.491379,-27.9248 20.019564,-73.37282 v 0 c 56.150865,64.20685 2.24865,83.88675 -17.268795,64.07205 l -0.982419,-0.83124 c -0.807766,0.9211 -1.593698,1.84219 -2.401478,2.76329 -1.506373,-1.46027 -3.864182,-1.90959 -4.584623,0.60656 -2.969102,-0.20219 -4.715631,1.48274 -5.501563,4.6504 -5.523395,3.77422 -11.505251,7.07667 -14.954643,12.98514 -1.964843,6.267912 1.92118,8.986272 6.30933,8.469552 7.204431,-3.07779 9.431245,-9.750092 13.29544,-15.231712 2.728947,-0.89863 5.043099,-2.0893 5.457894,-4.65039"
+     style="fill:#ffd700;stroke-width:0.221464;fill-opacity:1" />
+</svg>

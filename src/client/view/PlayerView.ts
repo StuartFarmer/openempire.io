@@ -79,6 +79,17 @@ function stateFromUpdate(pu: PlayerUpdate): PlayerState {
     tilesOwned: pu.tilesOwned!,
     gold: Number(pu.gold!),
     troops: pu.troops!,
+    // Food fields are absent on classic (unlayered) games — default to 0.
+    food: pu.food ?? 0,
+    foodProduction: pu.foodProduction ?? 0,
+    foodConsumption: pu.foodConsumption ?? 0,
+    foodStarved: pu.foodStarved ?? 0,
+    foodCapacity: pu.foodCapacity ?? 0,
+    foodPopulationShare: pu.foodPopulationShare ?? 0,
+    urbanArea: pu.urbanArea ?? 0,
+    tenureCapacityBonus: pu.tenureCapacityBonus ?? 0,
+    farmSeeds: pu.farmSeeds ?? 0,
+    settlementSeeds: pu.settlementSeeds ?? 0,
     isTraitor: pu.isTraitor!,
     traitorRemainingTicks: Math.max(0, pu.traitorRemainingTicks ?? 0),
     inDoomsdayClock: pu.inDoomsdayClock ?? false,
@@ -476,6 +487,58 @@ export class PlayerView {
 
   troops(): number {
     return this.state.troops;
+  }
+
+  /** Food stock in display units. */
+  food(): Gold {
+    return BigInt(this.state.food);
+  }
+
+  foodProduction(): number {
+    return this.state.foodProduction;
+  }
+
+  foodConsumption(): number {
+    return this.state.foodConsumption;
+  }
+
+  foodStarved(): number {
+    return this.state.foodStarved;
+  }
+
+  /** Mirrors PlayerImpl.foodFlow() so Config.maxTroops/centerBudget accept a
+   *  PlayerView (client-side UI: population cap, center budget). */
+  foodFlow(): {
+    production: number;
+    consumption: number;
+    starvedTroops: number;
+    capacity: number;
+  } {
+    return {
+      production: this.state.foodProduction,
+      consumption: this.state.foodConsumption,
+      starvedTroops: this.state.foodStarved,
+      capacity: this.state.foodCapacity,
+    };
+  }
+
+  urbanArea(): number {
+    return this.state.urbanArea;
+  }
+
+  /** Banked Farmland seeds (seed-ladder spec). */
+  farmSeeds(): number {
+    return this.state.farmSeeds;
+  }
+
+  /** Banked Settlement seeds (seed-ladder spec). */
+  settlementSeeds(): number {
+    return this.state.settlementSeeds;
+  }
+
+  /** Extra housing from tile tenure (rework-settlement-ecology). */
+  tenureCapacityBonus(): number {
+    return this.state.tenureCapacityBonus;
   }
 
   totalUnitLevels(type: UnitType): number {

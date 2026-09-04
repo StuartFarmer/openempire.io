@@ -10,6 +10,7 @@
  */
 
 import type { Config } from "../../../core/configuration/Config";
+import type { BoardMap } from "../../../core/game/BoardMap";
 import type {
   AttackRingInput,
   BonusEvent,
@@ -26,6 +27,7 @@ import type {
   TilePair,
   UnitState,
 } from "../types";
+import { TRIBAL_PLOT_TYPE_INDEX } from "../types";
 import { Camera } from "./Camera";
 import { GLUnavailableError, initGL } from "./initGL";
 import { BarPass } from "./passes/BarPass";
@@ -34,8 +36,13 @@ import { BorderStampPass } from "./passes/BorderStampPass";
 import { CoordinateGridPass } from "./passes/CoordinateGridPass";
 import { CrosshairPass } from "./passes/CrosshairPass";
 import { DefenseCoveragePass } from "./passes/DefenseCoveragePass";
+import { DensityPass } from "./passes/DensityPass";
 import { FalloutBloomPass } from "./passes/FalloutBloomPass";
 import { FalloutLightPass } from "./passes/FalloutLightPass";
+import {
+  FertilityOverlayPass,
+  type SoilOverlayMode,
+} from "./passes/FertilityOverlayPass";
 import { FxPass } from "./passes/fx-pass";
 import { LightmapPass } from "./passes/LightmapPass";
 import { MoveIndicatorPass } from "./passes/MoveIndicatorPass";
@@ -43,6 +50,8 @@ import { NamePass } from "./passes/name-pass";
 import { NightCompositePass } from "./passes/NightCompositePass";
 import { NukeTelegraphPass } from "./passes/NukeTelegraphPass";
 import { NukeTrajectoryPass } from "./passes/NukeTrajectoryPass";
+import { PlotFirePass } from "./passes/PlotFirePass";
+import { PlotPass } from "./passes/PlotPass";
 import { PointLightPass } from "./passes/PointLightPass";
 import { RailroadPass } from "./passes/RailroadPass";
 import { RangeCirclePass } from "./passes/RangeCirclePass";
@@ -131,6 +140,8 @@ export class GPURenderer {
   private samRadiusPass: SAMRadiusPass;
   private crosshairPass: CrosshairPass;
   private railroadPass: RailroadPass;
+  private plotPass: PlotPass;
+  private plotFirePass: PlotFirePass;
   private barPass: BarPass;
   private worldTextPass: WorldTextPass;
   private selectionBoxPass: SelectionBoxPass;
@@ -141,6 +152,8 @@ export class GPURenderer {
   private affiliationPalette: AffiliationPalette;
   private coordinateGridPass: CoordinateGridPass;
   private spawnOverlayPass: SpawnOverlayPass;
+  private fertilityOverlayPass: FertilityOverlayPass;
+  private densityPass: DensityPass;
   private inSpawnPhase = false;
 
   private paletteTex: WebGLTexture;
@@ -203,6 +216,7 @@ export class GPURenderer {
     settings: RenderSettings,
     raf: typeof requestAnimationFrame = requestAnimationFrame.bind(window),
     caf: typeof cancelAnimationFrame = cancelAnimationFrame.bind(window),
+    boardMap: BoardMap,
   ) {
     this.canvas = canvas;
     // Settings are resolved (defaults + user overrides) by the caller and
@@ -246,13 +260,22 @@ export class GPURenderer {
     this.camera = new Camera(mapW, mapH);
 
     // --- Terrain (static) ---
-    this.terrainPass = new TerrainPass(gl, terrainBytes, mapW, mapH, {
-      oceanColor: hexToRgb(this.settings.terrain.oceanColor) ?? undefined,
-      sandColor: hexToRgb(this.settings.terrain.sandColor) ?? undefined,
-      plainsColor: hexToRgb(this.settings.terrain.plainsColor) ?? undefined,
-      highlandColor: hexToRgb(this.settings.terrain.highlandColor) ?? undefined,
-      mountainColor: hexToRgb(this.settings.terrain.mountainColor) ?? undefined,
-    });
+    this.terrainPass = new TerrainPass(
+      gl,
+      terrainBytes,
+      mapW,
+      mapH,
+      {
+        oceanColor: hexToRgb(this.settings.terrain.oceanColor) ?? undefined,
+        sandColor: hexToRgb(this.settings.terrain.sandColor) ?? undefined,
+        plainsColor: hexToRgb(this.settings.terrain.plainsColor) ?? undefined,
+        highlandColor:
+          hexToRgb(this.settings.terrain.highlandColor) ?? undefined,
+        mountainColor:
+          hexToRgb(this.settings.terrain.mountainColor) ?? undefined,
+      },
+      boardMap,
+    );
 
     // --- Shared palette texture (RGBA32F, 4096×2) ---
     this.paletteData = paletteData;
@@ -494,6 +517,27 @@ export class GPURenderer {
       this.paletteTex,
       terrainBytes,
       this.settings,
+    );
+
+    // --- Tribal plot patterns (painted single-tile structures) ---
+    this.plotPass = new PlotPass(gl, mapW, mapH, this.terrainPass.texture());
+    this.plotFirePass = new PlotFirePass(gl, this.settings);
+
+    // --- Baked soil-plane tints (fertility + suitability, cycled) ---
+    this.fertilityOverlayPass = new FertilityOverlayPass(
+      gl,
+      mapW,
+      mapH,
+      this.settings.fertilityOverlay,
+      this.settings.suitabilityOverlay,
+    );
+
+    // --- Urban density field (the self-growing city) ---
+    this.densityPass = new DensityPass(
+      gl,
+      mapW,
+      mapH,
+      this.settings.densityOverlay,
     );
 
     // --- Range circle (ghost preview radius) ---
@@ -808,6 +852,10 @@ export class GPURenderer {
     );
   }
 
+  uploadPlotState(data: Uint8Array, maturity: Uint8Array): void {
+    this.plotPass.uploadPlotState(data, maturity);
+  }
+
   uploadRailroadState(data: Uint8Array): void {
     this.railroadPass.uploadRailroadState(data);
   }
@@ -875,7 +923,25 @@ export class GPURenderer {
   }
 
   applyDeadUnits(deadUnits: DeadUnitFx[]): void {
-    if (deadUnits.length > 0) this.fxPass.applyDeadUnits(deadUnits);
+    if (deadUnits.length === 0) return;
+    this.fxPass.applyDeadUnits(deadUnits);
+    // Razed tribal plots burn down in place (FxSpritePass skips them, so the
+    // fire replaces the generic building explosion).
+    for (const du of deadUnits) {
+      if (TRIBAL_PLOT_TYPE_INDEX.has(du.unitType)) {
+        const x = du.pos % this.mapW;
+        this.plotFirePass.addBurn(x, (du.pos - x) / this.mapW, du.pos);
+      }
+    }
+  }
+
+  /** Every tile taken in combat lights a one-shot fire (rework-persistent-
+   *  tiles-and-burn) — the whole captured district burns, not just a nucleus. */
+  applyBurns(tileRefs: number[]): void {
+    for (const tile of tileRefs) {
+      const x = tile % this.mapW;
+      this.plotFirePass.addBurn(x, (tile - x) / this.mapW, tile);
+    }
   }
 
   applyRailroadDust(tileRefs: number[]): void {
@@ -937,6 +1003,39 @@ export class GPURenderer {
   }
 
   updateGhostPreview(data: GhostPreviewData | null): void {
+    // Tribal plots preview as painted tiles (PlotPass); the sprite
+    // ghost and its satellites only see vanilla structures.
+    const plotTypeIdx =
+      data === null ? undefined : TRIBAL_PLOT_TYPE_INDEX.get(data.ghostType);
+    if (data !== null && plotTypeIdx !== undefined) {
+      this.plotPass.setGhost({
+        // The cursor loop feeds icon-centering coords (world - 0.5); snap
+        // back to the hovered tile, which is the build anchor.
+        anchorX: Math.floor(data.tileX + 0.5),
+        anchorY: Math.floor(data.tileY + 0.5),
+        typeIdx: plotTypeIdx,
+        valid: data.canBuild,
+      });
+      this.structurePass.updateGhostPreview(null);
+      this.railroadPass.updateGhostPreview(null);
+      this.rangeCirclePass.updateGhostPreview(null);
+      this.crosshairPass.updateGhostPreview(null);
+      this.worldTextPass.setGhostCostLabel(
+        data.showCost && data.cost > 0
+          ? {
+              tileX: data.tileX,
+              tileY: data.tileY,
+              cost: data.cost,
+              canAfford: data.canAfford,
+              canPlace: data.canBuild || data.canUpgrade,
+            }
+          : null,
+      );
+      this.samGhostVisible = false;
+      this.samRadiusPass.setVisible(this.samHighlightVisible);
+      return;
+    }
+    this.plotPass.setGhost(null);
     this.structurePass.updateGhostPreview(data);
     this.railroadPass.updateGhostPreview(data);
     this.rangeCirclePass.updateGhostPreview(data);
@@ -1011,6 +1110,41 @@ export class GPURenderer {
 
   setSAMAllianceClusters(clusters: Map<number, number>): void {
     this.samRadiusPass.setAllianceClusters(clusters);
+  }
+
+  updateDensityField(density: Uint8Array): void {
+    this.densityPass.update(density);
+  }
+
+  applyDensityDelta(refs: readonly number[], density: Uint8Array): void {
+    this.densityPass.applyDelta(refs, density);
+  }
+
+  setSoilOverlay(mode: SoilOverlayMode): void {
+    this.fertilityOverlayPass.setMode(mode);
+  }
+
+  soilOverlayMode(): SoilOverlayMode {
+    return this.fertilityOverlayPass.mode();
+  }
+
+  soilOverlayHasField(plane: "fertility" | "suitability"): boolean {
+    return this.fertilityOverlayPass.hasField(plane);
+  }
+
+  updateSoilOverlay(
+    plane: Uint8Array,
+    which: "fertility" | "suitability",
+  ): void {
+    this.fertilityOverlayPass.update(plane, which);
+  }
+
+  setSegmentHighlight(active: boolean): void {
+    this.borderStampPass.setSegmentActive(active);
+  }
+
+  updateSegmentHighlight(mask: Uint8Array): void {
+    this.borderStampPass.updateSegmentMask(mask);
   }
 
   setAltView(active: boolean): void {
@@ -1208,6 +1342,7 @@ export class GPURenderer {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     if (pe.territory) this.territoryPass.draw(cam);
+    this.plotPass.draw(cam);
   }
 
   private renderOverlays(cam: Float32Array, zoom: number): void {
@@ -1218,6 +1353,12 @@ export class GPURenderer {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     this.spawnOverlayPass.draw(cam);
+    // The urban density field (the growing city) draws over territory.
+    this.densityPass.draw(cam);
+    // Fertility tint sits under borders/structures so plots stay readable.
+    this.fertilityOverlayPass.draw(cam);
+    // Borders draw here; the aimed concentrated-push segment is recoloured onto
+    // the player's own border cells inside BorderStampPass.
     if (pe.borderStamp) this.borderStampPass.draw(cam);
     if (pe.railroad) this.railroadPass.draw(cam, zoom);
     if (pe.unit) this.unitPass.drawGround(cam);
@@ -1237,6 +1378,8 @@ export class GPURenderer {
     if (pe.unit) this.unitPass.drawMissiles(cam);
 
     if (pe.fx) {
+      this.plotFirePass.tick();
+      this.plotFirePass.draw(cam);
       this.fxPass.tick();
       this.fxPass.draw(cam, zoom);
     }
@@ -1276,7 +1419,11 @@ export class GPURenderer {
     this.affiliationPalette.dispose();
     this.coordinateGridPass.dispose();
     this.spawnOverlayPass.dispose();
+    this.fertilityOverlayPass.dispose();
+    this.densityPass.dispose();
     this.railroadPass.dispose();
+    this.plotPass.dispose();
+    this.plotFirePass.dispose();
     this.rangeCirclePass.dispose();
     this.samRadiusPass.dispose();
     this.crosshairPass.dispose();

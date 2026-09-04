@@ -1,4 +1,3 @@
-import type { PlayerState } from "../../client/render/types";
 import type { EmojiMessage } from "./Game";
 import {
   AllianceView,
@@ -6,6 +5,7 @@ import {
   GameUpdateType,
   PlayerUpdate,
 } from "./GameUpdates";
+import type { PlayerState } from "./PlayerState";
 
 /**
  * Build a partial PlayerUpdate containing only fields whose value differs
@@ -53,6 +53,29 @@ export function diffPlayerUpdate(
   setIfDifferent("isAlive", prev.isAlive === next.isAlive);
   setIfDifferent("isDisconnected", prev.isDisconnected === next.isDisconnected);
   // tilesOwned / gold / troops intentionally absent — see EXCEPTION above.
+  // Food fields ride the diff deliberately (small numbers, singleplayer
+  // wire) instead of extending the packed quad format.
+  setIfDifferent("food", prev.food === next.food);
+  setIfDifferent("foodProduction", prev.foodProduction === next.foodProduction);
+  setIfDifferent(
+    "foodConsumption",
+    prev.foodConsumption === next.foodConsumption,
+  );
+  setIfDifferent("foodStarved", prev.foodStarved === next.foodStarved);
+  setIfDifferent(
+    "foodPopulationShare",
+    prev.foodPopulationShare === next.foodPopulationShare,
+  );
+  setIfDifferent("urbanArea", prev.urbanArea === next.urbanArea);
+  setIfDifferent(
+    "tenureCapacityBonus",
+    prev.tenureCapacityBonus === next.tenureCapacityBonus,
+  );
+  setIfDifferent("farmSeeds", prev.farmSeeds === next.farmSeeds);
+  setIfDifferent(
+    "settlementSeeds",
+    prev.settlementSeeds === next.settlementSeeds,
+  );
   setIfDifferent("isTraitor", prev.isTraitor === next.isTraitor);
   setIfDifferent(
     "traitorRemainingTicks",
@@ -123,6 +146,20 @@ export function applyStateUpdate(target: PlayerState, pu: PlayerUpdate): void {
   if (pu.tilesOwned !== undefined) target.tilesOwned = pu.tilesOwned;
   if (pu.gold !== undefined) target.gold = Number(pu.gold);
   if (pu.troops !== undefined) target.troops = pu.troops;
+  if (pu.food !== undefined) target.food = pu.food;
+  if (pu.foodProduction !== undefined)
+    target.foodProduction = pu.foodProduction;
+  if (pu.foodConsumption !== undefined)
+    target.foodConsumption = pu.foodConsumption;
+  if (pu.foodStarved !== undefined) target.foodStarved = pu.foodStarved;
+  if (pu.foodPopulationShare !== undefined)
+    target.foodPopulationShare = pu.foodPopulationShare;
+  if (pu.urbanArea !== undefined) target.urbanArea = pu.urbanArea;
+  if (pu.tenureCapacityBonus !== undefined)
+    target.tenureCapacityBonus = pu.tenureCapacityBonus;
+  if (pu.farmSeeds !== undefined) target.farmSeeds = pu.farmSeeds;
+  if (pu.settlementSeeds !== undefined)
+    target.settlementSeeds = pu.settlementSeeds;
   if (pu.isTraitor !== undefined) target.isTraitor = pu.isTraitor;
   if (pu.traitorRemainingTicks !== undefined) {
     target.traitorRemainingTicks = Math.max(0, pu.traitorRemainingTicks);

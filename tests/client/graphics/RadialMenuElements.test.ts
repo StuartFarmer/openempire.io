@@ -145,10 +145,8 @@ describe("RadialMenuElements", () => {
       playerActions: mockPlayerActions,
       game: mockGame,
       buildMenu: mockBuildMenu,
-      emojiTable: {} as any,
       playerActionHandler: {} as any,
       playerPanel: {} as any,
-      chatIntegration: {} as any,
       eventBus: {} as any,
       closeMenu: vi.fn(),
     };
@@ -301,13 +299,13 @@ describe("RadialMenuElements", () => {
       expect(rootMenuElement.disabled(mockParams)).toBe(false);
     });
 
-    it("should show build and delete menu on own territory", () => {
+    it("should show delete but NOT build on own territory (build bar replaces the wrench)", () => {
       const subMenu = rootMenuElement.subMenu!(mockParams);
       const buildMenu = subMenu.find((item) => item.id === Slot.Build);
       const attackMenu = subMenu.find((item) => item.id === Slot.Attack);
       const deleteMenu = subMenu.find((item) => item.id === Slot.Delete);
 
-      expect(buildMenu).toBeDefined();
+      expect(buildMenu).toBeUndefined();
       expect(attackMenu).toBeUndefined();
       expect(deleteMenu).toBeDefined();
     });

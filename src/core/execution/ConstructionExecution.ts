@@ -144,6 +144,12 @@ export class ConstructionExecution implements Execution {
       case UnitType.Factory:
         this.mg.addExecution(new FactoryExecution(this.structure!));
         break;
+      case UnitType.Settlement:
+      case UnitType.Farmland:
+      case UnitType.Barn:
+        // Tribal buildings are passive: their effects are read from unit
+        // counts each food tick (FoodEconomy.ts) — no follow-up execution.
+        break;
       default:
         console.warn(
           `unit type ${this.constructionType} cannot be constructed`,
@@ -160,6 +166,9 @@ export class ConstructionExecution implements Execution {
       case UnitType.SAMLauncher:
       case UnitType.City:
       case UnitType.Factory:
+      case UnitType.Settlement:
+      case UnitType.Farmland:
+      case UnitType.Barn:
         return true;
       default:
         return false;

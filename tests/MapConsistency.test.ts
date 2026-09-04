@@ -1,6 +1,9 @@
 import fs from "fs";
 import path from "path";
+import { expectedElevationByteLength } from "../src/core/game/ElevationMap";
 import { GameMapName, GameMapType, MapInfo, maps } from "../src/core/game/Game";
+import { expectedHydroByteLength } from "../src/core/game/HydroMap";
+import { expectedSeasonByteLength } from "../src/core/game/SeasonMap";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -18,15 +21,17 @@ const allMapKeys = Object.keys(GameMapType) as GameMapName[];
 
 // Maps excluded from the frequency requirement (not part of regular playlists).
 const FREQUENCY_EXEMPTIONS: Set<GameMapName> = new Set([
-  "GiantWorldMap",
-  "Oceania",
-  "BaikalNukeWars",
-  "Tourney1",
-  "Tourney2",
-  "Tourney3",
-  "Tourney4",
-  "EuropeClassic",
-  "BritanniaClassic",
+  // Generated maps (world-engine generator output, not in multiplayer rotation).
+  "MajorMenor",
+  "Pangea001",
+  "Pangea002",
+  "Verdantia",
+  "Estuaria",
+  // Built from real-world geospatial data (map-generator/earth), not in rotation.
+  "Earth",
+  "EarthMini",
+  "EarthXL",
+  "SPQR",
 ]);
 
 // Keys in the en.json "map" section that are UI strings, not map names.
@@ -76,13 +81,25 @@ describe("Map consistency", () => {
       }
 
       const files = fs.readdirSync(dir).sort();
-      const expected = ["image.png", "info.json"];
-      if (
-        files.length !== expected.length ||
-        !files.every((f, i) => f === expected[i])
-      ) {
+      // Every map must ship the full source set — both sidecars are mandatory
+      // (retrofit legacy sources with `npx tsx map-generator/derive-layers.ts`).
+      const required = [
+        "elevation.bin",
+        "hydro.bin",
+        "image.png",
+        "info.json",
+        "layers.bin",
+        "terrain-colors.png",
+      ];
+      // season.bin is an optional sidecar (real-data maps only).
+      const optional = ["season.bin"];
+      const missing = required.filter((f) => !files.includes(f));
+      const unexpected = files.filter(
+        (f) => !required.includes(f) && !optional.includes(f),
+      );
+      if (missing.length > 0 || unexpected.length > 0) {
         errors.push(
-          `${key}: expected [${expected.join(", ")}] but found [${files.join(", ")}]`,
+          `${key}: expected [${required.join(", ")}] but found [${files.join(", ")}]`,
         );
       }
     }
@@ -216,13 +233,15 @@ describe("Map consistency", () => {
     }
   });
 
-  test("Every GameMapType has resources/maps/ with thumbnail.webp, bin files, and manifest.json", () => {
+  test("Every GameMapType has resources/maps/ with map.bin, both sidecars, thumbnail, and manifest", () => {
     const errors: string[] = [];
     const requiredFiles = [
       "manifest.json",
       "map.bin",
-      "map4x.bin",
-      "map16x.bin",
+      "layers.bin",
+      "elevation.bin",
+      "hydro.bin",
+      "terrain-colors.png",
       "thumbnail.webp",
     ];
 
@@ -244,6 +263,128 @@ describe("Map consistency", () => {
     }
     if (errors.length > 0) {
       throw new Error("Resource map file violations:\n" + errors.join("\n"));
+    }
+  });
+
+  test("Every manifest declares all sidecars (layers + terrain_colors + elevation)", () => {
+    const errors: string[] = [];
+    for (const key of allMapKeys) {
+      const folder = toFolderName(key);
+      const manifestPath = path.join(RESOURCES_MAPS, folder, "manifest.json");
+      if (!fs.existsSync(manifestPath)) continue; // Other tests catch this.
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+      if (manifest.layers !== true) {
+        errors.push(`${key}: manifest.layers is ${manifest.layers}`);
+      }
+      if (manifest.terrain_colors !== true) {
+        errors.push(
+          `${key}: manifest.terrain_colors is ${manifest.terrain_colors}`,
+        );
+      }
+      if (manifest.elevation !== true) {
+        errors.push(`${key}: manifest.elevation is ${manifest.elevation}`);
+      }
+      if (manifest.hydro !== true) {
+        errors.push(`${key}: manifest.hydro is ${manifest.hydro}`);
+      }
+    }
+    if (errors.length > 0) {
+      throw new Error(
+        "There is exactly one game mode — every map must ship layers.bin, terrain-colors.png, elevation.bin, and hydro.bin:\n" +
+          errors.join("\n"),
+      );
+    }
+  });
+
+  test("Every elevation.bin matches the manifest dimensions and a render config travels with it", () => {
+    const errors: string[] = [];
+    for (const key of allMapKeys) {
+      const folder = toFolderName(key);
+      const manifestPath = path.join(RESOURCES_MAPS, folder, "manifest.json");
+      const elevationPath = path.join(RESOURCES_MAPS, folder, "elevation.bin");
+      if (!fs.existsSync(manifestPath) || !fs.existsSync(elevationPath)) {
+        continue; // Other tests catch missing files.
+      }
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+      const expected = expectedElevationByteLength(
+        manifest.map.width,
+        manifest.map.height,
+      );
+      const actual = fs.statSync(elevationPath).size;
+      if (actual !== expected) {
+        errors.push(
+          `${key}: elevation.bin is ${actual} bytes, expected ${expected} (${manifest.map.width}x${manifest.map.height} u16)`,
+        );
+      }
+      const hydroPath = path.join(RESOURCES_MAPS, folder, "hydro.bin");
+      if (fs.existsSync(hydroPath)) {
+        const hydroExpected = expectedHydroByteLength(
+          manifest.map.width,
+          manifest.map.height,
+        );
+        const hydroActual = fs.statSync(hydroPath).size;
+        if (hydroActual !== hydroExpected) {
+          errors.push(
+            `${key}: hydro.bin is ${hydroActual} bytes, expected ${hydroExpected} (2 planes × ${manifest.map.width}x${manifest.map.height})`,
+          );
+        }
+      }
+      // season.bin is optional; when present it must match, and the manifest
+      // flag must agree with the file.
+      const seasonPath = path.join(RESOURCES_MAPS, folder, "season.bin");
+      const hasSeason = fs.existsSync(seasonPath);
+      if (hasSeason !== (manifest.season === true)) {
+        errors.push(
+          `${key}: season.bin ${hasSeason ? "exists" : "missing"} but manifest.season is ${manifest.season}`,
+        );
+      }
+      if (hasSeason) {
+        const seasonExpected = expectedSeasonByteLength(
+          manifest.map.width,
+          manifest.map.height,
+        );
+        const seasonActual = fs.statSync(seasonPath).size;
+        if (seasonActual !== seasonExpected) {
+          errors.push(
+            `${key}: season.bin is ${seasonActual} bytes, expected ${seasonExpected} (2 planes × ${manifest.map.width}x${manifest.map.height})`,
+          );
+        }
+      }
+      const config = manifest.world_engine;
+      if (typeof config !== "object" || config === null) {
+        errors.push(`${key}: manifest has no world_engine render config`);
+        continue;
+      }
+      // The keys runtime derivation needs to replay the worldgen passes —
+      // see WorldEngineManifestConfig in TerrainMapLoader.ts.
+      const requiredKeys = [
+        "seed",
+        "seaLevel",
+        "continentScale",
+        "mountainStrength",
+        "latitudeEffect",
+        "elevationCooling",
+        "rainNoise",
+        "warmthRainfall",
+        "riverFlowRetention",
+        "lakeWaterThreshold",
+        "lakeElevationRange",
+        "riverWeakThreshold",
+        "riverStrongThreshold",
+      ];
+      for (const k of requiredKeys) {
+        if (typeof config[k] !== "number") {
+          errors.push(
+            `${key}: manifest world_engine.${k} is ${JSON.stringify(config[k])} (must be a number)`,
+          );
+        }
+      }
+    }
+    if (errors.length > 0) {
+      throw new Error(
+        "elevation.bin / world_engine violations (retrofit with derive-layers.ts + gen-maps):\n" +
+          errors.join("\n"),
+      );
     }
   });
 
@@ -379,6 +520,7 @@ describe("Map consistency", () => {
       "multiplayer_frequency",
       "featured_rank",
       "special_team_count",
+      "world_engine",
     ];
     const errors: string[] = [];
 
@@ -394,8 +536,16 @@ describe("Map consistency", () => {
       }
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
 
+      // Go's JSON marshaller sorts object keys; compare order-insensitively.
+      const canonical = (value: unknown): string =>
+        JSON.stringify(value, (_, v: unknown) =>
+          typeof v === "object" && v !== null && !Array.isArray(v)
+            ? Object.fromEntries(Object.entries(v).sort())
+            : v,
+        );
+
       for (const field of metadataKeys) {
-        if (JSON.stringify(info[field]) !== JSON.stringify(manifest[field])) {
+        if (canonical(info[field]) !== canonical(manifest[field])) {
           errors.push(
             `${key}: "${field}" mismatch — info.json ${JSON.stringify(info[field])} vs manifest.json ${JSON.stringify(manifest[field])}`,
           );

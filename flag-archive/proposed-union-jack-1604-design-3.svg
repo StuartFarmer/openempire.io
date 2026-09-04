@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="600" height="500" xmlns="http://www.w3.org/2000/svg">
+<rect x="0" y="0" width="600" height="500" fill="#012169"/>
+
+<path d="M300,0 v500" stroke="#c8102e" stroke-width="120" />
+<path d="M0,250 h600" stroke="#c8102e" stroke-width="100" />
+
+<path d="
+M50,40 l140,120 m0,-120 l-140,120
+M410,40 l140,120 m0,-120 l-140,120
+M50,340 l140,120 m0,-120 l-140,120
+M410,340 l140,120 m0,-120 l-140,120
+" stroke="white" stroke-width="20"/>
+</svg>

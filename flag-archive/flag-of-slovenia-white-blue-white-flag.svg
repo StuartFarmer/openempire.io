@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="1200"
+   height="600"
+   viewBox="0 0 240 120"
+   fill="#00f"
+   version="1.1"
+   id="svg409"
+   sodipodi:docname="Flag_of_Slovenia_nored.svg"
+   inkscape:version="1.2 (dc2aedaf03, 2022-05-15)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs413" />
+  <sodipodi:namedview
+     id="namedview411"
+     pagecolor="#505050"
+     bordercolor="#eeeeee"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#505050"
+     showgrid="false"
+     inkscape:zoom="0.71182083"
+     inkscape:cx="672.21972"
+     inkscape:cy="262.70656"
+     inkscape:window-width="1920"
+     inkscape:window-height="1017"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg409" />
+  <path
+     d="M0 0h240v120H0Z"
+     fill="red"
+     id="path387"
+     style="fill:#ffffff" />
+  <path
+     d="M0 0h240v80H0Z"
+     id="path389" />
+  <path
+     d="M0 0h240v40H0Z"
+     fill="#fff"
+     id="path391"
+     style="fill:#ffffff" />
+  <g
+     transform="matrix(.39140688 0 0 .39140688 60 60)"
+     id="g407">
+    <path
+       d="M-37.175342-94.368205a92.195445 92.195445 0 0 1 74.350684 0Q43-12 0-1q-43-11-37.175342-93.368205Z"
+       id="path393" />
+    <path
+       id="a"
+       d="m0-84.5 1.125 2.551443L3.897114-82.25 2.25-80l1.647114 2.25L1.125-78.051443 0-75.5l-1.125-2.551443-2.772114.301443L-2.25-80l-1.647114-2.25 2.772114.301443"
+       fill="#ff0" />
+    <use
+       xlink:href="#a"
+       x="-10.5"
+       y="-14"
+       id="use396" />
+    <use
+       xlink:href="#a"
+       x="10.5"
+       y="-14"
+       id="use398" />
+    <path
+       d="m0-70 9 18 6-8 15 20a10 10 0 0 1-.384761 2.747211A46.400549 46.400549 0 0 1 0-6.090878a46.400549 46.400549 0 0 1-29.615239-31.161911A10 10 0 0 1-30-40l15-20 6 8z"
+       fill="#fff"
+       id="path400" />
+    <path
+       id="b"
+       d="M-29.615239-37.252789A10 10 0 0 0-15-31.339746a10 10 0 0 1 10 0 10 10 0 0 0 10 0 10 10 0 0 1 10 0 10 10 0 0 0 14.615239-5.913043L30-37.113249v7.320508a10 10 0 0 0-5 1.339746 10 10 0 0 1-10 0 10 10 0 0 0-10 0 10 10 0 0 1-10 0 10 10 0 0 0-10 0 10 10 0 0 1-10 0 10 10 0 0 0-5-1.339746v-7.320508" />
+    <use
+       xlink:href="#b"
+       y="5.7735028"
+       id="use403" />
+    <path
+       d="M-40-93.066239a92.195445 92.195445 0 0 1 2.824658-1.301966l2.97064 47.448778A49.301041 49.301041 0 0 0 0-3.036262a49.301041 49.301041 0 0 0 34.204702-43.883164l2.97064-47.448778A92.195445 92.195445 0 0 1 40-93.066239L37.099526-46.73819A52.201533 52.201533 0 0 1 0 0a52.201533 52.201533 0 0 1-37.099526-46.738189Z"
+       fill="red"
+       id="path405" />
+  </g>
+</svg>

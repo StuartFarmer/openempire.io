@@ -8,6 +8,10 @@
  * Float32Array(PALETTE_SIZE × 2 × 4) to the GPURenderer constructor.
  */
 
+import {
+  validateBoardMap,
+  type BoardMap,
+} from "../../../../core/game/BoardMap";
 import renderDefaults from "../render-settings.json";
 
 /** Must cover 12-bit smallID range (0-4095). */
@@ -158,15 +162,23 @@ export function encodeTerrainTile(
   out[offset + 3] = 255;
 }
 
-export function buildTerrainRGBA(
-  terrainBytes: Uint8Array,
-  w: number,
-  h: number,
-  colors?: TerrainColorOverrides,
-): Uint8Array {
-  const pixels = new Uint8Array(w * h * 4);
-  for (let i = 0; i < w * h; i++) {
-    encodeTerrainTile(terrainBytes[i], pixels, i * 4, colors);
+export function buildBoardMapTerrainRGBA(map: BoardMap): Uint8Array {
+  validateBoardMap(map);
+  // The baked color sidecar (attached as the board colorizer) is the only
+  // base-terrain shading source; there is no procedural full-map fallback.
+  // encodeTerrainTile survives solely as the runtime MUTATION encoder for
+  // tiles whose terrain changes after load (water nukes, land modification).
+  const pixels = map.colorizer?.(map);
+  if (!pixels) {
+    throw new Error(
+      "board map has no terrain colorizer — the terrain-colors sidecar is required",
+    );
+  }
+  const expected = map.width * map.height * 4;
+  if (pixels.length !== expected) {
+    throw new Error(
+      `terrain colorizer length ${pixels.length} does not match ${map.width}x${map.height} RGBA`,
+    );
   }
   return pixels;
 }

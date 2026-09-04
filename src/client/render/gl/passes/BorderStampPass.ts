@@ -8,7 +8,12 @@
 
 import type { RenderSettings } from "../RenderSettings";
 import { getPaletteSize } from "../utils/ColorUtils";
-import { createMapQuad, createProgram, shaderSrc } from "../utils/GlUtils";
+import {
+  createMapQuad,
+  createProgram,
+  createTexture2D,
+  shaderSrc,
+} from "../utils/GlUtils";
 import { TILE_DEFINES } from "../utils/TileCodec";
 
 import borderStampFragSrc from "../shaders/day-night/border-stamp.frag.glsl?raw";
@@ -30,6 +35,8 @@ export class BorderStampPass {
   private uEmbargoTint: WebGLUniformLocation;
   private uFriendlyTint: WebGLUniformLocation;
   private uAltView: WebGLUniformLocation;
+  private uSegmentActive: WebGLUniformLocation;
+  private uSegmentColor: WebGLUniformLocation;
 
   private vao: WebGLVertexArrayObject;
   private tileTex: WebGLTexture;
@@ -38,6 +45,11 @@ export class BorderStampPass {
   private defenseCoverageTex: WebGLTexture | null = null;
   private affiliationTex: WebGLTexture | null = null;
   private altView = false;
+
+  // Aimed concentrated-push segment: a map-sized R8 mask (255 = in segment)
+  // recoloured onto the player's own border cells by the fragment shader.
+  private segmentMaskTex: WebGLTexture;
+  private segmentActive = false;
 
   constructor(
     gl: WebGL2RenderingContext,
@@ -85,6 +97,11 @@ export class BorderStampPass {
     this.uEmbargoTint = gl.getUniformLocation(this.program, "uEmbargoTint")!;
     this.uFriendlyTint = gl.getUniformLocation(this.program, "uFriendlyTint")!;
     this.uAltView = gl.getUniformLocation(this.program, "uAltView")!;
+    this.uSegmentActive = gl.getUniformLocation(
+      this.program,
+      "uSegmentActive",
+    )!;
+    this.uSegmentColor = gl.getUniformLocation(this.program, "uSegmentColor")!;
 
     gl.useProgram(this.program);
     gl.uniform1i(gl.getUniformLocation(this.program, "uTileTex"), 0);
@@ -92,8 +109,41 @@ export class BorderStampPass {
     gl.uniform1i(gl.getUniformLocation(this.program, "uBorderTex"), 2);
     gl.uniform1i(gl.getUniformLocation(this.program, "uAffiliation"), 3);
     gl.uniform1i(gl.getUniformLocation(this.program, "uDefenseCoverageTex"), 4);
+    gl.uniform1i(gl.getUniformLocation(this.program, "uSegmentMask"), 5);
+
+    this.segmentMaskTex = createTexture2D(gl, {
+      width: mapW,
+      height: mapH,
+      internalFormat: gl.R8,
+      format: gl.RED,
+      type: gl.UNSIGNED_BYTE,
+      data: null,
+      filter: gl.NEAREST,
+    });
 
     this.vao = createMapQuad(gl, mapW, mapH);
+  }
+
+  /** Toggle the aimed concentrated-push segment highlight. */
+  setSegmentActive(active: boolean): void {
+    this.segmentActive = active;
+  }
+
+  /** Upload a fresh push-segment mask (map-sized R8, 255 = in segment). */
+  updateSegmentMask(mask: Uint8Array): void {
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this.segmentMaskTex);
+    gl.texSubImage2D(
+      gl.TEXTURE_2D,
+      0,
+      0,
+      0,
+      this.mapW,
+      this.mapH,
+      gl.RED,
+      gl.UNSIGNED_BYTE,
+      mask,
+    );
   }
 
   setAltView(active: boolean): void {
@@ -131,6 +181,13 @@ export class BorderStampPass {
       mo.friendlyTintB,
     );
     gl.uniform1i(this.uAltView, this.altView ? 1 : 0);
+    gl.uniform1i(this.uSegmentActive, this.segmentActive ? 1 : 0);
+    gl.uniform3f(
+      this.uSegmentColor,
+      mo.segmentHighlightR,
+      mo.segmentHighlightG,
+      mo.segmentHighlightB,
+    );
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.tileTex);
@@ -146,6 +203,8 @@ export class BorderStampPass {
       gl.activeTexture(gl.TEXTURE4);
       gl.bindTexture(gl.TEXTURE_2D, this.defenseCoverageTex);
     }
+    gl.activeTexture(gl.TEXTURE5);
+    gl.bindTexture(gl.TEXTURE_2D, this.segmentMaskTex);
 
     gl.bindVertexArray(this.vao);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -155,5 +214,6 @@ export class BorderStampPass {
     const gl = this.gl;
     gl.deleteProgram(this.program);
     gl.deleteVertexArray(this.vao);
+    gl.deleteTexture(this.segmentMaskTex);
   }
 }

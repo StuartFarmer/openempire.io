@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   version="1.1"
+   id="svg2"
+   height="600"
+   width="750">
+  <defs
+     id="defs20" />
+  <path
+     style="fill:#c50b1e"
+     d="m 0,0 750,0 0,600 -750,0 z"
+     id="use3357" />
+  <path
+     style="fill:#002868"
+     d="M 750,600 750,0 375,300 0,0 0,600 375,300 Z"
+     id="use3359" />
+  <path
+     id="path4"
+     d="m 0,0 375,0 0,300 -375,0 z"
+     style="fill:#c50b1e" />
+  <path
+     id="path10"
+     d="m 187.5,0 0,300"
+     style="stroke:#ffffff;stroke-width:67.08203888" />
+  <path
+     id="path12"
+     d="m 187.5,0 0,300"
+     style="stroke:#002868;stroke-width:33.54101944" />
+  <path
+     id="path14"
+     d="m 0,0 150,120 0,60 L 0,300 Z m 375,0 -150,120 0,60 150,120 z"
+     style="fill:#002868" />
+  <path
+     id="path16"
+     d="m 0,120 150,0 75,60 150,0 0,-60 -150,0 -75,60 -150,0 z"
+     style="fill:#facc07" />
+  <metadata
+     id="metadata5454">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+</svg>

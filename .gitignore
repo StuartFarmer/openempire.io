@@ -2,6 +2,8 @@ build/
 node_modules/
 out/
 static/
+# electron-builder output (npm run app:mac)
+dist-app/
 coverage/
 TODO.txt
 resources/images/.DS_Store
@@ -24,3 +26,8 @@ tests/perf/output/
 
 # Locally built Go binary (gen-maps uses `go run .`)
 map-generator/map-generator
+
+# Earth-map ingest venv (python/GDAL; see map-generator/earth/README.md)
+map-generator/earth/.venv/
+# Downloaded source data (gigabytes, fetched by npm run earth:data)
+world-maps/

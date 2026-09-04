@@ -78,6 +78,18 @@ export function initNavigation() {
 
   window.showPage = showPage;
 
+  const hashPage = () => {
+    if (window.location.hash === "#generator") return "page-generator";
+    if (window.location.hash === "#webgpu") return "page-webgpu";
+    if (window.location.hash === "#shell") return "page-shell";
+    return "page-play";
+  };
+
+  window.addEventListener("hashchange", () => {
+    const page = hashPage();
+    if (page !== "page-play") showPage(page);
+  });
+
   // Use event delegation for navigation items (they may be inside Lit components)
   document.addEventListener("click", async (e) => {
     const target = (e.target as HTMLElement).closest(
@@ -157,5 +169,5 @@ export function initNavigation() {
   });
 
   // Ensure Play is the default visible/active page on load.
-  showPage("page-play");
+  showPage(hashPage());
 }

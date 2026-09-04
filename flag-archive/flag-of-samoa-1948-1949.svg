@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   version="1.0" width="2880" height="1440">
+  <metadata><rdf:RDF><cc:Work rdf:about="">
+      <dc:format>image/svg+xml</dc:format>
+      <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+    </cc:Work></rdf:RDF></metadata>
+  <defs><polygon id="Star" points="0,-1 0.58778525,0.80901699 -0.95105652,-0.30901699 0.95105652,-0.30901699 -0.58778525,0.80901699 0,-1" style="fill:#ffffff"/></defs>
+  <rect width="2880" height="1440" id="red_area" style="fill:#ce1126" />
+  <rect width="1440" height="720" id="blue canton" style="fill:#002b7f" />
+  <use transform="translate(720,604.93494) scale(105.14622,105.14622)" xlink:href="#Star"/>
+  <use transform="translate(500,292.918) scale(84.116958,82.917961)" xlink:href="#Star" id="polygon1449"/>
+  <use transform="translate(945,257.3901) scale(78.859659,77.390097)" xlink:href="#Star"/>
+  <use transform="translate(220,-180)" xlink:href="#polygon1449"/>
+</svg>

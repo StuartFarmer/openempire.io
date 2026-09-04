@@ -1,5 +1,6 @@
 import quickChatData from "resources/QuickChat.json";
 import { z } from "zod";
+import { FOOD_TUNABLE_KEYS } from "./configuration/FoodConfig";
 import {
   ColorPaletteSchema,
   CosmeticNameSchema,
@@ -11,7 +12,6 @@ import {
   AllPlayers,
   Difficulty,
   Duos,
-  GameMapSize,
   GameMapType,
   GameMode,
   GameType,
@@ -41,6 +41,8 @@ export type Intent =
   | EmojiIntent
   | DonateGoldIntent
   | DonateTroopsIntent
+  | FoodAllocationIntent
+  | TuneFoodConfigIntent
   | BuildUnitIntent
   | EmbargoIntent
   | QuickChatIntent
@@ -56,6 +58,8 @@ export type Intent =
 
 export type AttackIntent = z.infer<typeof AttackIntentSchema>;
 export type CancelAttackIntent = z.infer<typeof CancelAttackIntentSchema>;
+export type FoodAllocationIntent = z.infer<typeof FoodAllocationIntentSchema>;
+export type TuneFoodConfigIntent = z.infer<typeof TuneFoodConfigIntentSchema>;
 export type SpawnIntent = z.infer<typeof SpawnIntentSchema>;
 export type BoatAttackIntent = z.infer<typeof BoatAttackIntentSchema>;
 export type EmbargoAllIntent = z.infer<typeof EmbargoAllIntentSchema>;
@@ -267,7 +271,6 @@ export const GameConfigSchema = z.object({
   gameType: z.enum(GameType),
   gameMode: z.enum(GameMode),
   rankedType: z.enum(RankedType).optional(), // Only set for ranked games.
-  gameMapSize: z.enum(GameMapSize),
   doomsdayClock: DoomsdayClockConfigSchema.optional(),
   publicGameModifiers: z
     .object({
@@ -392,6 +395,9 @@ export const AttackIntentSchema = z.object({
   type: z.literal("attack"),
   targetID: ID.nullable(),
   troops: z.number().nonnegative().nullable(),
+  // Concentrated push (add-urban-core-growth): border tiles of the stretch the
+  // player dragged along. Absent → the classic whole-border advance.
+  sourceTiles: z.array(z.number()).nullable().optional(),
 });
 
 export const SpawnIntentSchema = z.object({
@@ -472,6 +478,21 @@ export const CancelAttackIntentSchema = z.object({
   attackID: z.string(),
 });
 
+// Food allocation slider (add-food-allocation, layered maps): fraction of
+// each tick's production offered to the population; the rest banks.
+export const FoodAllocationIntentSchema = z.object({
+  type: z.literal("food_allocation"),
+  populationShare: z.number().min(0).max(1),
+});
+
+// In-game tuning panel (add-sim-tuning-panel): pin one FoodConfig knob.
+// Key allowlist comes from FOOD_DEFAULTS; values are clamped non-negative.
+export const TuneFoodConfigIntentSchema = z.object({
+  type: z.literal("tune_food_config"),
+  key: z.enum(FOOD_TUNABLE_KEYS),
+  value: z.number().finite().min(0),
+});
+
 export const CancelBoatIntentSchema = z.object({
   type: z.literal("cancel_boat"),
   unitID: z.number(),
@@ -543,6 +564,8 @@ export const IntentSchema = z.discriminatedUnion("type", [
   EmbargoIntentSchema,
   EmbargoAllIntentSchema,
   MoveWarshipIntentSchema,
+  FoodAllocationIntentSchema,
+  TuneFoodConfigIntentSchema,
   QuickChatIntentSchema,
   AllianceExtensionIntentSchema,
   DeleteUnitIntentSchema,
@@ -678,7 +701,6 @@ export const ServerPingMessageSchema = z.object({
 export const ServerPrestartMessageSchema = z.object({
   type: z.literal("prestart"),
   gameMap: z.enum(GameMapType),
-  gameMapSize: z.enum(GameMapSize),
 });
 
 export const ServerStartGameMessageSchema = z.object({

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 24.1.1, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 900 600" style="enable-background:new 0 0 900 600;" xml:space="preserve">
+<style type="text/css">
+	.st0{fill:none;stroke:#000000;stroke-width:3;stroke-miterlimit:10;}
+	.st1{fill:#FFFFFF;}
+	.st2{enable-background:new    ;}
+	.st3{fill:#FF8000;}
+</style>
+<g>
+	<g>
+		<rect y="0" class="st0" width="900" height="600"/>
+		<rect y="0" class="st1" width="900" height="600"/>
+	</g>
+	<g>
+		<g class="st2">
+			<polygon class="st3" points="794,0 464.7,0 464.7,219.6 			"/>
+			<polygon class="st3" points="900,529.4 900,314.7 578,314.7 			"/>
+			<polygon class="st3" points="578,285.3 900,285.3 900,70.6 			"/>
+			<polygon class="st3" points="435.3,219.6 435.3,0 106,0 			"/>
+			<polygon class="st3" points="0,529.4 322,314.7 0,314.7 			"/>
+			<polygon class="st3" points="464.7,380.4 464.7,600 794,600 			"/>
+			<polygon class="st3" points="0,70.6 0,285.3 322,285.3 			"/>
+			<polygon class="st3" points="106,600 435.3,600 435.3,380.4 			"/>
+		</g>
+		<polygon class="st2" points="529.5,300 900,53 900,0 820.5,0 450,247 79.5,0 0,0 0,53 370.5,300 0,547 0,600 79.5,600 450,353 
+			820.5,600 900,600 900,547 		"/>
+	</g>
+</g>
+</svg>

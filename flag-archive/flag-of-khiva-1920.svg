@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.0"
+   width="900"
+   height="600"
+   id="svg2"
+   sodipodi:docname="Flag_of_Khiva_(1920).svg"
+   inkscape:version="1.1.1 (3bf5ae0d25, 2021-09-20)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview9"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     showgrid="false"
+     inkscape:zoom="1.3188889"
+     inkscape:cx="429.52822"
+     inkscape:cy="300.25274"
+     inkscape:window-width="1920"
+     inkscape:window-height="1007"
+     inkscape:window-x="-9"
+     inkscape:window-y="-9"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs4" />
+  <g
+     id="layer1">
+    <rect
+       width="900"
+       height="600"
+       x="0"
+       y="0"
+       id="rect2504"
+       style="fill:#009a30;fill-opacity:1;stroke:none;stroke-width:1;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <rect
+       width="800"
+       height="500"
+       x="50"
+       y="50"
+       id="rect2506"
+       style="fill:#be000d;fill-opacity:1;stroke:none;stroke-width:1;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       d="M -99.999999,150 L -88.832079,184.62868 L -52.447174,184.54915 L -81.929924,205.87132 L -70.610738,240.45085 L -100,219 L -129.38926,240.45085 L -118.07008,205.87132 L -147.55283,184.54915 L -111.16792,184.62868 L -99.999999,150 z"
+       transform="matrix(0.8591205,0,0,0.8591205,593.05844,126.6851)"
+       id="path2510"
+       style="fill:#ffd700;fill-opacity:1;stroke:none;stroke-width:1;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       d="M 450,200 C 394.8,200 350,244.8 350,300 C 350,355.2 394.8,400 450,400 C 471.20757,400 490.87594,393.36843 507.0625,382.09375 C 500.02632,383.9817 492.62935,385 485,385 C 438.08002,385 400,346.92 400,300 C 399.99999,253.08 438.08,215 485,215 C 492.62935,215 500.02632,216.0183 507.0625,217.90625 C 490.87594,206.63157 471.20757,200 450,200 z"
+       id="path2514"
+       style="fill:#ffd700;fill-opacity:1;stroke:none;stroke-width:1;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+  </g>
+</svg>

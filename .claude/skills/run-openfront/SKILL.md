@@ -3,7 +3,7 @@ name: run-openfront
 description: Build, run, and drive OpenFront locally — including full in-game WebGL testing. Use when asked to run the game, start the dev server, take a screenshot of the UI, verify a client change in the real app, or interact with the running game (lobby, modals, map picker, starting a singleplayer game, spawning, attacking, build menu, reading live sim state).
 ---
 
-OpenFront is a browser game (Lit + Pixi.js client, Node game server).
+OpenFront is a browser game (Lit client, raw WebGL renderer). This lean fork has no game server — singleplayer runs in-browser via LocalServer.
 Run the dev server with `npm run dev` (serves on **http://localhost:9000**,
 not Vite's default 5173), then drive it with headless Chromium via
 `.claude/skills/run-openfront/driver.mjs`. All paths are relative to the
@@ -33,7 +33,7 @@ not use `npm install`.
 timeout 60 bash -c 'until curl -sf http://localhost:9000 >/dev/null 2>&1; do sleep 1; done'
 ```
 
-Stop it with `pkill -f "tsx src/server/Server.ts"; pkill -f vite`.
+Stop it with `pkill -f vite`.
 `ECONNREFUSED "Error polling lobby"` lines in `/tmp/dev.log` are normal —
 the closed-source API isn't running in dev.
 
@@ -203,4 +203,4 @@ npx vitest tests/MapConsistency.test.ts --run # single file
   re-run `bash .claude/skills/run-openfront/setup.sh` (the
   `~/.cache/openfront-run` lib cache is missing or was cleared).
 - `EADDRINUSE` on relaunch — a previous dev server is still up:
-  `pkill -f "tsx src/server/Server.ts"; pkill -f vite`.
+  `pkill -f vite`.

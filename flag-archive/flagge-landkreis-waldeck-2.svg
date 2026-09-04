@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   version="1.1"
+   id="svg2"
+   width="500"
+   height="300"
+   viewBox="0 0 500 300"
+   sodipodi:docname="Flagge Landkreis Waldeck.svg"
+   inkscape:version="0.92.3 (2405546, 2018-03-11)">
+  <metadata
+     id="metadata8">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs6" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1920"
+     inkscape:window-height="1017"
+     id="namedview4"
+     showgrid="false"
+     inkscape:zoom="0.8032733"
+     inkscape:cx="249.46457"
+     inkscape:cy="108.74743"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="g945" />
+  <g
+     id="g844"
+     transform="scale(100)">
+    <rect
+       x="0"
+       y="0"
+       height="3"
+       width="5"
+       id="black_stripe"
+       style="fill:#000000" />
+    <rect
+       x="0"
+       y="1"
+       height="2"
+       width="5"
+       id="red_stripe"
+       style="fill:#dd0000" />
+    <rect
+       x="0"
+       y="2"
+       height="1"
+       width="5"
+       id="gold_stripe"
+       style="fill:#ffce00" />
+  </g>
+  <g
+     transform="matrix(3.7795274,0,0,3.7795274,700.89652,-203.84509)"
+     id="g945">
+    <ellipse
+       style="opacity:1;fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:0.24479568;stroke-opacity:1"
+       id="path914"
+       cx="-119.37335"
+       cy="93.656456"
+       rx="26.710777"
+       ry="26.667952" />
+    <ellipse
+       style="opacity:1;fill:#ffce00;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:0.23609439;stroke-opacity:1"
+       id="path914-1"
+       cx="-119.38045"
+       cy="93.568604"
+       rx="25.745037"
+       ry="25.73632" />
+    <path
+       style="fill-rule:evenodd;stroke-width:0"
+       inkscape:connector-curvature="0"
+       d="m -102.48589,76.795319 -6.35163,12.642655 13.3669,4.21468 -13.47418,4.469916 6.45838,12.38688 -12.70272,-6.32158 -4.23457,13.30423 -4.49092,-13.40996 -12.44466,6.42731 6.3511,-12.643186 -13.36797,-4.21383 13.47418,-4.469915 -6.45677,-12.387414 12.70216,6.321594 4.23363,-13.303701 4.49099,13.409962 z"
+       id="path903" />
+  </g>
+</svg>

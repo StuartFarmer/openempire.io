@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Creator: CorelDRAW -->
+<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="900px" height="600px" style="shape-rendering:geometricPrecision; text-rendering:geometricPrecision; image-rendering:optimizeQuality; fill-rule:evenodd; clip-rule:evenodd"
+viewBox="0 0 900 600"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+ <defs>
+  <style type="text/css">
+   <![CDATA[
+    .fil1 {fill:#00923f}
+    .fil2 {fill:#fff500}
+    .fil0 {fill:#da251d}
+   ]]>
+  </style>
+ </defs>
+  <rect class="fil0" width="900" height="600"/>
+  <polygon class="fil1" points="0,0.75 0,600 450,600 "/>
+  <polygon class="fil1" points="450,600 450,0 900,0 "/>
+  <g id="_42756936">
+   <rect id="_40294704" class="fil2" x="120" y="140" width="60" height="120"/>
+   <rect id="_39952968" class="fil2" x="90" y="170" width="120" height="60"/>
+  </g>
+  <g id="_42432976">
+   <rect id="_39859816" class="fil2" x="420" y="140" width="60" height="120"/>
+   <rect id="_42434512" class="fil2" x="390" y="170" width="120" height="60"/>
+  </g>
+  <g id="_39971888">
+   <rect id="_39971960" class="fil2" x="720" y="140" width="60" height="120"/>
+   <rect id="_39972104" class="fil2" x="690" y="170" width="120" height="60"/>
+  </g>
+</svg>

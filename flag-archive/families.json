@@ -1,0 +1,4175 @@
+{
+ "families": [
+  {
+   "base": "alleged flag of the kazakh khanate",
+   "members": [
+    "alleged-flag-of-the-kazakh-khanate",
+    "alleged-flag-of-the-kazakh-khanate-variant"
+   ],
+   "kept": [
+    "alleged-flag-of-the-kazakh-khanate-variant"
+   ],
+   "pruned": [
+    "alleged-flag-of-the-kazakh-khanate"
+   ]
+  },
+  {
+   "base": "anarchist flag",
+   "members": [
+    "anarchist-flag",
+    "anarchist-flag-2"
+   ],
+   "kept": [],
+   "pruned": [
+    "anarchist-flag",
+    "anarchist-flag-2"
+   ]
+  },
+  {
+   "base": "bandeira da para\u00edba",
+   "members": [
+    "bandeira-da-para-ba-1817",
+    "bandeira-da-para-ba-verso"
+   ],
+   "kept": [
+    "bandeira-da-para-ba-1817"
+   ],
+   "pruned": [
+    "bandeira-da-para-ba-verso"
+   ]
+  },
+  {
+   "base": "bandeira de pernambuco",
+   "members": [
+    "bandeira-de-pernambuco",
+    "bandeira-de-pernambuco-1911",
+    "bandeira-de-pernambuco-quadrada"
+   ],
+   "kept": [
+    "bandeira-de-pernambuco-1911",
+    "bandeira-de-pernambuco-quadrada"
+   ],
+   "pruned": [
+    "bandeira-de-pernambuco"
+   ]
+  },
+  {
+   "base": "bandeira de sergipe",
+   "members": [
+    "bandeira-de-sergipe-1951",
+    "bandeira-de-sergipe-1952-1989"
+   ],
+   "kept": [
+    "bandeira-de-sergipe-1952-1989"
+   ],
+   "pruned": [
+    "bandeira-de-sergipe-1951"
+   ]
+  },
+  {
+   "base": "bandera de drv",
+   "members": [
+    "bandera-de-drv-f-1935",
+    "bandera-de-drv-nom-s-logotip"
+   ],
+   "kept": [],
+   "pruned": [
+    "bandera-de-drv-f-1935",
+    "bandera-de-drv-nom-s-logotip"
+   ]
+  },
+  {
+   "base": "bandera de valdestillas",
+   "members": [
+    "bandera-de-valdestillas",
+    "bandera-de-valdestillas-valladolid"
+   ],
+   "kept": [
+    "bandera-de-valdestillas"
+   ],
+   "pruned": [
+    "bandera-de-valdestillas-valladolid"
+   ]
+  },
+  {
+   "base": "burgee of american yc",
+   "members": [
+    "burgee-of-american-yc-massachusetts",
+    "burgee-of-american-yc-new-york"
+   ],
+   "kept": [],
+   "pruned": [
+    "burgee-of-american-yc-massachusetts",
+    "burgee-of-american-yc-new-york"
+   ]
+  },
+  {
+   "base": "byzantine imperial flag",
+   "members": [
+    "byzantine-imperial-flag-14th-century-firesteels-vesion",
+    "byzantine-imperial-flag-14th-century-square"
+   ],
+   "kept": [],
+   "pruned": [
+    "byzantine-imperial-flag-14th-century-firesteels-vesion",
+    "byzantine-imperial-flag-14th-century-square"
+   ]
+  },
+  {
+   "base": "chinese-army wuhan flag",
+   "members": [
+    "chinese-army-wuhan-flag-1911-1928-18-dots",
+    "chinese-army-wuhan-flag-1911-1928-19-dots"
+   ],
+   "kept": [],
+   "pruned": [
+    "chinese-army-wuhan-flag-1911-1928-18-dots",
+    "chinese-army-wuhan-flag-1911-1928-19-dots"
+   ]
+  },
+  {
+   "base": "civil ensign of the kingdom of naples",
+   "members": [
+    "civil-ensign-of-the-kingdom-of-naples-1811",
+    "civil-ensign-of-the-kingdom-of-naples-1811-type-2"
+   ],
+   "kept": [
+    "civil-ensign-of-the-kingdom-of-naples-1811"
+   ],
+   "pruned": [
+    "civil-ensign-of-the-kingdom-of-naples-1811-type-2"
+   ]
+  },
+  {
+   "base": "communist party of burma flag",
+   "members": [
+    "communist-party-of-burma-flag-1939-1946-and-1946-1970",
+    "communist-party-of-burma-flag-1946-1969"
+   ],
+   "kept": [],
+   "pruned": [
+    "communist-party-of-burma-flag-1939-1946-and-1946-1970",
+    "communist-party-of-burma-flag-1946-1969"
+   ]
+  },
+  {
+   "base": "cowpens flag",
+   "members": [
+    "cowpens-flag",
+    "cowpens-flag-oval"
+   ],
+   "kept": [
+    "cowpens-flag",
+    "cowpens-flag-oval"
+   ],
+   "pruned": []
+  },
+  {
+   "base": "deu koblenz flag",
+   "members": [
+    "deu-koblenz-flag",
+    "deu-koblenz-flag-alternative"
+   ],
+   "kept": [],
+   "pruned": [
+    "deu-koblenz-flag",
+    "deu-koblenz-flag-alternative"
+   ]
+  },
+  {
+   "base": "drapeau de provence",
+   "members": [
+    "drapeau-de-provence-ancien",
+    "drapeau-de-provence-moderne"
+   ],
+   "kept": [],
+   "pruned": [
+    "drapeau-de-provence-ancien",
+    "drapeau-de-provence-moderne"
+   ]
+  },
+  {
+   "base": "ensign of chinese customs",
+   "members": [
+    "ensign-of-chinese-customs-beiyang-government",
+    "ensign-of-chinese-customs-qing-dynasty"
+   ],
+   "kept": [],
+   "pruned": [
+    "ensign-of-chinese-customs-beiyang-government",
+    "ensign-of-chinese-customs-qing-dynasty"
+   ]
+  },
+  {
+   "base": "ensign of new england",
+   "members": [
+    "ensign-of-new-england-pine-only",
+    "ensign-of-new-england-st-george-s-cross-blue-field"
+   ],
+   "kept": [],
+   "pruned": [
+    "ensign-of-new-england-pine-only",
+    "ensign-of-new-england-st-george-s-cross-blue-field"
+   ]
+  },
+  {
+   "base": "ensign of the chinese salt administration",
+   "members": [
+    "ensign-of-the-chinese-salt-administration",
+    "ensign-of-the-chinese-salt-administration-1912-1929"
+   ],
+   "kept": [],
+   "pruned": [
+    "ensign-of-the-chinese-salt-administration",
+    "ensign-of-the-chinese-salt-administration-1912-1929"
+   ]
+  },
+  {
+   "base": "ensign of the chinese water police",
+   "members": [
+    "ensign-of-the-chinese-water-police",
+    "ensign-of-the-chinese-water-police-1912"
+   ],
+   "kept": [
+    "ensign-of-the-chinese-water-police-1912"
+   ],
+   "pruned": [
+    "ensign-of-the-chinese-water-police"
+   ]
+  },
+  {
+   "base": "flag of a united states navy admiral",
+   "members": [
+    "flag-of-a-united-states-navy-admiral",
+    "flag-of-a-united-states-navy-admiral-non-executive"
+   ],
+   "kept": [
+    "flag-of-a-united-states-navy-admiral-non-executive"
+   ],
+   "pruned": [
+    "flag-of-a-united-states-navy-admiral"
+   ]
+  },
+  {
+   "base": "flag of abkhazia",
+   "members": [
+    "flag-of-abkhazia-c-1578",
+    "flag-of-abkhazia-c-1770-1864"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-abkhazia-c-1578",
+    "flag-of-abkhazia-c-1770-1864"
+   ]
+  },
+  {
+   "base": "flag of adjara",
+   "members": [
+    "flag-of-adjara",
+    "flag-of-adjara-2000-2004"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-adjara",
+    "flag-of-adjara-2000-2004"
+   ]
+  },
+  {
+   "base": "flag of admiral spain",
+   "members": [
+    "flag-of-admiral-spain",
+    "flag-of-admiral-spain-alternate-colours"
+   ],
+   "kept": [
+    "flag-of-admiral-spain-alternate-colours"
+   ],
+   "pruned": [
+    "flag-of-admiral-spain"
+   ]
+  },
+  {
+   "base": "flag of adygea",
+   "members": [
+    "flag-of-adygea",
+    "flag-of-adygea-latest-version"
+   ],
+   "kept": [
+    "flag-of-adygea-latest-version"
+   ],
+   "pruned": [
+    "flag-of-adygea"
+   ]
+  },
+  {
+   "base": "flag of afghanistan",
+   "members": [
+    "flag-of-afghanistan-1879-1880",
+    "flag-of-afghanistan-1919-1921",
+    "flag-of-afghanistan-1928",
+    "flag-of-afghanistan-1929",
+    "flag-of-afghanistan-1978",
+    "flag-of-afghanistan-1979",
+    "flag-of-afghanistan-1980-1992-without-emblem",
+    "flag-of-afghanistan-1988-1992-3-2"
+   ],
+   "kept": [
+    "flag-of-afghanistan-1978",
+    "flag-of-afghanistan-1979",
+    "flag-of-afghanistan-1980-1992-without-emblem"
+   ],
+   "pruned": [
+    "flag-of-afghanistan-1879-1880",
+    "flag-of-afghanistan-1919-1921",
+    "flag-of-afghanistan-1928",
+    "flag-of-afghanistan-1929",
+    "flag-of-afghanistan-1988-1992-3-2"
+   ]
+  },
+  {
+   "base": "flag of alsace",
+   "members": [
+    "flag-of-alsace-historical",
+    "flag-of-alsace-old"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-alsace-historical",
+    "flag-of-alsace-old"
+   ]
+  },
+  {
+   "base": "flag of andorra",
+   "members": [
+    "flag-of-andorra-1806-1866",
+    "flag-of-andorra-civil-horizontal"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-andorra-1806-1866",
+    "flag-of-andorra-civil-horizontal"
+   ]
+  },
+  {
+   "base": "flag of annaba",
+   "members": [
+    "flag-of-annaba-book-of-all-kingdoms",
+    "flag-of-annaba-catalan-atlas"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-annaba-book-of-all-kingdoms",
+    "flag-of-annaba-catalan-atlas"
+   ]
+  },
+  {
+   "base": "flag of antwerp",
+   "members": [
+    "flag-of-antwerp",
+    "flag-of-antwerp-city"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-antwerp",
+    "flag-of-antwerp-city"
+   ]
+  },
+  {
+   "base": "flag of argentina",
+   "members": [
+    "flag-of-argentina-1810-1812",
+    "flag-of-argentina-1810-1812-alternative",
+    "flag-of-argentina-1818-1819-1820-1829-1861-2010"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-argentina-1810-1812",
+    "flag-of-argentina-1810-1812-alternative",
+    "flag-of-argentina-1818-1819-1820-1829-1861-2010"
+   ]
+  },
+  {
+   "base": "flag of attard",
+   "members": [
+    "flag-of-attard",
+    "flag-of-attard-1993-2000"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-attard",
+    "flag-of-attard-1993-2000"
+   ]
+  },
+  {
+   "base": "flag of baden-w\u00fcrttemberg",
+   "members": [
+    "flag-of-baden-w-rttemberg",
+    "flag-of-baden-w-rttemberg-state-lesser-arms"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-baden-w-rttemberg",
+    "flag-of-baden-w-rttemberg-state-lesser-arms"
+   ]
+  },
+  {
+   "base": "flag of bahrain",
+   "members": [
+    "flag-of-bahrain-1820-1932",
+    "flag-of-bahrain-1932-1972",
+    "flag-of-bahrain-before-1820"
+   ],
+   "kept": [
+    "flag-of-bahrain-before-1820"
+   ],
+   "pruned": [
+    "flag-of-bahrain-1820-1932",
+    "flag-of-bahrain-1932-1972"
+   ]
+  },
+  {
+   "base": "flag of baltachevsky rayon",
+   "members": [
+    "flag-of-baltachevsky-rayon",
+    "flag-of-baltachevsky-rayon-version"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-baltachevsky-rayon",
+    "flag-of-baltachevsky-rayon-version"
+   ]
+  },
+  {
+   "base": "flag of baraya",
+   "members": [
+    "flag-of-baraya",
+    "flag-of-baraya-huila"
+   ],
+   "kept": [
+    "flag-of-baraya-huila"
+   ],
+   "pruned": [
+    "flag-of-baraya"
+   ]
+  },
+  {
+   "base": "flag of barranquilla",
+   "members": [
+    "flag-of-barranquilla",
+    "flag-of-barranquilla-atl-ntico"
+   ],
+   "kept": [
+    "flag-of-barranquilla-atl-ntico"
+   ],
+   "pruned": [
+    "flag-of-barranquilla"
+   ]
+  },
+  {
+   "base": "flag of bashkortostan",
+   "members": [
+    "flag-of-bashkortostan-1918",
+    "flag-of-bashkortostan-1992-2003"
+   ],
+   "kept": [
+    "flag-of-bashkortostan-1992-2003"
+   ],
+   "pruned": [
+    "flag-of-bashkortostan-1918"
+   ]
+  },
+  {
+   "base": "flag of batu pahat",
+   "members": [
+    "flag-of-batu-pahat",
+    "flag-of-batu-pahat-johor"
+   ],
+   "kept": [
+    "flag-of-batu-pahat-johor"
+   ],
+   "pruned": [
+    "flag-of-batu-pahat"
+   ]
+  },
+  {
+   "base": "flag of bavaria",
+   "members": [
+    "flag-of-bavaria-empire-total-war",
+    "flag-of-bavaria-lozengy"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-bavaria-empire-total-war",
+    "flag-of-bavaria-lozengy"
+   ]
+  },
+  {
+   "base": "flag of belarus",
+   "members": [
+    "flag-of-belarus-1917-1918",
+    "flag-of-belarus-1995-2012",
+    "flag-of-belarus-government-in-exile-1919-1925"
+   ],
+   "kept": [
+    "flag-of-belarus-1917-1918",
+    "flag-of-belarus-1995-2012"
+   ],
+   "pruned": [
+    "flag-of-belarus-government-in-exile-1919-1925"
+   ]
+  },
+  {
+   "base": "flag of bnp",
+   "members": [
+    "flag-of-bnp",
+    "flag-of-bnp-awami"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-bnp",
+    "flag-of-bnp-awami"
+   ]
+  },
+  {
+   "base": "flag of bocholt",
+   "members": [
+    "flag-of-bocholt",
+    "flag-of-bocholt-belgium"
+   ],
+   "kept": [
+    "flag-of-bocholt-belgium"
+   ],
+   "pruned": [
+    "flag-of-bocholt"
+   ]
+  },
+  {
+   "base": "flag of bosnia",
+   "members": [
+    "flag-of-bosnia-1831-1832",
+    "flag-of-bosnia-1875-1877",
+    "flag-of-bosnia-1878-1908",
+    "flag-of-bosnia-1908",
+    "flag-of-bosnia-1908-1918"
+   ],
+   "kept": [
+    "flag-of-bosnia-1908-1918"
+   ],
+   "pruned": [
+    "flag-of-bosnia-1831-1832",
+    "flag-of-bosnia-1875-1877",
+    "flag-of-bosnia-1878-1908",
+    "flag-of-bosnia-1908"
+   ]
+  },
+  {
+   "base": "flag of bosnia and herzegovina",
+   "members": [
+    "flag-of-bosnia-and-herzegovina-1946-1992",
+    "flag-of-bosnia-and-herzegovina-1998"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-bosnia-and-herzegovina-1946-1992",
+    "flag-of-bosnia-and-herzegovina-1998"
+   ]
+  },
+  {
+   "base": "flag of brandenburg",
+   "members": [
+    "flag-of-brandenburg-1945",
+    "flag-of-brandenburg-1945-1952"
+   ],
+   "kept": [
+    "flag-of-brandenburg-1945"
+   ],
+   "pruned": [
+    "flag-of-brandenburg-1945-1952"
+   ]
+  },
+  {
+   "base": "flag of brazil",
+   "members": [
+    "flag-of-brazil-1889-1960",
+    "flag-of-brazil-1960-1968-3-2",
+    "flag-of-brazil-november-1889"
+   ],
+   "kept": [
+    "flag-of-brazil-1960-1968-3-2",
+    "flag-of-brazil-november-1889"
+   ],
+   "pruned": [
+    "flag-of-brazil-1889-1960"
+   ]
+  },
+  {
+   "base": "flag of brischan",
+   "members": [
+    "flag-of-brischan",
+    "flag-of-brischan-guillem-soler"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-brischan",
+    "flag-of-brischan-guillem-soler"
+   ]
+  },
+  {
+   "base": "flag of budapest",
+   "members": [
+    "flag-of-budapest-1873-1930",
+    "flag-of-budapest-1929-proposal",
+    "flag-of-budapest-1930-1949",
+    "flag-of-budapest-1941-proposal",
+    "flag-of-budapest-lajos-friedrich-s-proposal"
+   ],
+   "kept": [
+    "flag-of-budapest-1930-1949"
+   ],
+   "pruned": [
+    "flag-of-budapest-1873-1930",
+    "flag-of-budapest-1929-proposal",
+    "flag-of-budapest-1941-proposal",
+    "flag-of-budapest-lajos-friedrich-s-proposal"
+   ]
+  },
+  {
+   "base": "flag of buganda",
+   "members": [
+    "flag-of-buganda-1861-1876-1881-1890",
+    "flag-of-buganda-1876-1881"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-buganda-1861-1876-1881-1890",
+    "flag-of-buganda-1876-1881"
+   ]
+  },
+  {
+   "base": "flag of bulgaria",
+   "members": [
+    "flag-of-bulgaria-14th-century",
+    "flag-of-bulgaria-2006-winter-olympics",
+    "flag-of-bulgaria-alternative"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-bulgaria-14th-century",
+    "flag-of-bulgaria-2006-winter-olympics",
+    "flag-of-bulgaria-alternative"
+   ]
+  },
+  {
+   "base": "flag of burundi",
+   "members": [
+    "flag-of-burundi-1961-1962",
+    "flag-of-burundi-1967-1982"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-burundi-1961-1962",
+    "flag-of-burundi-1967-1982"
+   ]
+  },
+  {
+   "base": "flag of cambodia",
+   "members": [
+    "flag-of-cambodia-1948-1970",
+    "flag-of-cambodia-1992-1993",
+    "flag-of-cambodia-pre-1863"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-cambodia-1948-1970",
+    "flag-of-cambodia-1992-1993",
+    "flag-of-cambodia-pre-1863"
+   ]
+  },
+  {
+   "base": "flag of cameroon",
+   "members": [
+    "flag-of-cameroon-1957-1961",
+    "flag-of-cameroon-1961-1975"
+   ],
+   "kept": [
+    "flag-of-cameroon-1957-1961"
+   ],
+   "pruned": [
+    "flag-of-cameroon-1961-1975"
+   ]
+  },
+  {
+   "base": "flag of campo de la cruz",
+   "members": [
+    "flag-of-campo-de-la-cruz",
+    "flag-of-campo-de-la-cruz-atl-ntico"
+   ],
+   "kept": [
+    "flag-of-campo-de-la-cruz"
+   ],
+   "pruned": [
+    "flag-of-campo-de-la-cruz-atl-ntico"
+   ]
+  },
+  {
+   "base": "flag of canton of valais",
+   "members": [
+    "flag-of-canton-of-valais-1498-1628",
+    "flag-of-canton-of-valais-1628-1802",
+    "flag-of-canton-of-valais-1802-1815"
+   ],
+   "kept": [
+    "flag-of-canton-of-valais-1628-1802",
+    "flag-of-canton-of-valais-1802-1815"
+   ],
+   "pruned": [
+    "flag-of-canton-of-valais-1498-1628"
+   ]
+  },
+  {
+   "base": "flag of chile",
+   "members": [
+    "flag-of-chile-1812-1814",
+    "flag-of-chile-1817-2nd",
+    "flag-of-chile-civil-use-1826-1854",
+    "flag-of-chile-rectangular-canton-variant-1"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-chile-1812-1814",
+    "flag-of-chile-1817-2nd",
+    "flag-of-chile-civil-use-1826-1854",
+    "flag-of-chile-rectangular-canton-variant-1"
+   ]
+  },
+  {
+   "base": "flag of chiscas",
+   "members": [
+    "flag-of-chiscas-boyac",
+    "flag-of-chiscas-boyaca"
+   ],
+   "kept": [
+    "flag-of-chiscas-boyac"
+   ],
+   "pruned": [
+    "flag-of-chiscas-boyaca"
+   ]
+  },
+  {
+   "base": "flag of chita",
+   "members": [
+    "flag-of-chita-boyac",
+    "flag-of-chita-chita-oblast"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-chita-boyac",
+    "flag-of-chita-chita-oblast"
+   ]
+  },
+  {
+   "base": "flag of courland",
+   "members": [
+    "flag-of-courland-civil",
+    "flag-of-courland-state"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-courland-civil",
+    "flag-of-courland-state"
+   ]
+  },
+  {
+   "base": "flag of croatia",
+   "members": [
+    "flag-of-croatia-1945-1947-3-5",
+    "flag-of-croatia-1947-1990-3-5",
+    "flag-of-croatia-early-16th-century-1526"
+   ],
+   "kept": [
+    "flag-of-croatia-1947-1990-3-5"
+   ],
+   "pruned": [
+    "flag-of-croatia-1945-1947-3-5",
+    "flag-of-croatia-early-16th-century-1526"
+   ]
+  },
+  {
+   "base": "flag of czechoslovakia",
+   "members": [
+    "flag-of-czechoslovakia-1920-proposal",
+    "flag-of-czechoslovakia-unofficial-civil"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-czechoslovakia-1920-proposal",
+    "flag-of-czechoslovakia-unofficial-civil"
+   ]
+  },
+  {
+   "base": "flag of c\u00f3mbita",
+   "members": [
+    "flag-of-c-mbita",
+    "flag-of-c-mbita-boyac"
+   ],
+   "kept": [
+    "flag-of-c-mbita"
+   ],
+   "pruned": [
+    "flag-of-c-mbita-boyac"
+   ]
+  },
+  {
+   "base": "flag of dagestan",
+   "members": [
+    "flag-of-dagestan-1991-1994",
+    "flag-of-dagestan-empire-total-war"
+   ],
+   "kept": [
+    "flag-of-dagestan-1991-1994"
+   ],
+   "pruned": [
+    "flag-of-dagestan-empire-total-war"
+   ]
+  },
+  {
+   "base": "flag of druze",
+   "members": [
+    "flag-of-druze",
+    "flag-of-druze-version"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-druze",
+    "flag-of-druze-version"
+   ]
+  },
+  {
+   "base": "flag of duitama",
+   "members": [
+    "flag-of-duitama",
+    "flag-of-duitama-boyac"
+   ],
+   "kept": [
+    "flag-of-duitama"
+   ],
+   "pruned": [
+    "flag-of-duitama-boyac"
+   ]
+  },
+  {
+   "base": "flag of eastern rumelia",
+   "members": [
+    "flag-of-eastern-rumelia",
+    "flag-of-eastern-rumelia-1878-1908"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-eastern-rumelia",
+    "flag-of-eastern-rumelia-1878-1908"
+   ]
+  },
+  {
+   "base": "flag of ecuador",
+   "members": [
+    "flag-of-ecuador-1820-1822",
+    "flag-of-ecuador-1822"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-ecuador-1820-1822",
+    "flag-of-ecuador-1822"
+   ]
+  },
+  {
+   "base": "flag of el salvador",
+   "members": [
+    "flag-of-el-salvador-1822-1865",
+    "flag-of-el-salvador-april-1865"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-el-salvador-1822-1865",
+    "flag-of-el-salvador-april-1865"
+   ]
+  },
+  {
+   "base": "flag of eritrea",
+   "members": [
+    "flag-of-eritrea-1952-1961",
+    "flag-of-eritrea-1993-1995"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-eritrea-1952-1961",
+    "flag-of-eritrea-1993-1995"
+   ]
+  },
+  {
+   "base": "flag of france",
+   "members": [
+    "flag-of-france-1790-1794",
+    "flag-of-france-xii-xiii"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-france-1790-1794",
+    "flag-of-france-xii-xiii"
+   ]
+  },
+  {
+   "base": "flag of french polynesia",
+   "members": [
+    "flag-of-french-polynesia",
+    "flag-of-french-polynesia-wfb-2000"
+   ],
+   "kept": [
+    "flag-of-french-polynesia",
+    "flag-of-french-polynesia-wfb-2000"
+   ],
+   "pruned": []
+  },
+  {
+   "base": "flag of frente amplio",
+   "members": [
+    "flag-of-frente-amplio",
+    "flag-of-frente-amplio-costa-rica-2013"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-frente-amplio",
+    "flag-of-frente-amplio-costa-rica-2013"
+   ]
+  },
+  {
+   "base": "flag of fukuoka prefecture",
+   "members": [
+    "flag-of-fukuoka-prefecture",
+    "flag-of-fukuoka-prefecture-variant1",
+    "flag-of-fukuoka-prefecture-variant2"
+   ],
+   "kept": [
+    "flag-of-fukuoka-prefecture-variant1",
+    "flag-of-fukuoka-prefecture-variant2"
+   ],
+   "pruned": [
+    "flag-of-fukuoka-prefecture"
+   ]
+  },
+  {
+   "base": "flag of georgia",
+   "members": [
+    "flag-of-georgia-1918-1921-1-2",
+    "flag-of-georgia-1921",
+    "flag-of-georgia-may-september-1918",
+    "flag-of-georgia-wfb-2000"
+   ],
+   "kept": [
+    "flag-of-georgia-1921",
+    "flag-of-georgia-may-september-1918",
+    "flag-of-georgia-wfb-2000"
+   ],
+   "pruned": [
+    "flag-of-georgia-1918-1921-1-2"
+   ]
+  },
+  {
+   "base": "flag of germany",
+   "members": [
+    "flag-of-germany-1867-1918",
+    "flag-of-germany-3-2",
+    "flag-of-germany-state"
+   ],
+   "kept": [
+    "flag-of-germany-3-2",
+    "flag-of-germany-state"
+   ],
+   "pruned": [
+    "flag-of-germany-1867-1918"
+   ]
+  },
+  {
+   "base": "flag of greece",
+   "members": [
+    "flag-of-greece",
+    "flag-of-greece-1970-1975",
+    "flag-of-greece-1970-1975-3-2"
+   ],
+   "kept": [
+    "flag-of-greece",
+    "flag-of-greece-1970-1975"
+   ],
+   "pruned": [
+    "flag-of-greece-1970-1975-3-2"
+   ]
+  },
+  {
+   "base": "flag of grenada",
+   "members": [
+    "flag-of-grenada-16-9",
+    "flag-of-grenada-1967-1974"
+   ],
+   "kept": [
+    "flag-of-grenada-16-9"
+   ],
+   "pruned": [
+    "flag-of-grenada-1967-1974"
+   ]
+  },
+  {
+   "base": "flag of guatemala",
+   "members": [
+    "flag-of-guatemala-1825-1838",
+    "flag-of-guatemala-1851-1858",
+    "flag-of-guatemala-1858-1871"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-guatemala-1825-1838",
+    "flag-of-guatemala-1851-1858",
+    "flag-of-guatemala-1858-1871"
+   ]
+  },
+  {
+   "base": "flag of gyula",
+   "members": [
+    "flag-of-gyula",
+    "flag-of-gyula-1941"
+   ],
+   "kept": [
+    "flag-of-gyula"
+   ],
+   "pruned": [
+    "flag-of-gyula-1941"
+   ]
+  },
+  {
+   "base": "flag of hafsid dynasty",
+   "members": [
+    "flag-of-hafsid-dynasty-1229-1574",
+    "flag-of-hafsid-dynasty-15th-century"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-hafsid-dynasty-1229-1574",
+    "flag-of-hafsid-dynasty-15th-century"
+   ]
+  },
+  {
+   "base": "flag of haiti",
+   "members": [
+    "flag-of-haiti-1791-1798",
+    "flag-of-haiti-1803-1804",
+    "flag-of-haiti-1806-1811"
+   ],
+   "kept": [
+    "flag-of-haiti-1791-1798"
+   ],
+   "pruned": [
+    "flag-of-haiti-1803-1804",
+    "flag-of-haiti-1806-1811"
+   ]
+  },
+  {
+   "base": "flag of hakka party",
+   "members": [
+    "flag-of-hakka-party",
+    "flag-of-hakka-party-without-text"
+   ],
+   "kept": [
+    "flag-of-hakka-party"
+   ],
+   "pruned": [
+    "flag-of-hakka-party-without-text"
+   ]
+  },
+  {
+   "base": "flag of hamburg",
+   "members": [
+    "flag-of-hamburg",
+    "flag-of-hamburg-before-1685-1751"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-hamburg",
+    "flag-of-hamburg-before-1685-1751"
+   ]
+  },
+  {
+   "base": "flag of helsinki",
+   "members": [
+    "flag-of-helsinki",
+    "flag-of-helsinki-long"
+   ],
+   "kept": [
+    "flag-of-helsinki"
+   ],
+   "pruned": [
+    "flag-of-helsinki-long"
+   ]
+  },
+  {
+   "base": "flag of hiyoshi",
+   "members": [
+    "flag-of-hiyoshi-ehime-1966-2005",
+    "flag-of-hiyoshi-kagoshima-1965-2005",
+    "flag-of-hiyoshi-ky-to-1965-2006"
+   ],
+   "kept": [
+    "flag-of-hiyoshi-kagoshima-1965-2005",
+    "flag-of-hiyoshi-ky-to-1965-2006"
+   ],
+   "pruned": [
+    "flag-of-hiyoshi-ehime-1966-2005"
+   ]
+  },
+  {
+   "base": "flag of honduras",
+   "members": [
+    "flag-of-honduras-1866-1898",
+    "flag-of-honduras-1949-2022-2026-present"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-honduras-1866-1898",
+    "flag-of-honduras-1949-2022-2026-present"
+   ]
+  },
+  {
+   "base": "flag of hosank",
+   "members": [
+    "flag-of-hosank",
+    "flag-of-hosank-gold-version"
+   ],
+   "kept": [
+    "flag-of-hosank-gold-version"
+   ],
+   "pruned": [
+    "flag-of-hosank"
+   ]
+  },
+  {
+   "base": "flag of hungary",
+   "members": [
+    "flag-of-hungary",
+    "flag-of-hungary-11th-12th-century-rectangular",
+    "flag-of-hungary-1301-1382",
+    "flag-of-hungary-1301-1382-rectangular",
+    "flag-of-hungary-15th-century-rectangular",
+    "flag-of-hungary-1794-proposal",
+    "flag-of-hungary-1956-revolution",
+    "flag-of-hungary-1956-revolution-2-1",
+    "flag-of-hungary-895-1000"
+   ],
+   "kept": [
+    "flag-of-hungary-1956-revolution",
+    "flag-of-hungary-1956-revolution-2-1"
+   ],
+   "pruned": [
+    "flag-of-hungary",
+    "flag-of-hungary-11th-12th-century-rectangular",
+    "flag-of-hungary-1301-1382",
+    "flag-of-hungary-1301-1382-rectangular",
+    "flag-of-hungary-15th-century-rectangular",
+    "flag-of-hungary-1794-proposal",
+    "flag-of-hungary-895-1000"
+   ]
+  },
+  {
+   "base": "flag of iceland",
+   "members": [
+    "flag-of-iceland-3-2",
+    "flag-of-iceland-kgh"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-iceland-3-2",
+    "flag-of-iceland-kgh"
+   ]
+  },
+  {
+   "base": "flag of ichinomiya",
+   "members": [
+    "flag-of-ichinomiya-aichi",
+    "flag-of-ichinomiya-kumamoto-1986-2005",
+    "flag-of-ichinomiya-shis-hy-go-1966-2005"
+   ],
+   "kept": [
+    "flag-of-ichinomiya-aichi",
+    "flag-of-ichinomiya-kumamoto-1986-2005",
+    "flag-of-ichinomiya-shis-hy-go-1966-2005"
+   ],
+   "pruned": []
+  },
+  {
+   "base": "flag of inner-mongolian autonomous government",
+   "members": [
+    "flag-of-inner-mongolian-autonomous-government",
+    "flag-of-inner-mongolian-autonomous-government-1945"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-inner-mongolian-autonomous-government",
+    "flag-of-inner-mongolian-autonomous-government-1945"
+   ]
+  },
+  {
+   "base": "flag of iraq",
+   "members": [
+    "flag-of-iraq-1924-1959-3-2",
+    "flag-of-iraq-1924-1959-3-2-without-stars",
+    "flag-of-iraq-1959-1963",
+    "flag-of-iraq-1991-2004"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-iraq-1924-1959-3-2",
+    "flag-of-iraq-1924-1959-3-2-without-stars",
+    "flag-of-iraq-1959-1963",
+    "flag-of-iraq-1991-2004"
+   ]
+  },
+  {
+   "base": "flag of izumi",
+   "members": [
+    "flag-of-izumi-kagoshima-1954-2006",
+    "flag-of-izumi-kumamoto-1969-2005"
+   ],
+   "kept": [
+    "flag-of-izumi-kagoshima-1954-2006",
+    "flag-of-izumi-kumamoto-1969-2005"
+   ],
+   "pruned": []
+  },
+  {
+   "base": "flag of jammu and kashmir",
+   "members": [
+    "flag-of-jammu-and-kashmir-1936-1953",
+    "flag-of-jammu-and-kashmir-1952-2019"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-jammu-and-kashmir-1936-1953",
+    "flag-of-jammu-and-kashmir-1952-2019"
+   ]
+  },
+  {
+   "base": "flag of johor",
+   "members": [
+    "flag-of-johor",
+    "flag-of-johor-1855-1865",
+    "flag-of-johor-1865-1871"
+   ],
+   "kept": [
+    "flag-of-johor-1865-1871"
+   ],
+   "pruned": [
+    "flag-of-johor",
+    "flag-of-johor-1855-1865"
+   ]
+  },
+  {
+   "base": "flag of kalibapi",
+   "members": [
+    "flag-of-kalibapi",
+    "flag-of-kalibapi-variant-without-k"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-kalibapi",
+    "flag-of-kalibapi-variant-without-k"
+   ]
+  },
+  {
+   "base": "flag of kaneyama",
+   "members": [
+    "flag-of-kaneyama-fukushima",
+    "flag-of-kaneyama-gifu-1977-2005"
+   ],
+   "kept": [
+    "flag-of-kaneyama-fukushima",
+    "flag-of-kaneyama-gifu-1977-2005"
+   ],
+   "pruned": []
+  },
+  {
+   "base": "flag of katanga",
+   "members": [
+    "flag-of-katanga",
+    "flag-of-katanga-alternate-croisettes"
+   ],
+   "kept": [
+    "flag-of-katanga-alternate-croisettes"
+   ],
+   "pruned": [
+    "flag-of-katanga"
+   ]
+  },
+  {
+   "base": "flag of kedah",
+   "members": [
+    "flag-of-kedah",
+    "flag-of-kedah-1821-1912",
+    "flag-of-kedah-18th-century-1821"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-kedah",
+    "flag-of-kedah-1821-1912",
+    "flag-of-kedah-18th-century-1821"
+   ]
+  },
+  {
+   "base": "flag of khakassia",
+   "members": [
+    "flag-of-khakassia-2002-2003",
+    "flag-of-khakassia-3-2"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-khakassia-2002-2003",
+    "flag-of-khakassia-3-2"
+   ]
+  },
+  {
+   "base": "flag of khiva",
+   "members": [
+    "flag-of-khiva-1920",
+    "flag-of-khiva-1920-1921",
+    "flag-of-khiva-1922-1923"
+   ],
+   "kept": [
+    "flag-of-khiva-1922-1923"
+   ],
+   "pruned": [
+    "flag-of-khiva-1920",
+    "flag-of-khiva-1920-1921"
+   ]
+  },
+  {
+   "base": "flag of konan",
+   "members": [
+    "flag-of-konan-aichi",
+    "flag-of-konan-kagawa-1959-2006"
+   ],
+   "kept": [
+    "flag-of-konan-aichi",
+    "flag-of-konan-kagawa-1959-2006"
+   ],
+   "pruned": []
+  },
+  {
+   "base": "flag of kumamoto",
+   "members": [
+    "flag-of-kumamoto-kumamoto",
+    "flag-of-kumamoto-kumamoto-1906-1969"
+   ],
+   "kept": [
+    "flag-of-kumamoto-kumamoto"
+   ],
+   "pruned": [
+    "flag-of-kumamoto-kumamoto-1906-1969"
+   ]
+  },
+  {
+   "base": "flag of kursk people s republic",
+   "members": [
+    "flag-of-kursk-people-s-republic",
+    "flag-of-kursk-people-s-republic-variant-2",
+    "flag-of-kursk-people-s-republic-variant-3"
+   ],
+   "kept": [
+    "flag-of-kursk-people-s-republic-variant-2",
+    "flag-of-kursk-people-s-republic-variant-3"
+   ],
+   "pruned": [
+    "flag-of-kursk-people-s-republic"
+   ]
+  },
+  {
+   "base": "flag of kuwait",
+   "members": [
+    "flag-of-kuwait-1903",
+    "flag-of-kuwait-1906-proposal",
+    "flag-of-kuwait-1909-1915",
+    "flag-of-kuwait-1914-1921"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-kuwait-1903",
+    "flag-of-kuwait-1906-proposal",
+    "flag-of-kuwait-1909-1915",
+    "flag-of-kuwait-1914-1921"
+   ]
+  },
+  {
+   "base": "flag of kuwana",
+   "members": [
+    "flag-of-kuwana-mie-1937-2004-blue",
+    "flag-of-kuwana-mie-1937-2004-red"
+   ],
+   "kept": [
+    "flag-of-kuwana-mie-1937-2004-blue",
+    "flag-of-kuwana-mie-1937-2004-red"
+   ],
+   "pruned": []
+  },
+  {
+   "base": "flag of kwazulu",
+   "members": [
+    "flag-of-kwazulu-1977-1985",
+    "flag-of-kwazulu-1985-1994"
+   ],
+   "kept": [
+    "flag-of-kwazulu-1985-1994"
+   ],
+   "pruned": [
+    "flag-of-kwazulu-1977-1985"
+   ]
+  },
+  {
+   "base": "flag of lebanon",
+   "members": [
+    "flag-of-lebanon-1918-1920-variant",
+    "flag-of-lebanon-1943-1990",
+    "flag-of-lebanon-shukri-el-khoury-s-proposal"
+   ],
+   "kept": [
+    "flag-of-lebanon-shukri-el-khoury-s-proposal"
+   ],
+   "pruned": [
+    "flag-of-lebanon-1918-1920-variant",
+    "flag-of-lebanon-1943-1990"
+   ]
+  },
+  {
+   "base": "flag of lesotho",
+   "members": [
+    "flag-of-lesotho-1966-1987",
+    "flag-of-lesotho-1987-2006"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-lesotho-1966-1987",
+    "flag-of-lesotho-1987-2006"
+   ]
+  },
+  {
+   "base": "flag of liberia",
+   "members": [
+    "flag-of-liberia-1827-1847",
+    "flag-of-liberia-1906-proposal"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-liberia-1827-1847",
+    "flag-of-liberia-1906-proposal"
+   ]
+  },
+  {
+   "base": "flag of liechtenstein",
+   "members": [
+    "flag-of-liechtenstein-1936-summer-olympics-3-2-including-crown",
+    "flag-of-liechtenstein-unknown-1719-1",
+    "flag-of-liechtenstein-unknown-1719-2"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-liechtenstein-1936-summer-olympics-3-2-including-crown",
+    "flag-of-liechtenstein-unknown-1719-1",
+    "flag-of-liechtenstein-unknown-1719-2"
+   ]
+  },
+  {
+   "base": "flag of lija",
+   "members": [
+    "flag-of-lija",
+    "flag-of-lija-1993-2000"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-lija",
+    "flag-of-lija-1993-2000"
+   ]
+  },
+  {
+   "base": "flag of lithuania",
+   "members": [
+    "flag-of-lithuania-1918-1940",
+    "flag-of-lithuania-2000-summer-olympics",
+    "flag-of-lithuania-proposal-no-1-1940"
+   ],
+   "kept": [
+    "flag-of-lithuania-2000-summer-olympics"
+   ],
+   "pruned": [
+    "flag-of-lithuania-1918-1940",
+    "flag-of-lithuania-proposal-no-1-1940"
+   ]
+  },
+  {
+   "base": "flag of lordship of landak",
+   "members": [
+    "flag-of-lordship-of-landak",
+    "flag-of-lordship-of-landak-royal"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-lordship-of-landak",
+    "flag-of-lordship-of-landak-royal"
+   ]
+  },
+  {
+   "base": "flag of lucca",
+   "members": [
+    "flag-of-lucca-1799-1801",
+    "flag-of-lucca-1801-1805",
+    "flag-of-lucca-1805-1809",
+    "flag-of-lucca-1815-1847"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-lucca-1799-1801",
+    "flag-of-lucca-1801-1805",
+    "flag-of-lucca-1805-1809",
+    "flag-of-lucca-1815-1847"
+   ]
+  },
+  {
+   "base": "flag of luruaco",
+   "members": [
+    "flag-of-luruaco",
+    "flag-of-luruaco-atl-ntico"
+   ],
+   "kept": [
+    "flag-of-luruaco-atl-ntico"
+   ],
+   "pruned": [
+    "flag-of-luruaco"
+   ]
+  },
+  {
+   "base": "flag of maharashtra navnirman sena",
+   "members": [
+    "flag-of-maharashtra-navnirman-sena",
+    "flag-of-maharashtra-navnirman-sena-3x2",
+    "flag-of-maharashtra-navnirman-sena-9x7"
+   ],
+   "kept": [
+    "flag-of-maharashtra-navnirman-sena-9x7"
+   ],
+   "pruned": [
+    "flag-of-maharashtra-navnirman-sena",
+    "flag-of-maharashtra-navnirman-sena-3x2"
+   ]
+  },
+  {
+   "base": "flag of malaya",
+   "members": [
+    "flag-of-malaya-1896-1950",
+    "flag-of-malaya-1950-1963-3-2"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-malaya-1896-1950",
+    "flag-of-malaya-1950-1963-3-2"
+   ]
+  },
+  {
+   "base": "flag of mecklenburg-western pomerania",
+   "members": [
+    "flag-of-mecklenburg-western-pomerania",
+    "flag-of-mecklenburg-western-pomerania-1946-1952"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-mecklenburg-western-pomerania",
+    "flag-of-mecklenburg-western-pomerania-1946-1952"
+   ]
+  },
+  {
+   "base": "flag of miki",
+   "members": [
+    "flag-of-miki-hyogo-1954-1966",
+    "flag-of-miki-kagawa"
+   ],
+   "kept": [
+    "flag-of-miki-hyogo-1954-1966",
+    "flag-of-miki-kagawa"
+   ],
+   "pruned": []
+  },
+  {
+   "base": "flag of mito",
+   "members": [
+    "flag-of-mito-aichi-1939-2008",
+    "flag-of-mito-ibaraki"
+   ],
+   "kept": [
+    "flag-of-mito-aichi-1939-2008",
+    "flag-of-mito-ibaraki"
+   ],
+   "pruned": []
+  },
+  {
+   "base": "flag of miyazaki",
+   "members": [
+    "flag-of-miyazaki-miyagi-1964-2003",
+    "flag-of-miyazaki-miyazaki"
+   ],
+   "kept": [
+    "flag-of-miyazaki-miyagi-1964-2003",
+    "flag-of-miyazaki-miyazaki"
+   ],
+   "pruned": []
+  },
+  {
+   "base": "flag of moh\u00e9li",
+   "members": [
+    "flag-of-moh-li",
+    "flag-of-moh-li-2002"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-moh-li",
+    "flag-of-moh-li-2002"
+   ]
+  },
+  {
+   "base": "flag of moldova",
+   "members": [
+    "flag-of-moldova-1990-2010-reverse",
+    "flag-of-moldova-1990-2010-reverse-3-2"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-moldova-1990-2010-reverse",
+    "flag-of-moldova-1990-2010-reverse-3-2"
+   ]
+  },
+  {
+   "base": "flag of mosta",
+   "members": [
+    "flag-of-mosta",
+    "flag-of-mosta-1993-2007"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-mosta",
+    "flag-of-mosta-1993-2007"
+   ]
+  },
+  {
+   "base": "flag of mozambique",
+   "members": [
+    "flag-of-mozambique-1974-1975",
+    "flag-of-mozambique-1983-2-3",
+    "flag-of-mozambique-original-proposal"
+   ],
+   "kept": [
+    "flag-of-mozambique-1974-1975",
+    "flag-of-mozambique-1983-2-3"
+   ],
+   "pruned": [
+    "flag-of-mozambique-original-proposal"
+   ]
+  },
+  {
+   "base": "flag of m\u00e2con",
+   "members": [
+    "flag-of-m-con",
+    "flag-of-m-con-alt"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-m-con",
+    "flag-of-m-con-alt"
+   ]
+  },
+  {
+   "base": "flag of nakajima",
+   "members": [
+    "flag-of-nakajima-ehime-1959-2005",
+    "flag-of-nakajima-fukushima"
+   ],
+   "kept": [
+    "flag-of-nakajima-ehime-1959-2005",
+    "flag-of-nakajima-fukushima"
+   ],
+   "pruned": []
+  },
+  {
+   "base": "flag of nepal",
+   "members": [
+    "flag-of-nepal-1743-1962",
+    "flag-of-nepal-1856-c-1930",
+    "flag-of-nepal-19th-century"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-nepal-1743-1962",
+    "flag-of-nepal-1856-c-1930",
+    "flag-of-nepal-19th-century"
+   ]
+  },
+  {
+   "base": "flag of new democratic party",
+   "members": [
+    "flag-of-new-democratic-party",
+    "flag-of-new-democratic-party-without-text"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-new-democratic-party",
+    "flag-of-new-democratic-party-without-text"
+   ]
+  },
+  {
+   "base": "flag of new granada",
+   "members": [
+    "flag-of-new-granada",
+    "flag-of-new-granada-1811-1814",
+    "flag-of-new-granada-1814-1816",
+    "flag-of-new-granada-proposal"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-new-granada",
+    "flag-of-new-granada-1811-1814",
+    "flag-of-new-granada-1814-1816",
+    "flag-of-new-granada-proposal"
+   ]
+  },
+  {
+   "base": "flag of nicaragua",
+   "members": [
+    "flag-of-nicaragua-1852",
+    "flag-of-nicaragua-1889-1893"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-nicaragua-1852",
+    "flag-of-nicaragua-1889-1893"
+   ]
+  },
+  {
+   "base": "flag of nivernais",
+   "members": [
+    "flag-of-nivernais",
+    "flag-of-nivernais-province"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-nivernais",
+    "flag-of-nivernais-province"
+   ]
+  },
+  {
+   "base": "flag of norway",
+   "members": [
+    "flag-of-norway-1905-2021",
+    "flag-of-norway-state"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-norway-1905-2021",
+    "flag-of-norway-state"
+   ]
+  },
+  {
+   "base": "flag of nunavik",
+   "members": [
+    "flag-of-nunavik",
+    "flag-of-nunavik-thomassie-mangiok"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-nunavik",
+    "flag-of-nunavik-thomassie-mangiok"
+   ]
+  },
+  {
+   "base": "flag of occitania",
+   "members": [
+    "flag-of-occitania",
+    "flag-of-occitania-with-star"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-occitania",
+    "flag-of-occitania-with-star"
+   ]
+  },
+  {
+   "base": "flag of oldenburg",
+   "members": [
+    "flag-of-oldenburg-scandinavian-cross",
+    "flag-of-oldenburg-st-george-cross"
+   ],
+   "kept": [
+    "flag-of-oldenburg-st-george-cross"
+   ],
+   "pruned": [
+    "flag-of-oldenburg-scandinavian-cross"
+   ]
+  },
+  {
+   "base": "flag of osaka prefecture",
+   "members": [
+    "flag-of-osaka-prefecture",
+    "flag-of-osaka-prefecture-1968-1984"
+   ],
+   "kept": [
+    "flag-of-osaka-prefecture",
+    "flag-of-osaka-prefecture-1968-1984"
+   ],
+   "pruned": []
+  },
+  {
+   "base": "flag of pahang",
+   "members": [
+    "flag-of-pahang-1853-1887",
+    "flag-of-pahang-1887-1903"
+   ],
+   "kept": [
+    "flag-of-pahang-1853-1887",
+    "flag-of-pahang-1887-1903"
+   ],
+   "pruned": []
+  },
+  {
+   "base": "flag of palestine",
+   "members": [
+    "flag-of-palestine-1948-1964",
+    "flag-of-palestine-1948-1964-3-2",
+    "flag-of-palestine-original-version"
+   ],
+   "kept": [
+    "flag-of-palestine-1948-1964-3-2"
+   ],
+   "pruned": [
+    "flag-of-palestine-1948-1964",
+    "flag-of-palestine-original-version"
+   ]
+  },
+  {
+   "base": "flag of panama",
+   "members": [
+    "flag-of-panama-1903",
+    "flag-of-panama-1925-2017"
+   ],
+   "kept": [
+    "flag-of-panama-1903"
+   ],
+   "pruned": [
+    "flag-of-panama-1925-2017"
+   ]
+  },
+  {
+   "base": "flag of partabgarh",
+   "members": [
+    "flag-of-partabgarh",
+    "flag-of-partabgarh-pre-1877"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-partabgarh",
+    "flag-of-partabgarh-pre-1877"
+   ]
+  },
+  {
+   "base": "flag of patria igualdad y democracia",
+   "members": [
+    "flag-of-patria-igualdad-y-democracia-costa-rica",
+    "flag-of-patria-igualdad-y-democracia-costa-rica-2-1-ratio"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-patria-igualdad-y-democracia-costa-rica",
+    "flag-of-patria-igualdad-y-democracia-costa-rica-2-1-ratio"
+   ]
+  },
+  {
+   "base": "flag of permyakia",
+   "members": [
+    "flag-of-permyakia",
+    "flag-of-permyakia-1996-1997"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-permyakia",
+    "flag-of-permyakia-1996-1997"
+   ]
+  },
+  {
+   "base": "flag of persia",
+   "members": [
+    "flag-of-persia-1502-1524",
+    "flag-of-persia-1665"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-persia-1502-1524",
+    "flag-of-persia-1665"
+   ]
+  },
+  {
+   "base": "flag of peru",
+   "members": [
+    "flag-of-peru-1822-1825",
+    "flag-of-peru-1822-1835"
+   ],
+   "kept": [
+    "flag-of-peru-1822-1835"
+   ],
+   "pruned": [
+    "flag-of-peru-1822-1825"
+   ]
+  },
+  {
+   "base": "flag of police of japanese taiwan",
+   "members": [
+    "flag-of-police-of-japanese-taiwan-1897-1901",
+    "flag-of-police-of-japanese-taiwan-1901-1945"
+   ],
+   "kept": [
+    "flag-of-police-of-japanese-taiwan-1901-1945"
+   ],
+   "pruned": [
+    "flag-of-police-of-japanese-taiwan-1897-1901"
+   ]
+  },
+  {
+   "base": "flag of provence",
+   "members": [
+    "flag-of-provence",
+    "flag-of-provence-alternate"
+   ],
+   "kept": [
+    "flag-of-provence"
+   ],
+   "pruned": [
+    "flag-of-provence-alternate"
+   ]
+  },
+  {
+   "base": "flag of puerto triunfo",
+   "members": [
+    "flag-of-puerto-triunfo",
+    "flag-of-puerto-triunfo-antioquia"
+   ],
+   "kept": [
+    "flag-of-puerto-triunfo-antioquia"
+   ],
+   "pruned": [
+    "flag-of-puerto-triunfo"
+   ]
+  },
+  {
+   "base": "flag of qatar",
+   "members": [
+    "flag-of-qatar-1860-1916-1916-1932",
+    "flag-of-qatar-1916",
+    "flag-of-qatar-1916-reported-variant",
+    "flag-of-qatar-1933-1936",
+    "flag-of-qatar-1936-1949"
+   ],
+   "kept": [
+    "flag-of-qatar-1936-1949"
+   ],
+   "pruned": [
+    "flag-of-qatar-1860-1916-1916-1932",
+    "flag-of-qatar-1916",
+    "flag-of-qatar-1916-reported-variant",
+    "flag-of-qatar-1933-1936"
+   ]
+  },
+  {
+   "base": "flag of qrendi",
+   "members": [
+    "flag-of-qrendi",
+    "flag-of-qrendi-1993-2000"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-qrendi",
+    "flag-of-qrendi-1993-2000"
+   ]
+  },
+  {
+   "base": "flag of renamo",
+   "members": [
+    "flag-of-renamo",
+    "flag-of-renamo-variant"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-renamo",
+    "flag-of-renamo-variant"
+   ]
+  },
+  {
+   "base": "flag of rostock",
+   "members": [
+    "flag-of-rostock-reported-1737",
+    "flag-of-rostock-reported-1805",
+    "flag-of-rostock-reported-1848",
+    "flag-of-rostock-reported-19th-century"
+   ],
+   "kept": [
+    "flag-of-rostock-reported-1848"
+   ],
+   "pruned": [
+    "flag-of-rostock-reported-1737",
+    "flag-of-rostock-reported-1805",
+    "flag-of-rostock-reported-19th-century"
+   ]
+  },
+  {
+   "base": "flag of russia",
+   "members": [
+    "flag-of-russia-1668-1693",
+    "flag-of-russia-1858-1896-1-2",
+    "flag-of-russia-1991-1993-2-3",
+    "flag-of-russia-upside-down"
+   ],
+   "kept": [
+    "flag-of-russia-1991-1993-2-3"
+   ],
+   "pruned": [
+    "flag-of-russia-1668-1693",
+    "flag-of-russia-1858-1896-1-2",
+    "flag-of-russia-upside-down"
+   ]
+  },
+  {
+   "base": "flag of sabah",
+   "members": [
+    "flag-of-sabah-1963-1982",
+    "flag-of-sabah-1982-1988"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-sabah-1963-1982",
+    "flag-of-sabah-1982-1988"
+   ]
+  },
+  {
+   "base": "flag of samoa",
+   "members": [
+    "flag-of-samoa-1873-1875",
+    "flag-of-samoa-1875-1879",
+    "flag-of-samoa-1948-1949"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-samoa-1873-1875",
+    "flag-of-samoa-1875-1879",
+    "flag-of-samoa-1948-1949"
+   ]
+  },
+  {
+   "base": "flag of santa fe",
+   "members": [
+    "flag-of-santa-fe-1819",
+    "flag-of-santa-fe-1825"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-santa-fe-1819",
+    "flag-of-santa-fe-1825"
+   ]
+  },
+  {
+   "base": "flag of sarawak",
+   "members": [
+    "flag-of-sarawak",
+    "flag-of-sarawak-1841-1848",
+    "flag-of-sarawak-1870-1946-1963-1973",
+    "flag-of-sarawak-1973-1988"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-sarawak",
+    "flag-of-sarawak-1841-1848",
+    "flag-of-sarawak-1870-1946-1963-1973",
+    "flag-of-sarawak-1973-1988"
+   ]
+  },
+  {
+   "base": "flag of selangor",
+   "members": [
+    "flag-of-selangor",
+    "flag-of-selangor-1784",
+    "flag-of-selangor-1912",
+    "flag-of-selangor-pre-1965"
+   ],
+   "kept": [
+    "flag-of-selangor-pre-1965"
+   ],
+   "pruned": [
+    "flag-of-selangor",
+    "flag-of-selangor-1784",
+    "flag-of-selangor-1912"
+   ]
+  },
+  {
+   "base": "flag of seychelles",
+   "members": [
+    "flag-of-seychelles-1976-1977",
+    "flag-of-seychelles-1976-1977-2-3",
+    "flag-of-seychelles-1977-1996",
+    "flag-of-seychelles-1977-1996-2-3"
+   ],
+   "kept": [
+    "flag-of-seychelles-1976-1977-2-3",
+    "flag-of-seychelles-1977-1996-2-3"
+   ],
+   "pruned": [
+    "flag-of-seychelles-1976-1977",
+    "flag-of-seychelles-1977-1996"
+   ]
+  },
+  {
+   "base": "flag of si\u0121\u0121iewi",
+   "members": [
+    "flag-of-si-iewi",
+    "flag-of-si-iewi-1993-2001"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-si-iewi",
+    "flag-of-si-iewi-1993-2001"
+   ]
+  },
+  {
+   "base": "flag of slm",
+   "members": [
+    "flag-of-slm-al-nur",
+    "flag-of-slm-minnawi",
+    "flag-of-slm-tambour"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-slm-al-nur",
+    "flag-of-slm-minnawi",
+    "flag-of-slm-tambour"
+   ]
+  },
+  {
+   "base": "flag of slovenia",
+   "members": [
+    "flag-of-slovenia",
+    "flag-of-slovenia-1943-1945-3-5",
+    "flag-of-slovenia-white-blue-white-flag"
+   ],
+   "kept": [
+    "flag-of-slovenia-1943-1945-3-5"
+   ],
+   "pruned": [
+    "flag-of-slovenia",
+    "flag-of-slovenia-white-blue-white-flag"
+   ]
+  },
+  {
+   "base": "flag of somalia",
+   "members": [
+    "flag-of-somalia",
+    "flag-of-somalia-2004-2012"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-somalia",
+    "flag-of-somalia-2004-2012"
+   ]
+  },
+  {
+   "base": "flag of sucre",
+   "members": [
+    "flag-of-sucre",
+    "flag-of-sucre-cauca"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-sucre",
+    "flag-of-sucre-cauca"
+   ]
+  },
+  {
+   "base": "flag of sudan",
+   "members": [
+    "flag-of-sudan-1956-1970",
+    "flag-of-sudan-1956-1970-2-3",
+    "flag-of-sudan-bandung-conference"
+   ],
+   "kept": [
+    "flag-of-sudan-1956-1970-2-3"
+   ],
+   "pruned": [
+    "flag-of-sudan-1956-1970",
+    "flag-of-sudan-bandung-conference"
+   ]
+  },
+  {
+   "base": "flag of swaziland",
+   "members": [
+    "flag-of-swaziland-1890-1895",
+    "flag-of-swaziland-1894-1902",
+    "flag-of-swaziland-1967"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-swaziland-1890-1895",
+    "flag-of-swaziland-1894-1902",
+    "flag-of-swaziland-1967"
+   ]
+  },
+  {
+   "base": "flag of sweden",
+   "members": [
+    "flag-of-sweden-1818-1844",
+    "flag-of-sweden-1818-1844-alternative",
+    "flag-of-sweden-1897-1905-alternative"
+   ],
+   "kept": [
+    "flag-of-sweden-1818-1844",
+    "flag-of-sweden-1818-1844-alternative",
+    "flag-of-sweden-1897-1905-alternative"
+   ],
+   "pruned": []
+  },
+  {
+   "base": "flag of syrian turkmens",
+   "members": [
+    "flag-of-syrian-turkmens",
+    "flag-of-syrian-turkmens-variant-2"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-syrian-turkmens",
+    "flag-of-syrian-turkmens-variant-2"
+   ]
+  },
+  {
+   "base": "flag of taishi",
+   "members": [
+    "flag-of-taishi-hyogo",
+    "flag-of-taishi-osaka"
+   ],
+   "kept": [
+    "flag-of-taishi-osaka"
+   ],
+   "pruned": [
+    "flag-of-taishi-hyogo"
+   ]
+  },
+  {
+   "base": "flag of taiwanese people s party",
+   "members": [
+    "flag-of-taiwanese-people-s-party-1929",
+    "flag-of-taiwanese-people-s-party-1929-1931"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-taiwanese-people-s-party-1929",
+    "flag-of-taiwanese-people-s-party-1929-1931"
+   ]
+  },
+  {
+   "base": "flag of terengganu",
+   "members": [
+    "flag-of-terengganu",
+    "flag-of-terengganu-1912-1933",
+    "flag-of-terengganu-1933-1947",
+    "flag-of-terengganu-pre-1953"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-terengganu",
+    "flag-of-terengganu-1912-1933",
+    "flag-of-terengganu-1933-1947",
+    "flag-of-terengganu-pre-1953"
+   ]
+  },
+  {
+   "base": "flag of texas",
+   "members": [
+    "flag-of-texas",
+    "flag-of-texas-1835-1839"
+   ],
+   "kept": [
+    "flag-of-texas-1835-1839"
+   ],
+   "pruned": [
+    "flag-of-texas"
+   ]
+  },
+  {
+   "base": "flag of the arima lords of kurume in chikugo province",
+   "members": [
+    "flag-of-the-arima-lords-of-kurume-in-chikugo-province-a",
+    "flag-of-the-arima-lords-of-kurume-in-chikugo-province-b",
+    "flag-of-the-arima-lords-of-kurume-in-chikugo-province-c"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-arima-lords-of-kurume-in-chikugo-province-a",
+    "flag-of-the-arima-lords-of-kurume-in-chikugo-province-b",
+    "flag-of-the-arima-lords-of-kurume-in-chikugo-province-c"
+   ]
+  },
+  {
+   "base": "flag of the armenian soviet socialist republic",
+   "members": [
+    "flag-of-the-armenian-soviet-socialist-republic-1952-1990",
+    "flag-of-the-armenian-soviet-socialist-republic-1952-1990-3-2"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-armenian-soviet-socialist-republic-1952-1990",
+    "flag-of-the-armenian-soviet-socialist-republic-1952-1990-3-2"
+   ]
+  },
+  {
+   "base": "flag of the asano lords of hiroshima in aki province",
+   "members": [
+    "flag-of-the-asano-lords-of-hiroshima-in-aki-province-a",
+    "flag-of-the-asano-lords-of-hiroshima-in-aki-province-b",
+    "flag-of-the-asano-lords-of-hiroshima-in-aki-province-c"
+   ],
+   "kept": [
+    "flag-of-the-asano-lords-of-hiroshima-in-aki-province-a"
+   ],
+   "pruned": [
+    "flag-of-the-asano-lords-of-hiroshima-in-aki-province-b",
+    "flag-of-the-asano-lords-of-hiroshima-in-aki-province-c"
+   ]
+  },
+  {
+   "base": "flag of the barisan revolusi nasional",
+   "members": [
+    "flag-of-the-barisan-revolusi-nasional",
+    "flag-of-the-barisan-revolusi-nasional-koordinasi"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-barisan-revolusi-nasional",
+    "flag-of-the-barisan-revolusi-nasional-koordinasi"
+   ]
+  },
+  {
+   "base": "flag of the bbc",
+   "members": [
+    "flag-of-the-bbc",
+    "flag-of-the-bbc-1988-1997"
+   ],
+   "kept": [
+    "flag-of-the-bbc-1988-1997"
+   ],
+   "pruned": [
+    "flag-of-the-bbc"
+   ]
+  },
+  {
+   "base": "flag of the brussels-capital region",
+   "members": [
+    "flag-of-the-brussels-capital-region",
+    "flag-of-the-brussels-capital-region-1991-2015"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-brussels-capital-region",
+    "flag-of-the-brussels-capital-region-1991-2015"
+   ]
+  },
+  {
+   "base": "flag of the command of a corps of the royal hungarian defence forces",
+   "members": [
+    "flag-of-the-command-of-a-corps-of-the-royal-hungarian-defence-forces-1928",
+    "flag-of-the-command-of-a-corps-of-the-royal-hungarian-defence-forces-1939"
+   ],
+   "kept": [
+    "flag-of-the-command-of-a-corps-of-the-royal-hungarian-defence-forces-1928"
+   ],
+   "pruned": [
+    "flag-of-the-command-of-a-corps-of-the-royal-hungarian-defence-forces-1939"
+   ]
+  },
+  {
+   "base": "flag of the command of an army of the royal hungarian defence forces",
+   "members": [
+    "flag-of-the-command-of-an-army-of-the-royal-hungarian-defence-forces-1928",
+    "flag-of-the-command-of-an-army-of-the-royal-hungarian-defence-forces-1939"
+   ],
+   "kept": [
+    "flag-of-the-command-of-an-army-of-the-royal-hungarian-defence-forces-1928"
+   ],
+   "pruned": [
+    "flag-of-the-command-of-an-army-of-the-royal-hungarian-defence-forces-1939"
+   ]
+  },
+  {
+   "base": "flag of the comoros",
+   "members": [
+    "flag-of-the-comoros-1963-1975",
+    "flag-of-the-comoros-1963-1975-proposal",
+    "flag-of-the-comoros-1975-1978",
+    "flag-of-the-comoros-1978-1992"
+   ],
+   "kept": [
+    "flag-of-the-comoros-1978-1992"
+   ],
+   "pruned": [
+    "flag-of-the-comoros-1963-1975",
+    "flag-of-the-comoros-1963-1975-proposal",
+    "flag-of-the-comoros-1975-1978"
+   ]
+  },
+  {
+   "base": "flag of the date lords of uwajima in iyo province",
+   "members": [
+    "flag-of-the-date-lords-of-uwajima-in-iyo-province-a",
+    "flag-of-the-date-lords-of-uwajima-in-iyo-province-c"
+   ],
+   "kept": [
+    "flag-of-the-date-lords-of-uwajima-in-iyo-province-a",
+    "flag-of-the-date-lords-of-uwajima-in-iyo-province-c"
+   ],
+   "pruned": []
+  },
+  {
+   "base": "flag of the democratic army of greece",
+   "members": [
+    "flag-of-the-democratic-army-of-greece",
+    "flag-of-the-democratic-army-of-greece-red-star"
+   ],
+   "kept": [
+    "flag-of-the-democratic-army-of-greece"
+   ],
+   "pruned": [
+    "flag-of-the-democratic-army-of-greece-red-star"
+   ]
+  },
+  {
+   "base": "flag of the duchy of lucca",
+   "members": [
+    "flag-of-the-duchy-of-lucca-1815-1818",
+    "flag-of-the-duchy-of-lucca-1818-1824"
+   ],
+   "kept": [
+    "flag-of-the-duchy-of-lucca-1815-1818"
+   ],
+   "pruned": [
+    "flag-of-the-duchy-of-lucca-1818-1824"
+   ]
+  },
+  {
+   "base": "flag of the duchy of parma",
+   "members": [
+    "flag-of-the-duchy-of-parma",
+    "flag-of-the-duchy-of-parma-1851-1859"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-duchy-of-parma",
+    "flag-of-the-duchy-of-parma-1851-1859"
+   ]
+  },
+  {
+   "base": "flag of the dutch east india company",
+   "members": [
+    "flag-of-the-dutch-east-india-company",
+    "flag-of-the-dutch-east-india-company-amsterdam-chamber",
+    "flag-of-the-dutch-east-india-company-amsterdam-chamber-dubbele-statenvlag",
+    "flag-of-the-dutch-east-india-company-delft-chamber",
+    "flag-of-the-dutch-east-india-company-enkhuizen-chamber",
+    "flag-of-the-dutch-east-india-company-hoorn-chamber",
+    "flag-of-the-dutch-east-india-company-prinsenvlag",
+    "flag-of-the-dutch-east-india-company-rotterdam-chamber",
+    "flag-of-the-dutch-east-india-company-zeeland-chamber"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-dutch-east-india-company",
+    "flag-of-the-dutch-east-india-company-amsterdam-chamber",
+    "flag-of-the-dutch-east-india-company-amsterdam-chamber-dubbele-statenvlag",
+    "flag-of-the-dutch-east-india-company-delft-chamber",
+    "flag-of-the-dutch-east-india-company-enkhuizen-chamber",
+    "flag-of-the-dutch-east-india-company-hoorn-chamber",
+    "flag-of-the-dutch-east-india-company-prinsenvlag",
+    "flag-of-the-dutch-east-india-company-rotterdam-chamber",
+    "flag-of-the-dutch-east-india-company-zeeland-chamber"
+   ]
+  },
+  {
+   "base": "flag of the dutch west india company",
+   "members": [
+    "flag-of-the-dutch-west-india-company",
+    "flag-of-the-dutch-west-india-company-amsterdam-chamber"
+   ],
+   "kept": [
+    "flag-of-the-dutch-west-india-company-amsterdam-chamber"
+   ],
+   "pruned": [
+    "flag-of-the-dutch-west-india-company"
+   ]
+  },
+  {
+   "base": "flag of the empire of china",
+   "members": [
+    "flag-of-the-empire-of-china-1915-1916",
+    "flag-of-the-empire-of-china-1916"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-empire-of-china-1915-1916",
+    "flag-of-the-empire-of-china-1916"
+   ]
+  },
+  {
+   "base": "flag of the free city of danzig",
+   "members": [
+    "flag-of-the-free-city-of-danzig",
+    "flag-of-the-free-city-of-danzig-3-2"
+   ],
+   "kept": [
+    "flag-of-the-free-city-of-danzig-3-2"
+   ],
+   "pruned": [
+    "flag-of-the-free-city-of-danzig"
+   ]
+  },
+  {
+   "base": "flag of the hosokawa lords of kumamoto in higo province",
+   "members": [
+    "flag-of-the-hosokawa-lords-of-kumamoto-in-higo-province-a",
+    "flag-of-the-hosokawa-lords-of-kumamoto-in-higo-province-b",
+    "flag-of-the-hosokawa-lords-of-kumamoto-in-higo-province-c"
+   ],
+   "kept": [
+    "flag-of-the-hosokawa-lords-of-kumamoto-in-higo-province-c"
+   ],
+   "pruned": [
+    "flag-of-the-hosokawa-lords-of-kumamoto-in-higo-province-a",
+    "flag-of-the-hosokawa-lords-of-kumamoto-in-higo-province-b"
+   ]
+  },
+  {
+   "base": "flag of the ii lords of hikone in omi province",
+   "members": [
+    "flag-of-the-ii-lords-of-hikone-in-omi-province-a",
+    "flag-of-the-ii-lords-of-hikone-in-omi-province-b",
+    "flag-of-the-ii-lords-of-hikone-in-omi-province-c"
+   ],
+   "kept": [
+    "flag-of-the-ii-lords-of-hikone-in-omi-province-a"
+   ],
+   "pruned": [
+    "flag-of-the-ii-lords-of-hikone-in-omi-province-b",
+    "flag-of-the-ii-lords-of-hikone-in-omi-province-c"
+   ]
+  },
+  {
+   "base": "flag of the ikeda lords of okayama in bizen province",
+   "members": [
+    "flag-of-the-ikeda-lords-of-okayama-in-bizen-province-a",
+    "flag-of-the-ikeda-lords-of-okayama-in-bizen-province-b",
+    "flag-of-the-ikeda-lords-of-okayama-in-bizen-province-c"
+   ],
+   "kept": [
+    "flag-of-the-ikeda-lords-of-okayama-in-bizen-province-a",
+    "flag-of-the-ikeda-lords-of-okayama-in-bizen-province-b"
+   ],
+   "pruned": [
+    "flag-of-the-ikeda-lords-of-okayama-in-bizen-province-c"
+   ]
+  },
+  {
+   "base": "flag of the ikeda lords of tottori in inaba province",
+   "members": [
+    "flag-of-the-ikeda-lords-of-tottori-in-inaba-province-a",
+    "flag-of-the-ikeda-lords-of-tottori-in-inaba-province-b",
+    "flag-of-the-ikeda-lords-of-tottori-in-inaba-province-c"
+   ],
+   "kept": [
+    "flag-of-the-ikeda-lords-of-tottori-in-inaba-province-c"
+   ],
+   "pruned": [
+    "flag-of-the-ikeda-lords-of-tottori-in-inaba-province-a",
+    "flag-of-the-ikeda-lords-of-tottori-in-inaba-province-b"
+   ]
+  },
+  {
+   "base": "flag of the indian home rule movement",
+   "members": [
+    "flag-of-the-indian-home-rule-movement",
+    "flag-of-the-indian-home-rule-movement-variant"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-indian-home-rule-movement",
+    "flag-of-the-indian-home-rule-movement-variant"
+   ]
+  },
+  {
+   "base": "flag of the inner mongolian people s party",
+   "members": [
+    "flag-of-the-inner-mongolian-people-s-party",
+    "flag-of-the-inner-mongolian-people-s-party-2006-05-29"
+   ],
+   "kept": [
+    "flag-of-the-inner-mongolian-people-s-party-2006-05-29"
+   ],
+   "pruned": [
+    "flag-of-the-inner-mongolian-people-s-party"
+   ]
+  },
+  {
+   "base": "flag of the italian communist party",
+   "members": [
+    "flag-of-the-italian-communist-party",
+    "flag-of-the-italian-communist-party-1946"
+   ],
+   "kept": [
+    "flag-of-the-italian-communist-party-1946"
+   ],
+   "pruned": [
+    "flag-of-the-italian-communist-party"
+   ]
+  },
+  {
+   "base": "flag of the kingdom of araucan\u00eda and patagonia",
+   "members": [
+    "flag-of-the-kingdom-of-araucan-a-and-patagonia",
+    "flag-of-the-kingdom-of-araucan-a-and-patagonia-variant"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-kingdom-of-araucan-a-and-patagonia",
+    "flag-of-the-kingdom-of-araucan-a-and-patagonia-variant"
+   ]
+  },
+  {
+   "base": "flag of the kingdom of croatia",
+   "members": [
+    "flag-of-the-kingdom-of-croatia",
+    "flag-of-the-kingdom-of-croatia-habsburg"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-kingdom-of-croatia",
+    "flag-of-the-kingdom-of-croatia-habsburg"
+   ]
+  },
+  {
+   "base": "flag of the kingdom of etruria",
+   "members": [
+    "flag-of-the-kingdom-of-etruria",
+    "flag-of-the-kingdom-of-etruria-merchant"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-kingdom-of-etruria",
+    "flag-of-the-kingdom-of-etruria-merchant"
+   ]
+  },
+  {
+   "base": "flag of the kingdom of naples",
+   "members": [
+    "flag-of-the-kingdom-of-naples-capetian-house-of-anjou-type-2",
+    "flag-of-the-kingdom-of-naples-capetian-house-of-anjou-type-3"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-kingdom-of-naples-capetian-house-of-anjou-type-2",
+    "flag-of-the-kingdom-of-naples-capetian-house-of-anjou-type-3"
+   ]
+  },
+  {
+   "base": "flag of the kingdom of samoa",
+   "members": [
+    "flag-of-the-kingdom-of-samoa-1873-1886-1889-1900",
+    "flag-of-the-kingdom-of-samoa-1886-1889"
+   ],
+   "kept": [
+    "flag-of-the-kingdom-of-samoa-1886-1889"
+   ],
+   "pruned": [
+    "flag-of-the-kingdom-of-samoa-1873-1886-1889-1900"
+   ]
+  },
+  {
+   "base": "flag of the maeda lords of kanazawa in kaga province",
+   "members": [
+    "flag-of-the-maeda-lords-of-kanazawa-in-kaga-province-a",
+    "flag-of-the-maeda-lords-of-kanazawa-in-kaga-province-c"
+   ],
+   "kept": [
+    "flag-of-the-maeda-lords-of-kanazawa-in-kaga-province-a"
+   ],
+   "pruned": [
+    "flag-of-the-maeda-lords-of-kanazawa-in-kaga-province-c"
+   ]
+  },
+  {
+   "base": "flag of the mahra sultanate",
+   "members": [
+    "flag-of-the-mahra-sultanate",
+    "flag-of-the-mahra-sultanate-18th-century"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-mahra-sultanate",
+    "flag-of-the-mahra-sultanate-18th-century"
+   ]
+  },
+  {
+   "base": "flag of the makino lords of nagaoka in echigo province",
+   "members": [
+    "flag-of-the-makino-lords-of-nagaoka-in-echigo-province-a",
+    "flag-of-the-makino-lords-of-nagaoka-in-echigo-province-b",
+    "flag-of-the-makino-lords-of-nagaoka-in-echigo-province-c"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-makino-lords-of-nagaoka-in-echigo-province-a",
+    "flag-of-the-makino-lords-of-nagaoka-in-echigo-province-b",
+    "flag-of-the-makino-lords-of-nagaoka-in-echigo-province-c"
+   ]
+  },
+  {
+   "base": "flag of the malaysian chinese association",
+   "members": [
+    "flag-of-the-malaysian-chinese-association",
+    "flag-of-the-malaysian-chinese-association-1958-1963"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-malaysian-chinese-association",
+    "flag-of-the-malaysian-chinese-association-1958-1963"
+   ]
+  },
+  {
+   "base": "flag of the matsudaira lords of fukui in echizen province",
+   "members": [
+    "flag-of-the-matsudaira-lords-of-fukui-in-echizen-province-a",
+    "flag-of-the-matsudaira-lords-of-fukui-in-echizen-province-c"
+   ],
+   "kept": [
+    "flag-of-the-matsudaira-lords-of-fukui-in-echizen-province-a"
+   ],
+   "pruned": [
+    "flag-of-the-matsudaira-lords-of-fukui-in-echizen-province-c"
+   ]
+  },
+  {
+   "base": "flag of the matsudaira lords of kuwana in ise province",
+   "members": [
+    "flag-of-the-matsudaira-lords-of-kuwana-in-ise-province-a",
+    "flag-of-the-matsudaira-lords-of-kuwana-in-ise-province-b",
+    "flag-of-the-matsudaira-lords-of-kuwana-in-ise-province-c"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-matsudaira-lords-of-kuwana-in-ise-province-a",
+    "flag-of-the-matsudaira-lords-of-kuwana-in-ise-province-b",
+    "flag-of-the-matsudaira-lords-of-kuwana-in-ise-province-c"
+   ]
+  },
+  {
+   "base": "flag of the mexican insurgents",
+   "members": [
+    "flag-of-the-mexican-insurgents-commerce-variant",
+    "flag-of-the-mexican-insurgents-naval-variant"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-mexican-insurgents-commerce-variant",
+    "flag-of-the-mexican-insurgents-naval-variant"
+   ]
+  },
+  {
+   "base": "flag of the mongolian people s republic",
+   "members": [
+    "flag-of-the-mongolian-people-s-republic-1924-1930-variant",
+    "flag-of-the-mongolian-people-s-republic-1930-1940",
+    "flag-of-the-mongolian-people-s-republic-1945-1992-variant"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-mongolian-people-s-republic-1924-1930-variant",
+    "flag-of-the-mongolian-people-s-republic-1930-1940",
+    "flag-of-the-mongolian-people-s-republic-1945-1992-variant"
+   ]
+  },
+  {
+   "base": "flag of the mori lords of hagi in nagato province",
+   "members": [
+    "flag-of-the-mori-lords-of-hagi-in-nagato-province-a",
+    "flag-of-the-mori-lords-of-hagi-in-nagato-province-b",
+    "flag-of-the-mori-lords-of-hagi-in-nagato-province-c"
+   ],
+   "kept": [
+    "flag-of-the-mori-lords-of-hagi-in-nagato-province-c"
+   ],
+   "pruned": [
+    "flag-of-the-mori-lords-of-hagi-in-nagato-province-a",
+    "flag-of-the-mori-lords-of-hagi-in-nagato-province-b"
+   ]
+  },
+  {
+   "base": "flag of the mountainous republic of the northern caucasus",
+   "members": [
+    "flag-of-the-mountainous-republic-of-the-northern-caucasus",
+    "flag-of-the-mountainous-republic-of-the-northern-caucasus-1917"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-mountainous-republic-of-the-northern-caucasus",
+    "flag-of-the-mountainous-republic-of-the-northern-caucasus-1917"
+   ]
+  },
+  {
+   "base": "flag of the mwali sultanate",
+   "members": [
+    "flag-of-the-mwali-sultanate",
+    "flag-of-the-mwali-sultanate-1868-1871",
+    "flag-of-the-mwali-sultanate-1871-1886",
+    "flag-of-the-mwali-sultanate-1886-1891"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-mwali-sultanate",
+    "flag-of-the-mwali-sultanate-1868-1871",
+    "flag-of-the-mwali-sultanate-1871-1886",
+    "flag-of-the-mwali-sultanate-1886-1891"
+   ]
+  },
+  {
+   "base": "flag of the nabeshima lords of saga in hizen province",
+   "members": [
+    "flag-of-the-nabeshima-lords-of-saga-in-hizen-province-a",
+    "flag-of-the-nabeshima-lords-of-saga-in-hizen-province-b",
+    "flag-of-the-nabeshima-lords-of-saga-in-hizen-province-c"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-nabeshima-lords-of-saga-in-hizen-province-a",
+    "flag-of-the-nabeshima-lords-of-saga-in-hizen-province-b",
+    "flag-of-the-nabeshima-lords-of-saga-in-hizen-province-c"
+   ]
+  },
+  {
+   "base": "flag of the nanbu lords of morioka in mutsu province",
+   "members": [
+    "flag-of-the-nanbu-lords-of-morioka-in-mutsu-province-b",
+    "flag-of-the-nanbu-lords-of-morioka-in-mutsu-province-c"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-nanbu-lords-of-morioka-in-mutsu-province-b",
+    "flag-of-the-nanbu-lords-of-morioka-in-mutsu-province-c"
+   ]
+  },
+  {
+   "base": "flag of the national party",
+   "members": [
+    "flag-of-the-national-party-chile-1966",
+    "flag-of-the-national-party-uruguay",
+    "flag-of-the-national-party-uruguay-1897-1904"
+   ],
+   "kept": [
+    "flag-of-the-national-party-uruguay-1897-1904"
+   ],
+   "pruned": [
+    "flag-of-the-national-party-chile-1966",
+    "flag-of-the-national-party-uruguay"
+   ]
+  },
+  {
+   "base": "flag of the ndzuwani sultanate",
+   "members": [
+    "flag-of-the-ndzuwani-sultanate-1833-1850",
+    "flag-of-the-ndzuwani-sultanate-c-1850"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-ndzuwani-sultanate-1833-1850",
+    "flag-of-the-ndzuwani-sultanate-c-1850"
+   ]
+  },
+  {
+   "base": "flag of the ogasawara lords of kokura in buzen province",
+   "members": [
+    "flag-of-the-ogasawara-lords-of-kokura-in-buzen-province-a",
+    "flag-of-the-ogasawara-lords-of-kokura-in-buzen-province-b",
+    "flag-of-the-ogasawara-lords-of-kokura-in-buzen-province-c"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-ogasawara-lords-of-kokura-in-buzen-province-a",
+    "flag-of-the-ogasawara-lords-of-kokura-in-buzen-province-b",
+    "flag-of-the-ogasawara-lords-of-kokura-in-buzen-province-c"
+   ]
+  },
+  {
+   "base": "flag of the omura lords of omura in hizen province",
+   "members": [
+    "flag-of-the-omura-lords-of-omura-in-hizen-province-a",
+    "flag-of-the-omura-lords-of-omura-in-hizen-province-b",
+    "flag-of-the-omura-lords-of-omura-in-hizen-province-c"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-omura-lords-of-omura-in-hizen-province-a",
+    "flag-of-the-omura-lords-of-omura-in-hizen-province-b",
+    "flag-of-the-omura-lords-of-omura-in-hizen-province-c"
+   ]
+  },
+  {
+   "base": "flag of the papal states",
+   "members": [
+    "flag-of-the-papal-states-1808-1870",
+    "flag-of-the-papal-states-pre-1808"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-papal-states-1808-1870",
+    "flag-of-the-papal-states-pre-1808"
+   ]
+  },
+  {
+   "base": "flag of the principality of mingrelia",
+   "members": [
+    "flag-of-the-principality-of-mingrelia",
+    "flag-of-the-principality-of-mingrelia-portolan-1559",
+    "flag-of-the-principality-of-mingrelia-portolan-1560",
+    "flag-of-the-principality-of-mingrelia-portolan-1561"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-principality-of-mingrelia",
+    "flag-of-the-principality-of-mingrelia-portolan-1559",
+    "flag-of-the-principality-of-mingrelia-portolan-1560",
+    "flag-of-the-principality-of-mingrelia-portolan-1561"
+   ]
+  },
+  {
+   "base": "flag of the republic of alsace-lorraine",
+   "members": [
+    "flag-of-the-republic-of-alsace-lorraine",
+    "flag-of-the-republic-of-alsace-lorraine-bordered"
+   ],
+   "kept": [
+    "flag-of-the-republic-of-alsace-lorraine-bordered"
+   ],
+   "pruned": [
+    "flag-of-the-republic-of-alsace-lorraine"
+   ]
+  },
+  {
+   "base": "flag of the republic of canada",
+   "members": [
+    "flag-of-the-republic-of-canada",
+    "flag-of-the-republic-of-canada-variant"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-republic-of-canada",
+    "flag-of-the-republic-of-canada-variant"
+   ]
+  },
+  {
+   "base": "flag of the republic of china",
+   "members": [
+    "flag-of-the-republic-of-china-draft-1",
+    "flag-of-the-republic-of-china-draft-2"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-republic-of-china-draft-1",
+    "flag-of-the-republic-of-china-draft-2"
+   ]
+  },
+  {
+   "base": "flag of the republic of sonora",
+   "members": [
+    "flag-of-the-republic-of-sonora",
+    "flag-of-the-republic-of-sonora-raousset-boulbon"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-republic-of-sonora",
+    "flag-of-the-republic-of-sonora-raousset-boulbon"
+   ]
+  },
+  {
+   "base": "flag of the republika srpska",
+   "members": [
+    "flag-of-the-republika-srpska-3-5",
+    "flag-of-the-republika-srpska-unofficial"
+   ],
+   "kept": [
+    "flag-of-the-republika-srpska-3-5"
+   ],
+   "pruned": [
+    "flag-of-the-republika-srpska-unofficial"
+   ]
+  },
+  {
+   "base": "flag of the roman republic",
+   "members": [
+    "flag-of-the-roman-republic-1798-grey-version",
+    "flag-of-the-roman-republic-19th-century"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-roman-republic-1798-grey-version",
+    "flag-of-the-roman-republic-19th-century"
+   ]
+  },
+  {
+   "base": "flag of the royal hungarian high command",
+   "members": [
+    "flag-of-the-royal-hungarian-high-command-1928",
+    "flag-of-the-royal-hungarian-high-command-1939"
+   ],
+   "kept": [
+    "flag-of-the-royal-hungarian-high-command-1928"
+   ],
+   "pruned": [
+    "flag-of-the-royal-hungarian-high-command-1939"
+   ]
+  },
+  {
+   "base": "flag of the russian federation",
+   "members": [
+    "flag-of-the-russian-federation-1997-proposal",
+    "flag-of-the-russian-federation-1997-proposal-alternate"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-russian-federation-1997-proposal",
+    "flag-of-the-russian-federation-1997-proposal-alternate"
+   ]
+  },
+  {
+   "base": "flag of the russian liberation army",
+   "members": [
+    "flag-of-the-russian-liberation-army",
+    "flag-of-the-russian-liberation-army-1944-1945"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-russian-liberation-army",
+    "flag-of-the-russian-liberation-army-1944-1945"
+   ]
+  },
+  {
+   "base": "flag of the satake lords of akita in dewa province",
+   "members": [
+    "flag-of-the-satake-lords-of-akita-in-dewa-province-a",
+    "flag-of-the-satake-lords-of-akita-in-dewa-province-b",
+    "flag-of-the-satake-lords-of-akita-in-dewa-province-c"
+   ],
+   "kept": [
+    "flag-of-the-satake-lords-of-akita-in-dewa-province-c"
+   ],
+   "pruned": [
+    "flag-of-the-satake-lords-of-akita-in-dewa-province-a",
+    "flag-of-the-satake-lords-of-akita-in-dewa-province-b"
+   ]
+  },
+  {
+   "base": "flag of the second east turkestan republic",
+   "members": [
+    "flag-of-the-second-east-turkestan-republic",
+    "flag-of-the-second-east-turkestan-republic-2"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-second-east-turkestan-republic",
+    "flag-of-the-second-east-turkestan-republic-2"
+   ]
+  },
+  {
+   "base": "flag of the second spanish republic",
+   "members": [
+    "flag-of-the-second-spanish-republic-military",
+    "flag-of-the-second-spanish-republic-plain"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-second-spanish-republic-military",
+    "flag-of-the-second-spanish-republic-plain"
+   ]
+  },
+  {
+   "base": "flag of the soviet union",
+   "members": [
+    "flag-of-the-soviet-union-disk-any",
+    "flag-of-the-soviet-union-reverse"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-soviet-union-disk-any",
+    "flag-of-the-soviet-union-reverse"
+   ]
+  },
+  {
+   "base": "flag of the sultanate of zanzibar",
+   "members": [
+    "flag-of-the-sultanate-of-zanzibar",
+    "flag-of-the-sultanate-of-zanzibar-1963"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-sultanate-of-zanzibar",
+    "flag-of-the-sultanate-of-zanzibar-1963"
+   ]
+  },
+  {
+   "base": "flag of the todo lords of tsu in ise province",
+   "members": [
+    "flag-of-the-todo-lords-of-tsu-in-ise-province-a",
+    "flag-of-the-todo-lords-of-tsu-in-ise-province-c"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-todo-lords-of-tsu-in-ise-province-a",
+    "flag-of-the-todo-lords-of-tsu-in-ise-province-c"
+   ]
+  },
+  {
+   "base": "flag of the tokugawa lords of mito in hitachi province",
+   "members": [
+    "flag-of-the-tokugawa-lords-of-mito-in-hitachi-province-a",
+    "flag-of-the-tokugawa-lords-of-mito-in-hitachi-province-c"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-tokugawa-lords-of-mito-in-hitachi-province-a",
+    "flag-of-the-tokugawa-lords-of-mito-in-hitachi-province-c"
+   ]
+  },
+  {
+   "base": "flag of the tokugawa lords of nagoya in owari province",
+   "members": [
+    "flag-of-the-tokugawa-lords-of-nagoya-in-owari-province-a",
+    "flag-of-the-tokugawa-lords-of-nagoya-in-owari-province-c"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-tokugawa-lords-of-nagoya-in-owari-province-a",
+    "flag-of-the-tokugawa-lords-of-nagoya-in-owari-province-c"
+   ]
+  },
+  {
+   "base": "flag of the tokugawa lords of wakayama in kii province",
+   "members": [
+    "flag-of-the-tokugawa-lords-of-wakayama-in-kii-province-a",
+    "flag-of-the-tokugawa-lords-of-wakayama-in-kii-province-c"
+   ],
+   "kept": [
+    "flag-of-the-tokugawa-lords-of-wakayama-in-kii-province-c"
+   ],
+   "pruned": [
+    "flag-of-the-tokugawa-lords-of-wakayama-in-kii-province-a"
+   ]
+  },
+  {
+   "base": "flag of the tuvan people s republic",
+   "members": [
+    "flag-of-the-tuvan-people-s-republic-1941-1943",
+    "flag-of-the-tuvan-people-s-republic-1943-1944-possible-variant"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-tuvan-people-s-republic-1941-1943",
+    "flag-of-the-tuvan-people-s-republic-1943-1944-possible-variant"
+   ]
+  },
+  {
+   "base": "flag of the uesugi lords of yonezawa in dewa province",
+   "members": [
+    "flag-of-the-uesugi-lords-of-yonezawa-in-dewa-province-b",
+    "flag-of-the-uesugi-lords-of-yonezawa-in-dewa-province-c"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-uesugi-lords-of-yonezawa-in-dewa-province-b",
+    "flag-of-the-uesugi-lords-of-yonezawa-in-dewa-province-c"
+   ]
+  },
+  {
+   "base": "flag of the union of african states",
+   "members": [
+    "flag-of-the-union-of-african-states-1958-1961",
+    "flag-of-the-union-of-african-states-1961-1962"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-union-of-african-states-1958-1961",
+    "flag-of-the-union-of-african-states-1961-1962"
+   ]
+  },
+  {
+   "base": "flag of the united states",
+   "members": [
+    "flag-of-the-united-states-13-star-starfish",
+    "flag-of-the-united-states-1776-1777-modern-reproduction-variant",
+    "flag-of-the-united-states-99-percent",
+    "flag-of-the-united-states-black-and-white-variant-1",
+    "flag-of-the-united-states-symmetrical",
+    "flag-of-the-united-states-upside-down",
+    "flag-of-the-united-states-vertically-flipped"
+   ],
+   "kept": [
+    "flag-of-the-united-states-13-star-starfish",
+    "flag-of-the-united-states-99-percent",
+    "flag-of-the-united-states-vertically-flipped"
+   ],
+   "pruned": [
+    "flag-of-the-united-states-1776-1777-modern-reproduction-variant",
+    "flag-of-the-united-states-black-and-white-variant-1",
+    "flag-of-the-united-states-symmetrical",
+    "flag-of-the-united-states-upside-down"
+   ]
+  },
+  {
+   "base": "flag of the workers",
+   "members": [
+    "flag-of-the-workers-party-of-korea",
+    "flag-of-the-workers-party-of-north-korea-1946",
+    "flag-of-the-workers-party-of-south-korea"
+   ],
+   "kept": [
+    "flag-of-the-workers-party-of-north-korea-1946"
+   ],
+   "pruned": [
+    "flag-of-the-workers-party-of-korea",
+    "flag-of-the-workers-party-of-south-korea"
+   ]
+  },
+  {
+   "base": "flag of the yamauchi lords of kouchi in tosa province",
+   "members": [
+    "flag-of-the-yamauchi-lords-of-kouchi-in-tosa-province-a",
+    "flag-of-the-yamauchi-lords-of-kouchi-in-tosa-province-b",
+    "flag-of-the-yamauchi-lords-of-kouchi-in-tosa-province-c"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-the-yamauchi-lords-of-kouchi-in-tosa-province-a",
+    "flag-of-the-yamauchi-lords-of-kouchi-in-tosa-province-b",
+    "flag-of-the-yamauchi-lords-of-kouchi-in-tosa-province-c"
+   ]
+  },
+  {
+   "base": "flag of togo",
+   "members": [
+    "flag-of-togo-1958-1960",
+    "flag-of-togo-tottori-1967-2004"
+   ],
+   "kept": [
+    "flag-of-togo-tottori-1967-2004"
+   ],
+   "pruned": [
+    "flag-of-togo-1958-1960"
+   ]
+  },
+  {
+   "base": "flag of toyooka",
+   "members": [
+    "flag-of-toyooka-hyogo-1950-2006",
+    "flag-of-toyooka-shizuoka-1974-2005"
+   ],
+   "kept": [
+    "flag-of-toyooka-shizuoka-1974-2005"
+   ],
+   "pruned": [
+    "flag-of-toyooka-hyogo-1950-2006"
+   ]
+  },
+  {
+   "base": "flag of tripoli reported",
+   "members": [
+    "flag-of-tripoli-reported",
+    "flag-of-tripoli-reported-1771"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-tripoli-reported",
+    "flag-of-tripoli-reported-1771"
+   ]
+  },
+  {
+   "base": "flag of troitcky rayon",
+   "members": [
+    "flag-of-troitcky-rayon-chelyabinsk-oblast",
+    "flag-of-troitcky-rayon-chelyabinsk-oblast-2003"
+   ],
+   "kept": [
+    "flag-of-troitcky-rayon-chelyabinsk-oblast-2003"
+   ],
+   "pruned": [
+    "flag-of-troitcky-rayon-chelyabinsk-oblast"
+   ]
+  },
+  {
+   "base": "flag of tucuman",
+   "members": [
+    "flag-of-tucuman-1812-1814",
+    "flag-of-tucuman-1814"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-tucuman-1812-1814",
+    "flag-of-tucuman-1814"
+   ]
+  },
+  {
+   "base": "flag of tunis during 14th century",
+   "members": [
+    "flag-of-tunis-during-14th-century",
+    "flag-of-tunis-during-14th-century-variant"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-tunis-during-14th-century",
+    "flag-of-tunis-during-14th-century-variant"
+   ]
+  },
+  {
+   "base": "flag of turkish rear admiral",
+   "members": [
+    "flag-of-turkish-rear-admiral-lower-half",
+    "flag-of-turkish-rear-admiral-upper-half"
+   ],
+   "kept": [
+    "flag-of-turkish-rear-admiral-upper-half"
+   ],
+   "pruned": [
+    "flag-of-turkish-rear-admiral-lower-half"
+   ]
+  },
+  {
+   "base": "flag of uruguay",
+   "members": [
+    "flag-of-uruguay-2020-summer-olympics",
+    "flag-of-uruguay-oribe"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-uruguay-2020-summer-olympics",
+    "flag-of-uruguay-oribe"
+   ]
+  },
+  {
+   "base": "flag of ust-orda buryat autonomous okrug",
+   "members": [
+    "flag-of-ust-orda-buryat-autonomous-okrug",
+    "flag-of-ust-orda-buryat-autonomous-okrug-07-1997"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-ust-orda-buryat-autonomous-okrug",
+    "flag-of-ust-orda-buryat-autonomous-okrug-07-1997"
+   ]
+  },
+  {
+   "base": "flag of uvea",
+   "members": [
+    "flag-of-uvea-1842-1860",
+    "flag-of-uvea-1860"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-uvea-1842-1860",
+    "flag-of-uvea-1860"
+   ]
+  },
+  {
+   "base": "flag of wallis and futuna",
+   "members": [
+    "flag-of-wallis-and-futuna-1887-1910",
+    "flag-of-wallis-and-futuna-1910-1976"
+   ],
+   "kept": [
+    "flag-of-wallis-and-futuna-1887-1910",
+    "flag-of-wallis-and-futuna-1910-1976"
+   ],
+   "pruned": []
+  },
+  {
+   "base": "flag of yamaga",
+   "members": [
+    "flag-of-yamaga-kumamoto",
+    "flag-of-yamaga-kumamoto-1954-2005"
+   ],
+   "kept": [
+    "flag-of-yamaga-kumamoto",
+    "flag-of-yamaga-kumamoto-1954-2005"
+   ],
+   "pruned": []
+  },
+  {
+   "base": "flag of yugoslavia",
+   "members": [
+    "flag-of-yugoslavia-1943-1946",
+    "flag-of-yugoslavia-serbian-cross"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-yugoslavia-1943-1946",
+    "flag-of-yugoslavia-serbian-cross"
+   ]
+  },
+  {
+   "base": "flag of zanzibar",
+   "members": [
+    "flag-of-zanzibar-december-1963-january-1964",
+    "flag-of-zanzibar-january-1964",
+    "flag-of-zanzibar-january-april-1964"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-of-zanzibar-december-1963-january-1964",
+    "flag-of-zanzibar-january-1964",
+    "flag-of-zanzibar-january-april-1964"
+   ]
+  },
+  {
+   "base": "flagge gro\u00dfherzogtum sachsen-weimar-eisenach",
+   "members": [
+    "flagge-gro-herzogtum-sachsen-weimar-eisenach-1813-1897",
+    "flagge-gro-herzogtum-sachsen-weimar-eisenach-1897-1920"
+   ],
+   "kept": [
+    "flagge-gro-herzogtum-sachsen-weimar-eisenach-1897-1920"
+   ],
+   "pruned": [
+    "flagge-gro-herzogtum-sachsen-weimar-eisenach-1813-1897"
+   ]
+  },
+  {
+   "base": "flagge herzogtum braunschweig",
+   "members": [
+    "flagge-herzogtum-braunschweig",
+    "flagge-herzogtum-braunschweig-1814",
+    "flagge-herzogtum-braunschweig-1814-1830"
+   ],
+   "kept": [
+    "flagge-herzogtum-braunschweig"
+   ],
+   "pruned": [
+    "flagge-herzogtum-braunschweig-1814",
+    "flagge-herzogtum-braunschweig-1814-1830"
+   ]
+  },
+  {
+   "base": "flagge herzogtum sachsen-coburg-gotha",
+   "members": [
+    "flagge-herzogtum-sachsen-coburg-gotha-1826-1911",
+    "flagge-herzogtum-sachsen-coburg-gotha-1911-1920"
+   ],
+   "kept": [],
+   "pruned": [
+    "flagge-herzogtum-sachsen-coburg-gotha-1826-1911",
+    "flagge-herzogtum-sachsen-coburg-gotha-1911-1920"
+   ]
+  },
+  {
+   "base": "flagge landkreis waldeck",
+   "members": [
+    "flagge-landkreis-waldeck",
+    "flagge-landkreis-waldeck-2"
+   ],
+   "kept": [],
+   "pruned": [
+    "flagge-landkreis-waldeck",
+    "flagge-landkreis-waldeck-2"
+   ]
+  },
+  {
+   "base": "flagge preu\u00dfen - provinz posen",
+   "members": [
+    "flagge-preu-en-provinz-posen",
+    "flagge-preu-en-provinz-posen-1815"
+   ],
+   "kept": [],
+   "pruned": [
+    "flagge-preu-en-provinz-posen",
+    "flagge-preu-en-provinz-posen-1815"
+   ]
+  },
+  {
+   "base": "flags of the chuvash republic",
+   "members": [
+    "flags-of-the-chuvash-republic-1918-a",
+    "flags-of-the-chuvash-republic-1918-b"
+   ],
+   "kept": [
+    "flags-of-the-chuvash-republic-1918-b"
+   ],
+   "pruned": [
+    "flags-of-the-chuvash-republic-1918-a"
+   ]
+  },
+  {
+   "base": "former war flag of afghanistan",
+   "members": [
+    "former-war-flag-of-afghanistan",
+    "former-war-flag-of-afghanistan-variant"
+   ],
+   "kept": [],
+   "pruned": [
+    "former-war-flag-of-afghanistan",
+    "former-war-flag-of-afghanistan-variant"
+   ]
+  },
+  {
+   "base": "franco-ontarian flag",
+   "members": [
+    "franco-ontarian-flag",
+    "franco-ontarian-flag-variant"
+   ],
+   "kept": [
+    "franco-ontarian-flag"
+   ],
+   "pruned": [
+    "franco-ontarian-flag-variant"
+   ]
+  },
+  {
+   "base": "free territory trieste flag",
+   "members": [
+    "free-territory-trieste-flag",
+    "free-territory-trieste-flag-3-2"
+   ],
+   "kept": [],
+   "pruned": [
+    "free-territory-trieste-flag",
+    "free-territory-trieste-flag-3-2"
+   ]
+  },
+  {
+   "base": "hirden flag",
+   "members": [
+    "hirden-flag",
+    "hirden-flag-black-and-white-variant"
+   ],
+   "kept": [],
+   "pruned": [
+    "hirden-flag",
+    "hirden-flag-black-and-white-variant"
+   ]
+  },
+  {
+   "base": "house flag of irish continental line",
+   "members": [
+    "house-flag-of-irish-continental-line-1973-1978",
+    "house-flag-of-irish-continental-line-1978-1988"
+   ],
+   "kept": [],
+   "pruned": [
+    "house-flag-of-irish-continental-line-1973-1978",
+    "house-flag-of-irish-continental-line-1978-1988"
+   ]
+  },
+  {
+   "base": "house flag of the china merchants group",
+   "members": [
+    "house-flag-of-the-china-merchants-group-1873-1942",
+    "house-flag-of-the-china-merchants-group-1942-1951",
+    "house-flag-of-the-china-merchants-group-1951"
+   ],
+   "kept": [],
+   "pruned": [
+    "house-flag-of-the-china-merchants-group-1873-1942",
+    "house-flag-of-the-china-merchants-group-1942-1951",
+    "house-flag-of-the-china-merchants-group-1951"
+   ]
+  },
+  {
+   "base": "jammu kashmir liberation front flag",
+   "members": [
+    "jammu-kashmir-liberation-front-flag",
+    "jammu-kashmir-liberation-front-flag-version-2"
+   ],
+   "kept": [
+    "jammu-kashmir-liberation-front-flag-version-2"
+   ],
+   "pruned": [
+    "jammu-kashmir-liberation-front-flag"
+   ]
+  },
+  {
+   "base": "long tinh flag",
+   "members": [
+    "long-tinh-flag",
+    "long-tinh-flag-variant"
+   ],
+   "kept": [
+    "long-tinh-flag-variant"
+   ],
+   "pruned": [
+    "long-tinh-flag"
+   ]
+  },
+  {
+   "base": "miguel carrillo bascary s la pampa flag proposal",
+   "members": [
+    "miguel-carrillo-bascary-s-la-pampa-flag-proposal-c-1986-3",
+    "miguel-carrillo-bascary-s-la-pampa-flag-proposal-c-1986-6",
+    "miguel-carrillo-bascary-s-la-pampa-flag-proposal-c-1986-7"
+   ],
+   "kept": [],
+   "pruned": [
+    "miguel-carrillo-bascary-s-la-pampa-flag-proposal-c-1986-3",
+    "miguel-carrillo-bascary-s-la-pampa-flag-proposal-c-1986-6",
+    "miguel-carrillo-bascary-s-la-pampa-flag-proposal-c-1986-7"
+   ]
+  },
+  {
+   "base": "naval ensign of albania",
+   "members": [
+    "naval-ensign-of-albania",
+    "naval-ensign-of-albania-1958-1992"
+   ],
+   "kept": [],
+   "pruned": [
+    "naval-ensign-of-albania",
+    "naval-ensign-of-albania-1958-1992"
+   ]
+  },
+  {
+   "base": "naval ensign of burma",
+   "members": [
+    "naval-ensign-of-burma-1948-1974",
+    "naval-ensign-of-burma-1974-1994"
+   ],
+   "kept": [],
+   "pruned": [
+    "naval-ensign-of-burma-1948-1974",
+    "naval-ensign-of-burma-1974-1994"
+   ]
+  },
+  {
+   "base": "naval ensign of china",
+   "members": [
+    "naval-ensign-of-china",
+    "naval-ensign-of-china-ii"
+   ],
+   "kept": [],
+   "pruned": [
+    "naval-ensign-of-china",
+    "naval-ensign-of-china-ii"
+   ]
+  },
+  {
+   "base": "naval ensign of russia",
+   "members": [
+    "naval-ensign-of-russia-1668-1697",
+    "naval-ensign-of-russia-1992",
+    "naval-ensign-of-russia-black-yellow-white"
+   ],
+   "kept": [],
+   "pruned": [
+    "naval-ensign-of-russia-1668-1697",
+    "naval-ensign-of-russia-1992",
+    "naval-ensign-of-russia-black-yellow-white"
+   ]
+  },
+  {
+   "base": "naval ensign of sweden",
+   "members": [
+    "naval-ensign-of-sweden-1815-1844",
+    "naval-ensign-of-sweden-1844-1905"
+   ],
+   "kept": [
+    "naval-ensign-of-sweden-1815-1844",
+    "naval-ensign-of-sweden-1844-1905"
+   ],
+   "pruned": []
+  },
+  {
+   "base": "naval jack of bulgaria",
+   "members": [
+    "naval-jack-of-bulgaria",
+    "naval-jack-of-bulgaria-1908-1949",
+    "naval-jack-of-bulgaria-1955-1963",
+    "naval-jack-of-bulgaria-1963-1990"
+   ],
+   "kept": [],
+   "pruned": [
+    "naval-jack-of-bulgaria",
+    "naval-jack-of-bulgaria-1908-1949",
+    "naval-jack-of-bulgaria-1955-1963",
+    "naval-jack-of-bulgaria-1963-1990"
+   ]
+  },
+  {
+   "base": "naval jack of italy",
+   "members": [
+    "naval-jack-of-italy-1879-ca-1900",
+    "naval-jack-of-italy-ca-1900-1946"
+   ],
+   "kept": [
+    "naval-jack-of-italy-ca-1900-1946"
+   ],
+   "pruned": [
+    "naval-jack-of-italy-1879-ca-1900"
+   ]
+  },
+  {
+   "base": "naval jack of lithuania",
+   "members": [
+    "naval-jack-of-lithuania-1927-1940",
+    "naval-jack-of-lithuania-1992-2004"
+   ],
+   "kept": [],
+   "pruned": [
+    "naval-jack-of-lithuania-1927-1940",
+    "naval-jack-of-lithuania-1992-2004"
+   ]
+  },
+  {
+   "base": "naval jack of russia",
+   "members": [
+    "naval-jack-of-russia",
+    "naval-jack-of-russia-black-yellow-white"
+   ],
+   "kept": [],
+   "pruned": [
+    "naval-jack-of-russia",
+    "naval-jack-of-russia-black-yellow-white"
+   ]
+  },
+  {
+   "base": "naval jack of the republic of china",
+   "members": [
+    "naval-jack-of-the-republic-of-china-alternate-shade",
+    "naval-jack-of-the-republic-of-china-beiyang-government-1912"
+   ],
+   "kept": [],
+   "pruned": [
+    "naval-jack-of-the-republic-of-china-alternate-shade",
+    "naval-jack-of-the-republic-of-china-beiyang-government-1912"
+   ]
+  },
+  {
+   "base": "naval jack of the united states",
+   "members": [
+    "naval-jack-of-the-united-states",
+    "naval-jack-of-the-united-states-1776-1777",
+    "naval-jack-of-the-united-states-1777-1795",
+    "naval-jack-of-the-united-states-1959-1960"
+   ],
+   "kept": [
+    "naval-jack-of-the-united-states-1959-1960"
+   ],
+   "pruned": [
+    "naval-jack-of-the-united-states",
+    "naval-jack-of-the-united-states-1776-1777",
+    "naval-jack-of-the-united-states-1777-1795"
+   ]
+  },
+  {
+   "base": "naval jack of ukraine",
+   "members": [
+    "naval-jack-of-ukraine-1918-1921",
+    "naval-jack-of-ukraine-1992",
+    "naval-jack-of-ukraine-1993"
+   ],
+   "kept": [
+    "naval-jack-of-ukraine-1992"
+   ],
+   "pruned": [
+    "naval-jack-of-ukraine-1918-1921",
+    "naval-jack-of-ukraine-1993"
+   ]
+  },
+  {
+   "base": "norwegian command flag",
+   "members": [
+    "norwegian-command-flag-1844-1858-admiral",
+    "norwegian-command-flag-1844-1858-commanding-admiral",
+    "norwegian-command-flag-1875-1905-rear-admiral"
+   ],
+   "kept": [
+    "norwegian-command-flag-1844-1858-admiral",
+    "norwegian-command-flag-1844-1858-commanding-admiral"
+   ],
+   "pruned": [
+    "norwegian-command-flag-1875-1905-rear-admiral"
+   ]
+  },
+  {
+   "base": "old flag of the european movement",
+   "members": [
+    "old-flag-of-the-european-movement",
+    "old-flag-of-the-european-movement-red"
+   ],
+   "kept": [],
+   "pruned": [
+    "old-flag-of-the-european-movement",
+    "old-flag-of-the-european-movement-red"
+   ]
+  },
+  {
+   "base": "pace flag",
+   "members": [
+    "pace-flag-peace-sign",
+    "pace-flag-without-text"
+   ],
+   "kept": [
+    "pace-flag-peace-sign",
+    "pace-flag-without-text"
+   ],
+   "pruned": []
+  },
+  {
+   "base": "pavillon de la r\u00e9gence d alger",
+   "members": [
+    "pavillon-de-la-r-gence-d-alger-xviie-xviiie-si-cles-a3",
+    "pavillon-de-la-r-gence-d-alger-xviie-xviiie-si-cles-a4",
+    "pavillon-de-la-r-gence-d-alger-xviie-xviiie-si-cles-a5",
+    "pavillon-de-la-r-gence-d-alger-xviie-xviiie-si-cles-a6",
+    "pavillon-de-la-r-gence-d-alger-xviie-xviiie-si-cles-a8"
+   ],
+   "kept": [],
+   "pruned": [
+    "pavillon-de-la-r-gence-d-alger-xviie-xviiie-si-cles-a3",
+    "pavillon-de-la-r-gence-d-alger-xviie-xviiie-si-cles-a4",
+    "pavillon-de-la-r-gence-d-alger-xviie-xviiie-si-cles-a5",
+    "pavillon-de-la-r-gence-d-alger-xviie-xviiie-si-cles-a6",
+    "pavillon-de-la-r-gence-d-alger-xviie-xviiie-si-cles-a8"
+   ]
+  },
+  {
+   "base": "pirate flag of henry every",
+   "members": [
+    "pirate-flag-of-henry-every",
+    "pirate-flag-of-henry-every-red-version"
+   ],
+   "kept": [],
+   "pruned": [
+    "pirate-flag-of-henry-every",
+    "pirate-flag-of-henry-every-red-version"
+   ]
+  },
+  {
+   "base": "pirate flag of stede bonnet",
+   "members": [
+    "pirate-flag-of-stede-bonnet",
+    "pirate-flag-of-stede-bonnet-alternate"
+   ],
+   "kept": [],
+   "pruned": [
+    "pirate-flag-of-stede-bonnet",
+    "pirate-flag-of-stede-bonnet-alternate"
+   ]
+  },
+  {
+   "base": "postal flag of japanese taiwan",
+   "members": [
+    "postal-flag-of-japanese-taiwan-1898-1916",
+    "postal-flag-of-japanese-taiwan-1916-1945"
+   ],
+   "kept": [
+    "postal-flag-of-japanese-taiwan-1916-1945"
+   ],
+   "pruned": [
+    "postal-flag-of-japanese-taiwan-1898-1916"
+   ]
+  },
+  {
+   "base": "presidential standard of pakistan",
+   "members": [
+    "presidential-standard-of-pakistan-1956-1967",
+    "presidential-standard-of-pakistan-1974-1998"
+   ],
+   "kept": [
+    "presidential-standard-of-pakistan-1974-1998"
+   ],
+   "pruned": [
+    "presidential-standard-of-pakistan-1956-1967"
+   ]
+  },
+  {
+   "base": "proposed flag of formosa",
+   "members": [
+    "proposed-flag-of-formosa-fourth-distinction-1991",
+    "proposed-flag-of-formosa-third-distinction-1991"
+   ],
+   "kept": [],
+   "pruned": [
+    "proposed-flag-of-formosa-fourth-distinction-1991",
+    "proposed-flag-of-formosa-third-distinction-1991"
+   ]
+  },
+  {
+   "base": "proposed flag of iraq",
+   "members": [
+    "proposed-flag-of-iraq-coalition-provisional-authority-2004",
+    "proposed-flag-of-iraq-first-proposal-2008",
+    "proposed-flag-of-iraq-second-proposal-2008"
+   ],
+   "kept": [],
+   "pruned": [
+    "proposed-flag-of-iraq-coalition-provisional-authority-2004",
+    "proposed-flag-of-iraq-first-proposal-2008",
+    "proposed-flag-of-iraq-second-proposal-2008"
+   ]
+  },
+  {
+   "base": "proposed flag of the alash autonomy",
+   "members": [
+    "proposed-flag-of-the-alash-autonomy-horizontal",
+    "proposed-flag-of-the-alash-autonomy-vertical"
+   ],
+   "kept": [],
+   "pruned": [
+    "proposed-flag-of-the-alash-autonomy-horizontal",
+    "proposed-flag-of-the-alash-autonomy-vertical"
+   ]
+  },
+  {
+   "base": "proposed flag of the armenian ssr",
+   "members": [
+    "proposed-flag-of-the-armenian-ssr-second-half-1940s-1",
+    "proposed-flag-of-the-armenian-ssr-second-half-1940s-2",
+    "proposed-flag-of-the-armenian-ssr-second-half-1940s-3",
+    "proposed-flag-of-the-armenian-ssr-second-half-1940s-4",
+    "proposed-flag-of-the-armenian-ssr-second-half-1940s-5",
+    "proposed-flag-of-the-armenian-ssr-second-half-1940s-6",
+    "proposed-flag-of-the-armenian-ssr-second-half-1940s-7"
+   ],
+   "kept": [
+    "proposed-flag-of-the-armenian-ssr-second-half-1940s-1",
+    "proposed-flag-of-the-armenian-ssr-second-half-1940s-2",
+    "proposed-flag-of-the-armenian-ssr-second-half-1940s-5",
+    "proposed-flag-of-the-armenian-ssr-second-half-1940s-6"
+   ],
+   "pruned": [
+    "proposed-flag-of-the-armenian-ssr-second-half-1940s-3",
+    "proposed-flag-of-the-armenian-ssr-second-half-1940s-4",
+    "proposed-flag-of-the-armenian-ssr-second-half-1940s-7"
+   ]
+  },
+  {
+   "base": "proposed union jack",
+   "members": [
+    "proposed-union-jack-1604-design-3",
+    "proposed-union-jack-1604-design-5",
+    "proposed-union-jack-scottish-blue-fimbriation-of-white",
+    "proposed-union-jack-scottish-blue-on-red-before-1617"
+   ],
+   "kept": [],
+   "pruned": [
+    "proposed-union-jack-1604-design-3",
+    "proposed-union-jack-1604-design-5",
+    "proposed-union-jack-scottish-blue-fimbriation-of-white",
+    "proposed-union-jack-scottish-blue-on-red-before-1617"
+   ]
+  },
+  {
+   "base": "reconstrucci\u00f3n comunista rc flag",
+   "members": [
+    "reconstrucci-n-comunista-rc-flag",
+    "reconstrucci-n-comunista-rc-flag-rc-alternative"
+   ],
+   "kept": [],
+   "pruned": [
+    "reconstrucci-n-comunista-rc-flag",
+    "reconstrucci-n-comunista-rc-flag-rc-alternative"
+   ]
+  },
+  {
+   "base": "red ensign of great britain",
+   "members": [
+    "red-ensign-of-great-britain-1707-1800",
+    "red-ensign-of-great-britain-1707-1800-square-canton"
+   ],
+   "kept": [],
+   "pruned": [
+    "red-ensign-of-great-britain-1707-1800",
+    "red-ensign-of-great-britain-1707-1800-square-canton"
+   ]
+  },
+  {
+   "base": "royal standard of uvea",
+   "members": [
+    "royal-standard-of-uvea-1837-1858",
+    "royal-standard-of-uvea-1858-1887"
+   ],
+   "kept": [],
+   "pruned": [
+    "royal-standard-of-uvea-1837-1858",
+    "royal-standard-of-uvea-1858-1887"
+   ]
+  },
+  {
+   "base": "russia",
+   "members": [
+    "russia-flag-commander-1992-genstaff",
+    "russia-flag-commander-1992-staff",
+    "russia-flag-of-border-guard-district-commanders-1993",
+    "russia-flag-of-fleet-commanders-1992",
+    "russia-flag-of-the-customs-1994",
+    "russia-fortress-flag-black-yellow-white",
+    "russia-guards-naval-flag-1992",
+    "russia-jack-of-1-st-and-2-nd-rank-ships-of-the-border-guard-force-1993",
+    "russia-naval-flag-of-ships-and-vessels-of-the-interior-force-1992"
+   ],
+   "kept": [
+    "russia-flag-commander-1992-staff"
+   ],
+   "pruned": [
+    "russia-flag-commander-1992-genstaff",
+    "russia-flag-of-border-guard-district-commanders-1993",
+    "russia-flag-of-fleet-commanders-1992",
+    "russia-flag-of-the-customs-1994",
+    "russia-fortress-flag-black-yellow-white",
+    "russia-guards-naval-flag-1992",
+    "russia-jack-of-1-st-and-2-nd-rank-ships-of-the-border-guard-force-1993",
+    "russia-naval-flag-of-ships-and-vessels-of-the-interior-force-1992"
+   ]
+  },
+  {
+   "base": "standard of commander",
+   "members": [
+    "standard-of-commander-a-jmsdf",
+    "standard-of-commander-b-jmsdf"
+   ],
+   "kept": [
+    "standard-of-commander-b-jmsdf"
+   ],
+   "pruned": [
+    "standard-of-commander-a-jmsdf"
+   ]
+  },
+  {
+   "base": "standard of the toqui",
+   "members": [
+    "standard-of-the-toqui",
+    "standard-of-the-toqui-variant"
+   ],
+   "kept": [
+    "standard-of-the-toqui-variant"
+   ],
+   "pruned": [
+    "standard-of-the-toqui"
+   ]
+  },
+  {
+   "base": "texas secession flag",
+   "members": [
+    "texas-secession-flag-variant-1",
+    "texas-secession-flag-variant-2"
+   ],
+   "kept": [],
+   "pruned": [
+    "texas-secession-flag-variant-1",
+    "texas-secession-flag-variant-2"
+   ]
+  },
+  {
+   "base": "united states",
+   "members": [
+    "united-states-civil-flag-13-stars",
+    "united-states-civil-flag-used-by-sovereign-citizens"
+   ],
+   "kept": [
+    "united-states-civil-flag-used-by-sovereign-citizens"
+   ],
+   "pruned": [
+    "united-states-civil-flag-13-stars"
+   ]
+  },
+  {
+   "base": "vinland flag",
+   "members": [
+    "vinland-flag",
+    "vinland-flag-11-8"
+   ],
+   "kept": [
+    "vinland-flag-11-8"
+   ],
+   "pruned": [
+    "vinland-flag"
+   ]
+  },
+  {
+   "base": "war flag of afghanistan",
+   "members": [
+    "war-flag-of-afghanistan-1878-1880-variant",
+    "war-flag-of-afghanistan-1879"
+   ],
+   "kept": [],
+   "pruned": [
+    "war-flag-of-afghanistan-1878-1880-variant",
+    "war-flag-of-afghanistan-1879"
+   ]
+  },
+  {
+   "base": "ya hussain flag",
+   "members": [
+    "ya-hussain-flag",
+    "ya-hussain-flag-green",
+    "ya-hussain-flag-red"
+   ],
+   "kept": [
+    "ya-hussain-flag",
+    "ya-hussain-flag-green"
+   ],
+   "pruned": [
+    "ya-hussain-flag-red"
+   ]
+  },
+  {
+   "base": "zastava pule",
+   "members": [
+    "zastava-pule",
+    "zastava-pule-konstrukcija"
+   ],
+   "kept": [
+    "zastava-pule-konstrukcija"
+   ],
+   "pruned": [
+    "zastava-pule"
+   ]
+  },
+  {
+   "base": "\u0440\u0435\u0439\u0442\u0430\u0440\u0441\u043a\u043e\u0435 \u0437\u043d\u0430\u043c\u044f \u0440\u043e\u0442\u044b \u0431\u0435\u043b\u0433\u043e\u0440\u043e\u0434\u0441\u043a\u043e\u0433\u043e \u0440\u0430\u0437\u0440\u044f\u0434\u0430",
+   "members": [
+    "1665",
+    "1665-2",
+    "1665-3"
+   ],
+   "kept": [
+    "1665-3"
+   ],
+   "pruned": [
+    "1665",
+    "1665-2"
+   ]
+  },
+  {
+   "base": "\u09ac",
+   "members": [
+    "flag-79",
+    "flag-80",
+    "flag-81",
+    "flag-89"
+   ],
+   "kept": [],
+   "pruned": [
+    "flag-79",
+    "flag-80",
+    "flag-81",
+    "flag-89"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   width="750"
+   height="600"
+   id="svg2"
+   version="1.1">
+  <defs
+     id="defs20" />
+  <path
+     id="use3357"
+     d="m 0,0 750,0 0,600 -750,0 z"
+     style="fill:#c50b1e" />
+  <path
+     id="use3359"
+     d="M 750,600 750,0 375,300 0,0 0,600 375,300 Z"
+     style="fill:#002868" />
+  <path
+     id="use3561"
+     d="m 64.155251,411.71963 -6.392832,9.6747 -12.216482,-13.32828 10.193491,-5.5281 70.105342,-64.25761 6.39283,-9.67468 12.2165,13.32826 -10.1935,5.52811 z"
+     style="fill:#facc07;stroke:#002868;stroke-width:0.68127728px" />
+  <use
+     x="0"
+     y="0"
+     xlink:href="#use3561"
+     id="use3566"
+     transform="matrix(1,0,0,-1,-2.4086789e-5,749.99998)"
+     width="100%"
+     height="100%" />
+  <path
+     style="fill:#c50b1e"
+     d="m 0,0 375,0 0,300 -375,0 z"
+     id="path4" />
+  <path
+     style="stroke:#ffffff;stroke-width:67.08203888"
+     d="m 187.5,0 0,300"
+     id="path10" />
+  <path
+     style="stroke:#002868;stroke-width:33.54101944"
+     d="m 187.5,0 0,300"
+     id="path12" />
+  <path
+     style="fill:#002868"
+     d="m 0,0 150,120 0,60 L 0,300 Z m 375,0 -150,120 0,60 150,120 z"
+     id="path14" />
+  <path
+     style="fill:#facc07"
+     d="m 0,120 150,0 75,60 150,0 0,-60 -150,0 -75,60 -150,0 z"
+     id="path16" />
+  <metadata
+     id="metadata3413">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+</svg>

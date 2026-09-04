@@ -1,4 +1,10 @@
 import { Cell, TerrainType } from "./Game";
+import {
+  decodeLayers,
+  LAYER_NAMES,
+  LayerName,
+  layerPlaneOffset,
+} from "./MapLayers";
 
 export type TileRef = number;
 
@@ -99,6 +105,14 @@ export interface GameMap {
   tileStateBuffer(): Uint16Array;
 
   numTilesWithFallout(): number;
+
+  /**
+   * Baked per-tile data layer value (0..255) from the layers.bin sidecar.
+   * Every playable map carries layers (the loader enforces it); only the
+   * pathfinding minimap is constructed without them, and it must never be
+   * asked for layer data.
+   */
+  layer(name: LayerName, ref: TileRef): number;
 }
 
 export class GameMapImpl implements GameMap {
@@ -110,6 +124,11 @@ export class GameMapImpl implements GameMap {
   private readonly height_: number;
 
   // Lookup tables (LUTs) contain pre-computed values to avoid performing division at runtime
+  /** Base index of each layers.bin plane, precomputed. `layer()` used to call
+   *  `layerPlaneOffset` on every read — a Map lookup by layer name plus two
+   *  multiplies, on a call the economy makes millions of times per tick (3.8%
+   *  of sim time, measured). The offsets are fixed for the life of the map. */
+  private readonly layerOffset_: Record<LayerName, number> | null;
   private readonly refToX: number[];
   private readonly refToY: number[];
   private readonly yToRef: number[];
@@ -131,16 +150,52 @@ export class GameMapImpl implements GameMap {
   private static readonly DEFENSE_BONUS_BIT = 14;
   // Bit 15 still reserved
 
+  // layers.bin sidecar planes (see MapLayers.ts), or null when the map has none.
+  private readonly layers_: Uint8Array | null;
+
   constructor(
     width: number,
     height: number,
     terrainData: Uint8Array,
     private numLandTiles_: number,
+    layersData: Uint8Array | null = null,
   ) {
     if (terrainData.length !== width * height) {
       throw new Error(
         `Terrain data length ${terrainData.length} doesn't match dimensions ${width}x${height}`,
       );
+    }
+    this.layers_ =
+      layersData === null ? null : decodeLayers(layersData, width, height);
+    // Built as an OBJECT LITERAL with every key written out, not filled in a
+    // loop with computed keys: the latter lands the object in dictionary mode,
+    // making `offsets[name]` a hash lookup — which is the very thing this is
+    // meant to remove. A literal gives a fixed hidden class and an inline-cached
+    // property read. (Measured: the loop version was ~8% SLOWER overall than the
+    // Map it replaced.)
+    const plane = width * height;
+    this.layerOffset_ =
+      this.layers_ === null
+        ? null
+        : {
+            crop: 0 * plane,
+            metal: 1 * plane,
+            oil: 2 * plane,
+            temperature: 3 * plane,
+            humidity: 4 * plane,
+            water: 5 * plane,
+          };
+    // The literal above hardcodes the plane order, so assert it still agrees
+    // with LAYER_NAMES — once per map, not per read. Without this, reordering
+    // MapLayers would silently read the wrong plane.
+    if (this.layerOffset_ !== null) {
+      for (const name of LAYER_NAMES) {
+        if (this.layerOffset_[name] !== layerPlaneOffset(name, width, height)) {
+          throw new Error(
+            `layer offset table is stale for "${name}" — it must match LAYER_NAMES order`,
+          );
+        }
+      }
     }
     this.width_ = width;
     this.height_ = height;
@@ -162,6 +217,15 @@ export class GameMapImpl implements GameMap {
   }
   numTilesWithFallout(): number {
     return this._numTilesWithFallout;
+  }
+
+  layer(name: LayerName, ref: TileRef): number {
+    if (this.layers_ === null) {
+      throw new Error(
+        `layer("${name}") read on a map without layers — only the pathfinding minimap is unlayered`,
+      );
+    }
+    return this.layers_[this.layerOffset_![name] + ref];
   }
 
   ref(x: number, y: number): TileRef {

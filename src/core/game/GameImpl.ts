@@ -1,7 +1,6 @@
-import { renderNumber } from "../../client/Utils";
-import { UnitView } from "../../client/view";
 import { Config } from "../configuration/Config";
 import { SharedWaterCache } from "../execution/nation/SharedWaterCache";
+import { renderNumber } from "../formatting/NumberFormat";
 import { AbstractGraph } from "../pathfinding/algorithms/AbstractGraph";
 import { PathFinder } from "../pathfinding/types";
 import { AllPlayersStats, ClientID, Winner } from "../Schemas";
@@ -21,6 +20,7 @@ import {
   GameMode,
   GameUpdates,
   HumansVsNations,
+  LandUse,
   MessageType,
   MutableAlliance,
   Nation,
@@ -34,6 +34,7 @@ import {
   TeamGameSpawnAreas,
   TerrainType,
   TerraNullius,
+  TribalStructures,
   Trios,
   Unit,
   UnitInfo,
@@ -41,6 +42,7 @@ import {
 } from "./Game";
 import { GameMap, TileRef } from "./GameMap";
 import { GameUpdate, GameUpdateType } from "./GameUpdates";
+import { LayerName } from "./MapLayers";
 import { MotionPlanRecord, packMotionPlans } from "./MotionPlans";
 import { PlayerImpl } from "./PlayerImpl";
 import { RailNetwork } from "./RailNetwork";
@@ -95,6 +97,23 @@ export class GameImpl implements Game {
 
   private updates: GameUpdates = createGameUpdatesMap();
   private tileUpdatePairs: number[] = [];
+  // Urban density deltas (add-urban-core-growth): packed `tile | (byte<<24)`,
+  // byte = round(density/1000·255). Drained to packedDensityUpdates each tick.
+  private densityUpdatePairs: number[] = [];
+  // Tile combat-damage deltas (rework-settlement-ecology): same packing,
+  // byte = round(damage/1000·255). Drained to packedDamageUpdates each tick.
+  private damageUpdatePairs: number[] = [];
+  // Field maturity deltas (rework-settlement-ecology §1b): same packing,
+  // byte = round(maturity/1000·255), pushed by PlayerImpl.setFarmMaturity
+  // only when the BYTE changes (ripening moves ~1 byte/tick — the same
+  // upload-flood guard as damage). Drained to packedFieldUpdates each tick.
+  public fieldUpdatePairs: number[] = [];
+  // Burn events (rework-persistent-tiles-and-burn): raw TileRefs of tiles set
+  // ablaze this tick (every tile taken in combat), pushed by addTileDamage.
+  // Each becomes a one-shot fire in the renderers — replacing the old
+  // dead-unit-only trigger so a whole captured district burns, not just a
+  // razed nucleus. Drained to packedBurns each tick.
+  private burnUpdates: number[] = [];
   /** [smallID, tilesOwned, gold, troops] quads — see PlayerImpl.toUpdate. */
   private playerStatsQuads: number[] = [];
   /** [smallID, direction, index, troops] quads — see packAttackTroopDeltas. */
@@ -103,6 +122,8 @@ export class GameImpl implements Game {
   private planDrivenUnitIds = new Set<number>();
   private unitGrid: UnitGrid;
   private _unitMap = new Map<number, Unit>();
+  /** Tribal plot occupancy: one structure per tile. */
+  private _plotOccupancy = new Map<TileRef, Unit>();
 
   private playerTeams: Team[] = [];
   private botTeam: Team = ColoredTeams.Bot;
@@ -473,6 +494,8 @@ export class GameImpl implements Game {
     for (const tile of waterChangedTiles) {
       this.recordTileUpdate(tile);
     }
+    this.healTileDamage();
+    this.decayTileTenure();
     this._ticks++;
     return this.updates;
   }
@@ -492,6 +515,35 @@ export class GameImpl implements Game {
     for (let i = 0; i < pairs.length; i++) {
       packed[i] = pairs[i];
     }
+    pairs.length = 0;
+    return packed;
+  }
+
+  /** Record a per-tile urban-density change for the renderer (byte 0..255). */
+  recordDensityUpdate(tile: TileRef, byte: number): void {
+    this.densityUpdatePairs.push(tile | (byte << 24));
+  }
+
+  drainPackedDensityUpdates(): Uint32Array | null {
+    const pairs = this.densityUpdatePairs;
+    if (pairs.length === 0) return null;
+    const packed = new Uint32Array(pairs);
+    pairs.length = 0;
+    return packed;
+  }
+
+  drainPackedDamageUpdates(): Uint32Array | null {
+    const pairs = this.damageUpdatePairs;
+    if (pairs.length === 0) return null;
+    const packed = new Uint32Array(pairs);
+    pairs.length = 0;
+    return packed;
+  }
+
+  drainPackedFieldUpdates(): Uint32Array | null {
+    const pairs = this.fieldUpdatePairs;
+    if (pairs.length === 0) return null;
+    const packed = new Uint32Array(pairs);
     pairs.length = 0;
     return packed;
   }
@@ -610,11 +662,15 @@ export class GameImpl implements Game {
   }
 
   addPlayer(playerInfo: PlayerInfo, team: Team | null = null): Player {
+    // Every player type starts at the population the ghost infrastructure
+    // feeds (no human/nation/bot asymmetry — idling at spawn must not
+    // starve).
+    const startTroops = this.config().food().startPopulation;
     const player = new PlayerImpl(
       this,
       this.nextPlayerID,
       playerInfo,
-      this.config().startManpower(playerInfo),
+      startTroops,
       team ?? this.maybeAssignTeam(playerInfo),
     );
     this._playersBySmallID.push(player);
@@ -690,6 +746,121 @@ export class GameImpl implements Game {
     this._map.forEachNeighborWithDiag(tile, callback);
   }
 
+  // Tile combat damage (rework-settlement-ecology): sparse — only tiles that
+  // have seen combat are tracked; healed tiles are dropped. Map iteration is
+  // insertion-ordered and inserts are deterministic, so healing is too.
+  private _tileDamage = new Map<TileRef, number>();
+
+  tileDamage(tile: TileRef): number {
+    return this._tileDamage.get(tile) ?? 0;
+  }
+
+  addTileDamage(tile: TileRef, milli: number): void {
+    if (milli <= 0) return;
+    const next = Math.min(1000, this.tileDamage(tile) + milli);
+    this._tileDamage.set(tile, next);
+    this.damageUpdatePairs.push(tile | (Math.round((next * 255) / 1000) << 24));
+    // Combat damage IS the burn (rework-persistent-tiles-and-burn): every
+    // conquered tile lights a one-shot fire in the renderers. Re-igniting an
+    // already-damaged tile (re-conquest) burns again — that's intended.
+    this.burnUpdates.push(tile);
+  }
+
+  drainPackedBurns(): Uint32Array | null {
+    const burns = this.burnUpdates;
+    if (burns.length === 0) return null;
+    const packed = new Uint32Array(burns);
+    burns.length = 0;
+    return packed;
+  }
+
+  tileDamageEntries(): IterableIterator<[TileRef, number]> {
+    return this._tileDamage.entries();
+  }
+
+  /** Heal every damaged tile by the per-tick rate; fully healed tiles drop
+   *  out of the sparse map (and only then can tenure/growth resume). */
+  private healTileDamage(): void {
+    if (this._tileDamage.size === 0) return;
+    const heal = this.config().food().tileDamageHealMilli;
+    if (heal <= 0) return;
+    const healed: TileRef[] = [];
+    for (const [tile, dmg] of this._tileDamage) {
+      const next = dmg - heal;
+      if (next <= 0) {
+        healed.push(tile);
+      } else {
+        this._tileDamage.set(tile, next);
+        // Emit a render delta only when the QUANTIZED byte steps (8-wide
+        // bands): healing moves ~1 byte/tick, and re-uploading every damaged
+        // tile every tick floods the render channel (measured 1.8k one-pixel
+        // GPU uploads/tick — the 3fps bug). An 8-step fade is invisible.
+        const prevQ = Math.round((dmg * 255) / 1000) & ~7;
+        const nextQ = Math.round((next * 255) / 1000) & ~7;
+        if (nextQ !== prevQ) {
+          this.damageUpdatePairs.push(tile | (nextQ << 24));
+        }
+      }
+    }
+    for (const tile of healed) {
+      this._tileDamage.delete(tile);
+      this.damageUpdatePairs.push(tile); // byte 0 — fully healed, tint gone
+    }
+  }
+
+  // Tile stability (rework-settlement-ecology): sparse demand-gated tenure.
+  // Accrual happens per player in TileTenure.tenureTick; this holds the
+  // ledger, the vacancy decay, and the ownership-flip hard reset.
+  private _tileTenure = new Map<TileRef, number>();
+
+  tileTenure(tile: TileRef): number {
+    return this._tileTenure.get(tile) ?? 0;
+  }
+
+  setTileTenure(tile: TileRef, milli: number): void {
+    if (milli <= 0) {
+      this._tileTenure.delete(tile);
+    } else {
+      this._tileTenure.set(tile, milli);
+    }
+  }
+
+  tileTenureEntries(): IterableIterator<[TileRef, number]> {
+    return this._tileTenure.entries();
+  }
+
+  /**
+   * Vacancy decay, run on the supply cadence: a tenured tile that is no
+   * longer occupied (no urban density, no Farmland) loses tenure slowly —
+   * depopulation is a setback, not a crater. Combat damage pauses the clock
+   * entirely (no accrual, no decay).
+   */
+  private decayTileTenure(): void {
+    if (this._tileTenure.size === 0) return;
+    const f = this.config().food();
+    const period = Math.max(1, f.supplyRefreshTicks);
+    if (this._ticks % period !== 0) return;
+    const decay = f.tenureDecayMilli * period;
+    if (decay <= 0) return;
+    const dead: TileRef[] = [];
+    for (const [tile, v] of this._tileTenure) {
+      if (this.tileDamage(tile) > 0) continue; // battlefield: clock paused
+      const owner = this.owner(tile);
+      const occupied =
+        owner.isPlayer() &&
+        ((owner as PlayerImpl).density(tile) > 0 ||
+          this.plotAt(tile)?.type() === UnitType.Farmland);
+      if (occupied) continue;
+      const next = v - decay;
+      if (next <= 0) {
+        dead.push(tile);
+      } else {
+        this._tileTenure.set(tile, next);
+      }
+    }
+    for (const t of dead) this._tileTenure.delete(t);
+  }
+
   conquer(owner: PlayerImpl, tile: TileRef): void {
     if (!this.isLand(tile)) {
       throw Error(`cannot conquer water`);
@@ -698,16 +869,46 @@ export class GameImpl implements Game {
       throw Error(`cannot conquer impassable terrain`);
     }
     const previousOwner = this.owner(tile) as TerraNullius | PlayerImpl;
+    // Fertility accounting mirrors _tiles: incremental on transfer, never a
+    // full-map scan.
+    const crop = this._map.layer("crop", tile);
+    // Persistent tiles + burn-on-conquest (rework-persistent-tiles-and-burn):
+    // the tile KEEPS its land-use type for the captor instead of scorching to
+    // raw. Capture the prior zone, reset the fill to initial (the captor
+    // inherits an initial farmland / empty lot that regrows), and burn it.
+    let priorZone: LandUse | undefined;
     if (previousOwner.isPlayer()) {
+      priorZone = previousOwner._landUse.get(tile);
       previousOwner._lastTileChange = this._ticks;
       previousOwner._tiles.delete(tile);
       previousOwner._borderTiles.delete(tile);
+      previousOwner._fertilitySum -= crop;
+      // Strip the prior owner's fill + zone (setDensity(0) with the zone still
+      // set emits the empty-lot render byte, which is correct — the tile is now
+      // the captor's empty lot until it regrows a house).
+      previousOwner.setDensity(tile, 0);
+      previousOwner.setFarmMaturity(tile, 0);
+      previousOwner._landUse.delete(tile);
     }
+    // Stability hard-resets on an ownership flip (rework-settlement-ecology):
+    // conquest yields tenure-zero land the captor must re-stabilize.
+    this._tileTenure.delete(tile);
     this._map.setOwnerID(tile, owner.smallID());
     owner._tiles.add(tile);
+    owner._fertilitySum += crop;
     owner._lastTileChange = this._ticks;
     this.updateBorders(tile);
     this._map.setFallout(tile, false);
+    // Transfer the zone to the captor and seed the initial fill so the tile
+    // regrows as their own once the burn heals. Wilderness (no prior zone)
+    // stays raw. The burn itself is the combat damage applied by the attack.
+    if (priorZone === LandUse.Field) {
+      owner._landUse.set(tile, LandUse.Field);
+      owner.setFarmMaturity(tile, this.config().food().farmSeedMilli);
+    } else if (priorZone === LandUse.Urban) {
+      owner._landUse.set(tile, LandUse.Urban);
+      // Density stays 0; the empty-lot render byte was already emitted above.
+    }
     this.recordTileUpdate(tile);
   }
 
@@ -723,6 +924,17 @@ export class GameImpl implements Game {
     previousOwner._lastTileChange = this._ticks;
     previousOwner._tiles.delete(tile);
     previousOwner._borderTiles.delete(tile);
+    previousOwner._fertilitySum -= this._map.layer("crop", tile);
+    // Relinquished ground reverts to raw WILD, not to a persistent lot: drop
+    // the zone FIRST so setDensity(0) sees no Urban zone, then force-clear the
+    // density render byte (an empty-lot tile is already at density 0, so
+    // setDensity would early-return and leave the empty-lot wash behind).
+    const wasUrban = previousOwner._landUse.get(tile) === LandUse.Urban;
+    previousOwner._landUse.delete(tile);
+    previousOwner.setDensity(tile, 0);
+    previousOwner.setFarmMaturity(tile, 0);
+    if (wasUrban) this.recordDensityUpdate(tile, 0);
+    this._tileTenure.delete(tile);
 
     this._map.setOwnerID(tile, 0);
     this.updateBorders(tile);
@@ -986,14 +1198,40 @@ export class GameImpl implements Game {
   addUnit(u: Unit) {
     this.unitGrid.addUnit(u);
     this._unitMap.set(u.id(), u);
+    if (TribalStructures.has(u.type())) {
+      for (const t of this.plotTiles(u.tile())) {
+        this._plotOccupancy.set(t, u);
+      }
+    }
   }
   removeUnit(u: Unit) {
     this.unitGrid.removeUnit(u);
     this._unitMap.delete(u.id());
     this.planDrivenUnitIds.delete(u.id());
+    if (TribalStructures.has(u.type())) {
+      for (const t of this.plotTiles(u.tile())) {
+        if (this._plotOccupancy.get(t) === u) {
+          this._plotOccupancy.delete(t);
+        }
+      }
+    }
     if (u.hasTrainStation()) {
       this._railNetwork.removeStation(u);
     }
+  }
+
+  /**
+   * The footprint of a tribal plot: a single tile. (The 2×2 look is the
+   * SPRITE inside the tile, not the footprint — see add-tile-painted-
+   * structures revision.) Kept as an array for call-site symmetry.
+   */
+  plotTiles(anchor: TileRef): TileRef[] {
+    return [anchor];
+  }
+
+  /** The tribal plot (if any) covering this tile. */
+  plotAt(tile: TileRef): Unit | undefined {
+    return this._plotOccupancy.get(tile);
   }
   updateUnitTile(u: Unit) {
     this.unitGrid.updateUnitCell(u);
@@ -1027,7 +1265,7 @@ export class GameImpl implements Game {
       tile,
       searchRange,
       types,
-      predicate as (unit: Unit | UnitView) => boolean,
+      predicate,
       playerId,
       includeUnderConstruction,
     );
@@ -1182,6 +1420,9 @@ export class GameImpl implements Game {
   }
   numTilesWithFallout(): number {
     return this._map.numTilesWithFallout();
+  }
+  layer(name: LayerName, ref: TileRef): number {
+    return this._map.layer(name, ref);
   }
   stats(): Stats {
     return this._stats;

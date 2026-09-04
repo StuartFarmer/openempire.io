@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<svg width="900" height="600" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg">
+ <g class="layer">
+  <title>Layer 1</title>
+  <path d="m0,0l900,0l0,600l-900,0l0,-600z" id="svg_1"/>
+  <path d="m0,0l900,0l0,206.25l-900,0l0,-206.25z" fill="#fff" id="svg_2"/>
+  <path d="m0,0l900,0l0,187.5l-900,0l0,-187.5z" fill="#007168" id="svg_3"/>
+  <path d="m0,393.5l900,0l0,206.5l-900,0l0,-206.5z" fill="#fff" id="svg_4"/>
+  <path d="m0,412.5l900,0l0,187.5l-900,0l0,-187.5z" fill="#fce100" id="svg_5"/>
+  <path d="m0,0l0,600l393.75,-300l-393.75,-300z" fill="#d21034" id="svg_6"/>
+  <path d="m204.37,412.49l-73.15,-53.56l-73.06,53.57l28.33,-86.12l-73.53,-52.93l90.67,0.33l27.61,-86.28l27.7,86.33l90.59,-0.4l-73.54,53.02l28.38,86.04z" fill="#fce100" id="svg_7"/>
+ </g>
+</svg>

@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="900"
+   height="600"
+   id="svg3813"
+   version="1.1"
+   inkscape:version="0.48.4 r9939"
+   sodipodi:docname="Flag of Kalibapi.svg">
+  <defs
+     id="defs3815" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.35"
+     inkscape:cx="450"
+     inkscape:cy="300"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0"
+     inkscape:window-width="463"
+     inkscape:window-height="423"
+     inkscape:window-x="130"
+     inkscape:window-y="130"
+     inkscape:window-maximized="0" />
+  <metadata
+     id="metadata3818">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(75,-232.36218)">
+    <rect
+       height="600"
+       width="900"
+       id="rect4"
+       style="fill:#bc002d;fill-opacity:1"
+       x="-75"
+       y="232.36218" />
+    <g
+       id="g3795"
+       transform="translate(-75,236.36218)">
+      <circle
+         transform="matrix(0.78146853,0,0,0.78146853,98.339161,61.559441)"
+         style="fill:#ffffff"
+         sodipodi:ry="180"
+         sodipodi:rx="180"
+         sodipodi:cy="300"
+         sodipodi:cx="450"
+         id="circle6"
+         r="180"
+         cy="300"
+         cx="450"
+         d="m 630,300 c 0,99.41125 -80.58875,180 -180,180 -99.41125,0 -180,-80.58875 -180,-180 0,-99.41125 80.58875,-180 180,-180 99.41125,0 180,80.58875 180,180 z" />
+      <path
+         inkscape:connector-curvature="0"
+         id="path3790"
+         d="m 425.51562,201.125 -24.46875,10.03125 1.6875,166.875 22.78125,5.5625 0,-91.5 9.46875,-6.40625 35.0625,107.9375 6.65625,1.09375 22.25,-17.78125 -47.84375,-116.28125 46.75,-42.28125 -7.25,-10.5625 -6.125,-0.5625 c 0,0 -37.60081,32.3803 -58.96875,51.28125 l 0,-57.40625 z"
+         style="fill:#c3001a;fill-opacity:1;stroke:none" />
+    </g>
+  </g>
+</svg>

@@ -10,8 +10,6 @@ import {
   validateClanTag,
   validateUsername,
 } from "../core/validations/username";
-import { checkClanTagOwnership } from "./ClanApi";
-import { crazyGamesSDK } from "./CrazyGamesSDK";
 
 interface LangSelectorLike {
   currentLang?: string;
@@ -28,7 +26,7 @@ export class UsernameInput extends LitElement {
   @state() private clanTag: string = "";
 
   // Clans aren't supported on CrazyGames — hide the tag input and never submit one.
-  private readonly onCrazyGames = crazyGamesSDK.isOnCrazyGames();
+  private readonly onCrazyGames = false;
 
   @property({ type: String }) validationError: string = "";
   // Ownership-check feedback (i18n key) shown inline beneath the tag input. Only
@@ -79,32 +77,15 @@ export class UsernameInput extends LitElement {
       this.clanCheck = Promise.resolve(null);
       return;
     }
-    this.clanCheckPending = true;
-    this.clanCheck = checkClanTagOwnership(tag).then((res) => {
-      if (gen === this.clanCheckGen) {
-        this.clanTagOwnershipError = res.error ?? "";
-        this.clanCheckPending = false;
-        this.emitValidity();
-      }
-      return res.tag;
-    });
+    // No clan service — accept any locally-valid tag.
+    void gen;
+    this.clanCheckPending = false;
+    this.clanCheck = Promise.resolve(tag);
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.loadStoredUsername();
-    crazyGamesSDK.getUsername().then((username) => {
-      if (username) {
-        this.baseUsername = username;
-        this.validateAndStore();
-      }
-    });
-    crazyGamesSDK.addAuthListener((user) => {
-      if (user) {
-        this.baseUsername = user.username;
-        this.validateAndStore();
-      }
-    });
   }
 
   protected updated(): void {

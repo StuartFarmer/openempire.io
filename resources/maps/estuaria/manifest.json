@@ -1,0 +1,123 @@
+{
+  "categories": ["featured", "new", "fictional"],
+  "elevation": true,
+  "featured_rank": 2,
+  "hydro": true,
+  "id": "Estuaria",
+  "layers": true,
+  "map": {
+    "height": 384,
+    "num_land_tiles": 76277,
+    "width": 384
+  },
+  "map4x": {
+    "height": 192,
+    "num_land_tiles": 18098,
+    "width": 192
+  },
+  "multiplayer_frequency": 0,
+  "name": "Estuaria",
+  "nations": [
+    {
+      "coordinates": [300, 243],
+      "name": "Aldermoor"
+    },
+    {
+      "coordinates": [105, 127],
+      "name": "Bramblehold"
+    },
+    {
+      "coordinates": [172, 130],
+      "name": "Cindermarch"
+    },
+    {
+      "coordinates": [154, 256],
+      "name": "Dunravel"
+    },
+    {
+      "coordinates": [62, 166],
+      "name": "Elderwyn"
+    },
+    {
+      "coordinates": [341, 114],
+      "name": "Fenwater"
+    },
+    {
+      "coordinates": [235, 248],
+      "name": "Greenhollow"
+    },
+    {
+      "coordinates": [243, 154],
+      "name": "Hearthvale"
+    },
+    {
+      "coordinates": [47, 77],
+      "name": "Ironbark"
+    },
+    {
+      "coordinates": [15, 133],
+      "name": "Junipergarde"
+    },
+    {
+      "coordinates": [67, 248],
+      "name": "Kelnmere"
+    },
+    {
+      "coordinates": [367, 165],
+      "name": "Larkspur"
+    },
+    {
+      "coordinates": [104, 70],
+      "name": "Mosswend"
+    },
+    {
+      "coordinates": [12, 266],
+      "name": "Northreach"
+    },
+    {
+      "coordinates": [190, 211],
+      "name": "Oakenfast"
+    },
+    {
+      "coordinates": [137, 175],
+      "name": "Pinehaven"
+    },
+    {
+      "coordinates": [313, 184],
+      "name": "Quillbrook"
+    },
+    {
+      "coordinates": [293, 70],
+      "name": "Rushmere"
+    },
+    {
+      "coordinates": [307, 309],
+      "name": "Stonecreek"
+    },
+    {
+      "coordinates": [224, 100],
+      "name": "Thornfield"
+    }
+  ],
+  "terrain_colors": true,
+  "translation_key": "map.estuaria",
+  "world_engine": {
+    "coastFalloff": 0.78,
+    "coastRoughness": 0.42,
+    "continentScale": 0.92,
+    "elevationCooling": 0.35,
+    "height": 384,
+    "lakeElevationRange": 0.03,
+    "lakeWaterThreshold": 1.2,
+    "latitudeEffect": 0.72,
+    "mountainStrength": 0.56,
+    "rainNoise": 0.62,
+    "riverFlowRetention": 0.82,
+    "riverStrongThreshold": 0.48,
+    "riverWeakThreshold": 0.28,
+    "seaLevel": 0.46,
+    "seed": 23,
+    "warmthRainfall": 0.42,
+    "width": 384
+  }
+}

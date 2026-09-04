@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   version="1.1"
+   id="svg2"
+   width="324"
+   height="216"
+   viewBox="0 0 324 216"
+   sodipodi:docname="Flag of Toyooka, Hyogo (1950–2006).svg"
+   inkscape:version="0.92.3 (2405546, 2018-03-11)">
+  <metadata
+     id="metadata8">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs6" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1920"
+     inkscape:window-height="1017"
+     id="namedview4"
+     showgrid="false"
+     inkscape:zoom="1.2396193"
+     inkscape:cx="5.3850029"
+     inkscape:cy="93.796559"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg2" />
+  <rect
+     style="opacity:1;fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:6.18599987;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+     id="rect828"
+     width="324"
+     height="216"
+     x="0"
+     y="0" />
+  <g
+     transform="matrix(4.5087385,0,0,4.4648286,-104.71015,-637.6693)"
+     id="layer1"
+     inkscape:label="レイヤー 1">
+    <path
+       inkscape:connector-curvature="0"
+       id="rect826"
+       d="m 49.968446,169.02637 v 4.7625 h 6.614583 v 9.36481 h 4.7625 v -9.36481 h 6.614583 v -4.7625 h -6.89312 l -2.102713,2.10272 -2.102715,-2.10272 z"
+       style="opacity:1;fill:#000000;fill-opacity:1;fill-rule:nonzero;stroke:none;stroke-width:2.22147918;stroke-linejoin:miter;stroke-miterlimit:2;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal" />
+    <path
+       inkscape:connector-curvature="0"
+       id="rect846"
+       d="m 58.964279,152.35607 -8.863541,8.86354 8.863541,8.86355 8.863542,-8.86355 z m 0,4.27571 4.587833,4.58783 -4.587833,4.58732 -4.587835,-4.58732 z"
+       style="opacity:1;fill:#000000;fill-opacity:1;fill-rule:nonzero;stroke:none;stroke-width:1.89516354;stroke-linejoin:miter;stroke-miterlimit:2;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal" />
+  </g>
+  <path
+     style="fill:#000080;fill-opacity:1;stroke:none"
+     d="M 90.765685,215.96106 C 124.7309,147.56008 99.582823,110.29364 93.539615,93.699179 87.524384,69.893163 88.845941,56.191387 108.62285,0.01228871 L 0,0 v 216 l 90.765685,-0.0389 z"
+     id="path3922-6"
+     inkscape:connector-curvature="0"
+     sodipodi:nodetypes="ccccccc" />
+  <path
+     sodipodi:nodetypes="cccccc"
+     inkscape:connector-curvature="0"
+     id="path3920-9"
+     d="m 233.23432,0.03889 c -29.52837,57.30887 -15.87579,96.390417 -2.77393,122.26191 7.8303,28.64622 -1.15488,53.23843 -15.08324,93.68689 C 324,215.99999 324,215.99999 324,215.99999 c 0,0 0,-108.49523 0,-215.99999 -90.76568,0.0389 0,0 -90.76568,0.0389 z"
+     style="fill:#ff0000;fill-opacity:1;stroke:none" />
+</svg>

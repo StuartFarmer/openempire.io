@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="1050"
+   height="700"
+   viewBox="-1000 -700 2100 1400"
+   version="1.1"
+   id="svg1198"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1202" />
+  <rect
+     fill="#da251d"
+     x="-1000"
+     y="-700"
+     width="99.999994%"
+     height="100%"
+     id="rect1014"
+     style="stroke-width:1;fill:#ffffff;fill-opacity:1" />
+  <path
+     fill="#00923f"
+     d="M -1000,80 V -700 H 1100 Z"
+     id="path1016"
+     style="fill:#1e487c;fill-opacity:1;stroke-width:1.08167" />
+  <path
+     fill="#fff500"
+     d="M 1100,-80 V 700 H -1000 Z"
+     id="path1018"
+     style="fill:#bf0000;fill-opacity:1;stroke-width:1.08167" />
+</svg>

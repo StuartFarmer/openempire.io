@@ -32,9 +32,33 @@ import {
 } from "../nation/NationEmojiBehavior";
 import { TransportShipExecution } from "../TransportShipExecution";
 import { closestTwoTiles } from "../Util";
+import { borderSegment } from "./BorderSegment";
+import { deployableTroops, fieldStaffingNeed } from "./EconomyModel";
+import { foodShedField } from "./FoodShed";
+import {
+  committedShare,
+  effectiveMaxTroops,
+  foodRunwayTicks,
+  totalPower,
+} from "./WarIntel";
+
+/** An open war goal (rework-ai-war-strategy D3): reinforce `targetID` every
+ *  pass while the war is +EV — net tiles growing, population holding. */
+interface Campaign {
+  targetID: PlayerID;
+  lastTiles: number;
+  lastPop: number;
+  stalls: number;
+}
 
 export class AiAttackBehavior {
   private botAttackTroopsSent: number = 0;
+  private campaign: Campaign | null = null;
+  /** Bordering players' totalPower from the previous attack pass (D7). */
+  private lastPassPower = new Map<PlayerID, number>();
+  /** Derived once per pass from lastPassPower vs live readings. */
+  private surging = new Set<PlayerID>();
+  private powerDeclined = new Set<PlayerID>();
 
   constructor(
     private random: PseudoRandom,
@@ -79,6 +103,9 @@ export class AiAttackBehavior {
       (o) => this.player?.isFriendly(o) === false,
     );
 
+    this.updateTrendMemory(borderingPlayers);
+    this.applyThreatDrift(borderingPlayers);
+
     // Attack TerraNullius but not nuked territory (direct border or across a river)
     const hasNonNukedTerraNullius =
       border.some((t) => !this.game.hasOwner(t) && !this.game.hasFallout(t)) ||
@@ -101,6 +128,103 @@ export class AiAttackBehavior {
     }
 
     this.attackBestTarget(borderingFriends, borderingEnemies);
+  }
+
+  /**
+   * Strength trend memory (D7): compare live totalPower against last pass's
+   * readings, derive the surge/decline sets the strategies consult, then
+   * store this pass's readings. Runs once at the top of maybeAttack so early
+   * returns can't skip it; entries for players no longer bordering drop out.
+   */
+  private updateTrendMemory(borderingPlayers: Player[]) {
+    const f = this.game.config().food();
+    const powerNow = new Map<PlayerID, number>();
+    this.surging.clear();
+    this.powerDeclined.clear();
+    for (const p of borderingPlayers) {
+      const now = totalPower(p);
+      powerNow.set(p.id(), now);
+      const prev = this.lastPassPower.get(p.id());
+      if (prev === undefined) continue; // first sight → not surging
+      if (now > prev * f.surgeGrowthFactor) this.surging.add(p.id());
+      if (now < prev) this.powerDeclined.add(p.id());
+    }
+    this.lastPassPower = powerNow;
+  }
+
+  /**
+   * Threat drift (D5): a bordering non-friendly player at ≥ threatPowerRatio
+   * × our total power drifts toward Hostile each pass. Relation decay
+   * recovers it when the differential ends, so hostility tracks the threat —
+   * neighbors of a snowballing player organically turn on it, with no global
+   * leader bookkeeping. One-directional: never a bonus for weak neighbors.
+   */
+  private applyThreatDrift(borderingPlayers: Player[]) {
+    const f = this.game.config().food();
+    const ourPower = Math.max(1, totalPower(this.player));
+    for (const other of borderingPlayers) {
+      if (this.player.isFriendly(other)) continue;
+      if (other.type() === PlayerType.Bot) continue;
+      if (totalPower(other) >= f.threatPowerRatio * ourPower) {
+        this.player.updateRelation(other, -f.threatDriftPerPass);
+      }
+    }
+  }
+
+  /** Open (or refresh) the war goal after a successful attack on a player. */
+  private openCampaign(target: Player) {
+    if (this.player.type() !== PlayerType.Nation) return;
+    this.campaign = {
+      targetID: target.id(),
+      lastTiles: this.player.numTilesOwned(),
+      lastPop: totalPower(this.player),
+      stalls: 0,
+    };
+  }
+
+  /**
+   * Campaign persistence (D3), called after the reserve gate and before the
+   * trigger lottery. Returns true when it reinforced (pass consumed). While
+   * the war is +EV — net tiles grew, population held — keep the pressure on
+   * the same target every pass; a population drop below campaignPopFloor
+   * ends the war immediately (it is consuming the demography); a stall ends
+   * it after campaignMaxStalls passes. Reinforcements flow through the
+   * normal sizing path, so reserve, staffing floor, war share, and send
+   * caps all still bind — persistence changes cadence, never depth.
+   */
+  private tickCampaign(): boolean {
+    if (this.campaign === null) return false;
+    const f = this.game.config().food();
+    const target = this.game.player(this.campaign.targetID);
+    if (!target.isAlive() || this.player.isFriendly(target)) {
+      this.campaign = null;
+      return false;
+    }
+
+    const tiles = this.player.numTilesOwned();
+    const pop = totalPower(this.player);
+    const gained = tiles > this.campaign.lastTiles;
+    const popHolding = pop >= this.campaign.lastPop * f.campaignPopFloor;
+
+    if (!popHolding) {
+      this.campaign = null;
+      return false;
+    }
+    if (gained) {
+      // sendAttack refreshes the campaign snapshots on success.
+      if (this.sendAttack(target)) return true;
+      this.campaign.lastTiles = tiles;
+      this.campaign.lastPop = pop;
+      return false;
+    }
+    this.campaign.stalls++;
+    if (this.campaign.stalls >= f.campaignMaxStalls) {
+      this.campaign = null;
+      return false;
+    }
+    this.campaign.lastTiles = tiles;
+    this.campaign.lastPop = pop;
+    return false;
   }
 
   private attackWithRandomBoat(borderingEnemies: Player[] = []) {
@@ -140,7 +264,15 @@ export class AiAttackBehavior {
 
     const owner = this.game.owner(dst);
     const cap = owner.isPlayer() ? this.troopSendCap() : Infinity;
-    const troops = Math.min(this.player.troops() / 5, cap);
+    // Boats are deployment too: bound by the same war share as land attacks,
+    // counting what is already committed (deployableTroops nets off live
+    // attacks AND transports). Without this the AI stacks boat after boat and
+    // exceeds the share it is supposed to be held to.
+    const troops = Math.min(
+      this.player.troops() / 5,
+      cap,
+      deployableTroops(this.game, this.player),
+    );
     if (troops < 1) return;
 
     // Hard & Impossible: don't attack if we'd send less than 20% of target's troops
@@ -236,6 +368,9 @@ export class AiAttackBehavior {
     // Save up troops until we reach the reserve ratio
     if (!this.hasReserveRatioTroops()) return;
 
+    // An open +EV campaign reinforces without re-rolling the trigger lottery
+    if (this.tickCampaign()) return;
+
     // Maybe save up troops until we reach the trigger ratio
     if (!this.hasTriggerRatioTroops() && !this.random.chance(10)) return;
 
@@ -327,13 +462,64 @@ export class AiAttackBehavior {
       return false;
     };
 
+    // Dogpile (D4): join a war in progress — hit a weaker-at-home enemy
+    // already exchanging attacks with a third party.
+    const joinWar = (): boolean => {
+      for (const enemy of borderingEnemies) {
+        if (enemy.troops() >= this.player.troops()) continue;
+        const inThirdPartyWar =
+          enemy
+            .incomingAttacks()
+            .some(
+              (a) =>
+                a.attacker() !== this.player &&
+                !this.player.isFriendly(a.attacker()),
+            ) ||
+          enemy.outgoingAttacks().some((a) => {
+            const t = a.target();
+            return t.isPlayer() && t !== this.player;
+          });
+        if (inThirdPartyWar) {
+          return this.sendAttack(enemy);
+        }
+      }
+      return false;
+    };
+
+    // Famine warfare (D6): a neighbor with almost no food runway loses
+    // population under pressure — attacks against it compound. Fires
+    // reliably at resourceFocus 1, rarely at 0.25.
+    const starving = (): boolean => {
+      const focus = this.game
+        .config()
+        .aiDifficulty(this.player.type()).resourceFocus;
+      if (focus <= 0) return false;
+      const denom = Math.max(1, Math.round(1 / focus));
+      if (denom > 1 && !this.random.chance(denom)) return false;
+      const f = this.game.config().food();
+      const target = borderingEnemies.find(
+        (enemy) =>
+          foodRunwayTicks(enemy) < f.starvingRunwayTicks &&
+          (!this.isFFA() ||
+            (enemy.troops() < this.player.troops() * 1.2 &&
+              !this.surging.has(enemy.id()))),
+      );
+      if (target) {
+        return this.sendAttack(target);
+      }
+      return false;
+    };
+
     const weakest = (): boolean => {
-      if (borderingEnemies.length > 0) {
-        // borderingEnemies is already sorted by troops (ascending), so first match is weakest
-        const weakest = borderingEnemies[0];
+      // borderingEnemies is already sorted by troops (ascending); in FFA,
+      // skip surging enemies (D7) — never fight a steep growth curve.
+      const candidate = this.isFFA()
+        ? borderingEnemies.find((enemy) => !this.surging.has(enemy.id()))
+        : borderingEnemies[0];
+      if (candidate !== undefined) {
         // In FFA, don't attack if they have more troops than us
-        if (!this.isFFA() || weakest.troops() < this.player.troops()) {
-          return this.sendAttack(weakest);
+        if (!this.isFFA() || candidate.troops() < this.player.troops()) {
+          return this.sendAttack(candidate);
         }
       }
       return false;
@@ -359,13 +545,13 @@ export class AiAttackBehavior {
         return [nuked, bots, retaliate, assist, betray, hated, weakest];
       case Difficulty.Medium:
         // prettier-ignore
-        return [bots, nuked, retaliate, assist, betray, hated, afk, traitor, weakest, island, donate];
+        return [bots, nuked, retaliate, assist, betray, hated, afk, traitor, joinWar, starving, weakest, island, donate];
       case Difficulty.Hard:
         // prettier-ignore
-        return [bots, retaliate, assist, betray, nuked, traitor, afk, hated, veryWeak, victim, weakest, island, donate];
+        return [bots, retaliate, assist, betray, nuked, traitor, afk, hated, veryWeak, starving, victim, joinWar, weakest, island, donate];
       case Difficulty.Impossible:
         // prettier-ignore
-        return [retaliate, bots, veryWeak, assist, traitor, afk, betray, victim, nuked, hated, weakest, island, donate];
+        return [retaliate, bots, veryWeak, starving, joinWar, assist, traitor, afk, betray, victim, nuked, hated, weakest, island, donate];
       default:
         assertNever(difficulty);
     }
@@ -383,14 +569,18 @@ export class AiAttackBehavior {
       );
   }
 
+  // Readiness gates (D1): ratios divide by the ACHIEVABLE population —
+  // food-supported capacity clamped to housing — not raw housing capacity,
+  // which a food-bound population never approaches (nations idled forever
+  // in the trigger lottery on housing-based ratios).
   private hasReserveRatioTroops(): boolean {
-    const maxTroops = this.game.config().maxTroops(this.player);
+    const maxTroops = effectiveMaxTroops(this.game, this.player);
     const ratio = this.player.troops() / maxTroops;
     return ratio >= this.reserveRatio;
   }
 
   private hasTriggerRatioTroops(): boolean {
-    const maxTroops = this.game.config().maxTroops(this.player);
+    const maxTroops = effectiveMaxTroops(this.game, this.player);
     const ratio = this.player.troops() / maxTroops;
     return ratio >= this.triggerRatio;
   }
@@ -562,7 +752,10 @@ export class AiAttackBehavior {
     return false;
   }
 
-  // Find someone who isn't significantly stronger than us and is under big attack from others (50%+ of their troops incoming)
+  // Find someone who isn't significantly stronger than us and is exposed:
+  // under big attack from others (50%+ of their troops incoming), or with
+  // most of their power deployed away and declining (D2 — a player mid-push
+  // elsewhere is thin at home NOW).
   private findVictim(borderingEnemies: Player[]): Player | null {
     // borderingEnemies is already sorted by troops (ascending), so first match is weakest victim
     return (
@@ -574,17 +767,20 @@ export class AiAttackBehavior {
         const totalIncomingTroops = enemy
           .incomingAttacks()
           .reduce((sum, attack) => sum + attack.troops(), 0);
+        if (totalIncomingTroops > enemy.troops() * 0.5) return true;
 
-        return totalIncomingTroops > enemy.troops() * 0.5;
+        return (
+          committedShare(enemy) > 0.5 && this.powerDeclined.has(enemy.id())
+        );
       }) ?? null
     );
   }
 
-  // Find very weak (less than 15% of their maxTroops) enemies
+  // Find very weak (less than 15% of their ACHIEVABLE troops, D1) enemies
   // which also don't have significantly more troops than us (to target MIRVed players)
   private findVeryWeakEnemy(borderingEnemies: Player[]): Player | null {
     const veryWeakEnemies = borderingEnemies.filter((enemy) => {
-      const enemyMaxTroops = this.game.config().maxTroops(enemy);
+      const enemyMaxTroops = effectiveMaxTroops(this.game, enemy);
       return (
         enemy.troops() < enemyMaxTroops * 0.15 &&
         (!this.isFFA() || enemy.troops() < this.player.troops() * 1.2)
@@ -735,12 +931,105 @@ export class AiAttackBehavior {
     return traitors.length > 0 ? this.random.randElement(traitors) : null;
   }
 
+  /**
+   * Pick a stretch of our border facing `target` to attack FROM
+   * (front-line-troops). An attack's troops are now spread over the front it
+   * seeds, so the old whole-border path would smear the AI's whole force one
+   * tile thick along its entire frontier — the weakest possible commitment at
+   * every point. Committing to a bounded stretch gives the AI the same
+   * concentration a human gets by clicking.
+   */
+  private attackSegment(target: Player | TerraNullius): TileRef[] | undefined {
+    const targetID = target.isPlayer() ? (target as Player).smallID() : 0;
+    const mine = this.player.smallID();
+    const contact: TileRef[] = [];
+    for (const t of this.player.borderTiles()) {
+      let touches = false;
+      this.game.forEachNeighbor(t, (n) => {
+        if (touches) return;
+        const o = this.game.ownerID(n);
+        if (o === mine) return;
+        // Unowned land counts as contact when expanding into wilderness.
+        if (o === targetID && (targetID !== 0 || this.game.isLand(n))) {
+          touches = true;
+        }
+      });
+      if (touches) contact.push(t);
+    }
+    if (contact.length === 0) return undefined;
+    // Aim somewhere along the contact front and commit a bounded stretch
+    // around it, so troops-per-tile stays meaningful on a long frontier.
+    // Against players the draw is weighted toward their Farmland/Settlement
+    // clusters (D6.2, scaled by resourceFocus) — fronts seek the harvest.
+    const aim = target.isPlayer()
+      ? this.weightedAimTile(contact, target as Player)
+      : contact[this.random.nextInt(0, contact.length)];
+    const seg = borderSegment(
+      contact,
+      this.game.x(aim),
+      this.game.y(aim),
+      (t) => this.game.x(t),
+      (t) => this.game.y(t),
+      { maxWidth: Math.max(8, Math.floor(contact.length / 3)) },
+    );
+    return seg?.sourceTiles;
+  }
+
+  /** Chebyshev radius around enemy Farmland/Settlement tiles inside which a
+   *  contact tile counts as economy-adjacent for front aiming (D6.2). */
+  private static readonly RESOURCE_AIM_RADIUS = 4;
+
+  /**
+   * Famine-front aiming (D6.2): draw the aim tile with integer weight
+   * 1 + round(3·resourceFocus) for contact tiles near the target's
+   * Farmland/Settlement tiles, 1 elsewhere — Easy nations barely notice the
+   * fields, Impossible nations drive straight at them. Deterministic:
+   * cumulative integer weights over the seeded PRNG.
+   */
+  private weightedAimTile(contact: TileRef[], target: Player): TileRef {
+    const uniform = () => contact[this.random.nextInt(0, contact.length)];
+    const focus = this.game
+      .config()
+      .aiDifficulty(this.player.type()).resourceFocus;
+    const bonus = Math.round(3 * focus);
+    if (bonus <= 0) return uniform();
+
+    const sites = target
+      .units(UnitType.Farmland, UnitType.Settlement)
+      .map((u) => u.tile());
+    if (sites.length === 0) return uniform();
+
+    const r = AiAttackBehavior.RESOURCE_AIM_RADIUS;
+    const nearEconomy = (t: TileRef): boolean => {
+      const tx = this.game.x(t);
+      const ty = this.game.y(t);
+      return sites.some(
+        (s) =>
+          Math.abs(this.game.x(s) - tx) <= r &&
+          Math.abs(this.game.y(s) - ty) <= r,
+      );
+    };
+
+    const weights = contact.map((t) => (nearEconomy(t) ? 1 + bonus : 1));
+    let total = 0;
+    for (const w of weights) total += w;
+    let draw = this.random.nextInt(0, total);
+    for (let i = 0; i < contact.length; i++) {
+      draw -= weights[i];
+      if (draw < 0) return contact[i];
+    }
+    return contact[contact.length - 1];
+  }
+
   forceSendAttack(target: Player | TerraNullius) {
     this.game.addExecution(
       new AttackExecution(
         this.player.troops() / 2,
         this.player,
         target.isPlayer() ? target.id() : this.game.terraNullius().id(),
+        null,
+        true,
+        this.attackSegment(target) ?? null,
       ),
     );
   }
@@ -749,11 +1038,12 @@ export class AiAttackBehavior {
     if (!force && !this.shouldAttack(target)) return false;
 
     if (target.isPlayer()) {
-      if (this.player.sharesBorderWith(target)) {
-        return this.sendLandAttack(target);
-      } else {
-        return this.sendBoatAttack(target);
-      }
+      const sent = this.player.sharesBorderWith(target)
+        ? this.sendLandAttack(target)
+        : this.sendBoatAttack(target);
+      // A successful attack on a player opens (or refreshes) the war goal.
+      if (sent) this.openCampaign(target);
+      return sent;
     } else {
       // sharesBorderWith(TerraNullius) counts water tiles as TN (ownerID 0 = TN smallID),
       // so use a land-only adjacency check to decide land vs boat attack.
@@ -822,7 +1112,11 @@ export class AiAttackBehavior {
         if (this.game.hasFallout(tile)) continue;
         if (!canBuildTransportShip(this.game, this.player, tile)) continue;
 
-        const troops = this.player.troops() / 5;
+        // Same war-share bound as every other deployment path.
+        const troops = Math.min(
+          this.player.troops() / 5,
+          deployableTroops(this.game, this.player),
+        );
         if (troops < 1) return false;
 
         this.game.addExecution(
@@ -906,15 +1200,17 @@ export class AiAttackBehavior {
         return Infinity;
     }
 
+    // Threat judgment (D2): a neighbor's committed troops come home
+    // eventually — judge their TOTAL power, not the diminished home pool a
+    // mid-push neighbor shows, so the cap under-retains exactly never.
     let maxNeighborTroops = 0;
     for (const n of this.player.nearby()) {
       if (
         n.isPlayer() &&
         !this.player.isFriendly(n) &&
-        n.type() !== PlayerType.Bot &&
-        n.troops() > maxNeighborTroops
+        n.type() !== PlayerType.Bot
       ) {
-        maxNeighborTroops = n.troops();
+        maxNeighborTroops = Math.max(maxNeighborTroops, totalPower(n));
       }
     }
 
@@ -940,7 +1236,8 @@ export class AiAttackBehavior {
     target: Player | TerraNullius,
     nonBotTroops: (targetTroops: number) => number,
   ): number | null {
-    const maxTroops = this.game.config().maxTroops(this.player);
+    // Reserves are a fraction of the ACHIEVABLE army (D1), not of housing.
+    const maxTroops = effectiveMaxTroops(this.game, this.player);
     const botWithStructures =
       target.isPlayer() &&
       target.type() === PlayerType.Bot &&
@@ -949,7 +1246,33 @@ export class AiAttackBehavior {
     // recapture those structures ASAP, even before reaching the normal reserve.
     const useReserve = target.isPlayer() && !botWithStructures;
     const reserveRatio = useReserve ? this.reserveRatio : this.expandRatio;
-    const targetTroops = maxTroops * reserveRatio;
+    // Farmers stay home (rework-settlement-ecology task 10): the tilled
+    // field runs on the IDLE pool, so troops sent past its staffing need
+    // send the harvest itself — margins fallow, capacity collapses, famine.
+    // The reserve floor keeps the fields worked; a player under attack
+    // fights with everything (survival outranks the harvest).
+    const staffingFloor =
+      this.player.incomingAttacks().length > 0
+        ? 0
+        : fieldStaffingNeed(
+            this.game,
+            this.player,
+            foodShedField(this.game, this.player),
+          );
+    const targetTroops = Math.max(maxTroops * reserveRatio, staffingFloor);
+    // War-share bound (task 10.6): total deployment stays under
+    // maxWarShare of the living population — the vanilla reserves are
+    // housing-based and a food-bound population sits far below housing, so
+    // without this a young AI dumps its whole demography into one push and
+    // never rebuilds.
+    //
+    // NEVER suspended. This used to become Infinity whenever the player had
+    // an incoming attack, which meant attacking an AI disabled its own safety
+    // limit: it stacked attack on attack until its population was spent, then
+    // collapsed and was trivially annexed. Troops are people — a nation that
+    // fields 100% of its people has already lost, whether or not it wins the
+    // battle.
+    const warCap = deployableTroops(this.game, this.player);
 
     let troops;
     if (
@@ -969,6 +1292,7 @@ export class AiAttackBehavior {
     if (target.isPlayer()) {
       troops = Math.min(troops, this.troopSendCap());
     }
+    troops = Math.min(troops, warCap);
 
     if (troops < 1) {
       return null;
@@ -1001,6 +1325,9 @@ export class AiAttackBehavior {
         troops,
         this.player,
         target.isPlayer() ? target.id() : this.game.terraNullius().id(),
+        null,
+        true,
+        this.attackSegment(target) ?? null,
       ),
     );
     return true;
@@ -1139,8 +1466,8 @@ export class AiAttackBehavior {
       return false;
     }
 
-    // Donate a portion of our troops (keeping reserve)
-    const maxTroops = this.game.config().maxTroops(this.player);
+    // Donate a portion of our troops (keeping reserve of the achievable army)
+    const maxTroops = effectiveMaxTroops(this.game, this.player);
     const troopsToKeep = maxTroops * this.reserveRatio;
     const availableTroops = this.player.troops() - troopsToKeep;
 

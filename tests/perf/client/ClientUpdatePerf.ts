@@ -40,7 +40,6 @@ import { WebGLFrameBuilder } from "../../../src/client/WebGLFrameBuilder";
 import { Config } from "../../../src/core/configuration/Config";
 import {
   Difficulty,
-  GameMapSize,
   GameMapType,
   GameMode,
   GameType,
@@ -96,7 +95,7 @@ function resolveMap(name: string): GameMapType {
 
 function parseArgs(argv: string[]): Options {
   const opts: Options = {
-    map: GameMapType.World,
+    map: GameMapType.Verdantia,
     ticks: 1800,
     bots: 400,
     nations: "default",
@@ -307,7 +306,6 @@ async function main(): Promise<void> {
 
   const gameConfig: GameConfig = {
     gameMap: opts.map,
-    gameMapSize: GameMapSize.Normal,
     gameMode: GameMode.FFA,
     gameType: GameType.Public,
     difficulty: Difficulty.Medium,
@@ -356,11 +354,7 @@ async function main(): Promise<void> {
   // Client side: own Config + own map load, mirroring createClientGame (the
   // real client and worker each load their own copy of the map).
   const clientConfig = new Config(gameConfig, null, false);
-  const clientMapData = await loadTerrainMap(
-    gameConfig.gameMap,
-    gameConfig.gameMapSize,
-    mapLoader,
-  );
+  const clientMapData = await loadTerrainMap(gameConfig.gameMap, mapLoader);
   const gameView = new GameView(
     {} as unknown as WorkerClient, // only stored; async query methods unused here
     clientConfig,

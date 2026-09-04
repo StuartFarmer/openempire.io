@@ -1,6 +1,6 @@
 import tailwindcss from "@tailwindcss/vite";
+import { execSync } from "child_process";
 import fs from "fs";
-import http from "http";
 import { lookup as lookupMime } from "mrmime";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -23,6 +23,80 @@ import {
 // Vite already handles these, but its good practice to define them explicitly
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+function gitCommit(): string {
+  try {
+    return execSync("git rev-parse --short HEAD", { cwd: __dirname })
+      .toString()
+      .trim();
+  } catch {
+    return "LOCAL";
+  }
+}
+
+/**
+ * Dev-only: serve the ingested Earth fields to the #earth tuning page.
+ *
+ * fields.bin is ~112 MB of raw float32 and lives OUTSIDE the repo (in the
+ * world-maps sibling, or $WORLD_MAPS_DIR) precisely because it must never be
+ * committed or bundled. This exposes it at /earth-data/* for localhost only.
+ * Absent in production builds — the page is a dev tool, not a shipped feature.
+ */
+function serveEarthData(): Plugin {
+  const root =
+    process.env.WORLD_MAPS_DIR ??
+    path.resolve(__dirname, "..", "world-maps", "derived");
+  return {
+    name: "serve-earth-data",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (!req.url?.startsWith("/earth-data/")) return next();
+
+        // Enumerate the ingested datasets so the page can offer a picker
+        // (global-2048x1024, global-4096x2048, spqr-2048x1024, ...).
+        if (req.url === "/earth-data/index.json") {
+          const dirs = fs.existsSync(root)
+            ? fs
+                .readdirSync(root, { withFileTypes: true })
+                .filter(
+                  (e) =>
+                    e.isDirectory() &&
+                    fs.existsSync(path.join(root, e.name, "fields.bin")),
+                )
+                .map((e) => e.name)
+                .sort()
+            : [];
+          res.setHeader("Content-Type", "application/json");
+          res.setHeader("Cache-Control", "no-store");
+          res.end(JSON.stringify(dirs));
+          return;
+        }
+
+        const rel = decodeURIComponent(
+          new URL(req.url, "http://x").pathname,
+        ).replace(/^\/earth-data\//, "");
+        if (rel.includes("..")) return next();
+        const filePath = path.join(root, rel);
+        if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+          res.statusCode = 404;
+          res.end(
+            `no ingested field data at ${filePath}\n` +
+              `run: map-generator/earth/.venv/bin/python map-generator/earth/ingest.py`,
+          );
+          return;
+        }
+        res.setHeader(
+          "Content-Type",
+          filePath.endsWith(".json")
+            ? "application/json"
+            : "application/octet-stream",
+        );
+        res.setHeader("Cache-Control", "no-store");
+        fs.createReadStream(filePath).pipe(res);
+      });
+    },
+  };
+}
 
 function serveProprietaryDir(
   proprietaryDir: string,
@@ -52,63 +126,28 @@ function serveProprietaryDir(
   };
 }
 
-// Dev-only stand-in for the nginx random-worker routing (the openfront_workers
-// upstream). Forwards these prefix-less POSTs to a randomly chosen worker port
-// so the worker can mint a self-owned id. Runs as direct middleware (before
-// vite's /api proxy).
-const RANDOM_WORKER_PATHS = ["/api/create_game", "/api/adminbot/create_game"];
-function randomWorkerCreateProxy(numWorkers: number): Plugin {
-  return {
-    name: "random-worker-create-proxy",
-    configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        if (req.method !== "POST") return next();
-        const path = (req.url ?? "").split("?")[0];
-        if (!RANDOM_WORKER_PATHS.includes(path)) return next();
-        const port = 3001 + Math.floor(Math.random() * numWorkers);
-        const proxyReq = http.request(
-          {
-            host: "localhost",
-            port,
-            path,
-            method: "POST",
-            headers: req.headers,
-          },
-          (proxyRes) => {
-            res.writeHead(proxyRes.statusCode ?? 502, proxyRes.headers);
-            proxyRes.pipe(res);
-          },
-        );
-        proxyReq.on("error", (err) => {
-          res.statusCode = 502;
-          res.end(`create proxy error: ${err.message}`);
-        });
-        req.pipe(proxyReq);
-      });
-    },
-  };
-}
-
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  const isProduction = mode === "production";
-  const devNumWorkers = parseInt(env.NUM_WORKERS ?? "2", 10);
+  // "electron" is a production build for the desktop app: same hashed-asset
+  // pipeline, but index.html's EJS placeholders are rendered at build time
+  // (there is no request-time renderer in the .app) and no CDN rewrite.
+  const isElectron = mode === "electron";
+  const isProduction = mode === "production" || isElectron;
   const resourcesDir = getResourcesDir(__dirname);
   const proprietaryDir = getProprietaryDir(__dirname);
   const sourceDirs = [resourcesDir, proprietaryDir];
   const assetManifest: AssetManifest = isProduction
     ? buildPublicAssetManifest(sourceDirs)
     : {};
-  const cdnBase = env.CDN_BASE ?? "";
+  // The sim worker is an inline Blob worker (WorkerClient), so its fetches
+  // have no base URL — asset URLs must be absolute. In the .app the origin
+  // is the app:// scheme served by electron/main.cjs.
+  const cdnBase = isElectron ? "app://game" : (env.CDN_BASE ?? "");
   const htmlAssetData = {
     assetManifest: JSON.stringify(assetManifest),
     cdnBase: JSON.stringify(cdnBase),
     gameEnv: JSON.stringify(env.GAME_ENV ?? "dev"),
     numWorkers: JSON.stringify(parseInt(env.NUM_WORKERS ?? "2", 10)),
-    turnstileSiteKey: JSON.stringify(
-      env.TURNSTILE_SITE_KEY ?? "1x00000000000000000000AA",
-    ),
-    jwtAudience: JSON.stringify(env.DOMAIN ?? "localhost"),
     instanceId: JSON.stringify(env.INSTANCE_ID ?? "DEV_ID"),
     manifestHref: buildAssetUrl("manifest.json", assetManifest, cdnBase),
     faviconHref: buildAssetUrl("images/Favicon.svg", assetManifest, cdnBase),
@@ -169,25 +208,6 @@ export default defineConfig(({ mode }) => {
     },
   });
 
-  // In dev, redirect visits to /w*/game/* to "/" so Vite serves the index.html.
-  const devGameHtmlBypass = (req?: {
-    url?: string;
-    method?: string;
-    headers?: { accept?: string | string[] };
-  }) => {
-    if (req?.method !== "GET") return undefined;
-    const accept = req.headers?.accept;
-    const acceptValue = Array.isArray(accept)
-      ? accept.join(",")
-      : (accept ?? "");
-    if (!acceptValue.includes("text/html")) return undefined;
-    if (!req.url) return undefined;
-    if (/^\/w\d+\/game\/[^/]+/.test(req.url)) {
-      return "/";
-    }
-    return undefined;
-  };
-
   return {
     test: {
       globals: true,
@@ -207,42 +227,34 @@ export default defineConfig(({ mode }) => {
 
     plugins: [
       ...(!isProduction
-        ? [
-            serveProprietaryDir(proprietaryDir, resourcesDir),
-            randomWorkerCreateProxy(devNumWorkers),
-          ]
+        ? [serveProprietaryDir(proprietaryDir, resourcesDir), serveEarthData()]
         : []),
-      ...(isProduction
+      ...(isProduction && !isElectron
         ? []
         : [
             createHtmlPlugin({
               minify: false,
-              entry: "/src/client/Main.ts",
+              // In electron builds index.html's own <script> entry is
+              // processed by Vite; passing `entry` here too would inject it
+              // twice.
+              ...(isElectron ? {} : { entry: "/src/client/Main.ts" }),
               template: "index.html",
               inject: {
                 data: {
-                  gitCommit: JSON.stringify("DEV"),
+                  gitCommit: JSON.stringify(isElectron ? gitCommit() : "DEV"),
                   ...htmlAssetData,
                 },
               },
             }),
           ]),
-      ...(isProduction
-        ? [injectCdnBaseTemplate(), syncHashedPublicAssets()]
-        : []),
+      ...(isProduction && !isElectron ? [injectCdnBaseTemplate()] : []),
+      ...(isProduction ? [syncHashedPublicAssets()] : []),
       tailwindcss(),
     ],
 
     define: {
       __ASSET_MANIFEST__: JSON.stringify(assetManifest),
-      "process.env.WEBSOCKET_URL": JSON.stringify(
-        isProduction ? "" : "localhost:3000",
-      ),
       "process.env.GAME_ENV": JSON.stringify(isProduction ? "prod" : "dev"),
-      "process.env.STRIPE_PUBLISHABLE_KEY": JSON.stringify(
-        env.STRIPE_PUBLISHABLE_KEY,
-      ),
-      "process.env.API_DOMAIN": JSON.stringify(env.API_DOMAIN),
       // Add other process.env variables if needed, OR migrate code to import.meta.env
     },
 
@@ -253,7 +265,7 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           manualChunks: (id) => {
-            const vendorModules = ["pixi.js", "howler", "zod"];
+            const vendorModules = ["howler", "zod"];
             if (vendorModules.some((module) => id.includes(module))) {
               return "vendor";
             }
@@ -267,36 +279,6 @@ export default defineConfig(({ mode }) => {
       host: process.env.VITE_HOST === "lan",
       // Automatically open the browser when the server starts
       open: process.env.SKIP_BROWSER_OPEN !== "true",
-      proxy: {
-        "/lobbies": {
-          target: "ws://localhost:3000",
-          ws: true,
-          changeOrigin: true,
-        },
-        // Worker proxies
-        "/w0": {
-          target: "ws://localhost:3001",
-          ws: true,
-          secure: false,
-          changeOrigin: true,
-          bypass: (req) => devGameHtmlBypass(req),
-          rewrite: (path) => path.replace(/^\/w0/, ""),
-        },
-        "/w1": {
-          target: "ws://localhost:3002",
-          ws: true,
-          secure: false,
-          changeOrigin: true,
-          bypass: (req) => devGameHtmlBypass(req),
-          rewrite: (path) => path.replace(/^\/w1/, ""),
-        },
-        // API proxies
-        "/api": {
-          target: "http://localhost:3000",
-          changeOrigin: true,
-          secure: false,
-        },
-      },
     },
   };
 });

@@ -44,9 +44,6 @@ export class BinaryLoaderGameMapLoader implements GameMapLoader {
       map4xBin: this.createLazyLoader(() =>
         loadBinary(mapAssetUrl("map4x.bin")),
       ),
-      map16xBin: this.createLazyLoader(() =>
-        loadBinary(mapAssetUrl("map16x.bin")),
-      ),
       manifest: this.createLazyLoader(() =>
         fetch(mapAssetUrl("manifest.json")).then((res) => {
           if (!res.ok) {
@@ -56,6 +53,19 @@ export class BinaryLoaderGameMapLoader implements GameMapLoader {
         }),
       ),
       webpPath: mapAssetUrl("thumbnail.webp"),
+      terrainColorsPath: mapAssetUrl("terrain-colors.png"),
+      layersBin: this.createLazyLoader(() =>
+        loadBinary(mapAssetUrl("layers.bin")),
+      ),
+      elevationBin: this.createLazyLoader(() =>
+        loadBinary(mapAssetUrl("elevation.bin")),
+      ),
+      hydroBin: this.createLazyLoader(() =>
+        loadBinary(mapAssetUrl("hydro.bin")),
+      ),
+      seasonBin: this.createLazyLoader(() =>
+        loadBinary(mapAssetUrl("season.bin")),
+      ),
     } satisfies MapData;
 
     this.maps.set(map, mapData);

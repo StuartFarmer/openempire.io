@@ -1,0 +1,33 @@
+name: urban-flatten
+method: random        # or grid
+samples: 60
+seed: 7               # same seed ⇒ same cells, always
+
+run:                  # game axes; any of these can take `values:` and become a sweep axis
+  map: verdantia
+  ticks: 3000
+  nations: 25
+  bots: 40
+  seeds: 2            # games per cell — the across-seed spread is reported as std_*
+
+parameters:
+  supplyRadius: { value: 10 }                    # pinned
+  popPerDensity: { values: [7000, 10000, 13000] } # explicit list
+  wCong: { min: 1.2, max: 2.6 }                   # uniform range
+  urbanGrowthRate: { distribution: log_uniform, min: 0.04, max: 0.25 }
+
+  starvation:         # named group — gate a whole region off, don't delete it
+    enabled: false
+    parameters:
+      minFedForLife: { values: [0.02, 0.05, 0.1] }
+
+targets:              # what "good" means
+  - metric: mean_finalGini
+    goal: 0.52
+    tolerance: 0.04
+constraints:          # hard filters, independent of the target
+  - metric: mean_finalAlive
+    min: 15
+
+solutions: 6          # export this many *diverse* in-band configs
+presets: flat

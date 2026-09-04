@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   version="1.1"
+   id="svg2"
+   width="324"
+   height="216"
+   viewBox="0 0 324 216"
+   sodipodi:docname="Flag of Kuwana, Mie (1937–2004; blue).svg"
+   inkscape:version="0.92.3 (2405546, 2018-03-11)">
+  <metadata
+     id="metadata8">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs6" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1920"
+     inkscape:window-height="1017"
+     id="namedview4"
+     showgrid="false"
+     inkscape:zoom="1.3586141"
+     inkscape:cx="52.147994"
+     inkscape:cy="108"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg2" />
+  <g
+     id="g954"
+     transform="translate(-1.3457031e-5)">
+    <rect
+       id="rect921"
+       height="100%"
+       width="100%"
+       x="0"
+       y="0"
+       style="fill:#ffffff" />
+    <g
+       id="emblem"
+       style="fill:#3f48cc;stroke:none;stroke-width:0.7291683"
+       transform="matrix(1.3680221,0,0,1.3748373,-11.776706,-7.1764303)">
+      <circle
+         id="circle923"
+         r="18"
+         cy="81.53537"
+         cx="127.46197"
+         style="stroke-width:0.7291683" />
+      <g
+         id="outlier"
+         style="stroke-width:0.7291683"
+         transform="translate(-0.53803529,0.5353682)">
+        <path
+           id="path925"
+           d="m 162,41 a 52.5,52.5 0 0 0 -9,-7 l -6,6 a 45,45 0 0 0 -38,0 l -6,-6 a 52.5,52.5 0 0 0 -9,7 l 14,14 a 33,33 0 0 1 40,0 z"
+           inkscape:connector-curvature="0"
+           style="stroke-width:0.7291683" />
+        <rect
+           id="rect927"
+           height="28"
+           width="12"
+           y="27"
+           x="122"
+           style="stroke-width:0.7291683" />
+      </g>
+      <use
+         id="use930"
+         transform="rotate(90,127.46197,81.535368)"
+         xlink:href="#outlier"
+         x="0"
+         y="0"
+         width="100%"
+         height="100%"
+         style="stroke-width:0.7291683" />
+      <use
+         id="use932"
+         transform="rotate(180,127.46196,81.535368)"
+         xlink:href="#outlier"
+         x="0"
+         y="0"
+         width="100%"
+         height="100%"
+         style="stroke-width:0.7291683" />
+      <use
+         id="use934"
+         transform="rotate(-90,127.46197,81.535368)"
+         xlink:href="#outlier"
+         x="0"
+         y="0"
+         width="100%"
+         height="100%"
+         style="stroke-width:0.7291683" />
+    </g>
+  </g>
+</svg>

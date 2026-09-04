@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Creator: CorelDRAW -->
+<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="900px" height="600px" style="shape-rendering:geometricPrecision; text-rendering:geometricPrecision; image-rendering:optimizeQuality; fill-rule:evenodd; clip-rule:evenodd"
+viewBox="0 0 9000 6000"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+ <defs>
+  <style type="text/css">
+   <![CDATA[
+    .str3 {stroke:#AA8E0A;stroke-width:2}
+    .str2 {stroke:white;stroke-width:8}
+    .str1 {stroke:#AA8E0A;stroke-width:5}
+    .str0 {stroke:#AA8E0A;stroke-width:8}
+    .fil0 {fill:gold}
+    .fil1 {fill:none}
+    .fil2 {fill:#D81E05}
+    .fil3 {fill:white}
+   ]]>
+  </style>
+ </defs>
+<symbol id="Symbol3" viewBox="26659 14785 779 3502">
+ <path class="fil0 str0" d="M26681 14798c-75,1832 89,2992 494,3481 467,-1153 302,-2313 -494,-3481z"/>
+ <path class="fil1 str1" d="M27175 18280c9,-1065 -118,-2111 -381,-3138"/>
+ <line class="fil1 str1" x1="27170" y1="17783" x2="27005" y2= "17370"/>
+ <line class="fil1 str1" x1="27136" y1="17187" x2="27280" y2= "16570"/>
+ <line class="fil1 str1" x1="27070" y1="16560" x2="26803" y2= "16127"/>
+ <line class="fil1 str1" x1="26975" y1="15962" x2="27002" y2= "15549"/>
+</symbol>
+<symbol id="Symbol1" viewBox="3091 1485 2826 3039">
+<path class="fil2 str2" d="M5073 3603c192,206 525,-6 492,-370l-116 134c36,-333 86,-473 -68,-773 249,139 372,243 528,688l-186 -129c156,444 -252,704 -222,1119 -404,-97 -727,263 -1140,38l97 205c-413,-225 -486,-353 -584,-621 271,200 408,162 742,181l-151 93c353,91 618,-204 444,-426l-1180 -1411 -471 220 -97 -113 366 -311 -117 -138 171 -145 117 138 366 -311 97 113 -293 429 1205 1390z"/>
+<circle class="fil2" cx="3372" cy="1767" r="282"/>
+<circle class="fil3" cx="3372" cy="1767" r="141"/>
+</symbol>
+<symbol id="Symbol2" viewBox="22901 13018 1871 3483">
+ <polygon class="fil0 str3" points="24476,16353 24657,15836 24582,16498"/>
+ <polygon class="fil0 str3" points="24326,16161 23780,16138 24422,16313"/>
+ <use transform="scale(0.884 0.884)" x="26985" y="14727" width="779" height="3502" xlink:href="#Symbol3"/>
+ <use transform="matrix(-0.724 0.507 0.507 0.724 34717 -10904)" x="26659" y="14785" width="779" height="3502" xlink:href="#Symbol3"/>
+ <use transform="matrix(-0.814 0.345 0.345 0.814 40112 -8148)" x="26650" y="14785" width="779" height="3502" xlink:href="#Symbol3"/>
+ <circle class="fil0 str3" cx="23780" cy="16138" r="115"/>
+ <circle class="fil0 str3" cx="24657" cy="15836" r="115"/>
+</symbol>
+ <g id="fon">
+<rect fill="white" width="9000" height="6000"/>
+<polygon fill="#3399FF" points="9000,5459 811,0 0,0 0,541 8189,6000 9000,6000"/>
+<polygon fill="#3399FF" points="0,5459 8189,0 9000,0 9000,541 811,6000 0,6000"/>
+<path class="fil3" d="M6665 2908c-97,1141 -967,1986 -2165,2271 -1272,-349 -1951,-1060 -2147,-2267 -57,-1157 864,-2290 2148,-2294 1284,-4 2261,1149 2164,2290z"/>
+  <g id="down">
+   <path class="fil0 str3" d="M4961 4898c-104,26 -205,90 -240,169l87 88c86,-56 132,-128 152,-258l0 0z"/>
+   <line class="fil1 str3" x1="4920" y1="4948" x2="4765" y2= "5112"/>
+   <path class="fil0 str3" d="M4039 4898c104,26 205,90 240,169l-87 88c-86,-56 -132,-128 -152,-258l0 0z"/>
+   <line class="fil1 str3" x1="4079.48" y1="4948" x2="4235" y2= "5112"/>
+   <path class="fil0 str3" d="M5047 5061c-118,64 -228,32 -322,-42l-86 104c90,91 242,153 412,89l-4 -151 0 0z"/>
+   <line class="fil1 str3" x1="4773" y1="5056" x2="4639" y2= "5123"/>
+   <path class="fil0 str3" d="M3982 5061c118,64 228,32 322,-42l86 104c-90,91 -242,153 -412,89l4 -151 0 0z"/>
+   <path class="fil0 str3" d="M4878 4888l-104 168c-131,-68 -388,-68 -518,0l-104 -168c216,-131 512,-130 727,0z"/>
+   <line class="fil1 str3" x1="4255" y1="5055" x2="4389" y2= "5123"/>
+  </g>
+  <g id="right">
+   <polygon class="fil0 str3" points="4574,5077 4591,5159 4561,5167"/>
+   <path class="fil0 str3" d="M5763 1045c1713,1406 740,3790 -1438,4156l3 53c2177,-366 3212,-2783 1499,-4189l-64 -20 0 0z"/>
+   <use transform="matrix(-0.074 0.297 0.297 0.074 2933 -7267)" x="22901" y="13018" width="1871" height="3483" xlink:href="#Symbol2"/>
+   <use transform="matrix(-0.189 0.241 0.241 0.189 7190 -7001)" x="22901" y="13018" width="1871" height="3483" xlink:href="#Symbol2"/>
+   <use transform="matrix(-0.273 0.138 0.138 0.273 11079 -4945)" x="22901" y="13018" width="1871" height="3483" xlink:href="#Symbol2"/>
+   <use transform="matrix(-0.306 0.006 0.006 0.306 13785 -1339)" x="22901" y="13018" width="1871" height="3483" xlink:href="#Symbol2"/>
+   <use transform="matrix(-0.284 -0.115 -0.115 0.284 14609 2737)" x="22901" y="13018" width="1871" height="3483" xlink:href="#Symbol2"/>
+   <use transform="matrix(-0.225 -0.208 -0.208 0.225 13853 6462)" x="22901" y="13018" width="1871" height="3483" xlink:href="#Symbol2"/>
+   <circle class="fil0 str3" cx="4576" cy="5085" r="37"/>
+   <path class="fil0 str3" d="M5848 5036c-278,37 -565,49 -847,-21l5 192c277,43 547,56 826,24l-111 -91 127 -103 0 0z"/>
+  </g>
+  <g id="left">
+   <polygon class="fil0 str3" points="4441,5077 4424,5159 4455,5167"/>
+   <path class="fil0 str3" d="M3253 1045c-1713,1406 -740,3790 1438,4156l-3.5 53c-2177,-366 -3212,-2783 -1499,-4189l64 -20 0 0z"/>
+   <use transform="matrix(0.074 0.297 -0.297 0.074 6080 -7267)" x="22901" y="13018" width="1871" height="3483" xlink:href="#Symbol2"/>
+   <use transform="matrix(0.189 0.241 -0.241 0.189 1823 -7001)" x="22901" y="13018" width="1871" height="3483" xlink:href="#Symbol2"/>
+   <use transform="matrix(0.273 0.138 -0.138 0.273 -2066 -4945)" x="22901" y="13018" width="1871" height="3483" xlink:href="#Symbol2"/>
+   <use transform="matrix(0.306 0.006 -0.006 0.306 -4772 -1339)" x="22901" y="13018" width="1871" height="3483" xlink:href="#Symbol2"/>
+   <use transform="matrix(0.284 -0.115 0.115 0.284 -5596 2737)" x="22901" y="13018" width="1871" height="3483" xlink:href="#Symbol2"/>
+   <use transform="matrix(0.225 -0.208 0.208 0.225 -4841 6462)" x="22901" y="13018" width="1871" height="3483" xlink:href="#Symbol2"/>
+   <circle class="fil0 str3" cx="4440" cy="5085" r="37"/>
+   <path class="fil0 str3" d="M3180 5036c278,37 565,49 847,-21l-5 192c-277,42 -547,56 -826,24l111 -91 -127 -103 0 0z"/>
+  </g>
+ </g>
+<g id="anker">
+<use transform="scale(-1 1)" x="-5596" y="1224" width="2826" height="3039" xlink:href="#Symbol1"/>
+<use x="3412" y="1224" width="2826" height="3039" xlink:href="#Symbol1"/>
+</g>
+</svg>

@@ -144,6 +144,10 @@ export interface RenderSettings {
     friendlyTintR: number;
     friendlyTintG: number;
     friendlyTintB: number;
+    /** Border colour of the aimed concentrated-push segment (0–1 RGB). */
+    segmentHighlightR: number;
+    segmentHighlightG: number;
+    segmentHighlightB: number;
   };
   /** Alt-view affiliation colors (0–1 RGB). */
   affiliation: {
@@ -295,6 +299,9 @@ export interface RenderSettings {
     conquestLifetimeMs: number;
     conquestFadeIn: number;
     conquestFadeOut: number;
+    plotFireDurationMs: number; // razed-plot burn animation length
+    plotFireAshDurationMs: number; // grayscale ash that lingers after the burn
+    plotFireMaxActive: number; // burn cap — oldest dropped beyond this
   };
   nukeTrajectory: {
     lineWidth: number; // px — main line stroke width
@@ -383,6 +390,40 @@ export interface RenderSettings {
   altView: {
     gridFontSize: number;
     recolorStructures: boolean;
+  };
+  // Baked-fertility tint (simplify-food-economy): green (lush) fading to
+  // brown/red (barren) over land, cycled from the BuildBar.
+  fertilityOverlay: {
+    alphaLow: number; // tint opacity at fertility 0
+    alphaHigh: number; // tint opacity at fertility 1
+    lowR: number; // fertility-0 tint (brown/red)
+    lowG: number;
+    lowB: number;
+    highR: number; // fertility-1 tint (green)
+    highG: number;
+    highB: number;
+  };
+  // Baked city-suitability tint (restore-organic-growth): blue (prime town
+  // ground) fading to dun (poor site) over land — fertility's cycle-mate.
+  suitabilityOverlay: {
+    alphaLow: number; // tint opacity at suitability 0
+    alphaHigh: number; // tint opacity at suitability 1
+    lowR: number; // suitability-0 tint (dun)
+    lowG: number;
+    lowB: number;
+    highR: number; // suitability-1 tint (blue)
+    highG: number;
+    highB: number;
+  };
+  densityOverlay: {
+    alphaLow: number; // wash opacity at faint density
+    alphaHigh: number; // wash opacity at a dense urban core
+    lowR: number; // faint-settlement tint
+    lowG: number;
+    lowB: number;
+    highR: number; // dense-core tint
+    highG: number;
+    highB: number;
   };
   tileDrip: {
     /**

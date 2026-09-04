@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="750"
+   height="500"
+   id="svg2"
+   sodipodi:version="0.32"
+   inkscape:version="0.46"
+   sodipodi:docname="Flag_of_Luruaco_(Atlántico).svg"
+   inkscape:output_extension="org.inkscape.output.svg.inkscape">
+  <defs
+     id="defs23">
+    <inkscape:perspective
+       sodipodi:type="inkscape:persp3d"
+       inkscape:vp_x="0 : 250 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_z="750 : 250 : 1"
+       inkscape:persp3d-origin="375 : 166.66667 : 1"
+       id="perspective25" />
+  </defs>
+  <sodipodi:namedview
+     inkscape:window-height="480"
+     inkscape:window-width="640"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     guidetolerance="10.0"
+     gridtolerance="10.0"
+     objecttolerance="10.0"
+     borderopacity="1.0"
+     bordercolor="#666666"
+     pagecolor="#ffffff"
+     id="base"
+     showgrid="false" />
+  <metadata
+     id="metadata4">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title>Flag of Villapinzón (Cundinamarca)</dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <rect
+     style="fill:#89c5e3;fill-opacity:1;stroke:none"
+     width="750"
+     height="500"
+     id="rect6" />
+  <path
+     style="fill:#ffffff;stroke:none"
+     d="m 750,50 0,-50 -52,0 -698,450 0,50 50,0 700,-450 z"
+     id="path8" />
+  <g
+     style="fill:#078930;fill-opacity:1;stroke:none"
+     id="g10">
+    <rect
+       width="750"
+       height="100"
+       id="rect12"
+       style="fill:#078930;fill-opacity:1" />
+    <rect
+       width="750"
+       height="100"
+       y="400"
+       id="rect14"
+       style="fill:#078930;fill-opacity:1" />
+    <rect
+       width="100"
+       height="500"
+       id="rect16"
+       style="fill:#078930;fill-opacity:1" />
+    <rect
+       width="100"
+       height="500"
+       x="650"
+       id="rect18"
+       style="fill:#078930;fill-opacity:1" />
+  </g>
+  <path
+     style="fill:#fcdd09;fill-opacity:1;stroke:none"
+     d="m 466,245 a 73,73 0 1 1 -146,0 73,73 0 1 1 146,0 z"
+     transform="matrix(1.0273973,0,0,1.0273973,-28.767136,-1.71234)"
+     id="path20" />
+</svg>

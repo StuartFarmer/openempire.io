@@ -25,6 +25,10 @@ export class GameLeftSidebar extends LitElement implements Controller {
   @state()
   private isTeamLeaderboardShow = false;
   @state()
+  private isEconShow = false;
+  @state()
+  private isTuningShow = false;
+  @state()
   private isVisible = false;
   @state()
   private isPlayerTeamLabelVisible = false;
@@ -96,6 +100,14 @@ export class GameLeftSidebar extends LitElement implements Controller {
     this.isTeamLeaderboardShow = !this.isTeamLeaderboardShow;
   }
 
+  private toggleEcon(): void {
+    this.isEconShow = !this.isEconShow;
+  }
+
+  private toggleTuning(): void {
+    this.isTuningShow = !this.isTuningShow;
+  }
+
   private get isTeamGame(): boolean {
     return this.game?.config().gameConfig().gameMode === GameMode.Team;
   }
@@ -162,6 +174,83 @@ export class GameLeftSidebar extends LitElement implements Controller {
                 </div>
               `
             : null}
+          ${this.game
+            ? html`
+                <div
+                  class="cursor-pointer p-0.5 border rounded-md border-slate-500 transition-colors ${this
+                    .isEconShow
+                    ? "bg-gray-600"
+                    : "bg-gray-700/50 hover:bg-gray-600"}"
+                  @click=${this.toggleEcon}
+                  role="button"
+                  tabindex="0"
+                  title=${translateText("econ_panel.toggle_tooltip")}
+                  @keydown=${(e: KeyboardEvent) => {
+                    if (
+                      e.key === "Enter" ||
+                      e.key === " " ||
+                      e.code === "Space"
+                    ) {
+                      e.preventDefault();
+                      this.toggleEcon();
+                    }
+                  }}
+                >
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    stroke="white"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M2.5 3v14h15" />
+                    <path d="M5 13l3.5-4 3 2.5L16 6" />
+                  </svg>
+                </div>
+              `
+            : null}
+          ${this.game
+            ? html`
+                <div
+                  class="cursor-pointer p-0.5 border rounded-md border-slate-500 transition-colors ${this
+                    .isTuningShow
+                    ? "bg-gray-600"
+                    : "bg-gray-700/50 hover:bg-gray-600"}"
+                  @click=${this.toggleTuning}
+                  role="button"
+                  tabindex="0"
+                  title=${translateText("tuning_panel.toggle_tooltip")}
+                  @keydown=${(e: KeyboardEvent) => {
+                    if (
+                      e.key === "Enter" ||
+                      e.key === " " ||
+                      e.code === "Space"
+                    ) {
+                      e.preventDefault();
+                      this.toggleTuning();
+                    }
+                  }}
+                >
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    stroke="white"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                  >
+                    <path d="M3 6h14M3 10h14M3 14h14" />
+                    <circle cx="7" cy="6" r="1.6" fill="white" />
+                    <circle cx="13" cy="10" r="1.6" fill="white" />
+                    <circle cx="9" cy="14" r="1.6" fill="white" />
+                  </svg>
+                </div>
+              `
+            : null}
           ${this.isLeaderboardShow || this.isTeamLeaderboardShow
             ? html`<span
                 class="ml-auto text-[10px] text-slate-500 select-all leading-none self-start"
@@ -191,6 +280,8 @@ export class GameLeftSidebar extends LitElement implements Controller {
           class=${`block lg:flex flex-wrap overflow-x-auto min-w-0 w-full ${this.isLeaderboardShow && this.isTeamLeaderboardShow ? "gap-2" : ""}`}
         >
           <leader-board .visible=${this.isLeaderboardShow}></leader-board>
+          <econ-panel .visible=${this.isEconShow}></econ-panel>
+          <tuning-panel .visible=${this.isTuningShow}></tuning-panel>
           <team-stats
             class="flex-1"
             .visible=${this.isTeamLeaderboardShow && this.isTeamGame}

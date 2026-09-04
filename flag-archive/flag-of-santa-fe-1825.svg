@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Flag_of_Artigas" data-name="Flag of Artigas" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #fff;
+      }
+
+      .cls-2 {
+        fill: #b43232;
+      }
+
+      .cls-3 {
+        fill: #75aadb;
+        isolation: isolate;
+      }
+    </style>
+  </defs>
+  <rect id="rect7" class="cls-3" y="0" width="900" height="600"/>
+  <rect id="rect5" class="cls-1" y="200" width="900" height="200"/>
+  <path id="path2682" class="cls-2" d="m300,300L0,600V0l300,300Z"/>
+  <g id="use5592">
+    <path id="path2682-2" data-name="path2682" class="cls-2" d="m600,300l300,300V0l-300,300Z"/>
+  </g>
+</svg>

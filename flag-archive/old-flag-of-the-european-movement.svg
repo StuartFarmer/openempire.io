@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="450">
+<rect fill="#007B3A" width="900" height="450"/>
+<polyline fill="#fff" points="300,90 900,90 900,360 300,360 300,270 600,270 600,180 300,180 300,90"/> 
+</svg>

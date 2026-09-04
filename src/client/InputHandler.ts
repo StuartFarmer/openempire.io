@@ -1,5 +1,9 @@
 import { EventBus, GameEvent } from "../core/EventBus";
-import { PlayerBuildableUnitType, UnitType } from "../core/game/Game";
+import {
+  PlayerBuildableUnitType,
+  TribalStructures,
+  UnitType,
+} from "../core/game/Game";
 import { UserSettings } from "../core/game/UserSettings";
 import { Platform } from "./Platform";
 import { UIState } from "./UIState";
@@ -37,6 +41,14 @@ export class UnitSelectionEvent implements GameEvent {
     public readonly unit: UnitView | null,
     public readonly isSelected: boolean,
     public readonly units: UnitView[] = [],
+  ) {}
+}
+
+/** Paint-mode drag: pointer moved while painting tribal plots. */
+export class PaintDragEvent implements GameEvent {
+  constructor(
+    public readonly x: number,
+    public readonly y: number,
   ) {}
 }
 
@@ -80,13 +92,16 @@ export class AlternateViewEvent implements GameEvent {
   constructor(public readonly alternateView: boolean) {}
 }
 
+/** Soil-overlay cycle (BuildBar button): off → fertility → suitability. */
+export class ToggleFertilityOverlayEvent implements GameEvent {
+  constructor(public readonly mode: "off" | "fertility" | "suitability") {}
+}
+
 export class CloseViewEvent implements GameEvent {}
 
 export class RefreshGraphicsEvent implements GameEvent {}
 
 export class ToggleRenderDebugGuiEvent implements GameEvent {}
-
-export class TogglePerformanceOverlayEvent implements GameEvent {}
 
 export class ToggleStructureEvent implements GameEvent {
   constructor(
@@ -299,9 +314,6 @@ export class InputHandler {
     this.addKeybindAndEvent(this.keybinds.swapDirection, () => {
       const nextDirection = !this.uiState.rocketDirectionUp;
       this.eventBus.emit(new SwapRocketDirectionEvent(nextDirection));
-    });
-    this.addKeybindAndEvent("Shift+KeyD", () => {
-      this.eventBus.emit(new TogglePerformanceOverlayEvent());
     });
     this.addKeybindAndEvent(this.keybinds.toggleView, () => {
       this.alternateView = false;
@@ -876,6 +888,19 @@ export class InputHandler {
           clearTimeout(this.longPressTimer);
           this.longPressTimer = null;
         }
+      }
+
+      // Stroke painting: dragging with any tribal-plot ghost paints every
+      // tile the cursor crosses instead of panning. (Exit paint mode to
+      // pan; zoom still works.)
+      if (
+        this.uiState.ghostStructure !== null &&
+        TribalStructures.has(this.uiState.ghostStructure)
+      ) {
+        this.eventBus.emit(new PaintDragEvent(event.clientX, event.clientY));
+        this.lastPointerX = event.clientX;
+        this.lastPointerY = event.clientY;
+        return;
       }
 
       // If shift is held OR touch long-press is active OR selection box already

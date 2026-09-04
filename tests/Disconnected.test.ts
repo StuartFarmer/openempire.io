@@ -13,7 +13,6 @@ import {
   PlayerType,
   UnitType,
 } from "../src/core/game/Game";
-import { toInt } from "../src/core/Util";
 import { setup } from "./util/Setup";
 import { UseRealAttackLogic } from "./util/TestConfig";
 import { executeTicks } from "./util/utils";
@@ -441,13 +440,12 @@ describe("Disconnected", () => {
         Array.from(player1.borderTiles()).filter((t) => game.isShore(t)).length,
       ).toBe(0);
 
+      // Measure one tick of organic (economy) growth as a control, since
+      // population change now comes from the urban-core tick, not a formula.
+      const beforeControl = player1.troops();
       executeTicks(game, 1);
-
-      const troopIncPerTick = game.config().troopIncreaseRate(player1);
-      const expectedTroopGrowth = toInt(troopIncPerTick * 1);
-      const expectedFinalTroops = Number(
-        toInt(player1.troops()) + expectedTroopGrowth,
-      );
+      const organicGrowth = player1.troops() - beforeControl;
+      const expectedFinalTroops = player1.troops() + organicGrowth;
 
       transportShip.updateTransportShipState({ isRetreating: true });
       executeTicks(game, 1);
