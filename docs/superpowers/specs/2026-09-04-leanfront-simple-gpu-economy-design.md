@@ -211,7 +211,7 @@ The GPU retains one compact per-player command decision record for later shader
 phases and returns only per-player aggregates, command result codes, and current
 spending for UI feedback. It never returns whole tile fields during normal play.
 Rendering reads the resident GPU fields directly. Every shader pass stays
-within the WebGPU guaranteed limit of ten storage-buffer bindings.
+within WebGPU's guaranteed limit of eight storage-buffer bindings.
 
 Invalid, unaffordable, opposite-type, non-land, and non-owned paint intents are
 no-ops with a result code. If the bounded command buffer fills, remaining brush

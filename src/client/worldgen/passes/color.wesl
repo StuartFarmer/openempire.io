@@ -2,7 +2,7 @@
 // debug layer view modes (P.viewMode). Colors are computed in 0..255 space to
 // mirror the CPU math, then normalized on store.
 import package::kernel::{GRID, OFF, inBounds, refOf, clamp01, hash01};
-import package::bindings::{P, elevation, flags, temperature, precipitation, water_in, fill_in, humidity, riverBase, G, out_tex};
+import package::bindings::{P, elevation, flags, temperature, precipitation, waterNormalized, fill_in, humidity, riverBase, out_tex};
 import package::palette::{
   COAST, LAND_DRY, LAND_WET, LAND_WARM_DRY, LAND_COLD, LAKE,
   OCEAN_WARM, OCEAN_COLD,
@@ -198,9 +198,7 @@ fn landColor(x: i32, y: i32, i: u32) -> vec3f {
   // kept distinct), or the flow solver's normalized watermap in synthetic
   // mode. Same water system as full bodies — depth-ramped color — mixed by
   // coverage, so thin water shows terrain through.
-  let waterMax = bitcast<f32>(G.waterMaxBits);
-  let normalizedWater = select(0.0, clamp01(water_in[i] / waterMax), waterMax > 0.0);
-  let riverSignal = select(normalizedWater, riverBase[i], P.useClimateBase > 0.5);
+  let riverSignal = select(waterNormalized[i], riverBase[i], P.useClimateBase > 0.5);
   let weakThreshold = min(P.riverWeakThreshold, P.riverStrongThreshold);
   let strongThreshold = max(P.riverWeakThreshold, P.riverStrongThreshold);
   let waterAlpha = smoothstep(weakThreshold, strongThreshold + 0.001, riverSignal) * 0.85;
@@ -247,9 +245,7 @@ fn layerColor(x: i32, y: i32, i: u32) -> vec3f {
     case 4u: {
       if (ocean) { return vec3f(10.0, 20.0, 35.0); }
       if (isLake(i)) { return LAKE; }
-      let waterMax = bitcast<f32>(G.waterMaxBits);
-      let normalized = select(0.0, clamp01(water_in[i] / waterMax), waterMax > 0.0);
-      return mix(vec3f(20.0, 30.0, 40.0), vec3f(80.0, 200.0, 255.0), pow(normalized, 0.35));
+      return mix(vec3f(20.0, 30.0, 40.0), vec3f(80.0, 200.0, 255.0), pow(waterNormalized[i], 0.35));
     }
     case 5u: {
       if (ocean) { return vec3f(15.0, 25.0, 45.0); }
@@ -268,5 +264,5 @@ fn layerColor(x: i32, y: i32, i: u32) -> vec3f {
 
 fn tile(x: i32, y: i32, i: u32) {
   let color = layerColor(x, y, i);
-  textureStore(out_tex, vec2i(x, y), vec4f(color / 255.0, 1.0));
+  textureStore(out_tex, vec2i(x, y), vec4f(floor(color) / 255.0, 1.0));
 }

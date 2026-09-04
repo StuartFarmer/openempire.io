@@ -1,44 +1,16 @@
-import package::kernel::GRID;
 import package::params;
 import package::layers;
-import package::players;
 import package::playerOutputs;
-import package::sim;
-import package::lib::economy::{gompertz, toFx, attackCommit};
+import package::lib::economy::gompertz;
 import package::lib::conquest::{terrainMag, defenseOf, conquers, attackerOf, pressureOf};
-
-fn effectiveCommit(p: u32) -> f32 {
-  let intent = players::val(p);
-  if (intent.alive == 0u || intent.attacking == 0u) { return 0.0; }
-  let totalFx = toFx(sim::scalar_totalFood(p));
-  let costFx = min(totalFx, playerOutputs::resolvedCostFx(p));
-  return attackCommit(intent.commit, sim::scalar_totalPeople(p),
-    f32(totalFx - costFx) / 256.0, params::attackCostPerPerson());
-}
-
-fn attackCostFx(p: u32) -> u32 {
-  return toFx(effectiveCommit(p) * sim::scalar_totalPeople(p) *
-    params::attackCostPerPerson());
-}
-
-fn spendFx(p: u32) -> u32 {
-  let totalFx = toFx(sim::scalar_totalFood(p));
-  return min(totalFx, playerOutputs::resolvedCostFx(p) + attackCostFx(p));
-}
 
 fn init(x: i32, y: i32, i: u32) -> f32 { return 0.0; }
 
 fn update(x: i32, y: i32, i: u32) -> f32 {
-  for (var p = 1u; p < players::count(); p += 1u) {
-    if (i == p) { playerOutputs::set_foodSpendFx(p, spendFx(p)); }
-  }
-
   let me = layers::owner::val(i);
   var next = layers::food::val(i);
   if (me != 0u) {
-    let totalFx = toFx(sim::scalar_totalFood(me));
-    let spent = spendFx(me);
-    let keep = select(1.0, f32(totalFx - spent) / f32(totalFx), totalFx > 0u);
+    let keep = bitcast<f32>(playerOutputs::foodKeepBits(me));
     next = max(0.0, next * keep);
   }
 
@@ -52,18 +24,19 @@ fn update(x: i32, y: i32, i: u32) -> f32 {
     next = params::seedFraction() * params::farmCapacityPerLevel();
   }
 
-  for (var p = 1u; p < players::count(); p += 1u) {
-    let action = players::val(p);
+  for (var p = 1u; p < 5u; p += 1u) {
+    let actionKind = playerOutputs::resolvedActionKind(p);
+    let actionTile = playerOutputs::resolvedActionTile(p);
     if (playerOutputs::resolvedResult(p) != 1u) { continue; }
-    if (action.actionKind == 1u && i == playerOutputs::spawnFarmTile(p)) {
+    if (actionKind == 1u && i == playerOutputs::spawnFarmTile(p)) {
       farm = 1u;
       next = params::seedFraction() * params::farmCapacityPerLevel();
-    } else if (i == action.actionTile && action.actionKind == 3u) {
+    } else if (i == actionTile && actionKind == 3u) {
       if (farm == 0u) {
         next = params::seedFraction() * params::farmCapacityPerLevel();
       }
       farm = playerOutputs::resolvedLevel(p);
-    } else if (i == action.actionTile && action.actionKind == 4u) {
+    } else if (i == actionTile && actionKind == 4u) {
       farm = 0u;
       next = 0.0;
     }

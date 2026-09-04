@@ -2,6 +2,7 @@ import package::kernel::{GRID, OFF, inBounds, refOf};
 import package::params;
 import package::layers;
 import package::players;
+import package::playerOutputs;
 import package::sim;
 import package::lib::economy::{ActionDecision, decideAction};
 
@@ -52,6 +53,7 @@ fn spawnReservation(player: u32) -> SpawnReservation {
     let cells = GRID.size.x * GRID.size.y;
     if (action.actionTick != sim::tick() || action.actionKind != 1u ||
         action.actionTile >= cells ||
+        playerOutputs::hasSpawned(candidatePlayer) != 0u ||
         sim::scalar_tilesOwned(candidatePlayer) != 0.0 ||
         !isEmptyNeutralLand(action.actionTile)) {
       continue;
@@ -106,7 +108,7 @@ fn spawnReservation(player: u32) -> SpawnReservation {
   );
 }
 
-fn resolveAction(player: u32) -> ResolvedAction {
+fn resolveBaseAction(player: u32) -> ResolvedAction {
   let action = players::val(player);
   let cells = GRID.size.x * GRID.size.y;
   let valid = action.actionTile < cells;
@@ -122,4 +124,32 @@ fn resolveAction(player: u32) -> ResolvedAction {
     params::farmLevelCost(), params::razeCost(),
   );
   return ResolvedAction(d, spawn.cityTile, spawn.farmTile);
+}
+
+fn resolveAction(player: u32) -> ResolvedAction {
+  let action = players::val(player);
+  let resolved = resolveBaseAction(player);
+  if (action.actionKind <= 1u || resolved.decision.result != 1u) {
+    return resolved;
+  }
+
+  // Replaying lower player IDs makes arbitration independent of invocation
+  // order while leaving one compact result for every later phase to consume.
+  for (var earlierPlayer = 1u; earlierPlayer < player; earlierPlayer += 1u) {
+    let earlierAction = players::val(earlierPlayer);
+    if (earlierAction.actionKind <= 1u ||
+        earlierAction.actionTick != sim::tick() ||
+        earlierAction.actionTile != action.actionTile) {
+      continue;
+    }
+    let earlierResolved = resolveBaseAction(earlierPlayer);
+    if (earlierResolved.decision.result == 1u) {
+      let tile = action.actionTile;
+      let rejected = ActionDecision(
+        7u, 0u, layers::cityLevel::val(tile), layers::farmLevel::val(tile), 0u,
+      );
+      return ResolvedAction(rejected, INVALID_TILE, INVALID_TILE);
+    }
+  }
+  return resolved;
 }

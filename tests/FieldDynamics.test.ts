@@ -248,11 +248,12 @@ describe("compileFieldSystem (unified layers)", () => {
   });
 
   test("scalar codec round-trips fixed-point sums and bitcast maxes", () => {
-    const bytes = new ArrayBuffer(4 * (1 + compiled.scalarNames.length));
+    const bytes = new ArrayBuffer(4 * 4);
     const view = new DataView(bytes);
     view.setUint32(0, 42, true); // tick
-    view.setInt32(4, Math.round(123.5 * 256), true); // totalHerd sum, fx 256
-    view.setFloat32(8, 0.75, true); // peakGrass max, raw f32 bits
+    view.setUint32(4, Math.round(123.5 * 256), true); // totalHerd low fx word
+    view.setUint32(8, 0, true); // totalHerd high fx word
+    view.setFloat32(12, 0.75, true); // peakGrass max, raw f32 bits
     const decoded = compiled.decodeScalars(bytes);
     expect(decoded.tick).toBe(42);
     expect(decoded.values.totalHerd).toBeCloseTo(123.5);
@@ -269,7 +270,7 @@ describe("compileFieldSystem (unified layers)", () => {
     });
     expect(buffer("crop")).toMatchObject({ clearable: true });
     expect(buffer("crop")?.pingPong).toBeUndefined();
-    expect(buffer("S")).toMatchObject({ count: 3 }); // tick + 2 scalars
+    expect(buffer("S")).toMatchObject({ count: 4 }); // tick + wide sum + max
   });
 });
 
@@ -324,11 +325,32 @@ fn update(x: i32, y: i32, i: u32) -> f32 { return layers::amount::val(i); }
 
   test("tick advance and scalar clearing are separate generated passes", async () => {
     const compiled = await compileFieldSystem(reducedSystem);
-    const tick = compiled.kernelConfig.passes.find((p) => p.name === "sim/tick")!;
-    const zero = compiled.kernelConfig.passes.find((p) => p.name === "sim/zero")!;
+    const tick = compiled.kernelConfig.passes.find(
+      (p) => p.name === "sim/tick",
+    )!;
+    const zero = compiled.kernelConfig.passes.find(
+      (p) => p.name === "sim/zero",
+    )!;
     expect(tick.code).toContain("S.tick = S.tick + 1u");
     expect(zero.code).not.toContain("S.tick = S.tick + 1u");
     expect(zero.code).toContain("atomicStore");
+  });
+
+  test("sum reductions preserve values above the per-tile and aggregate i32 limits", async () => {
+    const compiled = await compileFieldSystem(reducedSystem);
+    const sim = compiled.kernelConfig.buffers.find(({ name }) => name === "S");
+    expect(sim?.count).toBe(3); // tick + low/high fixed-point words
+
+    const total = 40_000 * 256;
+    const bytes = new ArrayBuffer(12);
+    const view = new DataView(bytes);
+    view.setUint32(4, total >>> 0, true);
+    view.setUint32(8, Math.floor(total / 0x1_0000_0000), true);
+    expect(compiled.decodeScalars(bytes).values.total).toBe(40_000);
+
+    const reduce = passByName(compiled, "reduce/total");
+    expect(reduce.code).toContain("atomicAddFx64");
+    expect(reduce.code).not.toContain("32767.0");
   });
 
   test("default: one synchronous phase — all stocks, then one commit", async () => {
@@ -448,16 +470,17 @@ fn update(x: i32, y: i32, i: u32) -> f32 {
   });
 
   test("grouped scalars take playerCount slots and decode as arrays", () => {
-    // S = tick + tilesOwned[8] + totalTroops[8] + peakTroops = 18 words.
+    // S = tick + tilesOwned[8] + totalTroops[8]×2 + peakTroops = 26 words.
     const sim = compiled.kernelConfig.buffers.find((b) => b.name === "S");
-    expect(sim?.count).toBe(18);
+    expect(sim?.count).toBe(26);
 
-    const bytes = new ArrayBuffer(18 * 4);
+    const bytes = new ArrayBuffer(26 * 4);
     const view = new DataView(bytes);
     view.setUint32(0, 7, true); // tick
     view.setInt32(4 + 3 * 4, 5 * 256, true); // tilesOwned[3] = 5
-    view.setInt32(4 + 8 * 4 + 2 * 4, Math.round(12.5 * 256), true); // totalTroops[2]
-    view.setFloat32(4 + 16 * 4, 0.5, true); // peakTroops
+    view.setUint32(4 + 8 * 4 + 2 * 2 * 4, Math.round(12.5 * 256), true); // totalTroops[2] low
+    view.setUint32(4 + 8 * 4 + (2 * 2 + 1) * 4, 0, true); // totalTroops[2] high
+    view.setFloat32(4 + 8 * 4 + 16 * 4, 0.5, true); // peakTroops
     const decoded = compiled.decodeScalars(bytes);
     expect(decoded.tick).toBe(7);
     expect((decoded.values.tilesOwned as number[])[3]).toBeCloseTo(5);
@@ -727,7 +750,8 @@ describe("compileFieldSystem — derivation stage", () => {
         "flags_from_mask",
         "histogram",
         "quantile",
-        "climate",
+        "climate_temperature",
+        "climate_precipitation",
         "fill_step",
         "flow_dir",
         "water_step",
@@ -758,6 +782,9 @@ describe("compileFieldSystem — derivation stage", () => {
     expect(calls).toContain("i:irrigation_step:8");
     expect(calls).toContain("p:color");
     expect(calls[calls.length - 1]).toBe("p:pack_tint");
+    const packTint = passByName(compiled, "pack_tint");
+    expect(packTint.binds).toEqual(["out.read", "tint!"]);
+    expect(packTint.code).toContain("texture_2d<f32>");
   });
 
   test("runDerive tiers filter to the tagged steps (two-tier reactivity)", async () => {
@@ -783,8 +810,10 @@ describe("compileFieldSystem — derivation stage", () => {
       "flags_from_mask",
       "histogram",
       "quantile",
-      "climate",
+      "climate_temperature",
+      "climate_precipitation",
       "water_max",
+      "water_normalize",
       "irrigation_init",
       "irrigation_step",
       "humidity_biome",
@@ -794,7 +823,8 @@ describe("compileFieldSystem — derivation stage", () => {
     // season is the per-tick sweep; repaint is color only. pack_tint follows
     // color in every color tier (the game overlay reads its `tint`).
     expect(run("season")).toEqual([
-      "climate",
+      "climate_temperature",
+      "climate_precipitation",
       "humidity_biome",
       "color",
       "pack_tint",
@@ -942,7 +972,7 @@ describe("games composed on terrain compile", () => {
       const c = await compileFieldSystem(composeTerrain(game));
       // The terrain derivation is present (climate pass) AND the game ticks.
       const names = c.kernelConfig.passes.map((p) => p.name);
-      expect(names).toContain("climate"); // terrain derive
+      expect(names).toContain("climate_temperature"); // terrain derive
       expect(names.some((n) => n.startsWith("stock/"))).toBe(true); // game sim
       // Both uniforms: game P + terrain TP.
       expect((c.kernelConfig.uniforms ?? []).map((u) => u.name)).toEqual(
@@ -958,7 +988,7 @@ describe("conquest game composes on terrain", () => {
       await import("../src/client/lab/systems/conquest/system");
     const c = await compileFieldSystem(composeTerrain(conquest));
     const names = c.kernelConfig.passes.map((p) => p.name);
-    expect(names).toContain("climate"); // terrain base
+    expect(names).toContain("climate_temperature"); // terrain base
     expect(names).toContain("stock/owner");
     expect(names).toContain("stock/troops");
     expect(names).toContain("view/conquest");
@@ -969,11 +999,10 @@ describe("conquest game composes on terrain", () => {
 
 describe("openfront-live bridge composes on terrain", () => {
   test("owner is a CPU-written render conduit (init only, never GPU-ticked)", async () => {
-    const { openfront } =
-      await import("../src/client/games/openfront/system");
+    const { openfront } = await import("../src/client/games/openfront/system");
     const c = await compileFieldSystem(composeTerrain(openfront));
     const names = c.kernelConfig.passes.map((p) => p.name);
-    expect(names).toContain("climate"); // terrain base derives
+    expect(names).toContain("climate_temperature"); // terrain base derives
     // Render conduits (CPU-written each tick): ownership + structure + damage +
     // front + supply + aimed-segment highlight fields (all init-only).
     expect(c.layerNames).toEqual([

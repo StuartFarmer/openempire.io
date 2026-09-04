@@ -660,7 +660,7 @@ Declare `city`, `farm`, and `raze` as radius-zero intent brushes. The five group
 
 - [ ] **Step 6: Add the command resolver and six gameplay transitions**
 
-A first `command` phase calls the shared `resolveAction` helper once per player against previous state and stores its result, cost, resolved level, and spawn reservations in the compact player-output buffer. The incursion and five persistent gameplay shaders consume that record instead of rebinding every resolver dependency, keeping every pass within ten storage buffers. Acceptance, spawn priority/reservations, price, and overflow behavior therefore cannot diverge. Use this transition table:
+A first `command` phase calls the shared `resolveAction` helper once per player against previous state and stores its result, cost, resolved level, and spawn reservations in the compact player-output buffer. The incursion and five persistent gameplay shaders consume that record instead of rebinding every resolver dependency, keeping every pass within eight storage buffers. Acceptance, spawn priority/reservations, price, and overflow behavior therefore cannot diverge. Use this transition table:
 
 | Layer       | Free spawn                                               | City/farm action                                | Raze                   | Conquest                     | Growth                                                                    |
 | ----------- | -------------------------------------------------------- | ----------------------------------------------- | ---------------------- | ---------------------------- | ------------------------------------------------------------------------- |

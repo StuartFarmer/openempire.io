@@ -95,6 +95,25 @@ async function createKernel(
   return kernel;
 }
 
+async function dispatchTick(
+  kernel: FieldKernel,
+  compiled: CompiledFieldSystem,
+  logicalTick: number,
+  players: readonly PlayerInput[],
+): Promise<{ outputs: Record<string, number>[]; gpuMs: number }> {
+  kernel.writeBuffer("PL", new Uint32Array(compiled.writePlayers(players)));
+  const frame = kernel.beginFrame();
+  compiled.runTick(kernel, frame);
+  const result = await frame.finish();
+  const outputs = compiled.decodePlayerOutputs(await kernel.readBuffer("PO"));
+  const state = compiled.decodeScalars(await kernel.readBuffer("S"));
+  assert(
+    state.tick === logicalTick,
+    `expected logical tick ${logicalTick}, got ${state.tick}`,
+  );
+  return { outputs, gpuMs: result.gpuMs };
+}
+
 async function readSnapshot(
   kernel: FieldKernel,
   compiled: CompiledFieldSystem,
@@ -271,6 +290,240 @@ async function proveGrowthMicrocase(
   }
 }
 
+async function proveWideSumMicrocase(
+  compiled: CompiledFieldSystem,
+): Promise<void> {
+  const kernel = await createKernel(compiled);
+  try {
+    const params = defaultParams(compiled);
+    params.farmGrowthRate = 0;
+    kernel.writeUniform("P", compiled.writeParams(params, DEFAULT_SEED));
+    const owner = new Uint32Array(TILES).fill(1);
+    const farmLevel = new Uint32Array(TILES).fill(40_000);
+    const food = new Float32Array(TILES).fill(40_000);
+    owner[0] = 0;
+    farmLevel[0] = 0;
+    food[0] = 0;
+    kernel.writeBuffer("owner", owner);
+    kernel.writeBuffer("farmLevel", farmLevel);
+    kernel.writeBuffer("food", food);
+    await dispatchTick(
+      kernel,
+      compiled,
+      1,
+      Array.from({ length: PLAYERS }, () => ({})),
+    );
+    const totals = compiled.decodeScalars(await kernel.readBuffer("S")).values;
+    const expected = (TILES - 1) * 40_000;
+    assert(
+      expected * 256 > 0x7fffffff,
+      "wide-sum probe did not exceed the old aggregate i32 range",
+    );
+    assert(
+      (totals.totalFood as number[])[1] === expected &&
+        (totals.totalFarmLevels as number[])[1] === expected,
+      `wide sum lost values: expected ${expected}, got food ${(totals.totalFood as number[])[1]} and levels ${(totals.totalFarmLevels as number[])[1]}`,
+    );
+
+    const action = await dispatchTick(
+      kernel,
+      compiled,
+      2,
+      Array.from(
+        { length: PLAYERS },
+        (_, player): PlayerInput =>
+          player === 1
+            ? {
+                actionKind: LEAN_ACTION.farm,
+                actionTile: 1,
+                actionTick: 2,
+              }
+            : {},
+      ),
+    );
+    assert(
+      decodeLeanResult(action.outputs[1].actionResult).code ===
+        LEAN_RESULT.accepted && action.outputs[1].foodSpendFx === 64,
+      "food budgeting rejected or mispriced an action above the old i32 range",
+    );
+    const after = await readSnapshot(kernel, compiled);
+    const removed = expected - sumFood(after, 1);
+    assert(
+      after.farmLevel[1] === 40_001 &&
+        Math.abs(removed - action.outputs[1].foodSpendFx / 256) <
+          (TILES - 1) / 256,
+      "wide-budget debit exceeded one fixed-point quantum per farm",
+    );
+  } finally {
+    kernel.destroy();
+  }
+}
+
+async function proveActionArbitrationAndSpawnLatch(
+  compiled: CompiledFieldSystem,
+): Promise<void> {
+  const kernel = await createKernel(compiled);
+  const players: PlayerInput[] = Array.from({ length: PLAYERS }, () => ({}));
+  players[1] = { alive: 1, attacking: 0, commit: 0.6 };
+  players[2] = { alive: 1, attacking: 0, commit: 0.6 };
+  const actionPlayers = (
+    actions: Readonly<Record<number, PlayerInput>> = {},
+  ): PlayerInput[] =>
+    players.map((player, p) => ({
+      ...player,
+      actionKind: LEAN_ACTION.none,
+      actionTile: 0,
+      actionTick: 0,
+      ...(actions[p] ?? {}),
+    }));
+  const resultCode = (
+    outputs: Record<string, number>[],
+    player: number,
+  ): number => decodeLeanResult(outputs[player].actionResult).code;
+
+  try {
+    await dispatchTick(
+      kernel,
+      compiled,
+      1,
+      actionPlayers({
+        1: {
+          actionKind: LEAN_ACTION.spawn,
+          actionTile: at(4, 8),
+          actionTick: 1,
+        },
+        2: {
+          actionKind: LEAN_ACTION.spawn,
+          actionTile: at(12, 8),
+          actionTick: 1,
+        },
+      }),
+    );
+    for (let logicalTick = 2; logicalTick <= 61; logicalTick += 1) {
+      await dispatchTick(kernel, compiled, logicalTick, actionPlayers());
+    }
+
+    const playerTwoCity = at(12, 8);
+    const razeVsUpgrade = await dispatchTick(
+      kernel,
+      compiled,
+      62,
+      actionPlayers({
+        1: {
+          actionKind: LEAN_ACTION.raze,
+          actionTile: playerTwoCity,
+          actionTick: 62,
+        },
+        2: {
+          actionKind: LEAN_ACTION.city,
+          actionTile: playerTwoCity,
+          actionTick: 62,
+        },
+      }),
+    );
+    assert(
+      resultCode(razeVsUpgrade.outputs, 1) === LEAN_RESULT.accepted &&
+        resultCode(razeVsUpgrade.outputs, 2) === LEAN_RESULT.invalid,
+      "raze-vs-upgrade contention did not choose one player-ID winner",
+    );
+    assert(
+      razeVsUpgrade.outputs[1].foodSpendFx > 0 &&
+        razeVsUpgrade.outputs[2].foodSpendFx === 0,
+      "raze-vs-upgrade contention charged more than one player",
+    );
+    let snapshot = await readSnapshot(kernel, compiled);
+    assert(
+      snapshot.owner[playerTwoCity] === 0 &&
+        snapshot.cityLevel[playerTwoCity] === 0 &&
+        snapshot.farmLevel[playerTwoCity] === 0 &&
+        snapshot.troops[playerTwoCity] === 0 &&
+        snapshot.food[playerTwoCity] === 0,
+      "raze-vs-upgrade contention left an inconsistent target",
+    );
+
+    const playerTwoFarm = snapshot.farmLevel.findIndex(
+      (level, tile) => level > 0 && snapshot.owner[tile] === 2,
+    );
+    assert(playerTwoFarm >= 0, "contention probe could not find player 2 farm");
+    const doubleRaze = await dispatchTick(
+      kernel,
+      compiled,
+      63,
+      actionPlayers({
+        1: {
+          actionKind: LEAN_ACTION.raze,
+          actionTile: playerTwoFarm,
+          actionTick: 63,
+        },
+        2: {
+          actionKind: LEAN_ACTION.raze,
+          actionTile: playerTwoFarm,
+          actionTick: 63,
+        },
+      }),
+    );
+    assert(
+      resultCode(doubleRaze.outputs, 1) === LEAN_RESULT.accepted &&
+        resultCode(doubleRaze.outputs, 2) === LEAN_RESULT.invalid,
+      "double-raze contention did not choose one player-ID winner",
+    );
+    assert(
+      doubleRaze.outputs[1].foodSpendFx > 0 &&
+        doubleRaze.outputs[2].foodSpendFx === 0,
+      "double-raze contention charged more than one player",
+    );
+    snapshot = await readSnapshot(kernel, compiled);
+    assert(
+      snapshot.owner[playerTwoFarm] === 0 &&
+        snapshot.cityLevel[playerTwoFarm] === 0 &&
+        snapshot.farmLevel[playerTwoFarm] === 0 &&
+        snapshot.troops[playerTwoFarm] === 0 &&
+        snapshot.food[playerTwoFarm] === 0,
+      "double-raze contention left an inconsistent target",
+    );
+
+    for (let tile = 0; tile < TILES; tile += 1) {
+      if (snapshot.owner[tile] !== 2) continue;
+      snapshot.owner[tile] = 0;
+      snapshot.troops[tile] = 0;
+      snapshot.cityLevel[tile] = 0;
+      snapshot.farmLevel[tile] = 0;
+      snapshot.food[tile] = 0;
+    }
+    for (const name of GAMEPLAY_PLANES)
+      kernel.writeBuffer(name, snapshot[name]);
+    await dispatchTick(kernel, compiled, 64, actionPlayers());
+    const eliminated = await readSnapshot(kernel, compiled);
+    assert(
+      eliminated.totals.ownedTiles[2] === 0,
+      "spawn-latch probe did not eliminate player 2",
+    );
+    const respawn = await dispatchTick(
+      kernel,
+      compiled,
+      65,
+      actionPlayers({
+        2: {
+          actionKind: LEAN_ACTION.spawn,
+          actionTile: at(12, 8),
+          actionTick: 65,
+        },
+      }),
+    );
+    assert(
+      resultCode(respawn.outputs, 2) === LEAN_RESULT.invalid &&
+        respawn.outputs[2].hasSpawned === 1,
+      "an eliminated player bypassed the persistent spawn latch",
+    );
+    assert(
+      (await readSnapshot(kernel, compiled)).totals.ownedTiles[2] === 0,
+      "rejected respawn reclaimed territory",
+    );
+  } finally {
+    kernel.destroy();
+  }
+}
+
 export async function runLeanFrontGpuProbe(): Promise<LeanFrontProbeResult> {
   const probeSystem = {
     ...leanfront,
@@ -284,6 +537,8 @@ export async function runLeanFrontGpuProbe(): Promise<LeanFrontProbeResult> {
   };
   const compiled = await compileFieldSystem(probeSystem);
   await proveGrowthMicrocase(compiled);
+  await proveWideSumMicrocase(compiled);
+  await proveActionArbitrationAndSpawnLatch(compiled);
   const kernel = await createKernel(compiled);
   const params = defaultParams(compiled);
   const persistent: PlayerInput[] = Array.from({ length: PLAYERS }, () => ({}));
@@ -317,28 +572,19 @@ export async function runLeanFrontGpuProbe(): Promise<LeanFrontProbeResult> {
       actionTick: 0,
       ...(actions[index] ?? {}),
     }));
-    targetKernel.writeBuffer(
-      "PL",
-      new Uint32Array(compiled.writePlayers(players)),
-    );
-    const frame = targetKernel.beginFrame();
-    compiled.runTick(targetKernel, frame);
-    const result = await frame.finish();
-    const outputs = compiled.decodePlayerOutputs(
-      await targetKernel.readBuffer("PO"),
+    const { outputs, gpuMs } = await dispatchTick(
+      targetKernel,
+      compiled,
+      logicalTick,
+      players,
     );
     if (recordTiming) {
-      gpuTimes.push(result.gpuMs);
+      gpuTimes.push(gpuMs);
       totalSpendFx += outputs.reduce(
         (sum, output) => sum + output.foodSpendFx,
         0,
       );
     }
-    const state = compiled.decodeScalars(await targetKernel.readBuffer("S"));
-    assert(
-      state.tick === logicalTick,
-      `expected logical tick ${logicalTick}, got ${state.tick}`,
-    );
   };
 
   const tick = (

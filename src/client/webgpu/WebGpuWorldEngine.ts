@@ -109,6 +109,7 @@ const BUFFER_TYPES: Record<string, "f32" | "u32"> = {
   fill: "f32",
   dir: "u32",
   water: "f32",
+  waterNormalized: "f32",
   irrigation: "f32",
   humidity: "f32",
   G: "u32",
@@ -172,8 +173,22 @@ const PASS_TABLE: readonly DerivationPass[] = [
     kind: "single",
   },
   {
-    name: "climate",
-    module: "climate",
+    name: "climateTemperature",
+    module: "climate_temperature",
+    binds: [
+      "P",
+      "elevation",
+      "flags",
+      "G:Globals",
+      "tempBase",
+      "seasonAmp",
+      "seasonPhase",
+      "temperature!",
+    ],
+  },
+  {
+    name: "climatePrecipitation",
+    module: "climate_precipitation",
     binds: [
       "P",
       "elevation",
@@ -183,7 +198,6 @@ const PASS_TABLE: readonly DerivationPass[] = [
       "humidityBase",
       "seasonAmp",
       "seasonPhase",
-      "temperature!",
       "precipitation!",
     ],
   },
@@ -220,6 +234,11 @@ const PASS_TABLE: readonly DerivationPass[] = [
     name: "waterMax",
     module: "water_max",
     binds: ["flags", "water.read", "G:GlobalsAtomic!"],
+  },
+  {
+    name: "waterNormalize",
+    module: "water_normalize",
+    binds: ["water.read", "G:Globals", "waterNormalized!"],
   },
   {
     name: "lakes",
@@ -271,11 +290,10 @@ const PASS_TABLE: readonly DerivationPass[] = [
       "flags",
       "temperature",
       "precipitation",
-      "water.read",
+      "waterNormalized",
       "fill.read",
       "humidity",
       "riverBase",
-      "G:Globals",
       "out",
     ],
   },
@@ -326,6 +344,7 @@ export async function worldgenKernelConfig(): Promise<FieldKernelConfig> {
       { name: "fill", type: "f32", pingPong: true },
       { name: "dir", type: "u32" },
       { name: "water", type: "f32", pingPong: true },
+      { name: "waterNormalized", type: "f32" },
       { name: "irrigation", type: "f32", pingPong: true },
       { name: "humidity", type: "f32" },
       { name: "G", type: "u32", count: 4, clearable: true },
@@ -392,13 +411,15 @@ export class WebGpuWorldEngine {
     frame.pass("flagsInit");
     frame.pass("histogram");
     frame.pass("quantile");
-    frame.pass("climate");
+    frame.pass("climateTemperature");
+    frame.pass("climatePrecipitation");
     frame.pass("fillInit");
     frame.iterate("fillStep", fillIters);
     frame.pass("flowDir");
     frame.pass("waterInit");
     frame.iterate("waterStep", flowIters);
     frame.pass("waterMax");
+    frame.pass("waterNormalize");
     frame.pass("lakes");
     frame.iterate("lakeSpread", 12);
     frame.pass("irrigationInit");

@@ -388,8 +388,8 @@ export const MAP_LAYER_NAMES: readonly string[] = [
   "elevation",
 ];
 
-// Fixed-point scale for sum reduces: ±8M range with 1/256 resolution keeps
-// 1024²·value sums inside i32 while atomicAdd stays order-independent.
+// Fixed-point scale for sum reduces. Two u32 words preserve the 1/256 quantum
+// without the former per-tile i32 clamp or aggregate i32 overflow.
 const SUM_FX = 256;
 const IDENT = /^[A-Za-z_]\w*$/;
 const SIM_ITEMS = ["tick", "rand", "noise"];
@@ -485,7 +485,7 @@ interface ScalarSlot {
   name: string;
   spec: FieldReduceSpec;
   member: string;
-  base: "i32" | "u32";
+  base: "fx64" | "i32" | "u32";
   offsetWords: number;
   words: number;
 }
@@ -754,8 +754,11 @@ export async function compileFieldSystem(
   const scalarSlots: ScalarSlot[] = scalars.map(([name, spec]) => {
     const grouped = spec.groupBy !== undefined;
     const base =
-      spec.reduce === "sum" || spec.reduce === "count" ? "i32" : "u32";
-    const member = base === "i32" ? `${name}_fx` : (`${name}_bits` as string);
+      spec.reduce === "sum" ? "fx64" : spec.reduce === "count" ? "i32" : "u32";
+    const member =
+      base === "fx64" || base === "i32"
+        ? `${name}_fx`
+        : (`${name}_bits` as string);
     const slot: ScalarSlot = {
       name,
       spec,
@@ -764,15 +767,55 @@ export async function compileFieldSystem(
       offsetWords,
       words: grouped ? Math.max(1, playerCount) : 1,
     };
-    offsetWords += slot.words;
+    offsetWords += slot.words * (base === "fx64" ? 2 : 1);
     return slot;
   });
   const simWords = offsetWords;
 
+  const fx64Types = `
+struct Fx64 {
+  lo: u32,
+  hi: u32,
+}
+
+fn fx64ToF32(value: Fx64) -> f32 {
+  return f32(bitcast<i32>(value.hi)) * 16777216.0 +
+    f32(value.lo) / ${SUM_FX}.0;
+}
+`;
+
+  const fx64Atomic = `
+struct AtomicFx64 {
+  lo: atomic<u32>,
+  hi: atomic<u32>,
+}
+
+fn atomicAddFx64(p: ptr<storage, AtomicFx64, read_write>, value: f32) {
+  // One high word represents 2^32 fixed-point quanta = 2^24 values.
+  let magnitude = min(abs(value), 72057589742960640.0);
+  let hi = u32(min(floor(magnitude / 16777216.0), 4294967040.0));
+  let lo = u32(min((magnitude - f32(hi) * 16777216.0) * ${SUM_FX}.0,
+    4294967040.0));
+  let negative = value < 0.0;
+  let addLo = select(lo, 0u - lo, negative);
+  let addHi = select(hi, 0u - hi - select(0u, 1u, lo != 0u), negative);
+  let oldLo = atomicAdd(&(*p).lo, addLo);
+  let carry = select(0u, 1u, oldLo > 0xffffffffu - addLo);
+  atomicAdd(&(*p).hi, addHi + carry);
+}
+`;
+
   const simStruct = (atomic: boolean): string =>
     `struct ${atomic ? "SimAtomic" : "Sim"} {\n  tick: u32,\n${scalarSlots
       .map((slot) => {
-        const element = atomic ? `atomic<${slot.base}>` : slot.base;
+        const element =
+          slot.base === "fx64"
+            ? atomic
+              ? "AtomicFx64"
+              : "Fx64"
+            : atomic
+              ? `atomic<${slot.base}>`
+              : slot.base;
         const type =
           slot.spec.groupBy !== undefined
             ? `array<${element}, ${slot.words}>`
@@ -790,6 +833,10 @@ export async function compileFieldSystem(
   // Prelude for the generated (non-WESL) passes: zero/reduce/brush/view.
   const generatedPrelude = `
 ${paramsStruct}
+
+${fx64Types}
+
+${fx64Atomic}
 
 ${simStruct(false)}
 
@@ -1035,6 +1082,7 @@ struct Brush {
       if (use.params) parts.push("import package::params::seed;");
       if (needsSimBinding(use)) {
         parts.push(
+          fx64Types,
           simStruct(false),
           `@group(0) @binding(${indexOf("S:Sim")}) var<storage, read> S: Sim;`,
         );
@@ -1054,9 +1102,11 @@ struct Brush {
           const name = item.slice("scalar_".length);
           const slot = scalarSlots.find((s) => s.name === name)!;
           const decode =
-            slot.base === "i32"
-              ? (expr: string) => `f32(${expr}) / ${SUM_FX}.0`
-              : (expr: string) => `bitcast<f32>(${expr})`;
+            slot.base === "fx64"
+              ? (expr: string) => `fx64ToF32(${expr})`
+              : slot.base === "i32"
+                ? (expr: string) => `f32(${expr}) / ${SUM_FX}.0`
+                : (expr: string) => `bitcast<f32>(${expr})`;
           parts.push(
             slot.spec.groupBy !== undefined
               ? `fn ${item}(p: u32) -> f32 { return ${decode(`S.${slot.member}[min(p, ${slot.words - 1}u)]`)}; }`
@@ -1221,6 +1271,11 @@ ${wantsOceanMask ? "  if (land::val(i) == 0.0) { color = vec3f(0.055, 0.13, 0.20
           : slot.base === "i32"
             ? "0"
             : "0u";
+      if (slot.base === "fx64") {
+        return slot.spec.groupBy !== undefined
+          ? `  for (var g = 0u; g < ${slot.words}u; g += 1u) { atomicStore(&S.${slot.member}[g].lo, 0u); atomicStore(&S.${slot.member}[g].hi, 0u); }`
+          : `  atomicStore(&S.${slot.member}.lo, 0u);\n  atomicStore(&S.${slot.member}.hi, 0u);`;
+      }
       return slot.spec.groupBy !== undefined
         ? `  for (var g = 0u; g < ${slot.words}u; g += 1u) { atomicStore(&S.${slot.member}[g], ${reset}); }`
         : `  atomicStore(&S.${slot.member}, ${reset});`;
@@ -1257,11 +1312,13 @@ ${wantsOceanMask ? "  if (land::val(i) == 0.0) { color = vec3f(0.055, 0.13, 0.20
     const target =
       spec.groupBy !== undefined ? `S.${slot.member}[g]` : `S.${slot.member}`;
     const accumulate =
-      spec.reduce === "sum" || spec.reduce === "count"
-        ? `atomicAdd(&${target}, i32(clamp(${of}, -32768.0, 32767.0) * ${SUM_FX}.0));`
-        : spec.reduce === "max"
-          ? `atomicMax(&${target}, bitcast<u32>(max(${of}, 0.0)));`
-          : `atomicMin(&${target}, bitcast<u32>(max(${of}, 0.0)));`;
+      spec.reduce === "sum"
+        ? `atomicAddFx64(&${target}, ${of});`
+        : spec.reduce === "count"
+          ? `atomicAdd(&${target}, i32(${of} * ${SUM_FX}.0));`
+          : spec.reduce === "max"
+            ? `atomicMax(&${target}, bitcast<u32>(max(${of}, 0.0)));`
+            : `atomicMin(&${target}, bitcast<u32>(max(${of}, 0.0)));`;
     const grouped =
       spec.groupBy !== undefined
         ? `  let g = u32(${spec.groupBy}_in[i]);\n  if (g >= ${slot.words}u) { return; }\n`
@@ -1597,6 +1654,11 @@ ${oceanMask ? "  if (land[i] == 0.0) { color = vec3f(0.055, 0.13, 0.20); }" : ""
       for (const slot of scalarSlots) {
         const decode = (word: number): number => {
           const offset = (slot.offsetWords + word) * 4;
+          if (slot.base === "fx64") {
+            const low = BigInt(view.getUint32(offset, true));
+            const high = BigInt(view.getInt32(offset + 4, true));
+            return Number((high << 32n) + low) / SUM_FX;
+          }
           if (slot.base === "i32") {
             return view.getInt32(offset, true) / SUM_FX;
           }
@@ -1610,7 +1672,9 @@ ${oceanMask ? "  if (land[i] == 0.0) { color = vec3f(0.055, 0.13, 0.20); }" : ""
         };
         values[slot.name] =
           slot.spec.groupBy !== undefined
-            ? Array.from({ length: slot.words }, (_, g) => decode(g))
+            ? Array.from({ length: slot.words }, (_, g) =>
+                decode(g * (slot.base === "fx64" ? 2 : 1)),
+              )
             : decode(0);
       }
       return { tick: view.getUint32(0, true), values };

@@ -20,6 +20,7 @@ import { gridMainWesl, KERNEL_WESL, singleMainWesl } from "./WeslKernel";
 //   "name:Type"     explicit WGSL type (e.g. "G:GlobalsAtomic!", "hist:array<atomic<u32>,256>!")
 //   "P"             uniform Params
 //   "out"           output storage texture (rgba8unorm)
+//   "out.read"      the output texture as a sampled texture
 
 export interface DerivationPass {
   /** Dispatch-program name (referenced by frame.pass / frame.iterate). */
@@ -49,6 +50,9 @@ export function bindingsModule(
 ): string {
   const decls = binds.map((ref, index) => {
     const binding = index + 1; // 0 is GRID (package::kernel)
+    if (ref === "out.read") {
+      return `@group(0) @binding(${binding}) var out_tex_in: texture_2d<f32>;`;
+    }
     if (ref === "out") {
       return `@group(0) @binding(${binding}) var out_tex: texture_storage_2d<rgba8unorm, write>;`;
     }

@@ -1,11 +1,11 @@
-// Temperature and moisture in one pass. Real-base mode (useClimateBase):
+// Temperature and moisture helpers. Real-base mode (useClimateBase):
 // both come from the shipped planes — temperature = tempBase + seasonal
 // swing, precipitation = humidityBase — with nothing synthetic. Otherwise
 // the synthetic latitude/altitude model + fbm rain fields.
 import package::kernel::{GRID, clamp01, fbm};
-import package::bindings::{P, elevation, flags, G, tempBase, humidityBase, seasonAmp, seasonPhase, temperature, precipitation};
+import package::bindings::{P, elevation, flags, G, tempBase, humidityBase, seasonAmp, seasonPhase};
 
-fn tile(x: i32, y: i32, i: u32) {
+fn temperatureAt(x: i32, y: i32, i: u32) -> f32 {
   let nx = f32(x) / f32(GRID.size.x);
   let ny = f32(y) / f32(GRID.size.y);
   let ocean = (flags[i] & 1u) != 0u;
@@ -43,8 +43,14 @@ fn tile(x: i32, y: i32, i: u32) {
   let based = clamp01(tempBase[i] + seasonal);
   let real = P.useClimateBase > 0.5;
   let temp = select(synthetic, based, real && !ocean);
-  temperature[i] = temp;
+  return temp;
+}
 
+fn precipitationAt(x: i32, y: i32, i: u32) -> f32 {
+  let nx = f32(x) / f32(GRID.size.x);
+  let ny = f32(y) / f32(GRID.size.y);
+  let ocean = (flags[i] & 1u) != 0u;
+  let temp = temperatureAt(x, y, i);
   let rainField = fbm(P.seed + 419, nx, ny, 4.2, 5, 0.52);
   let stormBand = fbm(P.seed + 727, nx + f32(y) * 0.002, ny, 1.8, 3, 0.6);
   let orographic = clamp01(elevation[i] - P.seaLevel) * 0.24;
@@ -56,5 +62,5 @@ fn tile(x: i32, y: i32, i: u32) {
   let syntheticRain = clamp01(value / (1.18 + P.warmthRainfall * 0.35));
   // Real mode: moisture is the shipped humidity plane — the Sahara gets no
   // imaginary rain. Rivers and color texture downstream see the same field.
-  precipitation[i] = select(syntheticRain, humidityBase[i], real);
+  return select(syntheticRain, humidityBase[i], P.useClimateBase > 0.5);
 }

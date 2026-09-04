@@ -16,6 +16,7 @@
 //   "G:Globals" / "G:GlobalsAtomic!"  WGSL type override for struct/atomic views
 //   "P"                               uniform (matched by registered uniform name)
 //   "out"                             the kernel's rgba8unorm storage texture, var `out_tex`
+//   "out.read"                        the same texture sampled as `out_tex_in`
 
 export type FieldScalarType = "f32" | "u32" | "i32";
 
@@ -145,7 +146,7 @@ interface ParsedBind {
   facet: BindFacet;
   readWrite: boolean;
   typeOverride: string | null;
-  kind: "buffer" | "uniform" | "texture";
+  kind: "buffer" | "uniform" | "texture" | "sampledTexture";
   varName: string;
 }
 
@@ -434,10 +435,10 @@ export class FieldKernel {
       return {
         resource,
         facet: "static",
-        readWrite: true,
+        readWrite: facet !== "read",
         typeOverride: null,
-        kind: "texture",
-        varName: "out_tex",
+        kind: facet === "read" ? "sampledTexture" : "texture",
+        varName: facet === "read" ? "out_tex_in" : "out_tex",
       };
     }
     if (this.uniformBuffers.has(resource)) {
@@ -491,6 +492,9 @@ export class FieldKernel {
         storageTexture: { access: "write-only", format: "rgba8unorm" },
       };
     }
+    if (bind.kind === "sampledTexture") {
+      return { binding, visibility, texture: { sampleType: "float" } };
+    }
     if (bind.kind === "uniform") {
       return { binding, visibility, buffer: { type: "uniform" } };
     }
@@ -511,6 +515,9 @@ export class FieldKernel {
         const binding = index + 1;
         if (bind.kind === "texture") {
           return `@group(0) @binding(${binding}) var ${bind.varName}: texture_storage_2d<rgba8unorm, write>;`;
+        }
+        if (bind.kind === "sampledTexture") {
+          return `@group(0) @binding(${binding}) var ${bind.varName}: texture_2d<f32>;`;
         }
         if (bind.kind === "uniform") {
           const uniform = (this.config.uniforms ?? []).find(
@@ -741,7 +748,7 @@ export class FieldKernel {
           ...runtime.binds.map((bind, index) => ({
             binding: index + 1,
             resource:
-              bind.kind === "texture"
+              bind.kind === "texture" || bind.kind === "sampledTexture"
                 ? this.outTextureView!
                 : bind.kind === "uniform"
                   ? { buffer: this.uniformBuffers.get(bind.resource)! }

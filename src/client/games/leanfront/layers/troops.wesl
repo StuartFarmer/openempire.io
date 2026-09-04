@@ -42,18 +42,19 @@ fn update(x: i32, y: i32, i: u32) -> f32 {
 
   var city = layers::cityLevel::val(i);
   for (var p = 1u; p < players::count(); p += 1u) {
-    let action = players::val(p);
+    let actionKind = playerOutputs::resolvedActionKind(p);
+    let actionTile = playerOutputs::resolvedActionTile(p);
     if (playerOutputs::resolvedResult(p) != 1u) { continue; }
-    if (action.actionKind == 4u) {
-      if (i != action.actionTile) { continue; }
+    if (actionKind == 4u) {
+      if (i != actionTile) { continue; }
       city = 0u;
       next = 0.0;
-    } else if (action.actionKind == 1u) {
+    } else if (actionKind == 1u) {
       if (i != playerOutputs::spawnCityTile(p)) { continue; }
       city = 1u;
       next = params::seedFraction() * params::cityCapacityPerLevel();
-    } else if (action.actionKind == 2u) {
-      if (i != action.actionTile) { continue; }
+    } else if (actionKind == 2u) {
+      if (i != actionTile) { continue; }
       if (city == 0u) {
         next = params::seedFraction() * params::cityCapacityPerLevel();
       }

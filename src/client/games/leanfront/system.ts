@@ -123,13 +123,18 @@ export const leanfront = defineFieldSystem({
       "resolvedResult",
       "resolvedCostFx",
       "resolvedLevel",
+      "resolvedActionKind",
+      "resolvedActionTile",
       "spawnCityTile",
       "spawnFarmTile",
+      "hasSpawned",
+      "foodKeepBits",
     ],
   },
 
   phases: [
     ["command"],
+    ["spawnLatch"],
     ["incursion"],
     ["owner", "troops", "cityLevel", "farmLevel", "food"],
   ],

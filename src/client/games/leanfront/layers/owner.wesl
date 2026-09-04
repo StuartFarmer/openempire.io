@@ -25,9 +25,10 @@ fn update(x: i32, y: i32, i: u32) -> u32 {
 
   var spawnClaimed = false;
   for (var p = 1u; p < players::count(); p += 1u) {
-    let action = players::val(p);
+    let actionKind = playerOutputs::resolvedActionKind(p);
+    let actionTile = playerOutputs::resolvedActionTile(p);
     if (playerOutputs::resolvedResult(p) != 1u) { continue; }
-    if (action.actionKind == 1u && layers::land::val(i) != 0.0) {
+    if (actionKind == 1u && layers::land::val(i) != 0.0) {
       let spawnCity = playerOutputs::spawnCityTile(p);
       let tx = i32(spawnCity % GRID.size.x);
       let ty = i32(spawnCity / GRID.size.x);
@@ -37,7 +38,7 @@ fn update(x: i32, y: i32, i: u32) -> u32 {
         next = p;
         spawnClaimed = true;
       }
-    } else if (action.actionKind == 4u && i == action.actionTile) {
+    } else if (actionKind == 4u && i == actionTile) {
       next = 0u;
     }
   }

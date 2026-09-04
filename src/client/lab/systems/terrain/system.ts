@@ -84,6 +84,7 @@ export const terrain: FieldSystem = {
       fill: { type: "f32", exposed: true },
       dir: { type: "u32" },
       water: { type: "f32", exposed: true },
+      waterNormalized: { type: "f32" },
       irrigation: { type: "f32" },
       humidity: { type: "f32", exposed: true },
       // The FINAL terrain color (rgb8 packed) — games composite overlays over
@@ -121,7 +122,21 @@ export const terrain: FieldSystem = {
         tiers: ["recolor"],
       },
       {
-        pass: "climate",
+        pass: "climate_temperature",
+        binds: [
+          "TP",
+          "elevation",
+          "flags",
+          "G:Globals",
+          "tempBase",
+          "seasonAmp",
+          "seasonPhase",
+          "temperature!",
+        ],
+        tiers: ["recolor", "season"],
+      },
+      {
+        pass: "climate_precipitation",
         binds: [
           "TP",
           "elevation",
@@ -131,7 +146,6 @@ export const terrain: FieldSystem = {
           "humidityBase",
           "seasonAmp",
           "seasonPhase",
-          "temperature!",
           "precipitation!",
         ],
         tiers: ["recolor", "season"],
@@ -169,6 +183,11 @@ export const terrain: FieldSystem = {
       {
         pass: "water_max",
         binds: ["flags", "water.read", "G:GlobalsAtomic!"],
+        tiers: ["recolor"],
+      },
+      {
+        pass: "water_normalize",
+        binds: ["water.read", "G:Globals", "waterNormalized!"],
         tiers: ["recolor"],
       },
       {
@@ -211,32 +230,19 @@ export const terrain: FieldSystem = {
           "flags",
           "temperature",
           "precipitation",
-          "water.read",
+          "waterNormalized",
           "fill.read",
           "humidity",
           "riverBase",
-          "G:Globals",
           "out",
         ],
         tiers: ["recolor", "season", "repaint"],
       },
-      // Pack the rendered terrain color into `tint` for game overlays. Same
-      // inputs as `color`, reusing layerColor; runs in the same color tiers.
+      // Pack the rendered terrain color into `tint` for game overlays by
+      // sampling the prior color output; runs in the same color tiers.
       {
         pass: "pack_tint",
-        binds: [
-          "TP",
-          "elevation",
-          "flags",
-          "temperature",
-          "precipitation",
-          "water.read",
-          "fill.read",
-          "humidity",
-          "riverBase",
-          "G:Globals",
-          "tint!",
-        ],
+        binds: ["out.read", "tint!"],
         tiers: ["recolor", "season", "repaint"],
       },
     ],

@@ -104,6 +104,7 @@ export abstract class FieldViewerBase extends LitElement {
   private downPoint = { x: 0, y: 0 };
   private downTile = { x: 0, y: 0 };
   private moved = false;
+  private lastIntentBrushTile = -1;
 
   private raf = 0;
   private lastTime = 0;
@@ -310,9 +311,6 @@ export abstract class FieldViewerBase extends LitElement {
         "P",
         compiled.writeParams(this.paramValues, this.seed),
       );
-      this.playerIntents = [];
-      this.aiClock = 0;
-      this.runAI(); // seed the system's bots (no-op without an `ai` hook)
       await this.resetState();
 
       if (preserved) {
@@ -339,13 +337,19 @@ export abstract class FieldViewerBase extends LitElement {
     this.kernel.clearBuffer("S");
     if (this.compiled.playerOutputNames.length > 0)
       this.kernel.clearBuffer("PO");
+    this.playerIntents = [];
     this.playerActionQueues = [];
+    this.aiClock = 0;
     this.submittedTick = 0;
+    this.tickReadout = 0;
+    this.scalarReadout = {};
     this.playerOutputReadout = [];
+    this.lastIntentBrushTile = -1;
     const frame = this.kernel.beginFrame();
     this.compiled.runInit(frame);
     this.compiled.runView(frame, this.view);
     await frame.finish();
+    this.runAI(); // opening commands must be queued after reset clears them
     this.needsRedraw = true;
   }
 
@@ -508,7 +512,9 @@ export abstract class FieldViewerBase extends LitElement {
 
   /** Called when a brush/act stroke begins (pointer down in brush tool).
    * Subclasses override to reset per-stroke state. */
-  protected onStrokeStart(): void {}
+  protected onStrokeStart(): void {
+    this.lastIntentBrushTile = -1;
+  }
 
   protected onPointerUp = (event: PointerEvent): void => {
     // A click that didn't turn into a drag → act on the pressed tile.
@@ -523,6 +529,7 @@ export abstract class FieldViewerBase extends LitElement {
     }
     this.dragging = false;
     this.painting = false;
+    this.lastIntentBrushTile = -1;
   };
 
   protected onPointerLeave = (): void => {
@@ -765,9 +772,12 @@ export abstract class FieldViewerBase extends LitElement {
     if (!this.kernel || !this.compiled || brush === "") return;
     const intent = this.compiled.intentForBrush(brush);
     if (intent !== undefined) {
+      const tile = y * this.mapWidth + x;
+      if (tile === this.lastIntentBrushTile) return;
+      this.lastIntentBrushTile = tile;
       this.queuePlayerAction(this.compiled.localPlayer, {
         actionKind: intent,
-        actionTile: y * this.mapWidth + x,
+        actionTile: tile,
       });
       return;
     }

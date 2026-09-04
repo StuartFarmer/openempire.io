@@ -1261,6 +1261,7 @@ export class GameShellPage extends FieldViewerBase {
 
   /** New click/stroke → allow re-acting on the same tile (repeated attacks). */
   protected onStrokeStart(): void {
+    super.onStrokeStart();
     this.lastGestureKey = -1;
   }
 

@@ -30,6 +30,7 @@ test("declares only the simple economy state and tuning surface", async () => {
     "food",
     "incursion",
     "owner",
+    "spawnLatch",
     "troops",
   ]);
   expect(Object.keys(leanfront.params ?? {})).toEqual([
@@ -52,6 +53,7 @@ test("declares only the simple economy state and tuning surface", async () => {
   ]);
   expect(leanfront.phases).toEqual([
     ["command"],
+    ["spawnLatch"],
     ["incursion"],
     ["owner", "troops", "cityLevel", "farmLevel", "food"],
   ]);
@@ -61,8 +63,12 @@ test("declares only the simple economy state and tuning surface", async () => {
     "resolvedResult",
     "resolvedCostFx",
     "resolvedLevel",
+    "resolvedActionKind",
+    "resolvedActionTile",
     "spawnCityTile",
     "spawnFarmTile",
+    "hasSpawned",
+    "foodKeepBits",
   ]);
   expect(leanfront.scalars).toEqual({
     totalFood: { reduce: "sum", layer: "food", groupBy: "owner" },
@@ -85,7 +91,7 @@ test("declares only the simple economy state and tuning surface", async () => {
   expect(compiled.intentForBrush("raze")).toBe(LEAN_ACTION.raze);
 });
 
-test("every composed LeanFront pass fits the ten-storage-buffer WebGPU limit", async () => {
+test("every composed LeanFront pass fits the eight-storage-buffer WebGPU limit", async () => {
   const compiled = await compileFieldSystem(composeTerrain(leanfront));
   const uniformNames = new Set(
     compiled.kernelConfig.uniforms?.map(({ name }) => name) ?? [],
@@ -99,9 +105,7 @@ test("every composed LeanFront pass fits the ten-storage-buffer WebGPU limit", a
   expect(Object.keys(counts).length).toBeGreaterThan(0);
   expect(counts["sim/tick"]).toBe(1);
   expect(
-    Object.fromEntries(
-      Object.entries(counts).filter(([, count]) => count > 10),
-    ),
+    Object.fromEntries(Object.entries(counts).filter(([, count]) => count > 8)),
   ).toEqual({});
 });
 
@@ -342,6 +346,43 @@ test("two nearby same-tick spawns use one linked player-priority reservation dec
   expect(leanfront.modules["layers/troops.wesl"]).toContain(
     "playerOutputs::spawnCityTile(p)",
   );
+});
+
+test("non-spawn actions arbitrate overlapping targets once in player order", async () => {
+  const compiled = await compileFieldSystem(composeTerrain(leanfront));
+  const arbitration = leanfront.modules["lib/actions.wesl"] ?? "";
+  const command = leanfront.modules["layers/command.wesl"] ?? "";
+
+  expect(arbitration).toMatch(/earlierPlayer < player/);
+  expect(arbitration).toMatch(
+    /earlierAction\.actionTile != action\.actionTile/,
+  );
+  expect(arbitration).toMatch(/earlierResolved\.decision\.result == 1u/);
+  expect(command).toContain("resolveAction(i)");
+  expect(command).toContain("set_resolvedResult");
+  for (const name of ["owner", "troops", "cityLevel", "farmLevel", "food"]) {
+    const source = leanfront.modules[`layers/${name}.wesl`] ?? "";
+    expect(source).toContain("playerOutputs::resolvedActionKind(p)");
+    expect(source).toContain("playerOutputs::resolvedActionTile(p)");
+    expect(source).not.toMatch(/action\.action(Kind|Tile)/);
+  }
+  expect(compiled.kernelConfig.passes).toContainEqual(
+    expect.objectContaining({ name: "stock/command" }),
+  );
+});
+
+test("spawn acceptance is latched in persistent GPU output state", () => {
+  const actions = leanfront.modules["lib/actions.wesl"] ?? "";
+  const command = leanfront.modules["layers/command.wesl"] ?? "";
+  const latch = leanfront.modules["layers/spawnLatch.wesl"] ?? "";
+
+  expect(leanfront.players?.outputs).toContain("hasSpawned");
+  expect(actions).toContain("playerOutputs::hasSpawned(candidatePlayer)");
+  expect(latch).toMatch(
+    /resolvedActionKind\(i\)[\s\S]*actionKind == 1u[\s\S]*d == 1u[\s\S]*set_hasSpawned\(i, 1u\)/,
+  );
+  expect(command).not.toContain("set_hasSpawned");
+  expect(command).not.toContain("set_hasSpawned(i, 0u)");
 });
 
 test("reports due valid and invalid actions from one player invocation", () => {
