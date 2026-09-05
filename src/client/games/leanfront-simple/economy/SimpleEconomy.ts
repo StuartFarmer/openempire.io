@@ -1,7 +1,7 @@
 import type { SimplePlotEconomyConfig } from "../../../../core/configuration/Config";
+import { setUrbanTickProvider } from "../../../../core/execution/utils/UrbanGrowth";
 import type { Game, Player } from "../../../../core/game/Game";
 import { UnitType } from "../../../../core/game/Game";
-import { setUrbanTickProvider } from "../../../../core/execution/utils/UrbanGrowth";
 
 export type { SimplePlotEconomyConfig } from "../../../../core/configuration/Config";
 
@@ -40,9 +40,7 @@ export function growSimplePlot(
   const raw = Math.fround(
     Math.fround(
       Math.fround(
-        record.kind === "city"
-          ? config.cityGrowthRate
-          : config.farmGrowthRate,
+        record.kind === "city" ? config.cityGrowthRate : config.farmGrowthRate,
       ) * record.stock,
     ) * Math.fround(Math.log(ratio)),
   );
@@ -76,9 +74,7 @@ export function apportion(
   let assigned = 0;
   for (const entry of ordered) {
     const share =
-      weight > 0
-        ? Math.floor((total * Math.max(0, entry.weight)) / weight)
-        : 0;
+      weight > 0 ? Math.floor((total * Math.max(0, entry.weight)) / weight) : 0;
     shares.set(entry.unitId, share);
     assigned += share;
   }
@@ -114,13 +110,14 @@ export class SimpleEconomy {
     if (config === null) return;
 
     const active = new Map<number, SimplePlotInput>();
+    const surviving = new Map<number, SimplePlotInput[]>();
     for (const unit of game.units(UnitType.Settlement, UnitType.Farmland)) {
       if (!unit.isActive() || unit.isUnderConstruction()) continue;
       const kind: SimplePlotKind =
         unit.type() === UnitType.Settlement ? "city" : "farm";
       const previous = this.records.get(unit.id());
       const owner = unit.owner().smallID();
-      active.set(unit.id(), {
+      const record: SimplePlotInput = {
         unitId: unit.id(),
         tile: unit.tile(),
         owner,
@@ -132,7 +129,13 @@ export class SimpleEconomy {
             : kind === "farm" || previous === undefined
               ? Math.floor(config.capacityPerLevel * config.seedFraction)
               : 0,
-      });
+      };
+      active.set(unit.id(), record);
+      if (previous?.owner === owner) {
+        const records = surviving.get(owner) ?? [];
+        records.push(record);
+        surviving.set(owner, records);
+      }
     }
 
     this.records = active;
@@ -149,14 +152,25 @@ export class SimpleEconomy {
     for (const player of game.players()) {
       const key = player.id();
       const records = byOwner.get(player.smallID()) ?? [];
+      const priorRecords = surviving.get(player.smallID()) ?? [];
       const current = { troops: player.troops(), food: player.food() };
       const prior = this.published.get(key);
       if (prior === undefined) {
         // Spawn balances are replaced by plot seeds rather than added twice.
         this.published.set(key, current);
       } else {
-        this.reconcile(records, key, current.troops - prior.troops, "city");
-        this.reconcile(records, key, Number(current.food - prior.food), "farm");
+        this.reconcile(
+          priorRecords,
+          key,
+          current.troops - prior.troops,
+          "city",
+        );
+        this.reconcile(
+          priorRecords,
+          key,
+          Number(current.food - prior.food),
+          "farm",
+        );
       }
 
       const cities = records.filter((record) => record.kind === "city");
@@ -174,7 +188,8 @@ export class SimpleEconomy {
         this.frame.set(result.unitId, result);
       }
       this.staged.set(key, {
-        troops: this.total(records, "city") + (this.dormantTroops.get(key) ?? 0),
+        troops:
+          this.total(records, "city") + (this.dormantTroops.get(key) ?? 0),
         food: BigInt(this.total(records, "farm")),
       });
     }
@@ -194,7 +209,9 @@ export class SimpleEconomy {
 
   plotFrame(): Int32Array {
     const values: number[] = [];
-    for (const result of [...this.frame.values()].sort((a, b) => a.tile - b.tile)) {
+    for (const result of [...this.frame.values()].sort(
+      (a, b) => a.tile - b.tile,
+    )) {
       values.push(
         result.tile,
         result.kind === "city" ? 1 : 2,
@@ -253,7 +270,10 @@ export class SimpleEconomy {
     }
   }
 
-  private total(records: readonly SimplePlotInput[], kind: SimplePlotKind): number {
+  private total(
+    records: readonly SimplePlotInput[],
+    kind: SimplePlotKind,
+  ): number {
     return records
       .filter((record) => record.kind === kind)
       .reduce((sum, record) => sum + record.stock, 0);
