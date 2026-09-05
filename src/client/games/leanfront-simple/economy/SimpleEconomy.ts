@@ -164,12 +164,14 @@ export class SimpleEconomy {
           key,
           current.troops - prior.troops,
           "city",
+          config,
         );
         this.reconcile(
           priorRecords,
           key,
           Number(current.food - prior.food),
           "farm",
+          config,
         );
       }
 
@@ -238,6 +240,7 @@ export class SimpleEconomy {
     key: string,
     delta: number,
     kind: SimplePlotKind,
+    config: SimplePlotEconomyConfig,
   ): void {
     if (delta === 0) return;
     const plots = records.filter((record) => record.kind === kind);
@@ -250,16 +253,27 @@ export class SimpleEconomy {
       }
       return;
     }
-    this.distribute(plots, delta);
+    this.distribute(
+      plots,
+      delta,
+      kind === "city" && delta > 0
+        ? (record) =>
+            config.capacityPerLevel * Math.max(1, Math.floor(record.level))
+        : undefined,
+    );
   }
 
-  private distribute(records: SimplePlotInput[], delta: number): void {
+  private distribute(
+    records: SimplePlotInput[],
+    delta: number,
+    weightOf: (record: SimplePlotInput) => number = (record) => record.stock,
+  ): void {
     const direction = Math.sign(delta);
     const shares = apportion(
       Math.abs(delta),
       records.map((record) => ({
         unitId: record.unitId,
-        weight: record.stock,
+        weight: weightOf(record),
       })),
     );
     for (const record of records) {

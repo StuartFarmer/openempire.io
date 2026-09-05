@@ -180,6 +180,27 @@ describe("LeanFront Simple economy", () => {
     expect(p.food()).toBe(4_000n);
   });
 
+  test("apportions returned troops by surviving city capacity", async () => {
+    const [g, [p]] = await simpleGame();
+    const first = build(g, p, UnitType.Settlement, 4, 4);
+    const second = build(g, p, UnitType.Settlement, 8, 8);
+    const economy = new SimpleEconomy();
+    await publish(economy, g, p);
+
+    second.increaseLevel();
+    await publish(economy, g, p);
+    p.addTroops(3_000);
+    await publish(economy, g, p);
+
+    const frame = economy.plotFrame();
+    expect([frame[0], frame[3], frame[6], frame[9]]).toEqual([
+      first.tile(),
+      3_000,
+      second.tile(),
+      4_000,
+    ]);
+  });
+
   test("debits dormant troops before distributing them to an acquired city", async () => {
     const [g, [p, rival]] = await simpleGame([info, rivalInfo]);
     const economy = new SimpleEconomy();
