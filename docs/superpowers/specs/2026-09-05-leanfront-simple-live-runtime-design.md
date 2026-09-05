@@ -82,7 +82,8 @@ and LeanFront Simple.
 
 Food affordability is the only wrapper around combat. It may limit whether an
 attack can begin or remain active, but it does not change how an accepted attack
-is executed.
+is executed. Combat parity tests freeze both economy ticks so their different
+resource growth cannot obscure the combat comparison.
 
 ## 3. Plot model
 
@@ -205,9 +206,10 @@ People do not consume it.
   economy.
 
 Discrete commands are validated and debited in `GameRunner` submission order.
-An unaffordable build, upgrade, or raze is rejected without mutation. An attack
-request is capped to the affordable whole-person commitment before the existing
-`AttackExecution` is enqueued.
+An unaffordable build, upgrade, or raze is rejected without mutation. The
+existing `AttackExecution` creates an attack normally; before its first combat
+tick, the runtime caps it to the affordable whole-person commitment and returns
+any excess people to the player.
 
 Before each later tick, the runtime debits each active attack's energy. If the
 full integer charge cannot be paid, the runtime orders that attack to end and
