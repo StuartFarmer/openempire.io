@@ -9,6 +9,15 @@ import { seedAwardTick } from "./SeedAwards";
 import { PlayerSupply, supplyField, supplyQuality } from "./SupplyField";
 import { nucleusPaceBoost, tenureTick } from "./TileTenure";
 
+/** An optional whole-tick replacement supplied by a live-game runtime. */
+export type UrbanTickProvider = (mg: Game, player: Player) => boolean;
+
+let urbanTickProvider: UrbanTickProvider | null = null;
+
+export function setUrbanTickProvider(provider: UrbanTickProvider | null): void {
+  urbanTickProvider = provider;
+}
+
 /**
  * The urban tick (openspec add-urban-core-growth; see growth-model.md). On
  * layered maps the player places SEEDS — Settlement (city nuclei) and Farmland
@@ -62,6 +71,7 @@ export function urbanSuitability(
 }
 
 export function urbanTick(mg: Game, player: Player): void {
+  if (urbanTickProvider?.(mg, player) === true) return;
   // Food economy + demographics: farms produce, the population is born and
   // dies by the food it has (FoodEconomy.foodTick sets foodFlow().population).
   foodTick(mg, player);

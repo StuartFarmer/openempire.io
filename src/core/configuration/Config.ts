@@ -29,6 +29,18 @@ export {
   type FoodConfig,
 } from "./FoodConfig";
 
+/** Tuning owned by LeanFront Simple's compact plot economy. */
+export interface SimplePlotEconomyConfig {
+  capacityPerLevel: number;
+  seedFraction: number;
+  cityGrowthRate: number;
+  farmGrowthRate: number;
+  cityLevelCost: bigint;
+  farmLevelCost: bigint;
+  razeCost: bigint;
+  attackMilliPerPerson: bigint;
+}
+
 interface EconomyPlayer {
   type(): PlayerType;
   isLobbyCreator(): boolean;
@@ -897,6 +909,11 @@ export class Config {
 
   foodOverrides(): Readonly<Partial<FoodConfig>> {
     return this._foodOverrides;
+  }
+
+  /** Null keeps the rich CPU urban economy as the default. */
+  simplePlotEconomy(): SimplePlotEconomyConfig | null {
+    return null;
   }
 
   /** Per-difficulty AI levers; humans always get multiplier 1 / argmax. */

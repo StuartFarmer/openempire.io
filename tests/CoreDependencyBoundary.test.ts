@@ -50,6 +50,10 @@ describe("core dependency boundary", () => {
       "src/client/games/leanfront/system.ts",
       "utf8",
     );
+    const urbanGrowthSource = readFileSync(
+      "src/core/execution/utils/UrbanGrowth.ts",
+      "utf8",
+    );
 
     expect(workerSource).not.toContain('=== "leanfront"');
     expect(workerSource).not.toContain("GpuEconomy");
@@ -62,6 +66,7 @@ describe("core dependency boundary", () => {
     expect(registrySource).toContain('import("./leanfront/runtime")');
     expect(registrySource).toContain('import("./leanfront-simple/runtime")');
     expect(workerSource).not.toMatch(/leanfront-simple\/runtime|SimpleEconomy/);
+    expect(urbanGrowthSource).not.toMatch(/leanfront-simple|SimpleEconomy/);
     expect(leanfrontSystemSource).toContain(
       'import.meta.glob("./layers/**/*.wesl"',
     );
