@@ -178,7 +178,12 @@ export class SimpleEconomy {
       const cities = records.filter((record) => record.kind === "city");
       const dormant = this.dormantTroops.get(key) ?? 0;
       if (cities.length > 0 && dormant > 0) {
-        this.distribute(cities, dormant);
+        this.distribute(
+          cities,
+          dormant,
+          (record) =>
+            config.capacityPerLevel * Math.max(1, Math.floor(record.level)),
+        );
         this.dormantTroops.delete(key);
       }
 

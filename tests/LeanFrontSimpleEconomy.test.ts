@@ -201,6 +201,32 @@ describe("LeanFront Simple economy", () => {
     ]);
   });
 
+  test("apportions dormant returns by acquired city capacity", async () => {
+    const [g, [p, rival]] = await simpleGame([info, rivalInfo]);
+    p.conquer(g.ref(1, 1));
+    const first = build(g, rival, UnitType.Settlement, 4, 4);
+    const second = build(g, rival, UnitType.Settlement, 8, 8);
+    second.increaseLevel();
+    const economy = new SimpleEconomy();
+
+    await publish(economy, g, p);
+    p.addTroops(3_000);
+    await publish(economy, g, p);
+    p.conquer(first.tile());
+    p.captureUnit(first);
+    p.conquer(second.tile());
+    p.captureUnit(second);
+    await publish(economy, g, p);
+
+    const frame = economy.plotFrame();
+    expect([frame[0], frame[3], frame[6], frame[9]]).toEqual([
+      first.tile(),
+      1_000,
+      second.tile(),
+      2_000,
+    ]);
+  });
+
   test("debits dormant troops before distributing them to an acquired city", async () => {
     const [g, [p, rival]] = await simpleGame([info, rivalInfo]);
     const economy = new SimpleEconomy();
