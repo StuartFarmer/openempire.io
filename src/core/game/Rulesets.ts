@@ -22,9 +22,13 @@ import type { GameConfig } from "../Schemas";
 import { UserSettings } from "./UserSettings";
 
 /** The games the shell can start. */
-export type RulesetID = "openfront" | "leanfront";
+export type RulesetID = "openfront" | "leanfront" | "leanfront-simple";
 
-export const RULESET_IDS = ["openfront", "leanfront"] as const;
+export const RULESET_IDS = [
+  "openfront",
+  "leanfront",
+  "leanfront-simple",
+] as const;
 
 export const DEFAULT_RULESET: RulesetID = "openfront";
 
@@ -44,6 +48,9 @@ export function isRulesetID(value: unknown): value is RulesetID {
  */
 export class LeanFrontConfig extends Config {}
 
+/** LeanFront Simple's rules. Economy overrides arrive in a later change. */
+export class LeanFrontSimpleConfig extends Config {}
+
 /** Build the `Config` for a ruleset. Unknown ids throw rather than silently
  *  falling back — a typo'd ruleset should not quietly play a different game. */
 export function createRulesetConfig(
@@ -57,6 +64,8 @@ export function createRulesetConfig(
       return new Config(gameConfig, userSettings, isReplay);
     case "leanfront":
       return new LeanFrontConfig(gameConfig, userSettings, isReplay);
+    case "leanfront-simple":
+      return new LeanFrontSimpleConfig(gameConfig, userSettings, isReplay);
     default: {
       const never: never = ruleset;
       throw new Error(`unknown ruleset: ${String(never)}`);

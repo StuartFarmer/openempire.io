@@ -6,6 +6,7 @@ import {
   DEFAULT_RULESET,
   isRulesetID,
   LeanFrontConfig,
+  LeanFrontSimpleConfig,
   RULESET_IDS,
   type RulesetID,
 } from "../src/core/game/Rulesets";
@@ -42,6 +43,10 @@ describe("ruleset registry", () => {
     expect(
       createRulesetConfig("leanfront", gameConfig, null, false),
     ).toBeInstanceOf(LeanFrontConfig);
+    expect(RULESET_IDS).toEqual(["openfront", "leanfront", "leanfront-simple"]);
+    expect(
+      createRulesetConfig("leanfront-simple", gameConfig, null, false),
+    ).toBeInstanceOf(LeanFrontSimpleConfig);
   });
 
   test("an unknown id throws rather than silently playing another game", () => {
@@ -58,6 +63,7 @@ describe("ruleset registry", () => {
   test("isRulesetID guards the wire", () => {
     expect(isRulesetID("openfront")).toBe(true);
     expect(isRulesetID("leanfront")).toBe(true);
+    expect(isRulesetID("leanfront-simple")).toBe(true);
     expect(isRulesetID("nonesuch")).toBe(false);
     expect(isRulesetID(undefined)).toBe(false);
     expect(isRulesetID(7)).toBe(false);

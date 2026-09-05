@@ -2,6 +2,7 @@ import type { Game } from "../../core/game/Game";
 import type { RulesetID } from "../../core/game/Rulesets";
 import type { FieldSystem } from "../webgpu/FieldDynamics";
 import type { LiveGameRuntime } from "./LiveGameRuntime";
+import { leanfrontSimple } from "./leanfront-simple/system";
 import { leanfront } from "./leanfront/system";
 import { openfront } from "./openfront/system";
 
@@ -26,6 +27,13 @@ export const LIVE_GAMES: readonly LiveGameDefinition[] = [
     view: "leanfront",
     createRuntime: async (game) =>
       (await import("./leanfront/runtime")).createRuntime(game),
+  },
+  {
+    id: "leanfront-simple",
+    system: leanfrontSimple,
+    view: "leanfront-simple",
+    createRuntime: async () =>
+      (await import("./leanfront-simple/runtime")).createRuntime(),
   },
 ];
 
