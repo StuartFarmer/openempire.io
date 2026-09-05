@@ -17,8 +17,9 @@
  * GPU providers implement those same rules behind LeanFront's runtime lifecycle;
  * they do not belong in this Config factory.
  */
-import { Config } from "../configuration/Config";
+import { Config, type SimplePlotEconomyConfig } from "../configuration/Config";
 import type { GameConfig } from "../Schemas";
+import { UnitInfo, UnitType } from "./Game";
 import { UserSettings } from "./UserSettings";
 
 /** The games the shell can start. */
@@ -48,8 +49,43 @@ export function isRulesetID(value: unknown): value is RulesetID {
  */
 export class LeanFrontConfig extends Config {}
 
-/** LeanFront Simple's rules. Economy overrides arrive in a later change. */
-export class LeanFrontSimpleConfig extends Config {}
+const SIMPLE_PLOTS: SimplePlotEconomyConfig = {
+  capacityPerLevel: 20_000,
+  seedFraction: 0.1,
+  cityGrowthRate: 0.03,
+  farmGrowthRate: 0.06,
+  cityLevelCost: 4_000n,
+  farmLevelCost: 3_000n,
+  razeCost: 1_000n,
+  attackMilliPerPerson: 40n,
+};
+
+/** LeanFront Simple's compact, plot-based economy. */
+export class LeanFrontSimpleConfig extends Config {
+  override simplePlotEconomy(): SimplePlotEconomyConfig {
+    return SIMPLE_PLOTS;
+  }
+
+  override unitInfo(type: UnitType): UnitInfo {
+    if (type === UnitType.Settlement) {
+      return {
+        cost: () => SIMPLE_PLOTS.cityLevelCost,
+        costResource: "food",
+        constructionDuration: 0,
+        upgradable: true,
+      };
+    }
+    if (type === UnitType.Farmland) {
+      return {
+        cost: () => SIMPLE_PLOTS.farmLevelCost,
+        costResource: "food",
+        constructionDuration: 0,
+        upgradable: true,
+      };
+    }
+    return super.unitInfo(type);
+  }
+}
 
 /** Build the `Config` for a ruleset. Unknown ids throw rather than silently
  *  falling back — a typo'd ruleset should not quietly play a different game. */

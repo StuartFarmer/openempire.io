@@ -1,4 +1,11 @@
-import { Execution, Game, MessageType, Player, Unit } from "../game/Game";
+import {
+  Execution,
+  Game,
+  MessageType,
+  Player,
+  TribalStructures,
+  Unit,
+} from "../game/Game";
 
 export class DeleteUnitExecution implements Execution {
   private active: boolean = true;
@@ -61,6 +68,15 @@ export class DeleteUnitExecution implements Execution {
       console.warn(`SECURITY: delete unit cooldown not expired`);
       this.active = false;
       return;
+    }
+
+    const simple = mg.config().simplePlotEconomy();
+    if (simple !== null && TribalStructures.has(unit.type())) {
+      if (this.player.food() < simple.razeCost) {
+        this.active = false;
+        return;
+      }
+      this.player.removeFood(simple.razeCost);
     }
 
     this.player.recordDeleteUnit();

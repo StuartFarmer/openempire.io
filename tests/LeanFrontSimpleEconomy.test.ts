@@ -7,6 +7,8 @@ import {
   type SimplePlotEconomyConfig,
   type SimplePlotInput,
 } from "../src/client/games/leanfront-simple/economy/SimpleEconomy";
+import { DeleteUnitExecution } from "../src/core/execution/DeleteUnitExecution";
+import { SpawnExecution } from "../src/core/execution/SpawnExecution";
 import {
   setUrbanTickProvider,
   urbanTick,
@@ -18,8 +20,10 @@ import {
   PlayerType,
   UnitType,
 } from "../src/core/game/Game";
+import { LeanFrontSimpleConfig } from "../src/core/game/Rulesets";
 import { setup } from "./util/Setup";
 import { TestConfig } from "./util/TestConfig";
+import { executeTicks } from "./util/utils";
 
 const config: SimplePlotEconomyConfig = {
   capacityPerLevel: 20_000,
@@ -51,6 +55,10 @@ class SimpleTestConfig extends TestConfig {
   }
 }
 
+class SimpleRulesetTestConfig extends LeanFrontSimpleConfig {
+  setInertFood(_: boolean): void {}
+}
+
 const noGrowth: SimpleGrowthBatch = async (records) =>
   records.map((record) => ({
     ...record,
@@ -75,6 +83,19 @@ async function simpleGame(
     SimpleTestConfig,
   );
   return [g, players.map((player) => g.player(player.id))];
+}
+
+async function spawnedSimpleGame(): Promise<[Game, Player]> {
+  const g = await setup(
+    "plains",
+    { instantBuild: true },
+    [info],
+    undefined,
+    SimpleRulesetTestConfig as unknown as typeof TestConfig,
+  );
+  g.addExecution(new SpawnExecution("simple-game", info, g.ref(10, 10)));
+  executeTicks(g, 2);
+  return [g, g.player(info.id)];
 }
 
 function build(
@@ -113,6 +134,68 @@ describe("LeanFront Simple economy", () => {
     expect(growSimplePlot(farm({ stock: 19_999 }), config).nextStock).toBe(
       20_000,
     );
+  });
+
+  test("spawns a free city and farm kit without rich-state residue", async () => {
+    const [, player] = await spawnedSimpleGame();
+
+    expect(player.units(UnitType.Settlement)).toHaveLength(1);
+    expect(player.units(UnitType.Farmland)).toHaveLength(1);
+    expect(player.troops()).toBe(2_000);
+    expect(player.food()).toBe(2_000n);
+    expect([...player.densityEntries()]).toEqual([]);
+    expect([...player.farmMaturityEntries()]).toEqual([]);
+  });
+
+  test("builds and upgrades an exact simple plot for flat food costs", async () => {
+    const [g, player] = await spawnedSimpleGame();
+    const tile = [...player.tiles()].find((t) => g.plotAt(t) === undefined)!;
+
+    player.addFood(8_000n);
+    expect(player.canBuild(UnitType.Settlement, tile)).toBe(tile);
+    const plot = player.buildUnit(UnitType.Settlement, tile, {});
+    expect(player.food()).toBe(6_000n);
+    expect(player.findUnitToUpgrade(UnitType.Settlement, tile)).toBe(plot);
+    player.upgradeUnit(plot);
+
+    expect(plot.level()).toBe(2);
+    expect(player.troops()).toBe(2_000);
+    expect(player.food()).toBe(2_000n);
+  });
+
+  test("charges food to raze a simple plot only after validation", async () => {
+    const [g, player] = await spawnedSimpleGame();
+    const plot = player.units(UnitType.Settlement)[0];
+    (g.config().deleteUnitCooldown as () => number) = () => 0;
+
+    new DeleteUnitExecution(player, plot.id()).init(g, 0);
+    expect(plot.isMarkedForDeletion()).toBe(true);
+    expect(player.food()).toBe(1_000n);
+  });
+
+  test("rejects an unfunded simple raze without marking the plot", async () => {
+    const [g, player] = await spawnedSimpleGame();
+    const plot = player.units(UnitType.Settlement)[0];
+    (g.config().deleteUnitCooldown as () => number) = () => 0;
+    player.removeFood(1_001n);
+
+    const execution = new DeleteUnitExecution(player, plot.id());
+    execution.init(g, 0);
+
+    expect(execution.isActive()).toBe(false);
+    expect(plot.isMarkedForDeletion()).toBe(false);
+    expect(player.food()).toBe(999n);
+  });
+
+  test("does not charge a rejected simple raze", async () => {
+    const [g, player] = await spawnedSimpleGame();
+    const plot = player.units(UnitType.Settlement)[0];
+    vi.spyOn(g, "inSpawnPhase").mockReturnValue(true);
+
+    new DeleteUnitExecution(player, plot.id()).init(g, 0);
+
+    expect(plot.isMarkedForDeletion()).toBe(false);
+    expect(player.food()).toBe(2_000n);
   });
 
   test("assigns proportional remainder by ascending unit id", () => {

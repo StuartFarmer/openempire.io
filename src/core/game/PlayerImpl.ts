@@ -1540,13 +1540,14 @@ export class PlayerImpl implements Player {
     if (this.costBalance(unitType) < cost) {
       return false;
     }
-    // Awarded seeds, not purchases (rework-settlement-ecology): placing a
-    // Settlement or Farmland requires a banked seed of that type.
-    if (unitType === UnitType.Settlement && this._settlementSeeds < 1) {
-      return false;
-    }
-    if (unitType === UnitType.Farmland && this._farmSeeds < 1) {
-      return false;
+    // Simple plots are purchased; the rich economy keeps awarded seed gates.
+    if (this.mg.config().simplePlotEconomy() === null) {
+      if (unitType === UnitType.Settlement && this._settlementSeeds < 1) {
+        return false;
+      }
+      if (unitType === UnitType.Farmland && this._farmSeeds < 1) {
+        return false;
+      }
     }
     if (unitType !== UnitType.MIRVWarhead && !this.isAlive()) {
       return false;

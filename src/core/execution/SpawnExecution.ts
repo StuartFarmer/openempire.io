@@ -130,9 +130,16 @@ export class SpawnExecution implements Execution {
       if (nearest !== undefined) coreTile = nearest;
     }
     player.setCore(coreTile);
-    // Seed the capital as one full city tile (popPerDensity people); the
-    // demographic model grows or shrinks the footprint from there.
-    player.setDensity(coreTile, mg.config().food().popPerDensity);
+
+    const simple = mg.config().simplePlotEconomy();
+    if (simple !== null) {
+      player.setDensity(coreTile, 0);
+      player.buildUnit(UnitType.Settlement, coreTile, {});
+    } else {
+      // Seed the capital as one full city tile (popPerDensity people); the
+      // demographic model grows or shrinks the footprint from there.
+      player.setDensity(coreTile, mg.config().food().popPerDensity);
+    }
 
     // Plant ONE starter farm nucleus (free) a few tiles OUT from the core —
     // the field grows itself from here (§1b) and belongs near the village,
@@ -171,7 +178,15 @@ export class SpawnExecution implements Execution {
     }
     if (kitTile !== null) {
       player.buildUnit(UnitType.Farmland, kitTile, {});
-      player.setFarmMaturity(kitTile, 1000);
+      if (simple === null) player.setFarmMaturity(kitTile, 1000);
+    }
+
+    if (simple !== null) {
+      const seed = Math.floor(simple.capacityPerLevel * simple.seedFraction);
+      player.setTroops(seed);
+      player.removeFood(player.food());
+      player.addFood(BigInt(seed));
+      return;
     }
 
     // Reset the opening food stake (the kit is free).

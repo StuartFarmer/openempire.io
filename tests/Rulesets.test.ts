@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { Config } from "../src/core/configuration/Config";
-import { UnitType } from "../src/core/game/Game";
+import { Game, Player, UnitType } from "../src/core/game/Game";
 import {
   createRulesetConfig,
   DEFAULT_RULESET,
@@ -125,5 +125,31 @@ describe("leanfront and openfront Configs are currently identical", () => {
       expect(l.costResource).toBe(o.costResource);
       expect(l.maxHealth).toBe(o.maxHealth);
     }
+  });
+
+  test("only leanfront simple exposes flat food plots", () => {
+    const game = {} as Game;
+    const player = {} as Player;
+    const open = new Config(gameConfig, null, false);
+    const lean = new LeanFrontConfig(gameConfig, null, false);
+    const simple = createRulesetConfig(
+      "leanfront-simple",
+      gameConfig,
+      null,
+      false,
+    );
+
+    expect(open.simplePlotEconomy()).toBeNull();
+    expect(lean.simplePlotEconomy()).toBeNull();
+    expect(simple.unitInfo(UnitType.Settlement)).toMatchObject({
+      costResource: "food",
+      constructionDuration: 0,
+      upgradable: true,
+    });
+    expect(simple.unitInfo(UnitType.Settlement).cost(game, player)).toBe(
+      4_000n,
+    );
+    expect(simple.unitInfo(UnitType.Farmland).cost(game, player)).toBe(3_000n);
+    expect(simple.simplePlotEconomy()?.razeCost).toBe(1_000n);
   });
 });
