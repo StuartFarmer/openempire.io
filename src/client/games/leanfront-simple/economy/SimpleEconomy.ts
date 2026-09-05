@@ -2,6 +2,11 @@ import type { SimplePlotEconomyConfig } from "../../../../core/configuration/Con
 import { setUrbanTickProvider } from "../../../../core/execution/utils/UrbanGrowth";
 import type { Game, Player } from "../../../../core/game/Game";
 import { UnitType } from "../../../../core/game/Game";
+import type {
+  LiveActionResolution,
+  LivePlotAction,
+  LiveRuntimeStats,
+} from "../../LiveGameRuntime";
 
 export type { SimplePlotEconomyConfig } from "../../../../core/configuration/Config";
 
@@ -26,6 +31,16 @@ export type SimpleGrowthBatch = (
   records: readonly SimplePlotInput[],
   config: SimplePlotEconomyConfig,
 ) => Promise<readonly SimplePlotGrowth[]>;
+
+export interface SimpleEconomyActions {
+  resolvePlotAction(
+    game: Game,
+    player: Player,
+    action: LivePlotAction,
+    tile: number,
+  ): LiveActionResolution;
+  stats(player: Player): LiveRuntimeStats;
+}
 
 export function growSimplePlot(
   record: SimplePlotInput,
@@ -90,6 +105,11 @@ interface Balance {
   food: bigint;
 }
 
+const chargeFor = (people: number, milli: bigint): bigint =>
+  (BigInt(Math.max(0, Math.floor(people))) * milli + 999n) / 1000n;
+const affordablePeople = (food: bigint, milli: bigint): number =>
+  Number((food * 1000n) / milli);
+
 /** Compact client-side stocks; the core remains authoritative for units. */
 export class SimpleEconomy {
   private records = new Map<number, SimplePlotInput>();
@@ -97,6 +117,8 @@ export class SimpleEconomy {
   private dormantTroops = new Map<string, number>();
   private staged = new Map<string, Balance>();
   private frame = new Map<number, SimplePlotGrowth>();
+  private seenAttackIds = new Set<string>();
+  private attackConsumption = new Map<string, number>();
 
   install(): void {
     setUrbanTickProvider((game, player) => this.applyPlayer(game, player));
@@ -141,6 +163,7 @@ export class SimpleEconomy {
     this.records = active;
     this.frame.clear();
     this.staged.clear();
+    this.attackConsumption.clear();
 
     const byOwner = new Map<number, SimplePlotInput[]>();
     for (const record of this.records.values()) {
@@ -149,10 +172,12 @@ export class SimpleEconomy {
       byOwner.set(record.owner, records);
     }
 
+    const activeAttackIds = new Set<string>();
     for (const player of game.players()) {
       const key = player.id();
       const records = byOwner.get(player.smallID()) ?? [];
       const priorRecords = surviving.get(player.smallID()) ?? [];
+      this.chargeAttacks(player, config, activeAttackIds);
       const current = { troops: player.troops(), food: player.food() };
       const prior = this.published.get(key);
       if (prior === undefined) {
@@ -200,6 +225,7 @@ export class SimpleEconomy {
         food: BigInt(this.total(records, "farm")),
       });
     }
+    this.seenAttackIds = activeAttackIds;
   }
 
   applyPlayer(game: Game, player: Player): boolean {
@@ -231,6 +257,55 @@ export class SimpleEconomy {
     return Int32Array.from(values);
   }
 
+  resolvePlotAction(
+    game: Game,
+    player: Player,
+    action: LivePlotAction,
+    tile: number,
+  ): LiveActionResolution {
+    const config = game.config().simplePlotEconomy()!;
+    const plot = game.plotAt(tile);
+    if (action === "raze") {
+      if (!plot || plot.owner() !== player) {
+        return { ok: false, message: "No owned plot here" };
+      }
+      if (player.food() < config.razeCost) {
+        return { ok: false, message: "Not enough food" };
+      }
+      return { ok: true, intent: { type: "delete_unit", unitId: plot.id() } };
+    }
+    const unit = action === "city" ? UnitType.Settlement : UnitType.Farmland;
+    if (plot?.type() === unit && plot.owner() === player) {
+      if (!player.canUpgradeUnit(plot)) {
+        return { ok: false, message: "Cannot upgrade this plot" };
+      }
+      return {
+        ok: true,
+        intent: { type: "upgrade_structure", unit, unitId: plot.id() },
+      };
+    }
+    if (plot) return { ok: false, message: "Raze the existing plot first" };
+    if (player.canBuild(unit, tile) === false) {
+      return { ok: false, message: "Cannot build here" };
+    }
+    return { ok: true, intent: { type: "build_unit", unit, tile } };
+  }
+
+  stats(player: Player): LiveRuntimeStats {
+    let production = 0;
+    for (const result of this.frame.values()) {
+      if (result.owner === player.smallID() && result.kind === "farm") {
+        production += result.growth;
+      }
+    }
+    return {
+      population: player.troops(),
+      production,
+      consumption: this.attackConsumption.get(player.id()) ?? 0,
+      starved: 0,
+    };
+  }
+
   dispose(): void {
     setUrbanTickProvider(null);
     this.records.clear();
@@ -238,6 +313,41 @@ export class SimpleEconomy {
     this.dormantTroops.clear();
     this.staged.clear();
     this.frame.clear();
+    this.seenAttackIds.clear();
+    this.attackConsumption.clear();
+  }
+
+  private chargeAttacks(
+    player: Player,
+    config: SimplePlotEconomyConfig,
+    activeAttackIds: Set<string>,
+  ): void {
+    for (const attack of player.outgoingAttacks()) {
+      const id = attack.id();
+      const troops = attack.troops();
+      if (!this.seenAttackIds.has(id)) {
+        const capped = Math.min(
+          troops,
+          affordablePeople(player.food(), config.attackMilliPerPerson),
+        );
+        attack.setTroops(capped);
+        player.addTroops(troops - capped);
+        const charge = chargeFor(capped, config.attackMilliPerPerson);
+        player.removeFood(charge);
+        this.recordAttackConsumption(player, charge);
+        if (attack.isActive()) activeAttackIds.add(id);
+        continue;
+      }
+      const charge = chargeFor(troops, config.attackMilliPerPerson);
+      if (player.food() >= charge) {
+        player.removeFood(charge);
+        this.recordAttackConsumption(player, charge);
+      } else {
+        player.addTroops(troops);
+        attack.delete();
+      }
+      if (attack.isActive()) activeAttackIds.add(id);
+    }
   }
 
   private reconcile(
@@ -282,11 +392,17 @@ export class SimpleEconomy {
       })),
     );
     for (const record of records) {
-      record.stock = Math.max(
-        0,
-        record.stock + direction * (shares.get(record.unitId) ?? 0),
-      );
+      const next = record.stock + direction * (shares.get(record.unitId) ?? 0);
+      if (next < 0) throw new Error("simple plot stock cannot be negative");
+      record.stock = next;
     }
+  }
+
+  private recordAttackConsumption(player: Player, charge: bigint): void {
+    this.attackConsumption.set(
+      player.id(),
+      (this.attackConsumption.get(player.id()) ?? 0) + Number(charge),
+    );
   }
 
   private total(
