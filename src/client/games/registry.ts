@@ -32,8 +32,8 @@ export const LIVE_GAMES: readonly LiveGameDefinition[] = [
     id: "leanfront-simple",
     system: leanfrontSimple,
     view: "leanfront-simple",
-    createRuntime: async () =>
-      (await import("./leanfront-simple/runtime")).createRuntime(),
+    createRuntime: async (game) =>
+      (await import("./leanfront-simple/runtime")).createRuntime(game),
   },
 ];
 
