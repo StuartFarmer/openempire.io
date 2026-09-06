@@ -144,7 +144,7 @@ describe("LeanFront Simple attack energy", () => {
     expect(player.food()).toBe(0n);
   });
 
-  test("debits only surviving farms after lifecycle loss and a new farm spend", async () => {
+  test("charges a captured-farm build across surviving and new farms", async () => {
     const { game, player, economy } = await fixture();
     player.addFood(3_000n);
     const capturedFarm = player.buildUnit(
@@ -159,9 +159,46 @@ describe("LeanFront Simple attack energy", () => {
     rival.captureUnit(capturedFarm);
     player.buildUnit(UnitType.Farmland, game.ref(4, 4), {});
 
-    await expect(economy.prepare(game, noGrowth)).resolves.toBeUndefined();
+    await economy.prepare(game, noGrowth);
+    economy.applyPlayer(game, player);
+    economy.applyPlayer(game, rival);
 
-    expect(player.food()).toBe(3_000n);
+    expect(player.food()).toBe(1_000n);
+    expect(rival.food()).toBe(2_000n);
+    expect(player.food() + rival.food()).toBe(3_000n);
+  });
+
+  test("leaves a new farm seed untouched when prior farms cover a build", async () => {
+    const { game, player, economy } = await fixture();
+    player.addFood(3_000n);
+    await economy.prepare(game, noGrowth);
+    economy.applyPlayer(game, player);
+
+    player.buildUnit(UnitType.Farmland, game.ref(3, 3), {});
+    await economy.prepare(game, noGrowth);
+    economy.applyPlayer(game, player);
+
+    expect(player.food()).toBe(4_000n);
+    expect([...economy.plotFrame()]).toEqual([
+      game.ref(1, 1),
+      1,
+      1,
+      2_000,
+      20_000,
+      0,
+      game.ref(2, 2),
+      2,
+      1,
+      2_000,
+      20_000,
+      0,
+      game.ref(3, 3),
+      2,
+      1,
+      2_000,
+      20_000,
+      0,
+    ]);
   });
 
   test("treats colliding attack ids from different players as new attacks", async () => {
@@ -237,6 +274,20 @@ describe("LeanFront Simple attack energy", () => {
     economy.applyPlayer(game, player);
 
     expect(player.troops()).toBe(1_000);
+  });
+
+  test("publishes a dead player's ordinary lifecycle balance during prepare", async () => {
+    const { game, player, economy } = await fixture();
+    for (const unit of player.units()) unit.delete(false);
+    for (const tile of [...player.tiles()]) player.relinquish(tile);
+
+    await economy.prepare(game, noGrowth);
+
+    expect(player.isAlive()).toBe(false);
+    expect([player.troops(), player.food()]).toEqual([0, 0n]);
+    await economy.prepare(game, noGrowth);
+
+    expect([player.troops(), player.food()]).toEqual([0, 0n]);
   });
 });
 

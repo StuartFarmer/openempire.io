@@ -137,6 +137,7 @@ export class SimpleEconomy {
 
     const active = new Map<number, SimplePlotInput>();
     const surviving = new Map<number, SimplePlotInput[]>();
+    const createdFarms = new Map<number, SimplePlotInput[]>();
     for (const unit of game.units(UnitType.Settlement, UnitType.Farmland)) {
       if (!unit.isActive() || unit.isUnderConstruction()) continue;
       const kind: SimplePlotKind =
@@ -162,19 +163,10 @@ export class SimpleEconomy {
         records.push(record);
         surviving.set(owner, records);
       }
-    }
-
-    const lostFarmStock = new Map<number, number>();
-    for (const previous of this.records.values()) {
-      const current = active.get(previous.unitId);
-      if (
-        previous.kind === "farm" &&
-        (current === undefined || current.owner !== previous.owner)
-      ) {
-        lostFarmStock.set(
-          previous.owner,
-          (lostFarmStock.get(previous.owner) ?? 0) + previous.stock,
-        );
+      if (previous === undefined && kind === "farm") {
+        const farms = createdFarms.get(owner) ?? [];
+        farms.push(record);
+        createdFarms.set(owner, farms);
       }
     }
 
@@ -207,22 +199,21 @@ export class SimpleEconomy {
         if (shouldPublish) this.published.set(key, current);
       } else {
         const rawFoodDelta = current.food - prior.food;
-        const adjustedFoodDelta =
-          current.food -
-          (prior.food - BigInt(lostFarmStock.get(player.smallID()) ?? 0));
-        this.reconcile(
-          priorRecords,
-          key,
-          Number(
-            rawFoodDelta > 0n
-              ? rawFoodDelta
-              : adjustedFoodDelta < 0n
-                ? adjustedFoodDelta
-                : 0n,
-          ),
-          "farm",
-          config,
-        );
+        if (rawFoodDelta > 0n) {
+          this.reconcile(
+            priorRecords,
+            key,
+            Number(rawFoodDelta),
+            "farm",
+            config,
+          );
+        } else if (rawFoodDelta < 0n) {
+          this.debitFarmBalance(
+            priorRecords,
+            createdFarms.get(player.smallID()) ?? [],
+            -rawFoodDelta,
+          );
+        }
       }
       this.chargeAttacks(player, records, config, activeAttackIds);
       const troopsAfterAttacks = player.troops();
@@ -262,7 +253,7 @@ export class SimpleEconomy {
         food: BigInt(this.total(records, "farm")),
       };
       this.staged.set(key, stage);
-      if (!player.isAlive() && shouldPublish) this.published.set(key, stage);
+      if (!player.isAlive() && shouldPublish) this.applyPlayer(game, player);
     }
     this.seenAttackIds = activeAttackIds;
   }
@@ -401,6 +392,23 @@ export class SimpleEconomy {
       throw new Error("simple attack charge exceeds farm stock");
     }
     this.distribute(farms, -Number(charge));
+  }
+
+  private debitFarmBalance(
+    surviving: SimplePlotInput[],
+    created: SimplePlotInput[],
+    charge: bigint,
+  ): void {
+    let remaining = Number(charge);
+    for (const farms of [
+      surviving.filter((record) => record.kind === "farm"),
+      created,
+    ]) {
+      const debit = Math.min(remaining, this.total(farms, "farm"));
+      if (debit > 0) this.distribute(farms, -debit);
+      remaining -= debit;
+      if (remaining === 0) return;
+    }
   }
 
   private replaceFood(player: Player, food: bigint): void {
