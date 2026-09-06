@@ -7,7 +7,7 @@ import {
   type FoodConfig,
 } from "../core/configuration/FoodConfig";
 import { borderSegment } from "../core/execution/utils/BorderSegment";
-import { GameMapType, UnitType } from "../core/game/Game";
+import { GameMapType, PlayerType, UnitType } from "../core/game/Game";
 import type { MapData } from "../core/game/GameMapLoader";
 import { UserSettings } from "../core/game/UserSettings";
 import type { Intent } from "../core/Schemas";
@@ -23,20 +23,16 @@ import {
 } from "./flags/FlagCatalog";
 import { findFoodPreset, foodPresets, presetKnobChanges } from "./FoodPresets";
 import {
-  decodeLeanResult,
-  LEAN_RESULT,
-} from "./games/leanfront-simple/actions";
-import { leanfrontSimple } from "./games/leanfront-simple/system";
-import {
-  getLiveGame,
-  LIVE_GAMES,
-  type LiveGameDefinition,
-} from "./games/registry";
+  fieldNationsFromManifest,
+  getGameDefinition,
+  PLAYABLE_GAMES,
+  seedFieldNationOwners,
+  type FieldGameDefinition,
+  type GameDefinition,
+  type GameNation,
+  type WorkerGameDefinition,
+} from "./games/experience";
 import { TUNING_GROUPS } from "./hud/layers/TuningPanel";
-import { conquest } from "./lab/systems/conquest/system";
-import { empire } from "./lab/systems/empire/system";
-import { grazing } from "./lab/systems/grazing/system";
-import { settlement } from "./lab/systems/settlement/system";
 import {
   composeTerrain,
   terrain as terrainSystem,
@@ -84,6 +80,24 @@ interface PlayerHistory {
   tiles: number[];
   food: number[];
   balance: number[];
+}
+
+interface GamePlayerStats {
+  troops: number;
+  food: number;
+  population: number;
+  starved: number;
+  tiles: number;
+  alive: boolean;
+  farmSeeds: number;
+  settlementSeeds: number;
+  activeAttackID?: string;
+}
+
+interface FieldHover {
+  tile: number;
+  owner: number;
+  values: Record<string, number>;
 }
 
 const SHELL_CLIMATE_DEFAULTS = {
@@ -239,15 +253,10 @@ export class GameShellPage extends FieldViewerBase {
   private seasonActive = false;
   private tickCount = 0;
   @state() private commitment = 0.6;
-  @state() private leanfrontHover: {
-    tile: number;
-    owner: number;
-    troops: number;
-    cityLevel: number;
-    farmLevel: number;
-    food: number;
-  } | null = null;
-  private lastLeanfrontActionResult = 0;
+  @state() private fieldAction = "attack";
+  @state() private fieldHover: FieldHover | null = null;
+  private fieldSpawned = false;
+  private fieldPlayers: GameNation[] = [];
   // --- OpenFront-live: the sim runs in a Web Worker (move-shell-sim-to-worker).
   // The worker owns every Game read; the main thread applies conduit deltas to
   // these persistent GPU buffers and drives the HUD/hover/labels from the small
@@ -262,6 +271,18 @@ export class GameShellPage extends FieldViewerBase {
    *  plane (farmland tilled rows — see CameraRenderer.plotPlane). */
   private plotBytes: Uint8Array | null = null;
   private plotBytesDirty = false;
+  /** LeanFront Simple's compact plot sextets, indexed by tile for the shared
+   * hover/HUD. The render path continues to use the common `plot` conduit. */
+  private simplePlots = new Map<
+    number,
+    {
+      kind: number;
+      level: number;
+      stock: number;
+      capacity: number;
+      growth: number;
+    }
+  >();
   /** The mounted map's data source — feeds the baked-terrain upload. */
   private currentMapData: MapData | null = null;
   /** True once the baked terrain-colors plane replaced the derived tint for
@@ -364,16 +385,7 @@ export class GameShellPage extends FieldViewerBase {
   /** Whether the sim is still in the spawn phase (human must place a spawn). */
   @state() private inSpawn = true;
   /** Live readout of the human player (null until spawned / resolvable). */
-  @state() private myStats: {
-    troops: number;
-    food: number;
-    population: number;
-    starved: number;
-    tiles: number;
-    alive: boolean;
-    farmSeeds: number;
-    settlementSeeds: number;
-  } | null = null;
+  @state() private myStats: GamePlayerStats | null = null;
   /** Selected buildable placed on the next tile click (null = attack mode). */
   @state() private buildType: UnitType | null = null;
   /** Dedupe repeated same-tile gestures within one drag stroke. */
@@ -388,6 +400,7 @@ export class GameShellPage extends FieldViewerBase {
     y: number;
     name: string;
     flag?: string;
+    color?: string;
   }[] = [];
   /** Pooled markers for those landing sites. */
   private nationSpawnPool = new Map<string, HTMLDivElement>();
@@ -411,19 +424,11 @@ export class GameShellPage extends FieldViewerBase {
   private viewCache = new Map<ShellViewKey, ImageBitmap>();
 
   connectedCallback(): void {
-    // Terrain is the always-on base; the picker lists GAMES composed onto it
-    // (plus "terrain" alone). The default is terrain on the big Earth map.
-    this.systems = [
-      terrainSystem,
-      ...LIVE_GAMES.map(({ system }) => composeTerrain(system)),
-      composeTerrain(leanfrontSimple),
-      composeTerrain(conquest),
-      composeTerrain(grazing),
-      composeTerrain(settlement),
-      composeTerrain(empire),
-    ];
+    // Terrain is infrastructure under every complete game. Studies stay in
+    // the lab and never enter the playable variant picker.
+    this.systems = PLAYABLE_GAMES.map(({ system }) => composeTerrain(system));
     // The shell opens on the actual game, not the terrain viewer.
-    this.systemId = LIVE_GAMES[0].id;
+    this.systemId = PLAYABLE_GAMES[0].id;
     // The backdrop runs a smaller world than the playable default: measured
     // ~0.9s to a ticking sim and 231MB, against 3.2s / 340MB for full Earth.
     this.mapKey = this.hasAttribute("ambient") ? AMBIENT_MAP : "SPQR";
@@ -452,12 +457,111 @@ export class GameShellPage extends FieldViewerBase {
     super.disconnectedCallback();
   }
 
-  private selectedLiveGame(): LiveGameDefinition | undefined {
-    return getLiveGame(this.systemId);
+  private selectedGame(): GameDefinition | undefined {
+    return getGameDefinition(this.systemId);
   }
 
-  private liveGameView(): string {
-    return this.selectedLiveGame()!.view;
+  private selectedLiveGame(): WorkerGameDefinition | undefined {
+    const game = this.selectedGame();
+    return game?.backend === "worker" ? game : undefined;
+  }
+
+  private selectedFieldGame(): FieldGameDefinition | undefined {
+    const game = this.selectedGame();
+    return game?.backend === "field" ? game : undefined;
+  }
+
+  private resetGamePresentation(): void {
+    this.status = "";
+    this.myStats = null;
+    this.inSpawn = true;
+    this.fieldSpawned = false;
+    this.fieldAction = "attack";
+    this.buildType = null;
+    this.mySmallID = 0;
+    this.playerName.clear();
+    this.playerStat.clear();
+    this.playerAuthoredFlag.clear();
+    this.playerFlagUrl.clear();
+    this.history.clear();
+    this.lastSampleTick = -1;
+    this.frontLabelsData = [];
+    this.nationSpawns = [];
+    this.fieldHover = null;
+    this.fieldPlayers = [];
+    this.centeredOnSpawn = false;
+    this.cameraTween = null;
+    this.paramValues.maskFade = 0;
+    this.paramValues.hoveredPlayer = 0;
+  }
+
+  private beginFieldGame(
+    game: FieldGameDefinition,
+    manifestNations: Parameters<typeof fieldNationsFromManifest>[0] = [],
+  ): void {
+    const localPlayer = this.compiled?.localPlayer ?? 1;
+    this.mySmallID = localPlayer;
+    this.fieldPlayers = fieldNationsFromManifest(manifestNations);
+    themeProvider.reset();
+    for (const nation of this.fieldPlayers) {
+      this.playerName.set(nation.id, nation.name);
+      const flag = Array.isArray(nation.flag) ? nation.flag[0] : nation.flag;
+      if (flag) this.playerAuthoredFlag.set(nation.id, flag);
+      nation.color = this.assignPaletteSlot(
+        nation.id,
+        `field:${nation.name}:${nation.id}`,
+        nation.id === localPlayer ? PlayerType.Human : PlayerType.Nation,
+      );
+      this.mergePlayerIntent(nation.id, {
+        alive: 1,
+        attacking: 0,
+        commit: this.commitment,
+        mine: nation.id === localPlayer ? 1 : 0,
+      });
+    }
+    this.ensureFlagCatalog();
+    const water = this.hoverFields?.waterMask;
+    if (this.kernel && water) {
+      const owner = seedFieldNationOwners(
+        this.mapWidth,
+        this.mapHeight,
+        water,
+        this.fieldPlayers,
+      );
+      this.kernel.writeBuffer("owner", owner);
+      this.highlightU32 = new Uint32Array(owner.length);
+      this.litHighlight = [];
+      this.myBorderTiles = [];
+    }
+    this.flushPlayers();
+    this.nationSpawns = this.fieldPlayers.flatMap((nation) =>
+      nation.id === localPlayer ||
+      nation.x === undefined ||
+      nation.y === undefined
+        ? []
+        : [
+            {
+              x: nation.x,
+              y: nation.y,
+              name: nation.name,
+              flag: Array.isArray(nation.flag) ? nation.flag[0] : nation.flag,
+              color: nation.color,
+            },
+          ],
+    );
+  }
+
+  private acceptFieldSpawn(tile: number): void {
+    this.fieldSpawned = true;
+    this.inSpawn = false;
+    this.status = "";
+    if (this.centeredOnSpawn) return;
+    this.cameraTween = {
+      cx: (tile % this.mapWidth) + 0.5,
+      cy: Math.floor(tile / this.mapWidth) + 0.5,
+      scale: SETTLE_ZOOM,
+    };
+    this.centeredOnSpawn = true;
   }
 
   private clearViewCache(): void {
@@ -466,7 +570,7 @@ export class GameShellPage extends FieldViewerBase {
   }
 
   private isTerrain(): boolean {
-    return this.systemId === terrainSystem.id;
+    return this.selectedGame() === undefined;
   }
 
   protected canvasId(): string {
@@ -550,7 +654,7 @@ export class GameShellPage extends FieldViewerBase {
     if (
       !container ||
       !canvas ||
-      this.selectedLiveGame() === undefined ||
+      this.selectedGame() === undefined ||
       this.inSpawn
     ) {
       hide();
@@ -563,7 +667,12 @@ export class GameShellPage extends FieldViewerBase {
       return;
     }
     const tile = hover.y * this.mapWidth + hover.x;
-    const owner = this.ownerScratch?.[tile] ?? 0;
+    const owner =
+      this.selectedFieldGame() !== undefined
+        ? this.fieldHover?.tile === tile
+          ? this.fieldHover.owner
+          : 0
+        : (this.ownerScratch?.[tile] ?? 0);
     // Only other nations — your own land needs no label, neutral has none.
     if (owner === 0 || owner === this.mySmallID) {
       hide();
@@ -610,6 +719,10 @@ export class GameShellPage extends FieldViewerBase {
     } else {
       img.style.display = "none";
     }
+    const packed = this.playerFill[owner];
+    el.style.color =
+      this.fieldPlayers.find(({ id }) => id === owner)?.color ??
+      (packed === 0 ? "#ffffff" : `#${packed.toString(16).padStart(6, "0")}`);
     // Troops ARE the population in this economy, so one number covers both.
     el.querySelector("span")!.textContent = `${
       this.playerName.get(owner) ?? "?"
@@ -627,11 +740,7 @@ export class GameShellPage extends FieldViewerBase {
    * when both lines share a scale.
    */
   private renderStatsPanel() {
-    if (
-      this.selectedLiveGame() === undefined ||
-      this.inSpawn ||
-      !this.showStats
-    )
+    if (this.selectedGame() === undefined || this.inSpawn || !this.showStats)
       return null;
     const mine = this.history.get(this.mySmallID);
     if (!mine) return null;
@@ -825,7 +934,7 @@ export class GameShellPage extends FieldViewerBase {
     const hover = this.hoverTile;
     const buildType = this.buildType;
     if (
-      this.selectedLiveGame() === undefined ||
+      this.selectedGame() === undefined ||
       this.inSpawn ||
       this.worker === null ||
       buildType === null ||
@@ -905,15 +1014,19 @@ export class GameShellPage extends FieldViewerBase {
     this.tool = "pan"; // start in pan; the brush tool is opt-in per game
     this.destroySim();
     await this.deriveTerrain(mapData);
-    if (this.selectedLiveGame() !== undefined) {
-      // Selected live game: run the real sim in a Web Worker and show its territory
-      // overlay over the derived terrain. Drag pans, a click acts (no tool
-      // select); the sim auto-runs so bots place spawns while the human picks.
-      await this.startWorker();
-      await this.applyGameView(this.liveGameView());
-      // 1:1 terrain: swap the derived tint for the baked terrain-colors
-      // plane — the exact pixels the WebGL game's TerrainPass draws.
-      void this.uploadBakedTint();
+    const game = this.selectedGame();
+    if (game !== undefined) {
+      if (game.backend === "worker") {
+        // Worker games keep their existing authoritative simulation.
+        await this.startWorker();
+        // 1:1 terrain: swap the derived tint for the baked terrain-colors
+        // plane — the exact pixels the WebGL game's TerrainPass draws.
+        void this.uploadBakedTint();
+      } else {
+        this.inSpawn = true;
+        this.beginFieldGame(game, (await mapData.manifest()).nations);
+      }
+      await this.applyGameView(game.view);
       this.tool = "pan";
       this.centeredOnSpawn = false;
       this.running = true;
@@ -940,6 +1053,7 @@ export class GameShellPage extends FieldViewerBase {
     this.plotU32 = new Uint32Array(n);
     this.plotBytes = new Uint8Array(n);
     this.plotBytesDirty = false;
+    this.simplePlots.clear();
     this.renderer?.setPlotPlane(this.mapWidth, this.mapHeight);
     this.highlightU32 = new Uint32Array(n);
     this.litHighlight = [];
@@ -985,6 +1099,10 @@ export class GameShellPage extends FieldViewerBase {
         this.onWorkerFrame(msg);
       } else if (msg.type === "preview") {
         this.previewData = msg;
+      } else if (msg.type === "action_result") {
+        this.status = msg.ok
+          ? ""
+          : `Action rejected: ${msg.message ?? "invalid action"}`;
       } else if (msg.type === "error") {
         this.status = msg.message;
       }
@@ -1022,6 +1140,18 @@ export class GameShellPage extends FieldViewerBase {
     // actually changes — so a field merely ripening (maturity churn) doesn't
     // trigger a full-plane DMA every tick.
     this.applyPairs("plot", this.plotU32, f.plot);
+    if (this.selectedLiveGame()?.id === "leanfront-simple" && f.simplePlots) {
+      this.simplePlots.clear();
+      for (let i = 0; i + 5 < f.simplePlots.length; i += 6) {
+        this.simplePlots.set(f.simplePlots[i], {
+          kind: f.simplePlots[i + 1],
+          level: f.simplePlots[i + 2],
+          stock: f.simplePlots[i + 3],
+          capacity: f.simplePlots[i + 4],
+          growth: f.simplePlots[i + 5],
+        });
+      }
+    }
     if (f.plot && this.plotBytes) {
       const a = f.plot;
       for (let k = 0; k + 1 < a.length; k += 2) {
@@ -1236,11 +1366,7 @@ export class GameShellPage extends FieldViewerBase {
     this.damageU32 = null;
     this.supplyU32 = null;
     this.dirtyTiles.clear();
-    this.playerName.clear();
-    this.playerStat.clear();
-    this.frontLabelsData = [];
-    this.leanfrontHover = null;
-    this.lastLeanfrontActionResult = 0;
+    this.resetGamePresentation();
     this.clearLabels();
   }
 
@@ -1260,7 +1386,7 @@ export class GameShellPage extends FieldViewerBase {
   /** A selected live game acts on a discrete click (drag pans, click acts) — no tool
    * select. Cellular games keep the Pan/Brush toggle for tile painting. */
   protected hasClickAction(): boolean {
-    return this.selectedLiveGame() !== undefined || super.hasClickAction();
+    return this.selectedGame() !== undefined || super.hasClickAction();
   }
 
   /** New click/stroke → allow re-acting on the same tile (repeated attacks). */
@@ -1297,22 +1423,90 @@ export class GameShellPage extends FieldViewerBase {
    * the base does not pan). Other systems fall back to the base brush routing.
    */
   protected onTileGesture(x: number, y: number, event: PointerEvent): boolean {
-    if (this.selectedLiveGame() === undefined)
-      return super.onTileGesture(x, y, event);
-    if (!this.worker) return false;
     if (x < 0 || y < 0 || x >= this.mapWidth || y >= this.mapHeight)
       return false;
-    // Dedupe repeated hits on the same tile while dragging a stroke.
-    const tile = y * this.mapWidth + x; // TileRef === y*w+x
-    if (tile === this.lastGestureKey) return true;
-    this.lastGestureKey = tile;
+    const fieldGame = this.selectedFieldGame();
+    if (fieldGame !== undefined) {
+      const localPlayer = this.compiled?.localPlayer ?? 1;
+      const tile = y * this.mapWidth + x;
+      if (this.inSpawn) {
+        if (this.hoverFields?.waterMask[tile] !== 0) {
+          this.status = "Spawn rejected: choose land";
+          return true;
+        }
+        if (this.fieldHover?.tile === tile && this.fieldHover.owner !== 0) {
+          this.status = "Spawn rejected: tile is occupied";
+          return true;
+        }
+        if (fieldGame.experience.spawn.kind === "brush") {
+          const brush = fieldGame.experience.spawn.brushes[localPlayer];
+          if (!brush) return false;
+          const radius = fieldGame.system.brushes?.[brush]?.radius ?? 0;
+          if (
+            this.nationSpawns.some(
+              (spawn) => (spawn.x - x) ** 2 + (spawn.y - y) ** 2 <= radius ** 2,
+            )
+          ) {
+            this.status = "Spawn rejected: tile is occupied";
+            return true;
+          }
+          this.stampBrush(brush, x, y);
+          this.mergePlayerIntent(localPlayer, {
+            alive: 1,
+            attacking: 0,
+            commit: this.commitment,
+          });
+          this.acceptFieldSpawn(tile);
+          return true;
+        }
+        return super.onTileGesture(x, y, event);
+      }
+      if (this.myStats?.alive === false) return false;
+      if (this.fieldAction !== "attack") {
+        const action = fieldGame.experience.actions?.find(
+          ({ id }) => id === this.fieldAction,
+        );
+        if (!action) return false;
+        this.stampBrush(action.brush, x, y);
+        return true;
+      }
+      if (fieldGame.system.input?.onTile) {
+        return super.onTileGesture(x, y, event);
+      }
+      this.mergePlayerIntent(localPlayer, {
+        alive: 1,
+        attacking: 1,
+        commit: this.commitment,
+        targetX: x,
+        targetY: y,
+      });
+      return true;
+    }
 
-    // Post a semantic action; the worker validates + resolves against the Game.
+    if (this.selectedLiveGame() === undefined) {
+      return super.onTileGesture(x, y, event);
+    }
+    if (!this.worker) return false;
+    const tile = y * this.mapWidth + x; // TileRef === y*w+x
     if (this.inSpawn) {
       this.queueIntent({ type: "spawn", tile });
       return true;
     }
     if (!this.myStats?.alive) return false;
+    if (
+      this.selectedLiveGame()?.id === "leanfront-simple" &&
+      this.fieldAction !== "attack"
+    ) {
+      this.postWorker({
+        type: "plot_action",
+        action: this.fieldAction as "city" | "farm" | "raze",
+        tile,
+      });
+      return true;
+    }
+    // Dedupe repeated attack/build hits on the same tile while dragging a stroke.
+    if (tile === this.lastGestureKey) return true;
+    this.lastGestureKey = tile;
     if (this.buildType !== null) {
       this.queueIntent({ type: "build_unit", unit: this.buildType, tile });
       return true;
@@ -1324,8 +1518,12 @@ export class GameShellPage extends FieldViewerBase {
   /** Compute a player's EXACT WebGL theme colors (territory fill + border)
    *  and write them into the view's palette slot — same ThemeProvider
    *  allocators as the game, keyed by the same PlayerID. */
-  private assignPaletteSlot(smallID: number, pid: string, ptype: string): void {
-    if (smallID <= 0 || smallID >= 256) return;
+  private assignPaletteSlot(
+    smallID: number,
+    pid: string,
+    ptype: string,
+  ): string | undefined {
+    if (smallID <= 0 || smallID >= 256) return undefined;
     const theme = themeProvider.current();
     const adapter = {
       team: () => null,
@@ -1344,6 +1542,7 @@ export class GameShellPage extends FieldViewerBase {
       fill: packedFill,
       border: packedBorder,
     });
+    return `#${packedFill.toString(16).padStart(6, "0")}`;
   }
 
   /** Replace the derived tint plane with the baked terrain-colors.png —
@@ -1386,9 +1585,11 @@ export class GameShellPage extends FieldViewerBase {
     const hover = this.hoverTile;
     const border = this.myBorderTiles;
     const off =
-      this.selectedLiveGame() === undefined ||
+      this.selectedGame() === undefined ||
       this.inSpawn ||
       this.buildType !== null ||
+      (this.selectedFieldGame() !== undefined &&
+        this.fieldAction !== "attack") ||
       hover === null ||
       border === null ||
       border.length === 0 ||
@@ -1396,7 +1597,12 @@ export class GameShellPage extends FieldViewerBase {
     let tile = -1;
     if (!off && hover) {
       tile = hover.y * this.mapWidth + hover.x;
-      const owner = this.ownerScratch?.[tile] ?? 0;
+      const owner =
+        this.selectedFieldGame() !== undefined
+          ? this.fieldHover?.tile === tile
+            ? this.fieldHover.owner
+            : 0
+          : (this.ownerScratch?.[tile] ?? 0);
       const water = this.hoverFields?.waterMask?.[tile] === 1;
       if (owner === this.mySmallID || water) tile = -1;
     }
@@ -1441,7 +1647,23 @@ export class GameShellPage extends FieldViewerBase {
 
   /** Restart the sim with the current bot count and re-show the overlay. */
   private async restartSim(): Promise<void> {
-    if (this.selectedLiveGame() === undefined || !this.kernel) return;
+    const game = this.selectedGame();
+    if (game === undefined || !this.kernel) return;
+    if (game.backend === "field") {
+      this.running = false;
+      this.resetGamePresentation();
+      this.tickCount = 0;
+      this.weekReadout = 0;
+      await this.resetState();
+      this.beginFieldGame(
+        game,
+        (await this.currentMapData?.manifest())?.nations ?? [],
+      );
+      await this.applyGameView(game.view);
+      this.running = true;
+      this.pendingFit = true;
+      return;
+    }
     this.running = false;
     // A restart is a new game: fly to the new spawn again and fade the mask
     // back in from nothing, rather than staying zoomed on the old capital.
@@ -1465,7 +1687,7 @@ export class GameShellPage extends FieldViewerBase {
       this.kernel.clearBuffer(b);
     }
     await this.startWorker();
-    await this.applyGameView(this.liveGameView());
+    await this.applyGameView(game.view);
     // Re-enable running: startWorker's "ready" reply reads this.running to tell
     // the fresh worker whether to tick. Without this the new sim stays paused
     // and the game never visibly restarts (needing a browser refresh).
@@ -1767,12 +1989,18 @@ export class GameShellPage extends FieldViewerBase {
       this.renderOpenfront();
       return;
     }
+    if (this.selectedFieldGame() !== undefined) {
+      this.stepMaskFade();
+      this.stepCameraTween();
+    }
     ticks = this.beginSimulationBatch(ticks);
     if (ticks <= 0) return;
     this.tickCount += ticks;
     const week = Math.floor(((this.tickCount % YEAR_TICKS) / YEAR_TICKS) * 52);
     if (week !== this.weekReadout) this.weekReadout = week;
 
+    const kernel = this.kernel;
+    const compiled = this.compiled;
     this.inFlight = true;
     this.writeTP(this.showingGame ? "terrain" : this.currentViewMode());
     if (this.hasGame()) {
@@ -1781,15 +2009,18 @@ export class GameShellPage extends FieldViewerBase {
         this.compiled.writeParams(this.paramValues, this.seed),
       );
     }
-    const frame = this.kernel.beginFrame();
-    if (this.derivedOk) this.compiled.runDerive(frame, "season");
+    const frame = kernel.beginFrame();
+    if (this.derivedOk) compiled.runDerive(frame, "season");
     if (this.hasGame()) {
-      for (let t = 0; t < ticks; t += 1)
-        this.compiled.runTick(this.kernel, frame);
+      for (let t = 0; t < ticks; t += 1) compiled.runTick(kernel, frame);
     }
-    if (this.showingGame) this.compiled.runView(frame, this.view);
+    if (this.showingGame) compiled.runView(frame, this.view);
     frame
       .finish()
+      .then(async () => {
+        this.tickReadout = this.tickCount;
+        await this.syncFieldSpawnAfterBatch(kernel, compiled);
+      })
       .catch((error: unknown) => {
         this.status = (error as Error).message;
       })
@@ -1804,32 +2035,15 @@ export class GameShellPage extends FieldViewerBase {
     const compiled = this.compiled;
     await super.readScalars();
     if (this.kernel !== kernel || this.compiled !== compiled) return;
-    if (this.systemId !== "leanfront-simple") {
-      if (this.leanfrontHover !== null) this.leanfrontHover = null;
+    const game = this.selectedFieldGame();
+    if (game === undefined) {
+      if (this.fieldHover !== null) this.fieldHover = null;
       return;
     }
 
-    const localPlayer = compiled.localPlayer;
-    const packed = this.playerOutputReadout[localPlayer]?.actionResult ?? 0;
-    if (packed !== 0 && packed !== this.lastLeanfrontActionResult) {
-      this.lastLeanfrontActionResult = packed;
-      const { code } = decodeLeanResult(packed);
-      if (code !== LEAN_RESULT.accepted) {
-        const reason =
-          code === LEAN_RESULT.unaffordable
-            ? "not enough food"
-            : code === LEAN_RESULT.notOwned
-              ? "not owned"
-              : code === LEAN_RESULT.impassable
-                ? "impassable"
-                : code === LEAN_RESULT.wrongType
-                  ? "wrong plot type"
-                  : code === LEAN_RESULT.overflow
-                    ? "level limit reached"
-                    : "invalid action";
-        this.status = `Action rejected: ${reason}`;
-      }
-    }
+    this.syncFieldGamePresentation(game);
+    await this.refreshFieldBorder(kernel, compiled);
+    if (this.kernel !== kernel || this.compiled !== compiled) return;
 
     const hover = this.hoverTile;
     if (
@@ -1839,41 +2053,132 @@ export class GameShellPage extends FieldViewerBase {
       hover.x >= this.mapWidth ||
       hover.y >= this.mapHeight
     ) {
-      if (this.leanfrontHover !== null) this.leanfrontHover = null;
+      if (this.fieldHover !== null) this.fieldHover = null;
       return;
     }
     const tile = hover.y * this.mapWidth + hover.x;
+    const fields = [
+      { key: "owner", layer: game.experience.hover.owner, type: "u32" },
+      ...game.experience.hover.values,
+    ] as const;
     let words: ArrayBuffer[];
     try {
-      words = await Promise.all([
-        kernel.readBuffer("owner", 1, tile),
-        kernel.readBuffer("troops", 1, tile),
-        kernel.readBuffer("cityLevel", 1, tile),
-        kernel.readBuffer("farmLevel", 1, tile),
-        kernel.readBuffer("food", 1, tile),
-      ]);
+      words = await Promise.all(
+        fields.map(({ layer }) => kernel.readBuffer(layer, 1, tile)),
+      );
     } catch {
-      return; // The kernel may have been replaced while the reads were pending.
+      return;
     }
     const currentHover = this.hoverTile;
     if (
       this.kernel !== kernel ||
       this.compiled !== compiled ||
-      this.systemId !== "leanfront-simple" ||
+      this.selectedFieldGame() !== game ||
       currentHover === null ||
       currentHover.y * this.mapWidth + currentHover.x !== tile
     ) {
       return;
     }
-    const [owner, troops, cityLevel, farmLevel, food] = words;
-    this.leanfrontHover = {
-      tile,
-      owner: new Uint32Array(owner)[0],
-      troops: new Float32Array(troops)[0],
-      cityLevel: new Uint32Array(cityLevel)[0],
-      farmLevel: new Uint32Array(farmLevel)[0],
-      food: new Float32Array(food)[0],
+    const values: Record<string, number> = {};
+    fields.forEach(({ key, type }, index) => {
+      values[key] =
+        type === "u32"
+          ? new Uint32Array(words[index])[0]
+          : new Float32Array(words[index])[0];
+    });
+    this.fieldHover = { tile, owner: values.owner ?? 0, values };
+  }
+
+  private syncFieldGamePresentation(game: FieldGameDefinition): void {
+    const localPlayer = this.compiled?.localPlayer ?? 1;
+    const scalar = (name: string | undefined, player: number): number => {
+      if (!name) return 0;
+      const value = this.scalarReadout[name];
+      return Array.isArray(value) ? (value[player] ?? 0) : (value ?? 0);
     };
+    const { stats, spawn } = game.experience;
+    this.mySmallID = localPlayer;
+    this.tickCount = this.tickReadout;
+
+    for (const nation of this.fieldPlayers) {
+      this.playerName.set(nation.id, nation.name);
+      const tiles = scalar(stats.tiles, nation.id);
+      const population = scalar(stats.population, nation.id);
+      const troops = scalar(stats.troops, nation.id) || population;
+      this.playerStat.set(nation.id, {
+        troops,
+        tiles,
+        alive: tiles > 0,
+        food: scalar(stats.food, nation.id),
+        production: 0,
+        consumption: 0,
+      });
+    }
+
+    if (spawn.kind === "output") {
+      const output = this.playerOutputReadout[localPlayer] ?? {};
+      const spawned = (output[spawn.spawned] ?? 0) !== 0;
+      if (spawned) this.acceptFieldSpawn(output[spawn.anchor] ?? 0);
+      else this.inSpawn = true;
+    } else {
+      this.inSpawn = !this.fieldSpawned;
+    }
+
+    const mine = this.playerStat.get(localPlayer);
+    this.myStats = {
+      troops: mine?.troops ?? 0,
+      population: scalar(stats.population, localPlayer),
+      food: mine?.food ?? 0,
+      starved: 0,
+      tiles: mine?.tiles ?? 0,
+      alive: !this.inSpawn && (mine?.alive ?? this.fieldSpawned),
+      farmSeeds: 0,
+      settlementSeeds: 0,
+    };
+    this.sampleHistory();
+  }
+
+  private async syncFieldSpawnAfterBatch(
+    kernel: NonNullable<GameShellPage["kernel"]>,
+    compiled: NonNullable<GameShellPage["compiled"]>,
+  ): Promise<void> {
+    const game = this.selectedFieldGame();
+    if (!this.inSpawn || game?.experience.spawn.kind !== "output") return;
+    const data = await kernel.readBuffer("PO");
+    if (this.kernel !== kernel || this.compiled !== compiled) return;
+    this.playerOutputReadout = compiled.decodePlayerOutputs(data);
+    const output = this.playerOutputReadout[compiled.localPlayer] ?? {};
+    const spawn = game.experience.spawn;
+    if ((output[spawn.spawned] ?? 0) !== 0) {
+      this.acceptFieldSpawn(output[spawn.anchor] ?? 0);
+    }
+  }
+
+  private async refreshFieldBorder(
+    kernel: NonNullable<GameShellPage["kernel"]>,
+    compiled: NonNullable<GameShellPage["compiled"]>,
+  ): Promise<void> {
+    if (!compiled.derivedNames?.includes("fieldBorderCount")) return;
+    this.inFlight = true;
+    try {
+      const frame = kernel.beginFrame();
+      compiled.runDerive(frame, "border");
+      await frame.finish();
+      if (this.kernel !== kernel || this.compiled !== compiled) return;
+      const count = Math.min(
+        new Uint32Array(await kernel.readBuffer("fieldBorderCount", 1))[0] ?? 0,
+        this.mapWidth * this.mapHeight,
+      );
+      const data =
+        count === 0
+          ? new Uint32Array()
+          : new Uint32Array(await kernel.readBuffer("fieldBorderTiles", count));
+      if (this.kernel !== kernel || this.compiled !== compiled) return;
+      this.myBorderTiles = Array.from(data);
+      this.updateSegmentHighlight(true);
+    } finally {
+      this.inFlight = false;
+    }
   }
 
   /**
@@ -2021,7 +2326,7 @@ export class GameShellPage extends FieldViewerBase {
     if (
       !container ||
       !canvas ||
-      this.selectedLiveGame() === undefined ||
+      this.selectedGame() === undefined ||
       !this.inSpawn
     ) {
       clear();
@@ -2045,7 +2350,7 @@ export class GameShellPage extends FieldViewerBase {
         el.className =
           "absolute inline-flex items-center gap-1 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap font-bold text-[10px] px-1 rounded bg-black/55 pointer-events-none";
         el.style.textShadow = "0 1px 2px rgba(0,0,0,0.95)";
-        el.style.color = "#fbbf24";
+        el.style.color = n.color ?? "#fbbf24";
         const flagUrl =
           this.flagCatalog.length > 0
             ? resolveFlagUrl(n.flag ?? flagForSeed(this.flagCatalog, n.name))
@@ -2214,7 +2519,10 @@ export class GameShellPage extends FieldViewerBase {
   // --- hover readout (terrain) — overrides the base's generic rows ------------
 
   protected hoverRows(hx: number, hy: number): [string, string][] {
-    if (this.systemId === "leanfront-simple")
+    const fieldGame = this.selectedFieldGame();
+    if (fieldGame !== undefined)
+      return this.fieldGameHoverRows(fieldGame, hx, hy);
+    if (this.selectedLiveGame()?.id === "leanfront-simple")
       return this.leanfrontHoverRows(hx, hy);
     // OpenFront-live: a rich game + terrain readout.
     if (this.selectedLiveGame() !== undefined)
@@ -2225,34 +2533,65 @@ export class GameShellPage extends FieldViewerBase {
 
   private leanfrontHoverRows(hx: number, hy: number): [string, string][] {
     const tile = hy * this.mapWidth + hx;
-    const data = this.leanfrontHover;
-    if (data?.tile !== tile) return [["tile", `${hx}, ${hy}`]];
-    const city = data.cityLevel > 0;
-    const farm = data.farmLevel > 0;
-    const level = city ? data.cityLevel : farm ? data.farmLevel : 0;
-    const stock = city ? data.troops : farm ? data.food : data.troops;
-    const perLevel = city
-      ? this.paramValues.cityCapacityPerLevel
-      : farm
-        ? this.paramValues.farmCapacityPerLevel
-        : 0;
-    const rate = city
-      ? this.paramValues.cityGrowthRate
-      : farm
-        ? this.paramValues.farmGrowthRate
-        : 0;
-    const capacity = perLevel * level;
-    const growth =
-      capacity > 0 && stock > 0 ? rate * stock * Math.log(capacity / stock) : 0;
+    const data = this.simplePlots.get(tile);
+    if (!data) return [["tile", `${hx}, ${hy}`]];
+    const city = data.kind === 1;
     return [
       ["tile", `${hx}, ${hy}`],
-      ["owner", data.owner === 0 ? "unclaimed" : String(data.owner)],
-      ["plot", city ? "city" : farm ? "farm" : "empty"],
-      ["level", String(level)],
-      [city || !farm ? "people" : "food", stock.toFixed(2)],
-      ["capacity", capacity.toFixed(2)],
-      ["growth/tick", growth.toFixed(3)],
+      [
+        "owner",
+        (this.ownerScratch?.[tile] ?? 0) === 0
+          ? "unclaimed"
+          : (this.playerName.get(this.ownerScratch?.[tile] ?? 0) ??
+            String(this.ownerScratch?.[tile] ?? 0)),
+      ],
+      ["plot", city ? "city" : "farm"],
+      ["level", String(data.level)],
+      [city ? "people" : "food", compactNum(Math.round(data.stock))],
+      ["capacity", compactNum(Math.round(data.capacity))],
+      ["growth/tick", compactNum(Math.round(data.growth))],
     ];
+  }
+
+  private fieldGameHoverRows(
+    game: FieldGameDefinition,
+    hx: number,
+    hy: number,
+  ): [string, string][] {
+    const tile = hy * this.mapWidth + hx;
+    const data = this.fieldHover;
+    if (data?.tile !== tile) return [["tile", `${hx}, ${hy}`]];
+    return [
+      ["tile", `${hx}, ${hy}`],
+      [
+        "owner",
+        data.owner === 0
+          ? "unclaimed"
+          : (this.playerName.get(data.owner) ?? String(data.owner)),
+      ],
+      ...game.experience.hover.values.map(
+        ({ key, label }) =>
+          [label, compactNum(Math.round(data.values[key] ?? 0))] as [
+            string,
+            string,
+          ],
+      ),
+      ["target", this.fieldTargetFeedback(hx, hy)],
+    ];
+  }
+
+  private fieldTargetFeedback(x: number, y: number): string {
+    const tile = y * this.mapWidth + x;
+    if (this.hoverFields?.waterMask[tile] !== 0) return "invalid · water";
+    if (this.inSpawn) return "valid spawn";
+    const owner = this.fieldHover?.tile === tile ? this.fieldHover.owner : 0;
+    const local = this.compiled?.localPlayer ?? 1;
+    if (this.fieldAction === "attack") {
+      return owner === local ? "invalid · yours" : "valid attack";
+    }
+    return owner === local
+      ? `valid ${this.fieldAction}`
+      : "invalid · not yours";
   }
 
   /** The terrain readout (elevation/surface/climate/biome) from the derived
@@ -2459,7 +2798,7 @@ export class GameShellPage extends FieldViewerBase {
           class="absolute inset-0 w-full h-full touch-none ${this.hasBrushPainting() &&
           this.tool === "brush"
             ? "cursor-crosshair"
-            : this.selectedLiveGame() !== undefined
+            : this.selectedGame() !== undefined
               ? "cursor-crosshair"
               : "cursor-grab active:cursor-grabbing"}"
           @pointerdown=${this.onPointerDown}
@@ -2601,7 +2940,7 @@ export class GameShellPage extends FieldViewerBase {
               </label>`
             : null}
           <span class="text-white/70">zoom ${this.zoomReadout}×</span>
-          ${this.selectedLiveGame() !== undefined
+          ${this.selectedGame() !== undefined
             ? html`<button
                 class="border border-white/20 px-2 py-1 hover:bg-white/10"
                 title="Restart the game on this map"
@@ -2610,7 +2949,7 @@ export class GameShellPage extends FieldViewerBase {
                 restart
               </button>`
             : null}
-          ${this.selectedLiveGame() !== undefined
+          ${this.selectedGame() !== undefined
             ? html`<button
                 class="border border-white/20 px-2 py-1 hover:bg-white/10 ${this
                   .showStats
@@ -2633,7 +2972,7 @@ export class GameShellPage extends FieldViewerBase {
                 climate
               </button>`
             : null}
-          ${this.hasBrushPainting()
+          ${this.selectedGame() === undefined && this.hasBrushPainting()
             ? html`<div class="flex items-center gap-1">
                 <button
                   class="border border-white/20 px-2 py-1 hover:bg-white/10 ${this
@@ -2657,7 +2996,9 @@ export class GameShellPage extends FieldViewerBase {
                 </button>
               </div>`
             : null}
-          ${this.tool === "brush" && (compiled?.brushNames.length ?? 0) > 0
+          ${this.selectedGame() === undefined &&
+          this.tool === "brush" &&
+          (compiled?.brushNames.length ?? 0) > 0
             ? html`<select
                 class="bg-black/40 border border-white/20 px-2 py-1 text-white"
                 title="Active brush"
@@ -2681,9 +3022,9 @@ export class GameShellPage extends FieldViewerBase {
             : null}
         </div>
 
-        ${this.selectedLiveGame() !== undefined ? this.renderPlayerHud() : null}
+        ${this.selectedGame() !== undefined ? this.renderPlayerHud() : null}
         ${this.renderStatsPanel()}
-        ${game && this.selectedLiveGame() === undefined
+        ${game && this.selectedFieldGame() !== undefined
           ? this.renderSimPanel()
           : null}
         ${this.showKnobs && this.derivedOk && this.derivedConfig
@@ -2693,9 +3034,11 @@ export class GameShellPage extends FieldViewerBase {
     `;
   }
 
-  /** OpenFront-live human HUD: spawn prompt, live stats, attack-ratio. */
+  /** Shared human HUD; each game supplies its resource and action surface. */
   private renderPlayerHud() {
     const s = this.myStats;
+    const fieldGame = this.selectedFieldGame();
+    const simple = this.selectedLiveGame()?.id === "leanfront-simple";
     const stat = (label: string, value: string | number) => html`
       <div class="flex flex-col items-center px-2">
         <span class="text-white/50 text-[10px] uppercase tracking-wide"
@@ -2704,6 +3047,46 @@ export class GameShellPage extends FieldViewerBase {
         <span class="text-white/95 tabular-nums text-base">${value}</span>
       </div>
     `;
+    const rows: [string, string | number][] = simple
+      ? [
+          ["people", s ? compactNum(Math.round(s.population)) : "—"],
+          ["food", s ? compactNum(Math.round(s.food)) : "—"],
+          ["tiles", s ? s.tiles : "—"],
+        ]
+      : fieldGame
+        ? [
+            ...(fieldGame.experience.stats.population
+              ? ([
+                  [
+                    fieldGame.experience.stats.populationLabel ?? "population",
+                    s ? compactNum(Math.round(s.population)) : "—",
+                  ],
+                ] as [string, string | number][])
+              : []),
+            ...(fieldGame.experience.stats.troops &&
+            fieldGame.experience.stats.troops !==
+              fieldGame.experience.stats.population
+              ? ([["troops", s ? compactNum(Math.round(s.troops)) : "—"]] as [
+                  string,
+                  string | number,
+                ][])
+              : []),
+            ...(fieldGame.experience.stats.food
+              ? ([["food", s ? compactNum(Math.round(s.food)) : "—"]] as [
+                  string,
+                  string | number,
+                ][])
+              : []),
+            ["tiles", s ? s.tiles : "—"],
+          ]
+        : [
+            ["troops", s ? s.troops : "—"],
+            ["pop", s ? s.population : "—"],
+            ["food", s ? s.food : "—"],
+            ["tiles", s ? s.tiles : "—"],
+          ];
+    const ratio = fieldGame ? this.commitment : this.attackRatio;
+    const ratioLabel = fieldGame?.experience.commitment?.label ?? "attack";
     return html`
       ${this.inSpawn
         ? html`<div
@@ -2716,17 +3099,21 @@ export class GameShellPage extends FieldViewerBase {
             </div>
           </div>`
         : null}
-      ${s && s.alive && !this.inSpawn ? this.renderBuildBar(s) : null}
+      ${s && s.alive && !this.inSpawn
+        ? fieldGame
+          ? this.renderFieldActionBar(fieldGame)
+          : simple
+            ? this.renderSimpleActionBar()
+            : this.renderBuildBar(s)
+        : null}
       <div
         class="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-3 text-sm text-white bg-black/70 backdrop-blur px-4 py-2 rounded"
       >
-        ${s && !s.alive
+        ${s && !s.alive && !this.inSpawn
           ? html`<span class="text-red-400 font-semibold px-2">Defeated</span>`
           : null}
-        ${stat("troops", s ? s.troops : "—")}
-        ${stat("pop", s ? s.population : "—")} ${stat("food", s ? s.food : "—")}
-        ${stat("tiles", s ? s.tiles : "—")}
-        ${s && s.starved > 0
+        ${rows.map(([label, value]) => stat(label, value))}
+        ${!fieldGame && s && s.starved > 0
           ? html`<div class="flex flex-col items-center px-2">
               <span
                 class="text-red-400/70 text-[10px] uppercase tracking-wide"
@@ -2740,23 +3127,100 @@ export class GameShellPage extends FieldViewerBase {
           : null}
         <div class="flex flex-col gap-0.5 pl-3 border-l border-white/15 w-40">
           <div class="flex justify-between text-[10px] text-white/60">
-            <span>attack</span>
-            <span class="tabular-nums"
-              >${Math.round(this.attackRatio * 100)}%</span
-            >
+            <span>${ratioLabel}</span>
+            <span class="tabular-nums">${Math.round(ratio * 100)}%</span>
           </div>
-          <input
-            type="range"
-            min="0.05"
-            max="1"
-            step="0.05"
-            .value=${String(this.attackRatio)}
-            @input=${(e: Event) =>
-              (this.attackRatio = (e.target as HTMLInputElement).valueAsNumber)}
-          />
+          <div class="flex items-center gap-1">
+            <input
+              class="min-w-0 flex-1"
+              type="range"
+              min="0.05"
+              max="1"
+              step="0.05"
+              aria-label="Attack commitment"
+              .value=${String(ratio)}
+              @input=${(e: Event) => {
+                const value = (e.target as HTMLInputElement).valueAsNumber;
+                if (!fieldGame) {
+                  this.attackRatio = value;
+                  return;
+                }
+                this.commitment = value;
+                this.mergePlayerIntent(this.compiled?.localPlayer ?? 1, {
+                  alive: 1,
+                  commit: value,
+                });
+              }}
+            />
+            ${fieldGame
+              ? html`<button
+                  class="text-[10px] border border-white/20 px-1 hover:bg-white/10"
+                  @click=${() =>
+                    this.mergePlayerIntent(this.compiled?.localPlayer ?? 1, {
+                      attacking: 0,
+                    })}
+                >
+                  stop
+                </button>`
+              : s?.activeAttackID
+                ? html`<button
+                    class="text-[10px] border border-white/20 px-1 hover:bg-white/10"
+                    @click=${() =>
+                      this.queueIntent({
+                        type: "cancel_attack",
+                        attackID: s.activeAttackID!,
+                      })}
+                  >
+                    stop
+                  </button>`
+                : null}
+          </div>
         </div>
       </div>
     `;
+  }
+
+  private renderFieldActionBar(game: FieldGameDefinition) {
+    const actions = [
+      { id: "attack", label: "attack" },
+      ...(game.experience.actions ?? []),
+    ];
+    return html`<div
+      class="absolute bottom-16 left-1/2 -translate-x-1/2 flex items-center gap-2 text-xs text-white bg-black/70 backdrop-blur px-3 py-1.5 rounded"
+    >
+      ${actions.map(
+        (action) =>
+          html`<button
+            class="border border-white/20 px-2 py-1 rounded hover:bg-white/10 ${this
+              .fieldAction === action.id
+              ? "bg-emerald-500/30 border-emerald-300/60"
+              : ""}"
+            @click=${() => (this.fieldAction = action.id)}
+          >
+            ${action.label}
+          </button>`,
+      )}
+    </div>`;
+  }
+
+  private renderSimpleActionBar() {
+    const actions = ["attack", "city", "farm", "raze"];
+    return html`<div
+      class="absolute bottom-16 left-1/2 -translate-x-1/2 flex items-center gap-2 text-xs text-white bg-black/70 backdrop-blur px-3 py-1.5 rounded"
+    >
+      ${actions.map(
+        (action) =>
+          html`<button
+            class="border border-white/20 px-2 py-1 rounded hover:bg-white/10 ${this
+              .fieldAction === action
+              ? "bg-emerald-500/30 border-emerald-300/60"
+              : ""}"
+            @click=${() => (this.fieldAction = action)}
+          >
+            ${action}
+          </button>`,
+      )}
+    </div>`;
   }
 
   /** Build bar (seed-placed structures + the ladder readout), above the
@@ -2790,86 +3254,15 @@ export class GameShellPage extends FieldViewerBase {
     `;
   }
 
-  /** Sim-system panel: scalar readouts + generic param sliders. */
+  /** Field tuning stays available without duplicating the shared match HUD. */
   private renderSimPanel() {
     const compiled = this.compiled;
-    const localPlayer = compiled?.localPlayer ?? 0;
-    const scalars =
-      this.systemId === "leanfront-simple"
-        ? ([
-            [
-              "people",
-              (this.scalarReadout.totalPeople as number[] | undefined)?.[
-                localPlayer
-              ] ?? 0,
-            ],
-            [
-              "food",
-              (this.scalarReadout.totalFood as number[] | undefined)?.[
-                localPlayer
-              ] ?? 0,
-            ],
-            [
-              "spend",
-              (this.playerOutputReadout[localPlayer]?.foodSpendFx ?? 0) / 256,
-            ],
-          ] satisfies [string, number][])
-        : Object.entries(this.scalarReadout);
     const params = (compiled?.paramList ?? []).filter((p) => !p.hidden);
-    const hasCommit = compiled?.playerFieldNames.includes("commit") ?? false;
-    if (scalars.length === 0 && params.length === 0 && !hasCommit) return null;
+    if (params.length === 0) return null;
     return html`
       <div
         class="absolute top-16 right-3 flex flex-col gap-1.5 text-xs text-white bg-black/60 backdrop-blur px-3 py-3 rounded w-72 max-h-[80vh] overflow-auto"
       >
-        ${scalars.length
-          ? html`<div class="flex flex-col gap-1 pb-1 border-b border-white/10">
-              ${scalars.map(
-                ([name, value]) =>
-                  html`<div class="flex justify-between gap-3">
-                    <span class="text-white/50">${name}</span>
-                    <span class="text-white/90 tabular-nums"
-                      >${formatScalar(value)}</span
-                    >
-                  </div>`,
-              )}
-            </div>`
-          : null}
-        ${hasCommit
-          ? html`<div
-              class="flex items-center gap-2 pb-1 border-b border-white/10"
-            >
-              <span class="w-16 text-white/70">commit</span>
-              <input
-                type="range"
-                class="flex-1"
-                min="0"
-                max="1"
-                step="0.05"
-                aria-label="Attack commitment"
-                .value=${String(this.commitment)}
-                @input=${(e: Event) => {
-                  this.commitment = (
-                    e.target as HTMLInputElement
-                  ).valueAsNumber;
-                  this.mergePlayerIntent(localPlayer, {
-                    alive: 1,
-                    commit: this.commitment,
-                  });
-                }}
-              />
-              <span class="w-10 text-right text-white/90 tabular-nums"
-                >${Math.round(this.commitment * 100)}%</span
-              >
-              <button
-                class="border border-white/20 px-2 py-1 hover:bg-white/10"
-                @click=${() =>
-                  this.mergePlayerIntent(localPlayer, { attacking: 0 })}
-              >
-                stop
-              </button>
-            </div>`
-          : null}
         ${params.map(
           (param) => html`
             <label class="flex items-center gap-2">
@@ -3232,14 +3625,4 @@ function signedTroops(n: number): string {
 // Abbreviate a magnitude: 1234 → "1.2k", 12 → "12".
 function compactNum(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
-}
-
-// Grouped (per-player) scalars decode as arrays; show the first few slots.
-function formatScalar(value: number | number[]): string {
-  if (typeof value === "number") return value.toFixed(1);
-  const head = value
-    .slice(0, 4)
-    .map((v) => v.toFixed(1))
-    .join(", ");
-  return value.length > 4 ? `[${head}, …]` : `[${head}]`;
 }

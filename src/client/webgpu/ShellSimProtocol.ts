@@ -6,6 +6,7 @@ import type { AssetManifest } from "../../core/AssetUrls";
 import { UnitType, type GameMapType } from "../../core/game/Game";
 import type { RulesetID } from "../../core/game/Rulesets";
 import type { Intent } from "../../core/Schemas";
+import type { LivePlotAction } from "../games/LiveGameRuntime";
 
 export const SHELL_TRANSPORT_STRIDE = 4;
 
@@ -44,6 +45,8 @@ export interface ShellMyStats {
   // Peak-ratchet seed awards (rework-settlement-ecology): banked founding seeds.
   farmSeeds: number;
   settlementSeeds: number;
+  /** First outgoing attack, if any; lets the shared HUD cancel it. */
+  activeAttackID?: string;
 }
 
 /** A front-imbalance label: cluster tile(s) + signed troop delta (human view). */
@@ -73,6 +76,7 @@ export type ShellSimIn =
   // Any intent the main can build without Game reads (spawn, build_unit,
   // tune_food_config); the worker stamps + queues it.
   | { type: "intent"; intent: Intent }
+  | { type: "plot_action"; action: LivePlotAction; tile: number }
   // Placement-preview query (farm-growth spec): the worker answers with the
   // sim's own canBuild + production fraction for the hovered site.
   | { type: "preview"; tile: number; unit: UnitType };
@@ -108,6 +112,9 @@ export interface ShellSimFrame {
     | { id: number; name: string; pid: string; ptype: string; flag?: string }[]
     | null;
   myStats: ShellMyStats | null;
+  /** LeanFront Simple plot summaries: [tile, kind, level, stock, capacity,
+   * growth] sextets. */
+  simplePlots?: Int32Array;
   fronts: ShellFrontLabel[] | null;
   spawnAnchor: number | null; // one-shot: the human's spawn tile
   /** Where each nation will land, shipped during the spawn phase only, so the
@@ -138,5 +145,12 @@ export type ShellSimOut =
       unit: UnitType;
       ok: boolean;
       fraction: number;
+    }
+  | {
+      type: "action_result";
+      action: LivePlotAction;
+      tile: number;
+      ok: boolean;
+      message?: string;
     }
   | { type: "error"; message: string };

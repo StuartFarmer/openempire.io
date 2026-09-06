@@ -467,7 +467,7 @@ function playerSummary(g: Game): {
     // The food economy for EVERY nation, not just the human: the stats panel
     // charts a rival's food and surplus alongside your own, so "who is
     // starving" is readable rather than guessed.
-    const flow = p.foodFlow();
+    const flow = runtime?.stats?.(p) ?? p.foodFlow();
     // food() already returns DISPLAY units (it divides the milli store by
     // 1000 internally) — do not scale it again.
     stats[i++] = Number(p.food());
@@ -504,16 +504,22 @@ function buildFrame(g: Game): {
   const { stats, names } = playerSummary(g);
   const transportShips = packTransportShips(g.units(UnitType.TransportShip));
   const me = myPlayer();
+  const runtimeStats = me ? runtime?.stats?.(me) : undefined;
   const myStats = me
     ? {
         troops: Math.round(me.troops()),
         food: Number(me.food()),
-        population: Math.round(me.foodFlow().population),
-        starved: Math.round(me.foodFlow().starvedTroops),
+        population: Math.round(
+          runtimeStats?.population ?? me.foodFlow().population,
+        ),
+        starved: Math.round(
+          runtimeStats?.starved ?? me.foodFlow().starvedTroops,
+        ),
         tiles: me.numTilesOwned(),
         alive: me.isAlive(),
         farmSeeds: me.farmSeeds(),
         settlementSeeds: me.settlementSeeds(),
+        activeAttackID: me.outgoingAttacks()[0]?.id(),
       }
     : null;
   // Nations' intended landing sites — only while the human is still choosing,
@@ -569,12 +575,14 @@ function buildFrame(g: Game): {
     transportShips,
     names,
     myStats,
+    simplePlots: runtime?.plotFrame?.(),
     fronts: labels.length ? labels : null,
     spawnAnchor,
     nationSpawns,
     myBorder,
   };
   const transfer: Transferable[] = [stats.buffer, transportShips.buffer];
+  if (frame.simplePlots) transfer.push(frame.simplePlots.buffer);
   for (const a of [
     owner,
     plot,
@@ -684,6 +692,21 @@ ctx.onmessage = (e: MessageEvent<ShellSimIn>) => {
       case "intent":
         stamp(msg.intent);
         break;
+      case "plot_action": {
+        const me = myPlayer();
+        const result =
+          me && runtime?.resolvePlotAction?.(me, msg.action, msg.tile);
+        if (!result) break;
+        if (result.ok) stamp(result.intent);
+        post({
+          type: "action_result",
+          action: msg.action,
+          tile: msg.tile,
+          ok: result.ok,
+          ...(!result.ok ? { message: result.message } : {}),
+        });
+        break;
+      }
       case "preview": {
         // Placement preview (rework-settlement-ecology): the sim's own canBuild
         // verdict + (Farmland) the site's climate-suitability fraction (0..1) —
