@@ -21,3 +21,33 @@
   - `npx vitest tests/GameShellExperience.test.ts tests/LeanFrontSimpleWorkerProtocol.test.ts tests/NationLiteralSpawn.test.ts tests/MapConsistency.test.ts --run` — 38 passed.
   - `npx vitest tests/ShellSimWorkerLifecycle.test.ts tests/LeanFrontSimpleRuntime.test.ts tests/LeanFrontSimpleEconomy.test.ts --run` — 28 passed.
   - `npx tsc --noEmit` and `git diff --check` — passed.
+
+## Review fix loop
+
+- Literal nation spawning now queues the exact manifest tile once and never
+  re-spawns an already-spawned nation during the spawn phase. Verdantia and
+  Estuaria manifest centers were regenerated onto dry, passable land; their
+  generator sources match the shipped manifests.
+- Simple city/farm/raze modes clear the shared attack-source highlight. Attack
+  mode and other Live games retain it.
+- Added direct checks for shared Simple spawn/attack messages, action-result
+  status, sextet transfer/application, shared conduit/sprite/palette updates,
+  restart/navigation cleanup, and defeat action hiding.
+- Fix-loop verification passed:
+  - Focused shell/protocol/nation/map: 49 passed.
+  - Lifecycle/runtime/economy: 28 passed.
+  - `npx tsc --noEmit`, `npm run lint`, Prettier check, and `git diff --check` passed.
+
+## Committed files
+
+- `src/client/GameShellPage.ts`
+- `src/client/webgpu/ShellSimProtocol.ts`
+- `src/client/webgpu/ShellSim.worker.ts`
+- `src/core/execution/NationExecution.ts`
+- `tests/GameShellExperience.test.ts`
+- `tests/LeanFrontSimpleWorkerProtocol.test.ts`
+- `tests/NationLiteralSpawn.test.ts`
+- `tests/MapConsistency.test.ts`
+- `resources/maps/{verdantia,estuaria}/manifest.json`
+- `map-generator/assets/maps/{verdantia,estuaria}/info.json`
+- `map-generator/gen-nations.ts`

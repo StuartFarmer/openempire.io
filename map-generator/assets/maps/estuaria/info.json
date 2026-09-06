@@ -6,11 +6,11 @@
   "multiplayer_frequency": 0,
   "nations": [
     {
-      "coordinates": [300, 243],
+      "coordinates": [293, 250],
       "name": "Aldermoor"
     },
     {
-      "coordinates": [105, 127],
+      "coordinates": [100, 132],
       "name": "Bramblehold"
     },
     {
@@ -22,7 +22,7 @@
       "name": "Dunravel"
     },
     {
-      "coordinates": [62, 166],
+      "coordinates": [59, 169],
       "name": "Elderwyn"
     },
     {
@@ -30,7 +30,7 @@
       "name": "Fenwater"
     },
     {
-      "coordinates": [235, 248],
+      "coordinates": [232, 251],
       "name": "Greenhollow"
     },
     {
@@ -38,7 +38,7 @@
       "name": "Hearthvale"
     },
     {
-      "coordinates": [47, 77],
+      "coordinates": [41, 83],
       "name": "Ironbark"
     },
     {
@@ -54,7 +54,7 @@
       "name": "Larkspur"
     },
     {
-      "coordinates": [104, 70],
+      "coordinates": [109, 66],
       "name": "Mosswend"
     },
     {
@@ -78,7 +78,7 @@
       "name": "Rushmere"
     },
     {
-      "coordinates": [307, 309],
+      "coordinates": [302, 314],
       "name": "Stonecreek"
     },
     {

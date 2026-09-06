@@ -14,10 +14,34 @@ function workerPage(id: "openfront" | "leanfront" | "leanfront-simple") {
   page.systemId = id;
   page.mapWidth = 10;
   page.mapHeight = 10;
-  page.worker = { postMessage: vi.fn() };
+  page.worker = { postMessage: vi.fn(), terminate: vi.fn() };
   page.inSpawn = false;
   page.myStats = { alive: true };
   return page;
+}
+
+function workerFrame(overrides: Record<string, unknown> = {}) {
+  return {
+    type: "frame",
+    tick: 1,
+    inSpawn: false,
+    mySmallID: 1,
+    owner: null,
+    plot: null,
+    front: null,
+    density: null,
+    damage: null,
+    supply: null,
+    burns: null,
+    stats: null,
+    transportShips: new Int32Array(),
+    names: null,
+    myStats: { alive: true },
+    fronts: null,
+    spawnAnchor: null,
+    nationSpawns: null,
+    ...overrides,
+  };
 }
 
 describe("universal game shell lifecycle", () => {
@@ -171,6 +195,45 @@ describe("universal game shell lifecycle", () => {
       type: "intent",
       intent: { type: "cancel_attack", attackID: "attack-7" },
     });
+  });
+
+  test("keeps Simple spawn and attack on shared worker messages", () => {
+    const spawn = workerPage("leanfront-simple");
+    spawn.inSpawn = true;
+    spawn.onTileGesture(3, 4, {} as PointerEvent);
+    expect(spawn.worker.postMessage).toHaveBeenLastCalledWith({
+      type: "intent",
+      intent: { type: "spawn", tile: 43 },
+    });
+
+    const attack = workerPage("leanfront-simple");
+    attack.onTileGesture(3, 4, {} as PointerEvent);
+    expect(attack.worker.postMessage).toHaveBeenLastCalledWith({
+      type: "act",
+      tile: 43,
+      ratio: 0.25,
+    });
+  });
+
+  test("uses action results as bounded Simple status feedback", () => {
+    const page = workerPage("leanfront-simple");
+    page.status = "Action rejected: old";
+
+    page.onWorkerMessage({
+      type: "action_result",
+      action: "city",
+      tile: 43,
+      ok: true,
+    });
+    expect(page.status).toBe("");
+    page.onWorkerMessage({
+      type: "action_result",
+      action: "farm",
+      tile: 43,
+      ok: false,
+      message: "Cannot build here",
+    });
+    expect(page.status).toBe("Action rejected: Cannot build here");
   });
 
   test("rejects a field spawn on water without leaving spawn mode", () => {
@@ -435,6 +498,124 @@ describe("universal game shell lifecycle", () => {
     for (const tile of page.litHighlight) {
       expect(page.highlightU32[tile]).toBe(255);
     }
+  });
+
+  test.each([
+    ["leanfront-simple", "attack", true],
+    ["leanfront-simple", "city", false],
+    ["leanfront-simple", "farm", false],
+    ["leanfront-simple", "raze", false],
+    ["openfront", "city", true],
+  ])("keeps attack highlighting mode-aware for %s/%s", (id, action, lit) => {
+    const page = workerPage(id as "openfront" | "leanfront-simple");
+    page.fieldAction = action;
+    page.mySmallID = 1;
+    page.hoverTile = { x: 8, y: 5 };
+    page.ownerScratch = new Uint32Array(100);
+    page.ownerScratch[58] = 2;
+    page.myBorderTiles = [42, 43, 44, 52, 54, 62, 63, 64];
+    page.highlightU32 = new Uint32Array(100);
+    page.kernel = { writeBufferU32Range: vi.fn() };
+
+    page.updateSegmentHighlight(true);
+
+    expect(page.litHighlight.length > 0).toBe(lit);
+  });
+
+  test("applies shared frame buffers and fresh Simple sextets", () => {
+    const page = workerPage("leanfront-simple");
+    const writeBufferU32Range = vi.fn();
+    const writePlotPlane = vi.fn();
+    page.kernel = { writeBufferU32Range };
+    page.renderer = {
+      writePlotPlane,
+      setTransportShips: vi.fn(),
+    };
+    page.ownerScratch = new Uint32Array(100);
+    page.plotU32 = new Uint32Array(100);
+    page.plotBytes = new Uint8Array(100);
+    page.frontU32 = new Uint32Array(100);
+    page.densityU32 = new Uint32Array(100);
+    page.damageU32 = new Uint32Array(100);
+    page.supplyU32 = new Uint32Array(100);
+
+    const simplePlots = Int32Array.from([43, 1, 2, 19, 40, 4]);
+    page.onWorkerFrame(
+      workerFrame({
+        owner: Uint32Array.from([43, 2]),
+        plot: Uint32Array.from([43, 0x102]),
+        front: Uint32Array.from([43, 127]),
+        density: Uint32Array.from([43 | (90 << 24)]),
+        damage: Uint32Array.from([43 | (80 << 24)]),
+        supply: Uint32Array.from([43 | (70 << 24)]),
+        simplePlots,
+        names: [{ id: 2, name: "Aster", pid: "aster", ptype: "nation" }],
+      }),
+    );
+
+    expect(page.ownerScratch[43]).toBe(2);
+    expect(page.plotU32[43]).toBe(0x102);
+    expect(page.frontU32[43]).toBe(127);
+    expect(page.densityU32[43]).toBe(90);
+    expect(page.damageU32[43]).toBe(80);
+    expect(page.supplyU32[43]).toBe(70);
+    expect(page.simplePlots.get(43)).toEqual({
+      kind: 1,
+      level: 2,
+      stock: 19,
+      capacity: 40,
+      growth: 4,
+    });
+    expect(writePlotPlane).toHaveBeenCalledOnce();
+    expect(page.playerFill[2]).not.toBe(0);
+    expect(writeBufferU32Range).toHaveBeenCalled();
+  });
+
+  test("clears Simple plot state on worker restart and teardown", async () => {
+    const page = workerPage("leanfront-simple");
+    page.simplePlots.set(43, {
+      kind: 1,
+      level: 1,
+      stock: 19,
+      capacity: 40,
+      growth: 4,
+    });
+    page.kernel = { clearBuffer: vi.fn() };
+    page.startWorker = vi.fn().mockResolvedValue(undefined);
+    page.applyGameView = vi.fn().mockResolvedValue(undefined);
+
+    await page.restartSim();
+    expect(page.simplePlots.size).toBe(0);
+    expect(page.startWorker).toHaveBeenCalledOnce();
+
+    page.simplePlots.set(43, {
+      kind: 1,
+      level: 1,
+      stock: 19,
+      capacity: 40,
+      growth: 4,
+    });
+    page.destroySim();
+    expect(page.simplePlots.size).toBe(0);
+  });
+
+  test("hides Simple plot actions after defeat", () => {
+    const page = workerPage("leanfront-simple");
+    page.myStats = {
+      troops: 0,
+      population: 0,
+      food: 0,
+      starved: 0,
+      tiles: 0,
+      alive: false,
+      farmSeeds: 0,
+      settlementSeeds: 0,
+    };
+    const host = document.createElement("div");
+    render(page.renderPlayerHud(), host);
+
+    expect(host.textContent).toContain("Defeated");
+    expect(host.textContent).not.toContain("city");
   });
 
   test("reports valid and invalid field targets and renders defeat", () => {

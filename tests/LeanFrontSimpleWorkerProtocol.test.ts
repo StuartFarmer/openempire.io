@@ -187,11 +187,12 @@ describe("LeanFront Simple worker protocol", () => {
 
   test("ships integer simple plot sextets and runtime stats in the common frame", async () => {
     const worker = await workerHarness();
-    const frame = worker.context.postMessage.mock.calls
-      .map(([message]) => message)
-      .find((message) => message.type === "frame");
+    const [frame, transfer] = worker.context.postMessage.mock.calls.find(
+      ([message]) => message.type === "frame",
+    )!;
 
     expect([...frame.simplePlots]).toEqual([3, 1, 2, 19, 40, 4]);
+    expect(transfer).toContain(frame.simplePlots.buffer);
     expect(frame.stats).toEqual(Int32Array.from([1, 20, 3, 1, 7, 5, 3]));
     expect(frame.myStats).toMatchObject({ population: 20, starved: 0 });
   });

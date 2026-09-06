@@ -8,7 +8,6 @@ import {
   PlayerID,
   PlayerType,
   Relation,
-  TerrainType,
   UnitType,
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
@@ -23,6 +22,20 @@ import { NationStructureBehavior } from "./nation/NationStructureBehavior";
 import { NationWarshipBehavior } from "./nation/NationWarshipBehavior";
 import { SpawnExecution } from "./SpawnExecution";
 import { AiAttackBehavior } from "./utils/AiAttackBehavior";
+
+export function literalNationSpawnTile(
+  game: Pick<
+    Game,
+    "isValidCoord" | "ref" | "isLand" | "hasOwner" | "isImpassable"
+  >,
+  cell: { x: number; y: number },
+): TileRef | null {
+  if (!game.isValidCoord(cell.x, cell.y)) return null;
+  const tile = game.ref(cell.x, cell.y);
+  return game.isLand(tile) && !game.hasOwner(tile) && !game.isImpassable(tile)
+    ? tile
+    : null;
+}
 
 export class NationExecution implements Execution {
   private active = true;
@@ -106,12 +119,9 @@ export class NationExecution implements Execution {
 
     if (this.mg.inSpawnPhase()) {
       if (this.player.hasSpawned()) {
-        // Already on the map — periodically re-spawn so the nation
-        // visibly hops to different locations during the spawn phase.
-        if (ticks % this.attackRate !== this.attackTick) {
-          return;
-        }
-      } else if (this.spawnExecAdded) {
+        return;
+      }
+      if (this.spawnExecAdded) {
         // First SpawnExecution already queued, wait for it to land.
         return;
       }
@@ -124,30 +134,8 @@ export class NationExecution implements Execution {
         return;
       }
 
-      // If team spawn areas are configured and the nation's spawn cell
-      // is outside its team's area, spawn randomly within the area instead.
-      const team = this.player.team();
-      if (team !== null) {
-        const area = this.mg.teamSpawnArea(team);
-        if (area !== undefined) {
-          const cell = this.nation.spawnCell;
-          const inArea =
-            cell.x >= area.x &&
-            cell.x < area.x + area.width &&
-            cell.y >= area.y &&
-            cell.y < area.y + area.height;
-          if (!inArea) {
-            this.mg.addExecution(
-              new SpawnExecution(this.gameID, this.nation.playerInfo),
-            );
-            this.spawnExecAdded = true;
-            return;
-          }
-        }
-      }
-
-      // Select a tile near the position defined in the map manifest
-      const rl = this.randomSpawnLand();
+      // The map manifest coordinate is the nation placement in every mode.
+      const rl = literalNationSpawnTile(this.mg, this.nation.spawnCell);
 
       if (rl === null) {
         console.warn(`cannot spawn ${this.nation.playerInfo.name}`);
@@ -258,37 +246,6 @@ export class NationExecution implements Execution {
       this.player,
     );
     this.behaviorsInitialized = true;
-  }
-
-  private randomSpawnLand(): TileRef | null {
-    if (this.nation.spawnCell === undefined) throw new Error("not initialized");
-
-    const delta = 25;
-    let tries = 0;
-    while (tries < 50) {
-      tries++;
-      const cell = this.nation.spawnCell;
-      const x = this.random.nextInt(cell.x - delta, cell.x + delta);
-      const y = this.random.nextInt(cell.y - delta, cell.y + delta);
-      if (!this.mg.isValidCoord(x, y)) {
-        continue;
-      }
-      const tile = this.mg.ref(x, y);
-      if (
-        this.mg.isLand(tile) &&
-        !this.mg.hasOwner(tile) &&
-        !this.mg.isImpassable(tile)
-      ) {
-        if (
-          this.mg.terrainType(tile) === TerrainType.Mountain &&
-          this.random.chance(2)
-        ) {
-          continue;
-        }
-        return tile;
-      }
-    }
-    return null;
   }
 
   private updateRelationsFromEmbargos() {

@@ -21,6 +21,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { GameMapType } from "../src/core/game/Game";
+import { hydroPlaneOffset } from "../src/core/game/HydroMap";
 import { decodeLayers } from "../src/core/game/MapLayers";
 import { genTerrainFromBin } from "../src/core/game/TerrainMapLoader";
 import { NodeGameMapLoader } from "../tests/perf/fullgame/NodeGameMapLoader";
@@ -105,6 +106,10 @@ async function main(): Promise<void> {
       ? decodeLayers(await data.layersBin(), width, height)
       : null;
   if (layers === null) throw new Error(`${mapName} has no layers.bin`);
+  if (data.hydroBin === undefined)
+    throw new Error(`${mapName} has no hydro.bin`);
+  const hydro = await data.hydroBin();
+  const lakeOffset = hydroPlaneOffset("lake", width, height);
   const gm = await genTerrainFromBin(manifest.map, await data.mapBin(), layers);
 
   // Score every land tile: food + freshwater, penalised for being hemmed in by
@@ -115,7 +120,8 @@ async function main(): Promise<void> {
   for (let y = R; y < height - R; y++) {
     for (let x = R; x < width - R; x++) {
       const t = gm.ref(x, y);
-      if (!gm.isLand(t) || gm.isImpassable(t)) continue;
+      if (!gm.isLand(t) || gm.isImpassable(t) || hydro[lakeOffset + t] !== 0)
+        continue;
       let land = 0,
         total = 0,
         crop = 0,
@@ -124,7 +130,11 @@ async function main(): Promise<void> {
         for (let dx = -R; dx <= R; dx += 2) {
           const n = gm.ref(x + dx, y + dy);
           total++;
-          if (gm.isLand(n) && !gm.isImpassable(n)) {
+          if (
+            gm.isLand(n) &&
+            !gm.isImpassable(n) &&
+            hydro[lakeOffset + n] === 0
+          ) {
             land++;
             crop += gm.layer("crop", n);
             water += gm.layer("water", n);

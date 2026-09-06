@@ -6,11 +6,11 @@
   "multiplayer_frequency": 0,
   "nations": [
     {
-      "coordinates": [216, 98],
+      "coordinates": [222, 104],
       "name": "Aldermoor"
     },
     {
-      "coordinates": [341, 180],
+      "coordinates": [349, 172],
       "name": "Bramblehold"
     },
     {
@@ -18,11 +18,11 @@
       "name": "Cindermarch"
     },
     {
-      "coordinates": [395, 110],
+      "coordinates": [400, 106],
       "name": "Dunravel"
     },
     {
-      "coordinates": [144, 98],
+      "coordinates": [138, 104],
       "name": "Elderwyn"
     },
     {
@@ -38,7 +38,7 @@
       "name": "Hearthvale"
     },
     {
-      "coordinates": [243, 138],
+      "coordinates": [239, 142],
       "name": "Ironbark"
     },
     {
@@ -58,7 +58,7 @@
       "name": "Mosswend"
     },
     {
-      "coordinates": [285, 204],
+      "coordinates": [279, 198],
       "name": "Northreach"
     },
     {
@@ -86,7 +86,7 @@
       "name": "Thornfield"
     },
     {
-      "coordinates": [62, 48],
+      "coordinates": [57, 43],
       "name": "Umbervale"
     },
     {

@@ -559,4 +559,32 @@ describe("Map consistency", () => {
       );
     }
   });
+
+  test("generated fictional nation centers are dry playable land", () => {
+    const errors: string[] = [];
+    for (const folder of ["verdantia", "estuaria"]) {
+      const dir = path.join(RESOURCES_MAPS, folder);
+      const manifest = JSON.parse(
+        fs.readFileSync(path.join(dir, "manifest.json"), "utf8"),
+      );
+      const terrain = fs.readFileSync(path.join(dir, "map.bin"));
+      const hydro = fs.readFileSync(path.join(dir, "hydro.bin"));
+      const width = manifest.map.width as number;
+      for (const nation of manifest.nations as Array<{
+        name: string;
+        coordinates?: [number, number];
+      }>) {
+        if (!nation.coordinates) continue;
+        const [x, y] = nation.coordinates;
+        const tile = y * width + x;
+        const land = (terrain[tile] & 0x80) !== 0;
+        const impassable = (terrain[tile] & 0x1f) === 0x1f;
+        const lake = hydro[tile] !== 0;
+        if (!land || impassable || lake) {
+          errors.push(`${folder}: ${nation.name} at [${x}, ${y}]`);
+        }
+      }
+    }
+    expect(errors).toEqual([]);
+  });
 });

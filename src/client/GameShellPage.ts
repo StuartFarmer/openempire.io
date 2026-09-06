@@ -1084,29 +1084,8 @@ export class GameShellPage extends FieldViewerBase {
       await import("./webgpu/ShellSim.worker.ts?worker&inline");
     const worker = new Worker();
     this.worker = worker;
-    worker.onmessage = (e: MessageEvent<ShellSimOut>) => {
-      const msg = e.data;
-      if (msg.type === "ready") {
-        this.popPerDensity = msg.popPerDensity;
-        this.fertilityPlane = msg.fertility;
-        this.suitabilityPlane = msg.suitability;
-        this.postWorker({
-          type: "running",
-          running: this.running,
-          turbo: this.turbo,
-        });
-      } else if (msg.type === "frame") {
-        this.onWorkerFrame(msg);
-      } else if (msg.type === "preview") {
-        this.previewData = msg;
-      } else if (msg.type === "action_result") {
-        this.status = msg.ok
-          ? ""
-          : `Action rejected: ${msg.message ?? "invalid action"}`;
-      } else if (msg.type === "error") {
-        this.status = msg.message;
-      }
-    };
+    worker.onmessage = (e: MessageEvent<ShellSimOut>) =>
+      this.onWorkerMessage(e.data);
     this.postWorker({
       type: "init",
       mapType,
@@ -1116,6 +1095,29 @@ export class GameShellPage extends FieldViewerBase {
       ambient: this.ambient,
       ruleset: this.selectedLiveGame()!.id,
     });
+  }
+
+  private onWorkerMessage(msg: ShellSimOut): void {
+    if (msg.type === "ready") {
+      this.popPerDensity = msg.popPerDensity;
+      this.fertilityPlane = msg.fertility;
+      this.suitabilityPlane = msg.suitability;
+      this.postWorker({
+        type: "running",
+        running: this.running,
+        turbo: this.turbo,
+      });
+    } else if (msg.type === "frame") {
+      this.onWorkerFrame(msg);
+    } else if (msg.type === "preview") {
+      this.previewData = msg;
+    } else if (msg.type === "action_result") {
+      this.status = msg.ok
+        ? ""
+        : `Action rejected: ${msg.message ?? "invalid action"}`;
+    } else if (msg.type === "error") {
+      this.status = msg.message;
+    }
   }
 
   private postWorker(msg: ShellSimIn): void {
@@ -1365,6 +1367,7 @@ export class GameShellPage extends FieldViewerBase {
     this.frontU32 = null;
     this.damageU32 = null;
     this.supplyU32 = null;
+    this.simplePlots.clear();
     this.dirtyTiles.clear();
     this.resetGamePresentation();
     this.clearLabels();
@@ -1588,6 +1591,8 @@ export class GameShellPage extends FieldViewerBase {
       this.selectedGame() === undefined ||
       this.inSpawn ||
       this.buildType !== null ||
+      (this.selectedLiveGame()?.id === "leanfront-simple" &&
+        this.fieldAction !== "attack") ||
       (this.selectedFieldGame() !== undefined &&
         this.fieldAction !== "attack") ||
       hover === null ||
@@ -1675,6 +1680,7 @@ export class GameShellPage extends FieldViewerBase {
     // showing the previous game's week/tick.
     this.tickCount = 0;
     this.weekReadout = 0;
+    this.simplePlots.clear();
     for (const b of [
       "owner",
       "plot",
