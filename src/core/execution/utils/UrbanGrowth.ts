@@ -14,8 +14,13 @@ export type UrbanTickProvider = (mg: Game, player: Player) => boolean;
 
 let urbanTickProvider: UrbanTickProvider | null = null;
 
-export function setUrbanTickProvider(provider: UrbanTickProvider | null): void {
-  urbanTickProvider = provider;
+export function setUrbanTickProvider(
+  provider: UrbanTickProvider | null,
+  onlyIf?: UrbanTickProvider,
+): void {
+  if (onlyIf === undefined || urbanTickProvider === onlyIf) {
+    urbanTickProvider = provider;
+  }
 }
 
 /**

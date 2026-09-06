@@ -14,6 +14,8 @@ export interface LiveRuntimeStats {
 
 export interface LiveGameRuntime {
   beforeTick(): Promise<void>;
+  /** Optional same-tick projection refresh after the authoritative core tick. */
+  afterTick?(): Promise<void>;
   resolvePlotAction?(
     player: Player,
     action: LivePlotAction,

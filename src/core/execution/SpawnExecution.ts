@@ -176,6 +176,17 @@ export class SpawnExecution implements Execution {
         kitTile = t;
       }
     }
+    // Tiny or obstructed spawn areas can miss every preferred offset.  A kit
+    // farm is still part of the opening, so use the nearest remaining owned
+    // legal tile in a stable order rather than silently omitting it.
+    kitTile ??=
+      [...player.tiles()]
+        .filter((t) => t !== coreTile && valid(t) && mg.plotAt(t) === undefined)
+        .sort(
+          (a, b) =>
+            mg.manhattanDist(a, coreTile) - mg.manhattanDist(b, coreTile) ||
+            a - b,
+        )[0] ?? null;
     if (kitTile !== null) {
       player.buildUnit(UnitType.Farmland, kitTile, {});
       if (simple === null) player.setFarmMaturity(kitTile, 1000);

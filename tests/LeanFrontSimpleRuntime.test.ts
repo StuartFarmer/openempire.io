@@ -144,6 +144,58 @@ describe("LeanFront Simple attack energy", () => {
     expect(player.food()).toBe(0n);
   });
 
+  test("caps a post-capture attack to the surviving city people", async () => {
+    const { game, player, economy } = await fixture();
+    const secondCity = player.buildUnit(UnitType.Settlement, game.ref(3, 3), {});
+    await economy.prepare(game, noGrowth);
+    economy.applyPlayer(game, player);
+    const rival = game.addPlayer(rivalInfo);
+    rival.conquer(secondCity.tile());
+    rival.captureUnit(secondCity);
+    player.addFood(2_000n);
+    const attack = beginAttack(game, player, 2_500);
+
+    await economy.prepare(game, noGrowth);
+    economy.applyPlayer(game, player);
+
+    expect(attack.troops()).toBe(2_000);
+    expect(player.troops()).toBe(0);
+    expect(player.troops() + attack.troops()).toBe(2_000);
+  });
+
+  test("shares surviving city people across concurrent new attacks", async () => {
+    const { game, player, economy } = await fixture();
+    player.addFood(2_000n);
+    const source = game.ref(0, 0);
+    const first = new AttackExecution(
+      1_500,
+      player,
+      game.terraNullius().id(),
+      null,
+      true,
+      [source],
+    );
+    const second = new AttackExecution(
+      1_500,
+      player,
+      game.terraNullius().id(),
+      null,
+      true,
+      [source],
+    );
+    first.init(game, game.ticks());
+    second.init(game, game.ticks());
+
+    await economy.prepare(game, noGrowth);
+    economy.applyPlayer(game, player);
+
+    expect(player.outgoingAttacks().map((attack) => attack.troops())).toEqual([
+      1_500,
+      500,
+    ]);
+    expect(player.troops()).toBe(0);
+  });
+
   test("charges a captured-farm build across surviving and new farms", async () => {
     const { game, player, economy } = await fixture();
     player.addFood(3_000n);

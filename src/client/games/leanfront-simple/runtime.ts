@@ -26,6 +26,7 @@ export async function createRuntime(
   runtimeEconomy.install();
   return {
     beforeTick: () => runtimeEconomy.prepare(game),
+    afterTick: () => runtimeEconomy.afterTick(game),
     resolvePlotAction: (player, action, tile) =>
       runtimeEconomy.resolvePlotAction(game, player, action, tile),
     plotFrame: () => runtimeEconomy.plotFrame(),

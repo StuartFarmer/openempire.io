@@ -63,6 +63,14 @@ let H = 0;
 let popPerDensity = 10000;
 
 let queued: StampedIntent[] = [];
+type PendingPlotAction = {
+  action: "city" | "farm" | "raze";
+  tile: number;
+  playerID: string;
+  unitID?: number;
+  level?: number;
+};
+let pendingPlotActions: PendingPlotAction[] = [];
 /** Last-shipped packed plot value per tile (type low byte + Farmland maturity
  *  in the next byte), so the delta only re-emits when either actually changes. */
 let plotState: Uint16Array | null = null;
@@ -123,6 +131,7 @@ function computePlot(g: Game, tile: number): number {
 async function init(msg: Extract<ShellSimIn, { type: "init" }>): Promise<void> {
   runtime?.dispose();
   runtime = null;
+  pendingPlotActions = [];
   globalThis.__ASSET_MANIFEST__ = msg.assetManifest;
   globalThis.__CDN_BASE__ = msg.cdnBase;
   clientID = generateID();
@@ -244,7 +253,7 @@ function plotDelta(g: Game): Uint32Array | null {
     )) {
       const t = Number(u.tile());
       cur.add(t);
-      if (!prevUnitTiles.has(t)) touch(t);
+      touch(t);
     }
     for (const t of prevUnitTiles) if (!cur.has(t)) touch(t);
     prevUnitTiles = cur;
@@ -598,6 +607,51 @@ function buildFrame(g: Game): {
   return { frame, transfer };
 }
 
+/** Confirm compact plot intents from the core's post-tick state, not preflight. */
+function postPlotActionResults(): void {
+  if (!game || pendingPlotActions.length === 0) return;
+  const pendingActions = pendingPlotActions;
+  pendingPlotActions = [];
+  const claimedUnits = new Set<number>();
+  const claimedLevels = new Map<number, number>();
+  for (const pendingAction of pendingActions) {
+    const plot = game.plotAt(pendingAction.tile);
+    const owned = plot?.owner().id() === pendingAction.playerID;
+    let ok = false;
+    if (pendingAction.action === "raze") {
+      ok =
+        pendingAction.unitID !== undefined &&
+        (plot === undefined ||
+          plot.id() !== pendingAction.unitID ||
+          plot.isMarkedForDeletion());
+    } else {
+      const unit =
+        pendingAction.action === "city"
+          ? UnitType.Settlement
+          : UnitType.Farmland;
+      if (owned && plot?.type() === unit) {
+        if (pendingAction.unitID === undefined) {
+          // A build exposes one new unit; claim it once so competing intents
+          // on the same tile cannot both report success.
+          ok = !claimedUnits.has(plot.id());
+          if (ok) claimedUnits.add(plot.id());
+        } else if (plot.id() === pendingAction.unitID) {
+          const level = claimedLevels.get(plot.id()) ?? pendingAction.level ?? 0;
+          ok = plot.level() > level;
+          if (ok) claimedLevels.set(plot.id(), level + 1);
+        }
+      }
+    }
+    post({
+      type: "action_result",
+      action: pendingAction.action,
+      tile: pendingAction.tile,
+      ok,
+      ...(!ok ? { message: "Action was rejected" } : {}),
+    });
+  }
+}
+
 async function stepAndPost(generation: number): Promise<void> {
   if (!gr || !game) return;
   await runtime?.beforeTick();
@@ -606,6 +660,8 @@ async function stepAndPost(generation: number): Promise<void> {
   queued = [];
   pending = null;
   gr.executeNextTick();
+  await runtime?.afterTick?.();
+  postPlotActionResults();
   const { frame, transfer } = buildFrame(game);
   post(frame, transfer);
 }
@@ -697,14 +753,26 @@ ctx.onmessage = (e: MessageEvent<ShellSimIn>) => {
         const result =
           me && runtime?.resolvePlotAction?.(me, msg.action, msg.tile);
         if (!result) break;
-        if (result.ok) stamp(result.intent);
-        post({
-          type: "action_result",
-          action: msg.action,
-          tile: msg.tile,
-          ok: result.ok,
-          ...(!result.ok ? { message: result.message } : {}),
-        });
+        if (result.ok) {
+          const plot = game?.plotAt(msg.tile);
+          pendingPlotActions.push({
+            action: msg.action,
+            tile: msg.tile,
+            playerID: me.id(),
+            ...(plot
+              ? { unitID: plot.id(), level: plot.level() }
+              : {}),
+          });
+          stamp(result.intent);
+        } else {
+          post({
+            type: "action_result",
+            action: msg.action,
+            tile: msg.tile,
+            ok: false,
+            message: result.message,
+          });
+        }
         break;
       }
       case "preview": {

@@ -88,9 +88,13 @@ export class TribalEconomy {
     const config = game.config();
     const player = this.player;
     const f = config.food();
+    const simple = config.simplePlotEconomy() !== null;
 
-    const farmSeed = player.farmSeeds() - committed.farm > 0;
-    const settlementSeed = player.settlementSeeds() - committed.settlement > 0;
+    // Simple plots are bought with food.  Rich games keep the seed bank as
+    // the placement gate, so this shared planner needs no second build path.
+    const farmSeed = simple || player.farmSeeds() - committed.farm > 0;
+    const settlementSeed =
+      simple || player.settlementSeeds() - committed.settlement > 0;
     if (!farmSeed && !settlementSeed) return false;
 
     const candidates: Candidate[] = [];
@@ -105,6 +109,7 @@ export class TribalEconomy {
     // actually FREE in reach, discounted near rival borders.
     if (farmSeed) {
       for (const t of this.sampleSites(UnitType.Farmland)) {
+        if (player.canBuild(UnitType.Farmland, t) === false) continue;
         const score =
           farmDistrictScore(
             game,
@@ -148,6 +153,7 @@ export class TribalEconomy {
       const room = assessUrbanRoom(game, player, supply);
       let pairAnchors = 0;
       for (const s of this.sampleSettlementSites(supply, relief)) {
+        if (player.canBuild(UnitType.Settlement, s) === false) continue;
         const disc = hostileBorderDiscount(game, player, s);
         const townValue =
           (room.deficit > 0

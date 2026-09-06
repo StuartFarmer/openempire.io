@@ -136,6 +136,15 @@ describe("LeanFront Simple economy", () => {
     );
   });
 
+  test("caps simple plot capacity at the signed frame transport ceiling", () => {
+    const level = Math.floor(0x7fffffff / config.capacityPerLevel) + 1;
+    const result = growSimplePlot(farm({ level, stock: 0 }), config);
+
+    expect(result.level).toBeLessThanOrEqual(level);
+    expect(result.capacity).toBeLessThanOrEqual(0x7fffffff);
+    expect(result.nextStock).toBeGreaterThanOrEqual(0);
+  });
+
   test("spawns a free city and farm kit without rich-state residue", async () => {
     const [, player] = await spawnedSimpleGame();
 
@@ -145,6 +154,22 @@ describe("LeanFront Simple economy", () => {
     expect(player.food()).toBe(2_000n);
     expect([...player.densityEntries()]).toEqual([]);
     expect([...player.farmMaturityEntries()]).toEqual([]);
+  });
+
+  test("uses the nearest legal owned tile for a cramped starter farm", async () => {
+    const [g, [player]] = await simpleGame();
+    const core = g.ref(10, 10);
+    const fallback = g.ref(10, 12); // absent from the preferred 12 offsets
+    player.conquer(core);
+    player.conquer(fallback);
+    const spawn = new SpawnExecution("simple-game", info, core) as any;
+    spawn.mg = g;
+
+    spawn.foundCore(player, core);
+
+    expect(player.units(UnitType.Farmland).map((unit) => unit.tile())).toEqual([
+      fallback,
+    ]);
   });
 
   test("builds and upgrades an exact simple plot for flat food costs", async () => {
@@ -363,5 +388,20 @@ describe("LeanFront Simple economy", () => {
     provider.mockClear();
     urbanTick(g, p);
     expect(provider).not.toHaveBeenCalled();
+  });
+
+  test("disposing an older runtime leaves the newer urban provider installed", async () => {
+    const [g, p] = await game();
+    const older = new SimpleEconomy();
+    const newer = new SimpleEconomy();
+    older.install();
+    newer.install();
+
+    older.dispose();
+    const apply = vi.spyOn(newer, "applyPlayer");
+    urbanTick(g, p);
+
+    expect(apply).toHaveBeenCalledOnce();
+    newer.dispose();
   });
 });

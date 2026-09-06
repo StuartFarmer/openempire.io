@@ -52,6 +52,37 @@ class RaiseClaim extends TestConfig {
   }
 }
 
+class SimplePlannerConfig extends TestConfig {
+  override simplePlotEconomy() {
+    return {
+      capacityPerLevel: 20_000,
+      seedFraction: 0.1,
+      cityGrowthRate: 0.03,
+      farmGrowthRate: 0.06,
+      cityLevelCost: 4_000n,
+      farmLevelCost: 3_000n,
+      razeCost: 1_000n,
+      attackMilliPerPerson: 40n,
+    };
+  }
+
+  override unitInfo(type: UnitType) {
+    if (type === UnitType.Settlement || type === UnitType.Farmland) {
+      const simple = this.simplePlotEconomy()!;
+      return {
+        cost: () =>
+          type === UnitType.Settlement
+            ? simple.cityLevelCost
+            : simple.farmLevelCost,
+        costResource: "food" as const,
+        constructionDuration: 0,
+        upgradable: true,
+      };
+    }
+    return super.unitInfo(type);
+  }
+}
+
 async function layeredGame(
   fill: LayersFill = flat,
   config: typeof TestConfig = TestConfig,
@@ -349,6 +380,43 @@ describe("EconomyModel — pure math (add-greedy-economy-planner)", () => {
 });
 
 describe("TribalEconomy — greedy planner policy", () => {
+  test("simple plots build from food with empty seed banks", async () => {
+    const game = await layeredGame(flat, SimplePlannerConfig);
+    const player = game.player(founderInfo.id);
+    conquerBlock(game, player, 10, 10, 30);
+    player.setCore(game.ref(20, 20));
+    player.buildUnit(UnitType.Settlement, game.ref(20, 20), {});
+    player.setTroops(20_000);
+    player.addFood(10_000n);
+
+    const economy = new TribalEconomy(new PseudoRandom(42), game, player);
+    expect(economy.tryBuild(1)).toBe(1);
+    settleExecutions(game);
+
+    expect(player.units(UnitType.Farmland)).toHaveLength(1);
+    expect(player.farmSeeds()).toBe(0);
+  });
+
+  test("simple planner replaces a razed farm without seed awards", async () => {
+    const game = await layeredGame(flat, SimplePlannerConfig);
+    const player = game.player(founderInfo.id);
+    conquerBlock(game, player, 10, 10, 30);
+    player.setCore(game.ref(20, 20));
+    player.buildUnit(UnitType.Settlement, game.ref(20, 20), {});
+    player.setTroops(20_000);
+    player.addFood(20_000n);
+    const economy = new TribalEconomy(new PseudoRandom(42), game, player);
+    expect(economy.tryBuild(1)).toBe(1);
+    settleExecutions(game);
+    player.units(UnitType.Farmland)[0]!.delete(false);
+
+    expect(economy.tryBuild(1)).toBe(1);
+    settleExecutions(game);
+
+    expect(player.units(UnitType.Farmland)).toHaveLength(1);
+    expect(player.farmSeeds()).toBe(0);
+  });
+
   test("plants farms on fertile land at the model's preferred sites", async () => {
     const game = await layeredGame();
     const player = game.player(founderInfo.id);

@@ -27,6 +27,30 @@ export interface SimplePlotGrowth extends SimplePlotInput {
   nextStock: number;
 }
 
+/** Every simple plot value is sent in a signed Int32 frame. */
+export const MAX_SIMPLE_PLOT_VALUE = 0x7fffffff;
+
+export function simplePlotMaxLevel(config: SimplePlotEconomyConfig): number {
+  return Math.max(
+    1,
+    Math.floor(MAX_SIMPLE_PLOT_VALUE / Math.max(1, config.capacityPerLevel)),
+  );
+}
+
+export function simplePlotCapacity(
+  level: number,
+  config: SimplePlotEconomyConfig,
+): number {
+  return Math.min(
+    MAX_SIMPLE_PLOT_VALUE,
+    config.capacityPerLevel *
+      Math.min(
+        simplePlotMaxLevel(config),
+        Math.max(1, Math.floor(level)),
+      ),
+  );
+}
+
 export type SimpleGrowthBatch = (
   records: readonly SimplePlotInput[],
   config: SimplePlotEconomyConfig,
@@ -46,13 +70,17 @@ export function growSimplePlot(
   record: SimplePlotInput,
   config: SimplePlotEconomyConfig,
 ): SimplePlotGrowth {
-  const capacity =
-    config.capacityPerLevel * Math.max(1, Math.floor(record.level));
-  if (record.stock >= capacity) {
-    return { ...record, capacity, growth: 0, nextStock: record.stock };
+  const level = Math.min(
+    simplePlotMaxLevel(config),
+    Math.max(1, Math.floor(record.level)),
+  );
+  const capacity = simplePlotCapacity(level, config);
+  const stock = Math.min(MAX_SIMPLE_PLOT_VALUE, Math.max(0, record.stock));
+  if (stock >= capacity) {
+    return { ...record, level, stock, capacity, growth: 0, nextStock: stock };
   }
   const capacityF = Math.fround(capacity);
-  const stockF = Math.fround(record.stock);
+  const stockF = Math.fround(stock);
   const ratio = Math.fround(capacityF / Math.max(1, stockF));
   const raw = Math.fround(
     Math.fround(
@@ -64,9 +92,11 @@ export function growSimplePlot(
   const growth = Math.max(1, Math.floor(raw));
   return {
     ...record,
+    level,
+    stock,
     capacity,
     growth,
-    nextStock: Math.min(capacity, record.stock + growth),
+    nextStock: Math.min(capacity, stock + growth),
   };
 }
 
@@ -126,14 +156,17 @@ export class SimpleEconomy {
   private seenAttackIds = new Set<string>();
   private attackConsumption = new Map<string, number>();
   private unpaidFoodDebits = new Map<string, number>();
+  private readonly urbanTickProvider = (game: Game, player: Player) =>
+    this.applyPlayer(game, player);
 
   install(): void {
-    setUrbanTickProvider((game, player) => this.applyPlayer(game, player));
+    setUrbanTickProvider(this.urbanTickProvider);
   }
 
   async prepare(
     game: Game,
     grow: SimpleGrowthBatch = this.growth,
+    synchronize = false,
   ): Promise<void> {
     const config = game.config().simplePlotEconomy();
     if (config === null) return;
@@ -174,9 +207,9 @@ export class SimpleEconomy {
     }
 
     this.records = active;
-    this.frame.clear();
+    if (!synchronize) this.frame.clear();
     this.staged.clear();
-    this.attackConsumption.clear();
+    if (!synchronize) this.attackConsumption.clear();
 
     const byOwner = new Map<number, SimplePlotInput[]>();
     for (const record of this.records.values()) {
@@ -225,7 +258,9 @@ export class SimpleEconomy {
         }
       }
       this.repayFoodDebt(records, key);
-      this.chargeAttacks(player, records, config, activeAttackIds);
+      if (!synchronize) {
+        this.chargeAttacks(player, records, config, activeAttackIds);
+      }
       const troopsAfterAttacks = player.troops();
       if (prior !== undefined) {
         this.reconcile(
@@ -245,12 +280,21 @@ export class SimpleEconomy {
           cities,
           dormant,
           (record) =>
-            config.capacityPerLevel * Math.max(1, Math.floor(record.level)),
+            simplePlotCapacity(record.level, config),
         );
         this.dormantTroops.delete(key);
       }
 
-      const grown = await grow(records, config);
+      const grown = synchronize
+        ? records.map((record) => ({
+            ...record,
+            level: Math.min(simplePlotMaxLevel(config), record.level),
+            capacity:
+              simplePlotCapacity(record.level, config),
+            growth: this.frame.get(record.unitId)?.growth ?? 0,
+            nextStock: record.stock,
+          }))
+        : await grow(records, config);
       for (const result of grown) {
         const record = this.records.get(result.unitId);
         if (record === undefined) continue;
@@ -268,9 +312,16 @@ export class SimpleEconomy {
         food: BigInt(this.total(records, "farm")),
       };
       this.staged.set(key, stage);
-      if (!player.isAlive() && shouldPublish) this.applyPlayer(game, player);
+      if ((synchronize || !player.isAlive()) && shouldPublish) {
+        this.applyPlayer(game, player);
+      }
     }
-    this.seenAttackIds = activeAttackIds;
+    if (!synchronize) this.seenAttackIds = activeAttackIds;
+  }
+
+  /** Reconcile the core after combat/actions without another growth or charge. */
+  async afterTick(game: Game): Promise<void> {
+    await this.prepare(game, this.growth, true);
   }
 
   applyPlayer(game: Game, player: Player): boolean {
@@ -294,9 +345,9 @@ export class SimpleEconomy {
         result.tile,
         result.kind === "city" ? 1 : 2,
         result.level,
-        result.nextStock,
-        result.capacity,
-        result.growth,
+        Math.min(MAX_SIMPLE_PLOT_VALUE, Math.max(0, result.nextStock)),
+        Math.min(MAX_SIMPLE_PLOT_VALUE, Math.max(0, result.capacity)),
+        Math.min(MAX_SIMPLE_PLOT_VALUE, Math.max(0, result.growth)),
       );
     }
     return Int32Array.from(values);
@@ -352,7 +403,7 @@ export class SimpleEconomy {
   }
 
   dispose(): void {
-    setUrbanTickProvider(null);
+    setUrbanTickProvider(null, this.urbanTickProvider);
     this.records.clear();
     this.published.clear();
     this.dormantTroops.clear();
@@ -369,17 +420,23 @@ export class SimpleEconomy {
     config: SimplePlotEconomyConfig,
     activeAttackIds: Set<string>,
   ): void {
+    // New attacks are removed from the core before the next urban-provider
+    // publish.  After a capture that core can still contain the old city's
+    // aggregate, so only commit people represented by surviving city plots.
+    let availablePeople = this.total(records, "city");
     for (const attack of player.outgoingAttacks()) {
       const id = `${player.id()}:${attack.id()}`;
       const troops = attack.troops();
       if (!this.seenAttackIds.has(id)) {
         const capped = Math.min(
           troops,
+          availablePeople,
           affordablePeople(
             BigInt(this.total(records, "farm")),
             config.attackMilliPerPerson,
           ),
         );
+        availablePeople -= capped;
         attack.setTroops(capped);
         player.addTroops(troops - capped);
         const charge = chargeFor(capped, config.attackMilliPerPerson);
