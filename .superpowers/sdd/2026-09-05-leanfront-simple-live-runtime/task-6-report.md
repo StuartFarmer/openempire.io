@@ -64,3 +64,13 @@
 - Manifest coordinates deliberately override team-area relocation as well as
   random relocation. The team-mode regression verifies the exact authored
   tile reaches `SpawnExecution`.
+- Exact-head verification from detached commit `f425a6309` passed:
+  `GameExperienceRegistry.test.ts` (11 tests) and `tsc --noEmit`.
+
+## Exact-head dependency files
+
+- `src/client/shell/CameraRenderer.ts`
+- `src/client/games/shared/live-game.wesl`
+- `src/client/games/shared/field-live-layers.ts`
+- `src/client/lab/systems/conquest/system.ts`
+- `src/client/lab/systems/empire/system.ts`
