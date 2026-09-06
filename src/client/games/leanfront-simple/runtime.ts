@@ -9,9 +9,9 @@ import { SimpleGpuGrowth } from "./economy/SimpleGpuGrowth";
 
 export async function createRuntime(
   game: Game,
-  economy = new SimpleEconomy(),
+  economy?: SimpleEconomy,
 ): Promise<LiveGameRuntime> {
-  const gpu = await SimpleGpuGrowth.create();
+  const gpu = economy === undefined ? await SimpleGpuGrowth.create() : null;
   let useGpu = gpu !== null;
   const grow: SimpleGrowthBatch = async (records, config) => {
     if (!useGpu || gpu === null) return growSimplePlotsCpu(records, config);
@@ -22,16 +22,17 @@ export async function createRuntime(
       return growSimplePlotsCpu(records, config);
     }
   };
-  economy.install();
+  const runtimeEconomy = economy ?? new SimpleEconomy(grow);
+  runtimeEconomy.install();
   return {
-    beforeTick: () => economy.prepare(game, grow),
+    beforeTick: () => runtimeEconomy.prepare(game),
     resolvePlotAction: (player, action, tile) =>
-      economy.resolvePlotAction(game, player, action, tile),
-    plotFrame: () => economy.plotFrame(),
-    stats: (player) => economy.stats(player),
+      runtimeEconomy.resolvePlotAction(game, player, action, tile),
+    plotFrame: () => runtimeEconomy.plotFrame(),
+    stats: (player) => runtimeEconomy.stats(player),
     dispose: () => {
       gpu?.dispose();
-      economy.dispose();
+      runtimeEconomy.dispose();
     },
   };
 }

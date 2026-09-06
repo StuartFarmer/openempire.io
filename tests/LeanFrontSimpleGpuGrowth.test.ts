@@ -200,6 +200,7 @@ describe("LeanFront Simple GPU growth", () => {
     vi.resetModules();
     const grow = vi.fn().mockRejectedValue(new Error("device lost"));
     const dispose = vi.fn();
+    const frames: unknown[] = [];
     vi.doMock(
       "../src/client/games/leanfront-simple/economy/SimpleGpuGrowth",
       () => ({
@@ -208,20 +209,42 @@ describe("LeanFront Simple GPU growth", () => {
         },
       }),
     );
+    vi.doMock(
+      "../src/client/games/leanfront-simple/economy/SimpleEconomy",
+      async (importOriginal) => {
+        const actual = await importOriginal<
+          typeof import("../src/client/games/leanfront-simple/economy/SimpleEconomy")
+        >();
+        return {
+          ...actual,
+          SimpleEconomy: class {
+            constructor(private readonly growth: typeof growSimplePlotsCpu) {}
+
+            install() {}
+
+            async prepare() {
+              frames.push(await this.growth([farm()], config));
+            }
+
+            resolvePlotAction() {}
+
+            plotFrame() {
+              return new Int32Array();
+            }
+
+            stats() {
+              return {};
+            }
+
+            dispose() {}
+          },
+        };
+      },
+    );
     const { createRuntime } =
       await import("../src/client/games/leanfront-simple/runtime");
-    const frames: unknown[] = [];
-    const economy = {
-      install: vi.fn(),
-      prepare: async (_game: unknown, batch: typeof growSimplePlotsCpu) =>
-        frames.push(await batch([farm()], config)),
-      resolvePlotAction: vi.fn(),
-      plotFrame: vi.fn(),
-      stats: vi.fn(),
-      dispose: vi.fn(),
-    };
 
-    const runtime = await createRuntime({} as never, economy as never);
+    const runtime = await createRuntime({} as never);
     await runtime.beforeTick();
     await runtime.beforeTick();
 
