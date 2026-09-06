@@ -123,6 +123,7 @@ export class SimpleEconomy {
   private frame = new Map<number, SimplePlotGrowth>();
   private seenAttackIds = new Set<string>();
   private attackConsumption = new Map<string, number>();
+  private unpaidFoodDebits = new Map<string, number>();
 
   install(): void {
     setUrbanTickProvider((game, player) => this.applyPlayer(game, player));
@@ -208,13 +209,20 @@ export class SimpleEconomy {
             config,
           );
         } else if (rawFoodDelta < 0n) {
-          this.debitFarmBalance(
+          const unpaid = this.debitFarmBalance(
             priorRecords,
             createdFarms.get(player.smallID()) ?? [],
             -rawFoodDelta,
           );
+          if (unpaid > 0) {
+            this.unpaidFoodDebits.set(
+              key,
+              (this.unpaidFoodDebits.get(key) ?? 0) + unpaid,
+            );
+          }
         }
       }
+      this.repayFoodDebt(records, key);
       this.chargeAttacks(player, records, config, activeAttackIds);
       const troopsAfterAttacks = player.troops();
       if (prior !== undefined) {
@@ -247,6 +255,7 @@ export class SimpleEconomy {
         record.stock = result.nextStock;
         this.frame.set(result.unitId, result);
       }
+      this.repayFoodDebt(records, key);
       const stage = {
         troops:
           this.total(records, "city") + (this.dormantTroops.get(key) ?? 0),
@@ -345,6 +354,7 @@ export class SimpleEconomy {
     this.frame.clear();
     this.seenAttackIds.clear();
     this.attackConsumption.clear();
+    this.unpaidFoodDebits.clear();
   }
 
   private chargeAttacks(
@@ -398,7 +408,7 @@ export class SimpleEconomy {
     surviving: SimplePlotInput[],
     created: SimplePlotInput[],
     charge: bigint,
-  ): void {
+  ): number {
     let remaining = Number(charge);
     for (const farms of [
       surviving.filter((record) => record.kind === "farm"),
@@ -407,8 +417,19 @@ export class SimpleEconomy {
       const debit = Math.min(remaining, this.total(farms, "farm"));
       if (debit > 0) this.distribute(farms, -debit);
       remaining -= debit;
-      if (remaining === 0) return;
+      if (remaining === 0) return 0;
     }
+    return remaining;
+  }
+
+  private repayFoodDebt(records: SimplePlotInput[], key: string): void {
+    const debt = this.unpaidFoodDebits.get(key) ?? 0;
+    if (debt === 0) return;
+    const payment = Math.min(debt, this.total(records, "farm"));
+    if (payment > 0) this.debitFood(records, BigInt(payment));
+    const remaining = debt - payment;
+    if (remaining === 0) this.unpaidFoodDebits.delete(key);
+    else this.unpaidFoodDebits.set(key, remaining);
   }
 
   private replaceFood(player: Player, food: bigint): void {

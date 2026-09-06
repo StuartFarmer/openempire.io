@@ -201,6 +201,48 @@ describe("LeanFront Simple attack energy", () => {
     ]);
   });
 
+  test("uses future farm growth to repay an uncovered captured-farm build", async () => {
+    const { game, player, economy } = await fixture();
+    player.addFood(3_000n);
+    const capturedFarm = player.buildUnit(
+      UnitType.Farmland,
+      game.ref(3, 3),
+      {},
+    );
+    await economy.prepare(game, noGrowth);
+    economy.applyPlayer(game, player);
+    const rival = game.addPlayer(rivalInfo);
+    rival.conquer(capturedFarm.tile());
+    rival.captureUnit(capturedFarm);
+    player.buildUnit(UnitType.Settlement, game.ref(4, 4), {});
+
+    await economy.prepare(game, noGrowth);
+    economy.applyPlayer(game, player);
+    economy.applyPlayer(game, rival);
+
+    expect(player.food()).toBe(0n);
+    expect(rival.food()).toBe(2_000n);
+
+    const growFarm: SimpleGrowthBatch = async (records) =>
+      records.map((record) => ({
+        ...record,
+        capacity: 20_000,
+        growth: record.kind === "farm" ? 1_000 : 0,
+        nextStock: record.stock + (record.kind === "farm" ? 1_000 : 0),
+      }));
+    await economy.prepare(game, growFarm);
+    economy.applyPlayer(game, player);
+    expect(player.food()).toBe(0n);
+
+    await economy.prepare(game, growFarm);
+    economy.applyPlayer(game, player);
+    expect(player.food()).toBe(0n);
+
+    await economy.prepare(game, growFarm);
+    economy.applyPlayer(game, player);
+    expect(player.food()).toBe(1_000n);
+  });
+
   test("treats colliding attack ids from different players as new attacks", async () => {
     const firstInfo = new PlayerInfo("first", PlayerType.Human, null, "Aa");
     const secondInfo = new PlayerInfo("second", PlayerType.Human, null, "BB");
