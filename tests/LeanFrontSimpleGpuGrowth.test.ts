@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import {
+  growSimplePlot,
   growSimplePlotsCpu,
   type SimplePlotEconomyConfig,
   type SimplePlotInput,
@@ -49,6 +50,7 @@ describe("LeanFront Simple GPU growth", () => {
     ["overflow", [city({ stock: 25_000 })]],
     ["large", [farm({ level: 1_000, stock: 8_000_000 })]],
     ["precise large", [farm({ level: 1_000, stock: 16_777_001 })]],
+    ["f32 boundary", [farm({ level: 1_000, stock: 16_777_235 })]],
   ] satisfies readonly [string, readonly SimplePlotInput[]][])(
     "matches CPU for %s records",
     async (_name, records) => {
@@ -66,6 +68,20 @@ describe("LeanFront Simple GPU growth", () => {
   test("returns null without WebGPU", async () => {
     vi.spyOn(FieldKernel, "isSupported").mockReturnValue(false);
     expect(await SimpleGpuGrowth.create()).toBeNull();
+  });
+
+  test("keeps exact stock after the f32 growth curve boundary", () => {
+    const growth = growSimplePlot(
+      farm({ level: 1_000, stock: 16_777_235 }),
+      config,
+    );
+
+    expect(growth).toMatchObject({
+      capacity: 20_000_000,
+      growth: 176_874,
+      nextStock: 16_954_109,
+    });
+    expect(growth.nextStock - growth.stock).toBe(growth.growth);
   });
 
   test("dispose destroys its kernel", async () => {
@@ -154,6 +170,30 @@ describe("LeanFront Simple GPU growth", () => {
     await expect(gpu?.grow([farm()], config)).rejects.toThrow(
       "readback length mismatch",
     );
+  });
+
+  test("keeps a fake shader readback aligned with the f32 CPU oracle", async () => {
+    const record = farm({ level: 1_000, stock: 16_777_235 });
+    vi.spyOn(FieldKernel, "isSupported").mockReturnValue(true);
+    vi.spyOn(FieldKernel, "create").mockResolvedValue({
+      resize: vi.fn(),
+      writeUniform: vi.fn(),
+      writeBuffer: vi.fn(),
+      beginFrame: () => ({ pass: vi.fn(), finish: vi.fn() }),
+      readBuffer: vi
+        .fn()
+        .mockResolvedValue(new Uint32Array([16_954_109]).buffer),
+      destroy: vi.fn(),
+    } as never);
+
+    const gpu = await SimpleGpuGrowth.create();
+    const actual = await gpu?.grow([record], config);
+    const expected = await growSimplePlotsCpu([record], config);
+
+    expect(actual).toEqual(expected);
+    const growth = actual?.[0];
+    expect(growth).toBeDefined();
+    expect(growth!.nextStock - record.stock).toBe(growth!.growth);
   });
 
   test("permanently falls back to CPU after a rejected GPU batch", async () => {

@@ -21,7 +21,10 @@ Review correction:
 
 - `capacity`, `stock`, and the final `stock + growth` remain `u32` in WGSL;
   only the growth curve's ratio/rate/log inputs use `f32`. This preserves exact
-  stocks above `2^24`, including the level-1000 / stock-16,777,001 regression.
+  stocks above `2^24`, including level-1000 / stocks 16,777,001 and 16,777,235.
+- The CPU oracle now rounds integer capacity and stock to `f32` before the
+  ratio, multiplication, and logarithm boundaries, matching the WGSL curve;
+  it still adds integer growth to the original exact stock.
 - `FieldKernel.create()` now destroys a partially built kernel (including its
   allocated buffers) or an acquired owned device if construction fails. Shared
   devices remain owned by their caller.
@@ -32,8 +35,8 @@ Review correction:
 Verification:
 
 ```
-npx vitest tests/LeanFrontSimpleGpuGrowth.test.ts tests/LeanFrontSimpleEconomy.test.ts tests/LeanFrontSimpleRuntime.test.ts --run
-# 3 files, 35 tests passed
+npx vitest tests/LeanFrontSimpleGpuGrowth.test.ts tests/LeanFrontSimpleEconomy.test.ts tests/LeanFrontSimpleRuntime.test.ts tests/FieldKernel.test.ts --run
+# 4 files, 49 tests passed (including FieldKernel cleanup coverage)
 npm run lint
 npx tsc --noEmit
 ```

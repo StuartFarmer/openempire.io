@@ -51,12 +51,14 @@ export function growSimplePlot(
   if (record.stock >= capacity) {
     return { ...record, capacity, growth: 0, nextStock: record.stock };
   }
-  const ratio = Math.fround(capacity / Math.max(1, record.stock));
+  const capacityF = Math.fround(capacity);
+  const stockF = Math.fround(record.stock);
+  const ratio = Math.fround(capacityF / Math.max(1, stockF));
   const raw = Math.fround(
     Math.fround(
       Math.fround(
         record.kind === "city" ? config.cityGrowthRate : config.farmGrowthRate,
-      ) * record.stock,
+      ) * stockF,
     ) * Math.fround(Math.log(ratio)),
   );
   const growth = Math.max(1, Math.floor(raw));
