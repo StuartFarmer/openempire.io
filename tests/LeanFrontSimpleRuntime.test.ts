@@ -423,4 +423,9 @@ test("resolves city, farm, and raze plot actions through core intents", async ()
     ok: true,
     intent: { type: "delete_unit", unitId: city.id() },
   });
+  city.markForDeletion();
+  expect(economy.resolvePlotAction(game, player, "raze", city.tile())).toEqual({
+    ok: false,
+    message: "Plot is already being razed",
+  });
 });

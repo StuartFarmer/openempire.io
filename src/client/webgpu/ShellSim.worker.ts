@@ -456,14 +456,14 @@ function nationFlags(g: Game): Map<string, string> {
 
 /** Compact per-player stats + names for newly-seen players. */
 function playerSummary(g: Game): {
-  stats: Int32Array;
+  stats: Float64Array;
   names:
     | { id: number; name: string; pid: string; ptype: string; flag?: string }[]
     | null;
 } {
   const players = g.players();
   const flags = nationFlags(g);
-  const stats = new Int32Array(players.length * STAT_STRIDE);
+  const stats = new Float64Array(players.length * STAT_STRIDE);
   let names:
     | { id: number; name: string; pid: string; ptype: string; flag?: string }[]
     | null = null;

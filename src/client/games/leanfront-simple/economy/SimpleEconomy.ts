@@ -273,7 +273,10 @@ export class SimpleEconomy {
         ? records.map((record) => ({
             ...record,
             capacity: config.capacityPerLevel * Math.max(1, Math.floor(record.level)),
-            growth: this.frame.get(record.unitId)?.growth ?? 0,
+            growth:
+              this.frame.get(record.unitId)?.owner === record.owner
+                ? (this.frame.get(record.unitId)?.growth ?? 0)
+                : 0,
             nextStock: record.stock,
           }))
         : await grow(records, config);
@@ -346,6 +349,9 @@ export class SimpleEconomy {
     if (action === "raze") {
       if (!plot || plot.owner() !== player) {
         return { ok: false, message: "No owned plot here" };
+      }
+      if (plot.isMarkedForDeletion()) {
+        return { ok: false, message: "Plot is already being razed" };
       }
       if (player.food() < config.razeCost) {
         return { ok: false, message: "Not enough food" };

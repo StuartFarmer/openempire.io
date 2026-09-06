@@ -103,7 +103,7 @@ export interface ShellSimFrame {
   burns: Uint32Array | null;
   /** Per-player stats, 7 ints each:
    *  [smallID, troops, tiles, alive, food, production, consumption]. */
-  stats: Int32Array | null;
+  stats: Float64Array | null;
   transportShips: Int32Array; // [id, tile, lastTile, ownerSmallID] quads
   /** Newly-seen players: smallID, display name, the identity the client THEME
    *  needs for exact WebGL-parity colors (pid + type), and an authored flag ref

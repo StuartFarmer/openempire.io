@@ -273,7 +273,7 @@ describe("LeanFront Simple worker protocol", () => {
 
     expect([...frame.simplePlots]).toEqual([3, 1, 2, 19, 40, 4]);
     expect(transfer).toContain(frame.simplePlots.buffer);
-    expect(frame.stats).toEqual(Int32Array.from([1, 20, 3, 1, 7, 5, 3]));
+    expect(frame.stats).toEqual(Float64Array.from([1, 20, 3, 1, 7, 5, 3]));
     expect(frame.myStats).toMatchObject({ population: 20, starved: 0 });
   });
 

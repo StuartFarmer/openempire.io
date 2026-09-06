@@ -23,3 +23,9 @@
 
 - RED: preflight success could precede a real `ConstructionExecution`, stale deleted plots could remain in the same frame, and global urban providers crossed concurrent games.
 - GREEN: build actions wait one core execution tick unless their plot already exists; duplicate razes claim one deletion; sync prunes inactive units; providers are `WeakMap<Game, …>` scoped; Float64 plot sextets preserve overflow exactly; GPU batches fall back for non-u32 records.
+
+## Final ownership and transport pass
+
+- Raze preflight now rejects an already marked plot, so a second-tick command cannot consume food or inherit the first command's acceptance.
+- Player aggregate frames use Float64 sextets/rows, preserving whole values above signed-Int32 range.
+- Post-tick growth metadata is retained only for the same unit owner; a captured plot starts at zero displayed growth.
