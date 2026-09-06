@@ -17,6 +17,7 @@ import { setup } from "./util/Setup";
 import { TestConfig } from "./util/TestConfig";
 
 const info = new PlayerInfo("attacker", PlayerType.Human, null, "attacker");
+const rivalInfo = new PlayerInfo("rival", PlayerType.Human, null, "rival");
 
 const config: SimplePlotEconomyConfig = {
   capacityPerLevel: 20_000,
@@ -82,9 +83,9 @@ async function fixture(): Promise<{
   return { game, player, economy };
 }
 
-function beginAttack(game: Game, player: Player) {
+function beginAttack(game: Game, player: Player, troops = 1_000) {
   const execution = new AttackExecution(
-    1_000,
+    troops,
     player,
     game.terraNullius().id(),
   );
@@ -117,6 +118,45 @@ describe("LeanFront Simple attack energy", () => {
 
     expect(player.outgoingAttacks()).toEqual([]);
     expect(player.troops()).toBe(1_750 + survivors);
+  });
+
+  test("charges a new attack only from surviving farms after a capture", async () => {
+    const { game, player, economy } = await fixture();
+    player.addFood(3_000n);
+    const capturedFarm = player.buildUnit(
+      UnitType.Farmland,
+      game.ref(3, 3),
+      {},
+    );
+    await economy.prepare(game, noGrowth);
+    economy.applyPlayer(game, player);
+    player.setTroops(100_000);
+    await economy.prepare(game, noGrowth);
+    economy.applyPlayer(game, player);
+    const attack = beginAttack(game, player, 100_000);
+    const rival = game.addPlayer(rivalInfo);
+    rival.conquer(capturedFarm.tile());
+    rival.captureUnit(capturedFarm);
+
+    await expect(economy.prepare(game, noGrowth)).resolves.toBeUndefined();
+
+    expect(attack.troops()).toBe(50_000);
+    expect(player.food()).toBe(0n);
+  });
+
+  test("stops a dead player's unfunded active attack before combat", async () => {
+    const { game, player, economy } = await fixture();
+    const attack = beginAttack(game, player);
+    await economy.prepare(game, noGrowth);
+    economy.applyPlayer(game, player);
+    for (const unit of player.units()) unit.delete(false);
+    for (const tile of [...player.tiles()]) player.relinquish(tile);
+    player.removeFood(player.food());
+
+    await economy.prepare(game, noGrowth);
+
+    expect(attack.isActive()).toBe(false);
+    expect(player.outgoingAttacks()).toEqual([]);
   });
 });
 

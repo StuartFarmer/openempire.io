@@ -1,9 +1,6 @@
 import { describe, expect, test } from "vitest";
-import {
-  SimpleEconomy,
-  type SimpleGrowthBatch,
-} from "../src/client/games/leanfront-simple/economy/SimpleEconomy";
-import { AttackExecution } from "../src/core/execution/AttackExecution";
+import { createRuntime } from "../src/client/games/leanfront-simple/runtime";
+import { Executor } from "../src/core/execution/ExecutionManager";
 import {
   Game,
   Player,
@@ -11,6 +8,8 @@ import {
   PlayerType,
   UnitType,
 } from "../src/core/game/Game";
+import { GameRunner } from "../src/core/GameRunner";
+import type { StampedIntent, Turn } from "../src/core/Schemas";
 import { setup } from "./util/Setup";
 import { TestConfig } from "./util/TestConfig";
 
@@ -32,23 +31,15 @@ class SimpleTestConfig extends TestConfig {
 const attackerInfo = new PlayerInfo(
   "attacker",
   PlayerType.Human,
-  null,
+  "attacker-client",
   "attacker",
 );
 const defenderInfo = new PlayerInfo(
   "defender",
   PlayerType.Human,
-  null,
+  "defender-client",
   "defender",
 );
-
-const identityGrowth: SimpleGrowthBatch = async (records, config) =>
-  records.map((record) => ({
-    ...record,
-    capacity: config.capacityPerLevel * record.level,
-    growth: 0,
-    nextStock: record.stock,
-  }));
 
 function snapshot(game: Game) {
   return {
@@ -81,6 +72,18 @@ function snapshot(game: Game) {
   };
 }
 
+function runner(game: Game): GameRunner {
+  return new GameRunner(
+    game,
+    new Executor(game, "combat-parity", "attacker-client"),
+    () => {},
+  );
+}
+
+function turn(number: number, intents: StampedIntent[] = []): Turn {
+  return { turnNumber: number, intents };
+}
+
 async function fixture(players: PlayerInfo[]): Promise<{
   open: Game;
   simple: Game;
@@ -109,7 +112,7 @@ async function fixture(players: PlayerInfo[]): Promise<{
       }
     }
   }
-  for (const player of [...openPlayers, ...simplePlayers]) {
+  for (const player of [openPlayers[0]!, simplePlayers[0]!]) {
     player.buildUnit(
       UnitType.Settlement,
       player.tiles().values().next().value!,
@@ -117,7 +120,6 @@ async function fixture(players: PlayerInfo[]): Promise<{
     );
     player.buildUnit(UnitType.Farmland, [...player.tiles()][1]!, {});
   }
-  openPlayers[0]!.setTroops(50_000);
   return { open, simple, openPlayers, simplePlayers };
 }
 
@@ -125,44 +127,61 @@ async function expectCombatParity(target: "terra" | "player"): Promise<void> {
   const players =
     target === "player" ? [attackerInfo, defenderInfo] : [attackerInfo];
   const { open, simple, openPlayers, simplePlayers } = await fixture(players);
-  const openTarget =
-    target === "terra" ? open.terraNullius().id() : openPlayers[1]!.id();
-  const simpleTarget =
-    target === "terra" ? simple.terraNullius().id() : simplePlayers[1]!.id();
-  const openAttack = new AttackExecution(20_000, openPlayers[0]!, openTarget);
-  const simpleAttack = new AttackExecution(
-    20_000,
-    simplePlayers[0]!,
-    simpleTarget,
-  );
-  const simpleEconomy = new SimpleEconomy();
-  await simpleEconomy.prepare(simple, identityGrowth);
-  simpleEconomy.applyPlayer(simple, simplePlayers[0]!);
-  simplePlayers[0]!.setTroops(50_000);
-  simplePlayers[0]!.addFood(1_000_000n);
-  await simpleEconomy.prepare(simple, identityGrowth);
-  simpleEconomy.applyPlayer(simple, simplePlayers[0]!);
+  const openRunner = runner(open);
+  const simpleRunner = runner(simple);
+  const runtime = await createRuntime(simple);
+  let turnNumber = 0;
 
-  openAttack.init(open, open.ticks());
-  simpleAttack.init(simple, simple.ticks());
+  try {
+    await runtime.beforeTick();
+    simpleRunner.addTurn(turn(turnNumber));
+    openRunner.addTurn(turn(turnNumber++));
+    simpleRunner.executeNextTick();
+    openRunner.executeNextTick();
 
-  for (let tick = 0; tick < 30; tick++) {
-    await simpleEconomy.prepare(simple, identityGrowth);
-    simpleEconomy.applyPlayer(simple, simplePlayers[0]!);
-    openAttack.tick(open.ticks());
-    simpleAttack.tick(simple.ticks());
-    open.executeNextTick();
-    simple.executeNextTick();
+    openPlayers[0]!.setTroops(50_000);
+    simplePlayers[0]!.setTroops(50_000);
+    simplePlayers[0]!.addFood(1_000_000n);
+    await runtime.beforeTick();
+    simpleRunner.addTurn(turn(turnNumber));
+    openRunner.addTurn(turn(turnNumber++));
+    simpleRunner.executeNextTick();
+    openRunner.executeNextTick();
+
+    const targetID = target === "terra" ? null : simplePlayers[1]!.id();
+    const attack: StampedIntent = {
+      type: "attack",
+      clientID: "attacker-client",
+      targetID,
+      troops: 20_000,
+      sourceTiles: null,
+    };
+    await runtime.beforeTick();
+    simpleRunner.addTurn(turn(turnNumber, [attack]));
+    openRunner.addTurn(turn(turnNumber++, [attack]));
+    simpleRunner.executeNextTick();
+    openRunner.executeNextTick();
     expect(snapshot(simple)).toEqual(snapshot(open));
+
+    for (let combatTick = 0; combatTick < 30; combatTick++) {
+      await runtime.beforeTick();
+      simpleRunner.addTurn(turn(turnNumber));
+      openRunner.addTurn(turn(turnNumber++));
+      simpleRunner.executeNextTick();
+      openRunner.executeNextTick();
+      expect(snapshot(simple)).toEqual(snapshot(open));
+    }
+  } finally {
+    runtime.dispose();
   }
 }
 
 describe("LeanFront Simple combat parity", () => {
-  test("matches OpenFront against Terra Nullius for 30 real combat ticks", async () => {
+  test("matches OpenFront against Terra Nullius for 30 queued combat ticks", async () => {
     await expectCombatParity("terra");
   });
 
-  test("matches OpenFront against another player for 30 real combat ticks", async () => {
+  test("matches OpenFront against another player for 30 queued combat ticks", async () => {
     await expectCombatParity("player");
   });
 });

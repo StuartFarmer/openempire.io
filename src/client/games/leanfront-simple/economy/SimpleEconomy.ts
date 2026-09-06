@@ -173,11 +173,10 @@ export class SimpleEconomy {
     }
 
     const activeAttackIds = new Set<string>();
-    for (const player of game.players()) {
+    for (const player of game.allPlayers()) {
       const key = player.id();
       const records = byOwner.get(player.smallID()) ?? [];
       const priorRecords = surviving.get(player.smallID()) ?? [];
-      this.chargeAttacks(player, config, activeAttackIds);
       const current = { troops: player.troops(), food: player.food() };
       const prior = this.published.get(key);
       if (prior === undefined) {
@@ -187,18 +186,23 @@ export class SimpleEconomy {
         this.reconcile(
           priorRecords,
           key,
-          current.troops - prior.troops,
-          "city",
-          config,
-        );
-        this.reconcile(
-          priorRecords,
-          key,
           Number(current.food - prior.food),
           "farm",
           config,
         );
       }
+      this.chargeAttacks(player, records, config, activeAttackIds);
+      const troopsAfterAttacks = player.troops();
+      if (prior !== undefined) {
+        this.reconcile(
+          priorRecords,
+          key,
+          troopsAfterAttacks - prior.troops,
+          "city",
+          config,
+        );
+      }
+      this.replaceFood(player, BigInt(this.total(records, "farm")));
 
       const cities = records.filter((record) => record.kind === "city");
       const dormant = this.dormantTroops.get(key) ?? 0;
@@ -319,6 +323,7 @@ export class SimpleEconomy {
 
   private chargeAttacks(
     player: Player,
+    records: SimplePlotInput[],
     config: SimplePlotEconomyConfig,
     activeAttackIds: Set<string>,
   ): void {
@@ -328,19 +333,22 @@ export class SimpleEconomy {
       if (!this.seenAttackIds.has(id)) {
         const capped = Math.min(
           troops,
-          affordablePeople(player.food(), config.attackMilliPerPerson),
+          affordablePeople(
+            BigInt(this.total(records, "farm")),
+            config.attackMilliPerPerson,
+          ),
         );
         attack.setTroops(capped);
         player.addTroops(troops - capped);
         const charge = chargeFor(capped, config.attackMilliPerPerson);
-        player.removeFood(charge);
+        this.debitFood(records, charge);
         this.recordAttackConsumption(player, charge);
         if (attack.isActive()) activeAttackIds.add(id);
         continue;
       }
       const charge = chargeFor(troops, config.attackMilliPerPerson);
-      if (player.food() >= charge) {
-        player.removeFood(charge);
+      if (BigInt(this.total(records, "farm")) >= charge) {
+        this.debitFood(records, charge);
         this.recordAttackConsumption(player, charge);
       } else {
         player.addTroops(troops);
@@ -348,6 +356,21 @@ export class SimpleEconomy {
       }
       if (attack.isActive()) activeAttackIds.add(id);
     }
+  }
+
+  private debitFood(records: SimplePlotInput[], charge: bigint): void {
+    if (charge === 0n) return;
+    const farms = records.filter((record) => record.kind === "farm");
+    const available = this.total(farms, "farm");
+    if (charge > BigInt(available)) {
+      throw new Error("simple attack charge exceeds farm stock");
+    }
+    this.distribute(farms, -Number(charge));
+  }
+
+  private replaceFood(player: Player, food: bigint): void {
+    player.removeFood(player.food());
+    player.addFood(food);
   }
 
   private reconcile(
