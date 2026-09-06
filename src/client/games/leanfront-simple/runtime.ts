@@ -2,8 +2,10 @@ import type { Game } from "../../../core/game/Game";
 import type { LiveGameRuntime } from "../LiveGameRuntime";
 import { SimpleEconomy } from "./economy/SimpleEconomy";
 
-export async function createRuntime(game: Game): Promise<LiveGameRuntime> {
-  const economy = new SimpleEconomy();
+export async function createRuntime(
+  game: Game,
+  economy = new SimpleEconomy(),
+): Promise<LiveGameRuntime> {
   economy.install();
   return {
     beforeTick: () => economy.prepare(game),

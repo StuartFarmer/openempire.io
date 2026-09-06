@@ -144,6 +144,65 @@ describe("LeanFront Simple attack energy", () => {
     expect(player.food()).toBe(0n);
   });
 
+  test("debits only surviving farms after lifecycle loss and a new farm spend", async () => {
+    const { game, player, economy } = await fixture();
+    player.addFood(3_000n);
+    const capturedFarm = player.buildUnit(
+      UnitType.Farmland,
+      game.ref(3, 3),
+      {},
+    );
+    await economy.prepare(game, noGrowth);
+    economy.applyPlayer(game, player);
+    const rival = game.addPlayer(rivalInfo);
+    rival.conquer(capturedFarm.tile());
+    rival.captureUnit(capturedFarm);
+    player.buildUnit(UnitType.Farmland, game.ref(4, 4), {});
+
+    await expect(economy.prepare(game, noGrowth)).resolves.toBeUndefined();
+
+    expect(player.food()).toBe(3_000n);
+  });
+
+  test("treats colliding attack ids from different players as new attacks", async () => {
+    const firstInfo = new PlayerInfo("first", PlayerType.Human, null, "Aa");
+    const secondInfo = new PlayerInfo("second", PlayerType.Human, null, "BB");
+    const game = await setup(
+      "plains",
+      { instantBuild: true },
+      [firstInfo, secondInfo],
+      undefined,
+      SimpleTestConfig,
+    );
+    const first = game.player(firstInfo.id);
+    const second = game.player(secondInfo.id);
+    for (const [player, x] of [
+      [first, 0],
+      [second, 10],
+    ] as const) {
+      for (let y = 0; y < 5; y++) {
+        for (let dx = 0; dx < 5; dx++) player.conquer(game.ref(x + dx, y));
+      }
+      player.buildUnit(UnitType.Settlement, game.ref(x + 1, 1), {});
+      player.buildUnit(UnitType.Farmland, game.ref(x + 2, 2), {});
+    }
+    const economy = new SimpleEconomy();
+    await economy.prepare(game, noGrowth);
+    economy.applyPlayer(game, first);
+    economy.applyPlayer(game, second);
+    const firstAttack = beginAttack(game, first);
+    await economy.prepare(game, noGrowth);
+    economy.applyPlayer(game, first);
+    second.removeFood(1_990n);
+    const secondAttack = beginAttack(game, second);
+    expect(secondAttack.id()).toBe(firstAttack.id());
+
+    await economy.prepare(game, noGrowth);
+
+    expect(secondAttack.troops()).toBe(250);
+    expect(second.food()).toBe(0n);
+  });
+
   test("stops a dead player's unfunded active attack before combat", async () => {
     const { game, player, economy } = await fixture();
     const attack = beginAttack(game, player);
@@ -157,6 +216,27 @@ describe("LeanFront Simple attack energy", () => {
 
     expect(attack.isActive()).toBe(false);
     expect(player.outgoingAttacks()).toEqual([]);
+  });
+
+  test("publishes a dead attacker's returned survivors only once", async () => {
+    const { game, player, economy } = await fixture();
+    player.setTroops(1_000);
+    await economy.prepare(game, noGrowth);
+    economy.applyPlayer(game, player);
+    const attack = beginAttack(game, player);
+    await economy.prepare(game, noGrowth);
+    economy.applyPlayer(game, player);
+    for (const unit of player.units()) unit.delete(false);
+    for (const tile of [...player.tiles()]) player.relinquish(tile);
+    player.removeFood(player.food());
+
+    await economy.prepare(game, noGrowth);
+    expect(attack.isActive()).toBe(false);
+    expect(player.troops()).toBe(1_000);
+    await economy.prepare(game, noGrowth);
+    economy.applyPlayer(game, player);
+
+    expect(player.troops()).toBe(1_000);
   });
 });
 

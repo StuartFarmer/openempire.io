@@ -112,6 +112,10 @@ const affordablePeople = (food: bigint, milli: bigint): number =>
 
 /** Compact client-side stocks; the core remains authoritative for units. */
 export class SimpleEconomy {
+  constructor(
+    private readonly growth: SimpleGrowthBatch = growSimplePlotsCpu,
+  ) {}
+
   private records = new Map<number, SimplePlotInput>();
   private published = new Map<string, Balance>();
   private dormantTroops = new Map<string, number>();
@@ -126,7 +130,7 @@ export class SimpleEconomy {
 
   async prepare(
     game: Game,
-    grow: SimpleGrowthBatch = growSimplePlotsCpu,
+    grow: SimpleGrowthBatch = this.growth,
   ): Promise<void> {
     const config = game.config().simplePlotEconomy();
     if (config === null) return;
@@ -160,6 +164,20 @@ export class SimpleEconomy {
       }
     }
 
+    const lostFarmStock = new Map<number, number>();
+    for (const previous of this.records.values()) {
+      const current = active.get(previous.unitId);
+      if (
+        previous.kind === "farm" &&
+        (current === undefined || current.owner !== previous.owner)
+      ) {
+        lostFarmStock.set(
+          previous.owner,
+          (lostFarmStock.get(previous.owner) ?? 0) + previous.stock,
+        );
+      }
+    }
+
     this.records = active;
     this.frame.clear();
     this.staged.clear();
@@ -179,14 +197,29 @@ export class SimpleEconomy {
       const priorRecords = surviving.get(player.smallID()) ?? [];
       const current = { troops: player.troops(), food: player.food() };
       const prior = this.published.get(key);
+      const shouldPublish =
+        prior !== undefined ||
+        player.isAlive() ||
+        records.length > 0 ||
+        player.outgoingAttacks().length > 0;
       if (prior === undefined) {
         // Spawn balances are replaced by plot seeds rather than added twice.
-        this.published.set(key, current);
+        if (shouldPublish) this.published.set(key, current);
       } else {
+        const rawFoodDelta = current.food - prior.food;
+        const adjustedFoodDelta =
+          current.food -
+          (prior.food - BigInt(lostFarmStock.get(player.smallID()) ?? 0));
         this.reconcile(
           priorRecords,
           key,
-          Number(current.food - prior.food),
+          Number(
+            rawFoodDelta > 0n
+              ? rawFoodDelta
+              : adjustedFoodDelta < 0n
+                ? adjustedFoodDelta
+                : 0n,
+          ),
           "farm",
           config,
         );
@@ -223,11 +256,13 @@ export class SimpleEconomy {
         record.stock = result.nextStock;
         this.frame.set(result.unitId, result);
       }
-      this.staged.set(key, {
+      const stage = {
         troops:
           this.total(records, "city") + (this.dormantTroops.get(key) ?? 0),
         food: BigInt(this.total(records, "farm")),
-      });
+      };
+      this.staged.set(key, stage);
+      if (!player.isAlive() && shouldPublish) this.published.set(key, stage);
     }
     this.seenAttackIds = activeAttackIds;
   }
@@ -328,7 +363,7 @@ export class SimpleEconomy {
     activeAttackIds: Set<string>,
   ): void {
     for (const attack of player.outgoingAttacks()) {
-      const id = attack.id();
+      const id = `${player.id()}:${attack.id()}`;
       const troops = attack.troops();
       if (!this.seenAttackIds.has(id)) {
         const capped = Math.min(

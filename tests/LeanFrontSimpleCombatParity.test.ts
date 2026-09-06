@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vitest";
+import {
+  SimpleEconomy,
+  type SimpleGrowthBatch,
+} from "../src/client/games/leanfront-simple/economy/SimpleEconomy";
 import { createRuntime } from "../src/client/games/leanfront-simple/runtime";
 import { Executor } from "../src/core/execution/ExecutionManager";
+import { PlayerExecution } from "../src/core/execution/PlayerExecution";
 import {
   Game,
   Player,
@@ -40,6 +45,14 @@ const defenderInfo = new PlayerInfo(
   "defender-client",
   "defender",
 );
+
+const identityGrowth: SimpleGrowthBatch = async (records, config) =>
+  records.map((record) => ({
+    ...record,
+    capacity: config.capacityPerLevel * record.level,
+    growth: 0,
+    nextStock: record.stock,
+  }));
 
 function snapshot(game: Game) {
   return {
@@ -112,14 +125,20 @@ async function fixture(players: PlayerInfo[]): Promise<{
       }
     }
   }
-  for (const player of [openPlayers[0]!, simplePlayers[0]!]) {
-    player.buildUnit(
-      UnitType.Settlement,
-      player.tiles().values().next().value!,
-      {},
-    );
-    player.buildUnit(UnitType.Farmland, [...player.tiles()][1]!, {});
+  for (const [game, gamePlayers] of [
+    [open, openPlayers],
+    [simple, simplePlayers],
+  ] as const) {
+    for (const [index, player] of gamePlayers.entries()) {
+      const x = index === 0 ? 5 : 15;
+      player.buildUnit(UnitType.Settlement, game.ref(x, 15), {});
+      player.buildUnit(UnitType.Farmland, game.ref(x + 1, 15), {});
+    }
   }
+  for (const player of openPlayers)
+    open.addExecution(new PlayerExecution(player));
+  for (const player of simplePlayers)
+    simple.addExecution(new PlayerExecution(player));
   return { open, simple, openPlayers, simplePlayers };
 }
 
@@ -129,7 +148,10 @@ async function expectCombatParity(target: "terra" | "player"): Promise<void> {
   const { open, simple, openPlayers, simplePlayers } = await fixture(players);
   const openRunner = runner(open);
   const simpleRunner = runner(simple);
-  const runtime = await createRuntime(simple);
+  const runtime = await createRuntime(
+    simple,
+    new SimpleEconomy(identityGrowth),
+  );
   let turnNumber = 0;
 
   try {
@@ -139,9 +161,11 @@ async function expectCombatParity(target: "terra" | "player"): Promise<void> {
     simpleRunner.executeNextTick();
     openRunner.executeNextTick();
 
-    openPlayers[0]!.setTroops(50_000);
-    simplePlayers[0]!.setTroops(50_000);
-    simplePlayers[0]!.addFood(1_000_000n);
+    for (const player of openPlayers) player.setTroops(50_000);
+    for (const player of simplePlayers) {
+      player.setTroops(50_000);
+      player.addFood(1_000_000n);
+    }
     await runtime.beforeTick();
     simpleRunner.addTurn(turn(turnNumber));
     openRunner.addTurn(turn(turnNumber++));
