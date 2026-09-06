@@ -253,9 +253,13 @@ export class SimpleEconomy {
         const record = this.records.get(result.unitId);
         if (record === undefined) continue;
         record.stock = result.nextStock;
-        this.frame.set(result.unitId, result);
       }
       this.repayFoodDebt(records, key);
+      for (const result of grown) {
+        const record = this.records.get(result.unitId);
+        if (record === undefined) continue;
+        this.frame.set(result.unitId, { ...result, nextStock: record.stock });
+      }
       const stage = {
         troops:
           this.total(records, "city") + (this.dormantTroops.get(key) ?? 0),

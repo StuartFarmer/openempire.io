@@ -220,8 +220,16 @@ describe("LeanFront Simple attack energy", () => {
     economy.applyPlayer(game, player);
     economy.applyPlayer(game, rival);
 
+    const ownedFarmStock = () => {
+      const frame = economy.plotFrame();
+      for (let i = 0; i < frame.length; i += 6) {
+        if (frame[i] === game.ref(2, 2)) return frame[i + 3];
+      }
+      throw new Error("owned farm missing from frame");
+    };
     expect(player.food()).toBe(0n);
     expect(rival.food()).toBe(2_000n);
+    expect(ownedFarmStock()).toBe(0);
 
     const growFarm: SimpleGrowthBatch = async (records) =>
       records.map((record) => ({
@@ -233,14 +241,17 @@ describe("LeanFront Simple attack energy", () => {
     await economy.prepare(game, growFarm);
     economy.applyPlayer(game, player);
     expect(player.food()).toBe(0n);
+    expect(ownedFarmStock()).toBe(0);
 
     await economy.prepare(game, growFarm);
     economy.applyPlayer(game, player);
     expect(player.food()).toBe(0n);
+    expect(ownedFarmStock()).toBe(0);
 
     await economy.prepare(game, growFarm);
     economy.applyPlayer(game, player);
     expect(player.food()).toBe(1_000n);
+    expect(ownedFarmStock()).toBe(1_000);
   });
 
   test("treats colliding attack ids from different players as new attacks", async () => {
