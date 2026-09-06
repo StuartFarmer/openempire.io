@@ -1018,6 +1018,9 @@ export class GameShellPage extends FieldViewerBase {
     if (game !== undefined) {
       if (game.backend === "worker") {
         // Worker games keep their existing authoritative simulation.
+        // `ready` may arrive synchronously from a test worker, so establish
+        // the desired loop state before the worker can inspect it.
+        this.running = true;
         await this.startWorker();
         // 1:1 terrain: swap the derived tint for the baked terrain-colors
         // plane — the exact pixels the WebGL game's TerrainPass draws.
@@ -1692,12 +1695,11 @@ export class GameShellPage extends FieldViewerBase {
     ]) {
       this.kernel.clearBuffer(b);
     }
+    // `ready` may arrive before startWorker resolves; it must see the desired
+    // state rather than the temporary false used to stop the old worker.
+    this.running = true;
     await this.startWorker();
     await this.applyGameView(game.view);
-    // Re-enable running: startWorker's "ready" reply reads this.running to tell
-    // the fresh worker whether to tick. Without this the new sim stays paused
-    // and the game never visibly restarts (needing a browser refresh).
-    this.running = true;
     this.pendingFit = true;
   }
 

@@ -141,6 +141,40 @@ describe("universal game shell lifecycle", () => {
     },
   );
 
+  test("starts a worker before a synchronous ready message on mount and restart", async () => {
+    const page = workerPage("leanfront-simple");
+    page.kernel = { clearBuffer: vi.fn() };
+    page.deriveTerrain = vi.fn().mockResolvedValue(undefined);
+    page.destroySim = vi.fn();
+    page.applyGameView = vi.fn().mockResolvedValue(undefined);
+    page.startWorker = vi.fn(() => {
+      page.onWorkerMessage({
+        type: "ready",
+        popPerDensity: 10_000,
+        fertility: new Uint8Array(),
+        suitability: new Uint8Array(),
+      });
+      return Promise.resolve();
+    });
+
+    await page.onSystemMounted({
+      manifest: vi.fn().mockResolvedValue({ nations: [] }),
+    } as never);
+    expect(page.worker.postMessage).toHaveBeenLastCalledWith({
+      type: "running",
+      running: true,
+      turbo: false,
+    });
+
+    page.worker.postMessage.mockClear();
+    await page.restartSim();
+    expect(page.worker.postMessage).toHaveBeenLastCalledWith({
+      type: "running",
+      running: true,
+      turbo: false,
+    });
+  });
+
   test("uses a field game's native spawn and attack commands", () => {
     const page = new GameShellPage() as any;
     page.systemId = "conquest";

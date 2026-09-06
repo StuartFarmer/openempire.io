@@ -1,5 +1,14 @@
+import {
+  FIELD_BORDER_DERIVE,
+  FIELD_BORDER_MODULES,
+  FIELD_LIVE_LAYERS,
+  LIVE_FIELD_PARAMS,
+} from "../../../games/shared/field-live-layers";
+import liveGameView from "../../../games/shared/live-game.wesl?raw";
 import { defineFieldSystem } from "../../../webgpu/FieldDynamics";
 import { nearestEnemyAI, playerIntent } from "../../shared";
+
+const players = playerIntent(256);
 
 // Age of Food — the 4X vertical slice (openspec/changes/add-age-of-food).
 // The settlement ecology reframed as a game: `potential` is the unowned,
@@ -18,12 +27,14 @@ export const empire = defineFieldSystem({
   kind: "game",
   defaultMap: "EarthXL",
   defaultView: "empire",
+  derive: FIELD_BORDER_DERIVE,
 
   // Bots push slots 1..4 toward wandering targets (slot 0 = neutral, dormant);
   // paint the starting territories with the spawnP* brushes (click on the map).
   ai: { decide: (ctx) => nearestEnemyAI(ctx) },
 
   params: {
+    ...LIVE_FIELD_PARAMS,
     // Seasonal temperature comes from the terrain base (layers::temperature) —
     // real continentality + seasons, advanced by the viewer's season tier.
 
@@ -62,7 +73,11 @@ export const empire = defineFieldSystem({
     flipMargin: { value: 1.6, min: 1, max: 3 },
   },
 
-  players: playerIntent(5), // slot 0 = neutral; up to 4 empires
+  players: {
+    ...players,
+    localPlayer: 1,
+    fields: { ...players.fields, fill: "u32", border: "u32", mine: "u32" },
+  },
 
   // Incursion pressure resolves before ownership/troops flip on it, same as
   // the territory prototype.
@@ -72,6 +87,7 @@ export const empire = defineFieldSystem({
     tilesOwned: { reduce: "count", groupBy: "owner" },
     totalPop: { reduce: "sum", layer: "pop", groupBy: "owner" },
     totalTroops: { reduce: "sum", layer: "troops", groupBy: "owner" },
+    totalFood: { reduce: "sum", layer: "food", groupBy: "owner" },
   },
 
   brushes: {
@@ -84,7 +100,7 @@ export const empire = defineFieldSystem({
   },
 
   views: {
-    empire: { source: "views/empire.wesl" },
+    empire: { source: liveGameView },
     potential: { layer: "potential", ramp: ["#141210", "#3f8f34"] },
     population: { layer: "pop", ramp: ["#0b1220", "#f4d58d", "#ffffff"] },
     troops: { layer: "troops", ramp: ["#0b1220", "#f0f0d8"] },
@@ -93,9 +109,13 @@ export const empire = defineFieldSystem({
     frontline: { source: "views/frontline.wesl", ramp: ["#101418", "#ff5533"] },
   },
 
-  modules: import.meta.glob("./**/*.wesl", {
-    query: "?raw",
-    import: "default",
-    eager: true,
-  }) as Record<string, string>,
+  modules: {
+    ...FIELD_LIVE_LAYERS,
+    ...FIELD_BORDER_MODULES,
+    ...(import.meta.glob("./**/*.wesl", {
+      query: "?raw",
+      import: "default",
+      eager: true,
+    }) as Record<string, string>),
+  },
 });

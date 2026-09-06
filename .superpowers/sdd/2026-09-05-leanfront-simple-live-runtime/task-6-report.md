@@ -51,3 +51,16 @@
 - `resources/maps/{verdantia,estuaria}/manifest.json`
 - `map-generator/assets/maps/{verdantia,estuaria}/info.json`
 - `map-generator/gen-nations.ts`
+
+## Exact-head follow-up
+
+- The detached exact-head registry check initially exposed six missing
+  universal-presentation dependencies. This follow-up commits the shared live
+  shader, camera sprite shader, field live/border modules, and the Conquest and
+  Empire system wiring. Obsolete LeanFront Simple field layers remain out of
+  scope for Task 7 removal.
+- Worker-backed mount and restart now set `running` before a synchronous
+  `ready` message can read it.
+- Manifest coordinates deliberately override team-area relocation as well as
+  random relocation. The team-mode regression verifies the exact authored
+  tile reaches `SpawnExecution`.

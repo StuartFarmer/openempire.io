@@ -1,5 +1,14 @@
+import {
+  FIELD_BORDER_DERIVE,
+  FIELD_BORDER_MODULES,
+  FIELD_LIVE_LAYERS,
+  LIVE_FIELD_PARAMS,
+} from "../../../games/shared/field-live-layers";
+import liveGameView from "../../../games/shared/live-game.wesl?raw";
 import { defineFieldSystem } from "../../../webgpu/FieldDynamics";
 import { nearestEnemyAI, playerIntent } from "../../shared";
+
+const players = playerIntent(256);
 
 // OpenFront conquest, ported to a cellular terrain game (port-openfront-conquest).
 // Territory expands over the terrain base: population grows toward the land's
@@ -15,10 +24,12 @@ export const conquest = defineFieldSystem({
   kind: "game",
   defaultMap: "EarthXL",
   defaultView: "conquest",
+  derive: FIELD_BORDER_DERIVE,
 
   ai: { decide: (ctx) => nearestEnemyAI(ctx) },
 
   params: {
+    ...LIVE_FIELD_PARAMS,
     // Carrying capacity from the terrain climate (warmth × moisture × soil).
     baseTempC: { value: 5, min: 0, max: 15, step: 0.5 },
     rainWeight: { value: 0.7, min: 0, max: 1.5 },
@@ -43,7 +54,11 @@ export const conquest = defineFieldSystem({
     flipMargin: { value: 1.6, min: 1, max: 3 },
   },
 
-  players: playerIntent(5), // slot 0 = neutral; up to 4 empires
+  players: {
+    ...players,
+    localPlayer: 1,
+    fields: { ...players.fields, fill: "u32", border: "u32", mine: "u32" },
+  },
 
   // Attack pressure resolves before ownership/troops flip on it.
   phases: [["incursion"], ["owner", "troops"]],
@@ -63,14 +78,18 @@ export const conquest = defineFieldSystem({
   },
 
   views: {
-    conquest: { source: "views/conquest.wesl" },
+    conquest: { source: liveGameView },
     troops: { layer: "troops", ramp: ["#0b1220", "#f0f0d8"] },
     population: { layer: "pop", ramp: ["#0b1220", "#f4d58d", "#ffffff"] },
   },
 
-  modules: import.meta.glob("./**/*.wesl", {
-    query: "?raw",
-    import: "default",
-    eager: true,
-  }) as Record<string, string>,
+  modules: {
+    ...FIELD_LIVE_LAYERS,
+    ...FIELD_BORDER_MODULES,
+    ...(import.meta.glob("./**/*.wesl", {
+      query: "?raw",
+      import: "default",
+      eager: true,
+    }) as Record<string, string>),
+  },
 });

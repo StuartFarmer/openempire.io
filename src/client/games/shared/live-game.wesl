@@ -71,9 +71,9 @@ fn color(x: i32, y: i32, i: u32) -> vec4f {
   // nonzero byte, so this lights up exactly your logistical catchment; land the
   // supply flood never reaches stays a desaturated terrain so the heatmap reads.
   if (params::supplyOverlay() > 0.5) {
-    let sv = layers::supply::val(i);
-    if (sv != 0u) {
-      let q = (f32(sv) - 1.0) / 254.0;
+    let sv = f32(layers::supply::val(i));
+    if (sv != 0.0) {
+      let q = (sv - 1.0) / 254.0;
       return vec4f(supplyColor(q), 1.0);
     }
     let grey = dot(base, vec3f(0.299, 0.587, 0.114));
@@ -213,5 +213,8 @@ fn color(x: i32, y: i32, i: u32) -> vec4f {
   if (layers::highlight::val(i) != 0u) {
     col = vec3f(0.3, 0.95, 1.0);
   }
-  return vec4f(col, 1.0);
+  // The one-texel-per-tile view cannot draw the existing 2×2 plot sprites.
+  // Carry the plot kind through alpha; CameraRenderer consumes it and restores
+  // opaque output. This keeps worker and GPU games on the same sprite path.
+  return vec4f(col, f32(p + 1u) / 255.0);
 }

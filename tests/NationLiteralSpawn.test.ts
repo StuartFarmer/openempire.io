@@ -78,4 +78,31 @@ describe("map-authored nation spawning", () => {
       2917,
     );
   });
+
+  test("keeps the manifest center in team modes", () => {
+    const info = new PlayerInfo("Exact", PlayerType.Nation, null, "nation-id");
+    const nation = new Nation(new Cell(17, 29), info);
+    const player = { hasSpawned: () => false, team: () => 1 };
+    const game = {
+      config: () => ({ gameConfig: () => ({ difficulty: Difficulty.Medium }) }),
+      hasPlayer: () => true,
+      player: () => player,
+      inSpawnPhase: () => true,
+      addExecution: vi.fn(),
+      teamSpawnArea: () => ({ x: 0, y: 0, width: 2, height: 2 }),
+      isValidCoord: () => true,
+      ref: (x: number, y: number) => y * 100 + x,
+      isLand: () => true,
+      hasOwner: () => false,
+      isImpassable: () => false,
+    };
+    const execution = new NationExecution("game-id", nation);
+    execution.init(game as never);
+
+    execution.tick(0);
+
+    expect((game.addExecution.mock.calls[0][0] as SpawnExecution).tile).toBe(
+      2917,
+    );
+  });
 });

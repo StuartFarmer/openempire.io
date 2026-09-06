@@ -27,7 +27,7 @@ export interface CameraState {
   scale: number;
 }
 
-const RENDER_WGSL = /* wgsl */ `
+export const CAMERA_RENDER_WGSL = /* wgsl */ `
 struct Cam {
   origin: vec2f,   // map coordinate of framebuffer pixel (0, 0)
   invScale: f32,   // map units per framebuffer pixel
@@ -67,9 +67,15 @@ fn fs(@builtin(position) position: vec4f) -> @location(0) vec4f {
   );
   let inside = map.x >= 0.0 && map.y >= 0.0 &&
     map.x < CAM.mapSize.x && map.y < CAM.mapSize.y;
-  if (inside && CAM.plotEnabled > 0.5) {
+  let encodedPlot = color.a <= 4.5 / 255.0;
+  var plotKind = 0u;
+  if (encodedPlot) {
+    plotKind = u32(round(color.a * 255.0)) - 1u;
+    color.a = 1.0;
+  }
+  if (inside && (encodedPlot || CAM.plotEnabled > 0.5)) {
     let tile = vec2i(floor(map));
-    let p = textureLoad(plotPlane, tile, 0).r;
+    let p = select(textureLoad(plotPlane, tile, 0).r, plotKind, encodedPlot);
     let sub = fract(map);
     // Sub-tile 2×2 shape over the flat colour chosen by the kernel view
     // (mask-correct). Farmland: darken the bottom tilled row (0 0 / 1 1).
@@ -407,7 +413,7 @@ export class CameraRenderer {
 
     const module = device.createShaderModule({
       label: "shell-camera",
-      code: RENDER_WGSL,
+      code: CAMERA_RENDER_WGSL,
     });
     const pipeline = await device.createRenderPipelineAsync({
       label: "shell-camera",
