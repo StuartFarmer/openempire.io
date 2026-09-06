@@ -21,7 +21,7 @@ export interface LiveGameRuntime {
     action: LivePlotAction,
     tile: number,
   ): LiveActionResolution;
-  plotFrame?(): Int32Array;
+  plotFrame?(): Float64Array;
   stats?(player: Player): LiveRuntimeStats;
   dispose(): void;
 }

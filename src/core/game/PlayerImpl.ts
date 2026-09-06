@@ -1582,14 +1582,6 @@ export class PlayerImpl implements Player {
     if (!this.isUnitValidToUpgrade(unit)) {
       return false;
     }
-    const simple = this.mg.config().simplePlotEconomy();
-    if (
-      simple !== null &&
-      (unit.type() === UnitType.Settlement || unit.type() === UnitType.Farmland) &&
-      unit.level() >= Math.floor(0x7fffffff / simple.capacityPerLevel)
-    ) {
-      return false;
-    }
     return true;
   }
 

@@ -2,8 +2,6 @@ import { compileFieldSystem } from "../../../webgpu/FieldDynamics";
 import { FieldKernel } from "../../../webgpu/FieldKernel";
 import {
   growSimplePlot,
-  MAX_SIMPLE_PLOT_VALUE,
-  simplePlotMaxLevel,
   type SimplePlotEconomyConfig,
   type SimplePlotGrowth,
   type SimplePlotInput,
@@ -31,10 +29,14 @@ export class SimpleGpuGrowth {
     config: SimplePlotEconomyConfig,
   ): Promise<readonly SimplePlotGrowth[]> {
     if (
-      config.capacityPerLevel > MAX_SIMPLE_PLOT_VALUE ||
+      config.capacityPerLevel > 0xffffffff ||
       records.some(
         (record) =>
-          record.stock < 0 || record.stock > MAX_SIMPLE_PLOT_VALUE,
+          record.stock < 0 ||
+          record.stock > 0xffffffff ||
+          record.level < 1 ||
+          record.level > 0xffffffff ||
+          config.capacityPerLevel * record.level > 0xffffffff,
       )
     ) {
       return records.map((record) => growSimplePlot(record, config));
@@ -46,10 +48,7 @@ export class SimpleGpuGrowth {
     for (let i = 0; i < records.length; i += 1) {
       const record = records[i]!;
       stock[i] = record.stock;
-      level[i] = Math.min(
-        simplePlotMaxLevel(config),
-        Math.max(1, Math.floor(record.level)),
-      );
+      level[i] = Math.max(1, Math.floor(record.level));
       kind[i] = record.kind === "farm" ? 2 : 1;
     }
     this.kernel.resize(length, 1);

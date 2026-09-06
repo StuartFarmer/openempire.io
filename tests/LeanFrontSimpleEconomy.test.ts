@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import {
   apportion,
   growSimplePlot,
@@ -120,7 +120,6 @@ async function publish(
 }
 
 describe("LeanFront Simple economy", () => {
-  afterEach(() => setUrbanTickProvider(null));
 
   test("grows a seeded level-one farm in whole units", () => {
     expect(growSimplePlot(farm(), config)).toMatchObject({
@@ -136,12 +135,12 @@ describe("LeanFront Simple economy", () => {
     );
   });
 
-  test("caps simple plot capacity at the signed frame transport ceiling", () => {
+  test("preserves simple plot overflow for exact frame transport", () => {
     const level = Math.floor(0x7fffffff / config.capacityPerLevel) + 1;
     const result = growSimplePlot(farm({ level, stock: 0 }), config);
 
     expect(result.level).toBeLessThanOrEqual(level);
-    expect(result.capacity).toBeLessThanOrEqual(0x7fffffff);
+    expect(result.capacity).toBe(config.capacityPerLevel * level);
     expect(result.nextStock).toBeGreaterThanOrEqual(0);
   });
 
@@ -261,7 +260,7 @@ describe("LeanFront Simple economy", () => {
       0,
     ]);
 
-    economy.install();
+    economy.install(g);
     const apply = vi.spyOn(economy, "applyPlayer");
     urbanTick(g, p);
     expect(apply).toHaveBeenCalledOnce();
@@ -381,10 +380,10 @@ describe("LeanFront Simple economy", () => {
   test("clearing an injected provider restores the default urban tick", async () => {
     const [g, p] = await game();
     const provider = vi.fn(() => true);
-    setUrbanTickProvider(provider);
+    setUrbanTickProvider(g, provider);
     urbanTick(g, p);
     expect(provider).toHaveBeenCalledOnce();
-    setUrbanTickProvider(null);
+    setUrbanTickProvider(g, null);
     provider.mockClear();
     urbanTick(g, p);
     expect(provider).not.toHaveBeenCalled();
@@ -394,8 +393,8 @@ describe("LeanFront Simple economy", () => {
     const [g, p] = await game();
     const older = new SimpleEconomy();
     const newer = new SimpleEconomy();
-    older.install();
-    newer.install();
+    older.install(g);
+    newer.install(g);
 
     older.dispose();
     const apply = vi.spyOn(newer, "applyPlayer");

@@ -69,6 +69,7 @@ type PendingPlotAction = {
   playerID: string;
   unitID?: number;
   level?: number;
+  checks?: number;
 };
 let pendingPlotActions: PendingPlotAction[] = [];
 /** Last-shipped packed plot value per tile (type low byte + Farmland maturity
@@ -614,16 +615,26 @@ function postPlotActionResults(): void {
   pendingPlotActions = [];
   const claimedUnits = new Set<number>();
   const claimedLevels = new Map<number, number>();
+  const claimedDeletes = new Set<number>();
+  const retry: PendingPlotAction[] = [];
   for (const pendingAction of pendingActions) {
     const plot = game.plotAt(pendingAction.tile);
     const owned = plot?.owner().id() === pendingAction.playerID;
     let ok = false;
+    if (pendingAction.unitID === undefined && plot === undefined && !pendingAction.checks) {
+      retry.push({ ...pendingAction, checks: 1 });
+      continue;
+    }
     if (pendingAction.action === "raze") {
       ok =
         pendingAction.unitID !== undefined &&
+        !claimedDeletes.has(pendingAction.unitID) &&
         (plot === undefined ||
           plot.id() !== pendingAction.unitID ||
           plot.isMarkedForDeletion());
+      if (ok && pendingAction.unitID !== undefined) {
+        claimedDeletes.add(pendingAction.unitID);
+      }
     } else {
       const unit =
         pendingAction.action === "city"
@@ -650,6 +661,7 @@ function postPlotActionResults(): void {
       ...(!ok ? { message: "Action was rejected" } : {}),
     });
   }
+  pendingPlotActions = retry;
 }
 
 async function stepAndPost(generation: number): Promise<void> {

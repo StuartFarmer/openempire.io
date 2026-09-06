@@ -12,15 +12,16 @@ import { nucleusPaceBoost, tenureTick } from "./TileTenure";
 /** An optional whole-tick replacement supplied by a live-game runtime. */
 export type UrbanTickProvider = (mg: Game, player: Player) => boolean;
 
-let urbanTickProvider: UrbanTickProvider | null = null;
+const urbanTickProviders = new WeakMap<Game, UrbanTickProvider>();
 
 export function setUrbanTickProvider(
+  game: Game,
   provider: UrbanTickProvider | null,
   onlyIf?: UrbanTickProvider,
 ): void {
-  if (onlyIf === undefined || urbanTickProvider === onlyIf) {
-    urbanTickProvider = provider;
-  }
+  if (onlyIf !== undefined && urbanTickProviders.get(game) !== onlyIf) return;
+  if (provider === null) urbanTickProviders.delete(game);
+  else urbanTickProviders.set(game, provider);
 }
 
 /**
@@ -76,7 +77,7 @@ export function urbanSuitability(
 }
 
 export function urbanTick(mg: Game, player: Player): void {
-  if (urbanTickProvider?.(mg, player) === true) return;
+  if (urbanTickProviders.get(mg)?.(mg, player) === true) return;
   // Food economy + demographics: farms produce, the population is born and
   // dies by the food it has (FoodEconomy.foodTick sets foodFlow().population).
   foodTick(mg, player);

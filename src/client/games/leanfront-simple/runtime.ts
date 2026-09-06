@@ -23,7 +23,7 @@ export async function createRuntime(
     }
   };
   const runtimeEconomy = economy ?? new SimpleEconomy(grow);
-  runtimeEconomy.install();
+  runtimeEconomy.install(game);
   return {
     beforeTick: () => runtimeEconomy.prepare(game),
     afterTick: () => runtimeEconomy.afterTick(game),

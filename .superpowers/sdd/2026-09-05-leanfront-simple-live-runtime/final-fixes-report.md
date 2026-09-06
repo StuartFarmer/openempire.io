@@ -18,3 +18,8 @@
 ## Validation
 
 - Focused runtime/economy/worker/AI suites, full `npm test -- --run`, `npm run lint`, `npm run build-prod`, `npx tsc --noEmit`, `git diff --check`, and strict OpenSpec validation were run after the final edits.
+
+## Follow-up re-review
+
+- RED: preflight success could precede a real `ConstructionExecution`, stale deleted plots could remain in the same frame, and global urban providers crossed concurrent games.
+- GREEN: build actions wait one core execution tick unless their plot already exists; duplicate razes claim one deletion; sync prunes inactive units; providers are `WeakMap<Game, …>` scoped; Float64 plot sextets preserve overflow exactly; GPU batches fall back for non-u32 records.

@@ -114,7 +114,7 @@ export interface ShellSimFrame {
   myStats: ShellMyStats | null;
   /** LeanFront Simple plot summaries: [tile, kind, level, stock, capacity,
    * growth] sextets. */
-  simplePlots?: Int32Array;
+  simplePlots?: Float64Array;
   fronts: ShellFrontLabel[] | null;
   spawnAnchor: number | null; // one-shot: the human's spawn tile
   /** Where each nation will land, shipped during the spawn phase only, so the

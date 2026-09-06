@@ -27,30 +27,6 @@ export interface SimplePlotGrowth extends SimplePlotInput {
   nextStock: number;
 }
 
-/** Every simple plot value is sent in a signed Int32 frame. */
-export const MAX_SIMPLE_PLOT_VALUE = 0x7fffffff;
-
-export function simplePlotMaxLevel(config: SimplePlotEconomyConfig): number {
-  return Math.max(
-    1,
-    Math.floor(MAX_SIMPLE_PLOT_VALUE / Math.max(1, config.capacityPerLevel)),
-  );
-}
-
-export function simplePlotCapacity(
-  level: number,
-  config: SimplePlotEconomyConfig,
-): number {
-  return Math.min(
-    MAX_SIMPLE_PLOT_VALUE,
-    config.capacityPerLevel *
-      Math.min(
-        simplePlotMaxLevel(config),
-        Math.max(1, Math.floor(level)),
-      ),
-  );
-}
-
 export type SimpleGrowthBatch = (
   records: readonly SimplePlotInput[],
   config: SimplePlotEconomyConfig,
@@ -70,12 +46,9 @@ export function growSimplePlot(
   record: SimplePlotInput,
   config: SimplePlotEconomyConfig,
 ): SimplePlotGrowth {
-  const level = Math.min(
-    simplePlotMaxLevel(config),
-    Math.max(1, Math.floor(record.level)),
-  );
-  const capacity = simplePlotCapacity(level, config);
-  const stock = Math.min(MAX_SIMPLE_PLOT_VALUE, Math.max(0, record.stock));
+  const level = Math.max(1, Math.floor(record.level));
+  const capacity = config.capacityPerLevel * level;
+  const stock = record.stock;
   if (stock >= capacity) {
     return { ...record, level, stock, capacity, growth: 0, nextStock: stock };
   }
@@ -114,19 +87,23 @@ export function apportion(
   if (total <= 0 || weighted.length === 0) return new Map();
   const ordered = [...weighted].sort((a, b) => a.unitId - b.unitId);
   const weight = ordered.reduce(
-    (sum, entry) => sum + Math.max(0, entry.weight),
-    0,
+    (sum, entry) => sum + BigInt(Math.max(0, Math.floor(entry.weight))),
+    0n,
   );
   const shares = new Map<number, number>();
-  let assigned = 0;
+  let assigned = 0n;
+  const exactTotal = BigInt(Math.floor(total));
   for (const entry of ordered) {
-    const share =
-      weight > 0 ? Math.floor((total * Math.max(0, entry.weight)) / weight) : 0;
+    const share = Number(
+      weight > 0n
+        ? (exactTotal * BigInt(Math.max(0, Math.floor(entry.weight)))) / weight
+        : 0n,
+    );
     shares.set(entry.unitId, share);
-    assigned += share;
+    assigned += BigInt(share);
   }
-  for (let i = assigned; i < total; i++) {
-    const entry = ordered[(i - assigned) % ordered.length]!;
+  for (let i = assigned; i < exactTotal; i++) {
+    const entry = ordered[Number((i - assigned) % BigInt(ordered.length))]!;
     shares.set(entry.unitId, (shares.get(entry.unitId) ?? 0) + 1);
   }
   return shares;
@@ -158,9 +135,11 @@ export class SimpleEconomy {
   private unpaidFoodDebits = new Map<string, number>();
   private readonly urbanTickProvider = (game: Game, player: Player) =>
     this.applyPlayer(game, player);
+  private game: Game | null = null;
 
-  install(): void {
-    setUrbanTickProvider(this.urbanTickProvider);
+  install(game: Game): void {
+    this.game = game;
+    setUrbanTickProvider(game, this.urbanTickProvider);
   }
 
   async prepare(
@@ -208,6 +187,11 @@ export class SimpleEconomy {
 
     this.records = active;
     if (!synchronize) this.frame.clear();
+    else {
+      for (const id of this.frame.keys()) {
+        if (!active.has(id)) this.frame.delete(id);
+      }
+    }
     this.staged.clear();
     if (!synchronize) this.attackConsumption.clear();
 
@@ -280,7 +264,7 @@ export class SimpleEconomy {
           cities,
           dormant,
           (record) =>
-            simplePlotCapacity(record.level, config),
+            config.capacityPerLevel * Math.max(1, Math.floor(record.level)),
         );
         this.dormantTroops.delete(key);
       }
@@ -288,9 +272,7 @@ export class SimpleEconomy {
       const grown = synchronize
         ? records.map((record) => ({
             ...record,
-            level: Math.min(simplePlotMaxLevel(config), record.level),
-            capacity:
-              simplePlotCapacity(record.level, config),
+            capacity: config.capacityPerLevel * Math.max(1, Math.floor(record.level)),
             growth: this.frame.get(record.unitId)?.growth ?? 0,
             nextStock: record.stock,
           }))
@@ -336,7 +318,7 @@ export class SimpleEconomy {
     return true;
   }
 
-  plotFrame(): Int32Array {
+  plotFrame(): Float64Array {
     const values: number[] = [];
     for (const result of [...this.frame.values()].sort(
       (a, b) => a.tile - b.tile,
@@ -345,12 +327,12 @@ export class SimpleEconomy {
         result.tile,
         result.kind === "city" ? 1 : 2,
         result.level,
-        Math.min(MAX_SIMPLE_PLOT_VALUE, Math.max(0, result.nextStock)),
-        Math.min(MAX_SIMPLE_PLOT_VALUE, Math.max(0, result.capacity)),
-        Math.min(MAX_SIMPLE_PLOT_VALUE, Math.max(0, result.growth)),
+        result.nextStock,
+        result.capacity,
+        result.growth,
       );
     }
-    return Int32Array.from(values);
+    return Float64Array.from(values);
   }
 
   resolvePlotAction(
@@ -403,7 +385,10 @@ export class SimpleEconomy {
   }
 
   dispose(): void {
-    setUrbanTickProvider(null, this.urbanTickProvider);
+    if (this.game !== null) {
+      setUrbanTickProvider(this.game, null, this.urbanTickProvider);
+    }
+    this.game = null;
     this.records.clear();
     this.published.clear();
     this.dormantTroops.clear();
