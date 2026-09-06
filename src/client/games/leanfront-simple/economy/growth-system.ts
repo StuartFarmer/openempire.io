@@ -24,7 +24,7 @@ export const simpleGrowthSystem: FieldSystem = {
   modules: {
     "types.wesl": /* wgsl */ `
 struct Params {
-  capacityPerLevel: f32,
+  capacityPerLevel: u32,
   cityGrowthRate: f32,
   farmGrowthRate: f32,
   pad: f32,

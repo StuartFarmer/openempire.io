@@ -17,6 +17,18 @@ Failed to resolve import "../src/client/games/leanfront-simple/economy/SimpleGpu
 - Runtime creation chooses GPU once; an initialization failure yields `null`, and a dispatch/readback rejection permanently uses `growSimplePlotsCpu` for that runtime.
 - `dispose()` destroys the owned field kernel alongside the economy.
 
+Review correction:
+
+- `capacity`, `stock`, and the final `stock + growth` remain `u32` in WGSL;
+  only the growth curve's ratio/rate/log inputs use `f32`. This preserves exact
+  stocks above `2^24`, including the level-1000 / stock-16,777,001 regression.
+- `FieldKernel.create()` now destroys a partially built kernel (including its
+  allocated buffers) or an acquired owned device if construction fails. Shared
+  devices remain owned by their caller.
+- A fake-kernel test runs without WebGPU and verifies binary config upload,
+  normal and empty batches, dispatch/readback counts, short-read rejection,
+  and disposal.
+
 Verification:
 
 ```
@@ -28,4 +40,4 @@ npx tsc --noEmit
 
 ## Device limitation
 
-This environment exposes no WebGPU device. The six exact CPU/GPU parity cases therefore return after `SimpleGpuGrowth.create()` returns `null`; fallback, rejection, compiled-field lifecycle, and disposal remain covered with no GPU device.
+This environment exposes no WebGPU device. The seven exact CPU/GPU parity cases therefore return after `SimpleGpuGrowth.create()` returns `null`; fallback, rejection, compiled-field lifecycle, upload/readback contract, and disposal remain covered with no GPU device.

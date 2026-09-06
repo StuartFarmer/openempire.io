@@ -78,3 +78,38 @@ describe("FieldKernel.readBuffer", () => {
     },
   );
 });
+
+test("destroys an owned device when kernel construction fails", async () => {
+  const destroy = vi.fn();
+  const device = { addEventListener: vi.fn(), destroy };
+  const adapter = {
+    limits: { maxStorageBuffersPerShaderStage: 8 },
+    info: undefined,
+    requestDevice: vi.fn().mockResolvedValue(device),
+  };
+  const previous = Object.getOwnPropertyDescriptor(navigator, "gpu");
+  Object.defineProperty(navigator, "gpu", {
+    configurable: true,
+    value: {
+      requestAdapter: vi.fn().mockResolvedValue(adapter),
+      getPreferredCanvasFormat: vi.fn(),
+    },
+  });
+
+  try {
+    await expect(
+      FieldKernel.create(null, {
+        buffers: [
+          { name: "duplicate", type: "u32" },
+          { name: "duplicate", type: "u32" },
+        ],
+        passes: [],
+      }),
+    ).rejects.toThrow('Duplicate field buffer "duplicate"');
+  } finally {
+    if (previous) Object.defineProperty(navigator, "gpu", previous);
+    else delete (navigator as { gpu?: GPU }).gpu;
+  }
+
+  expect(destroy).toHaveBeenCalledOnce();
+});

@@ -39,15 +39,12 @@ export class SimpleGpuGrowth {
       kind[i] = record.kind === "farm" ? 2 : 1;
     }
     this.kernel.resize(length, 1);
-    this.kernel.writeUniform(
-      "P",
-      new Float32Array([
-        config.capacityPerLevel,
-        config.cityGrowthRate,
-        config.farmGrowthRate,
-        0,
-      ]),
-    );
+    const params = new ArrayBuffer(16);
+    const view = new DataView(params);
+    view.setUint32(0, config.capacityPerLevel, true);
+    view.setFloat32(4, config.cityGrowthRate, true);
+    view.setFloat32(8, config.farmGrowthRate, true);
+    this.kernel.writeUniform("P", params);
     this.kernel.writeBuffer("stock", stock);
     this.kernel.writeBuffer("level", level);
     this.kernel.writeBuffer("kind", kind);

@@ -183,6 +183,7 @@ export class FieldKernel {
   private renderBindGroup: GPUBindGroup | null = null;
   private widthValue = 0;
   private heightValue = 0;
+  private destroyed = false;
 
   get width(): number {
     return this.widthValue;
@@ -215,63 +216,80 @@ export class FieldKernel {
     if (!navigator.gpu) {
       throw new Error("WebGPU is not supported in this browser");
     }
+    const ownsDevice = options.device === undefined;
     let device = options.device ?? null;
     let adapterInfo = "shared device";
-    if (!device) {
-      const adapter = await navigator.gpu.requestAdapter();
-      if (!adapter) {
-        throw new Error("No WebGPU adapter available");
+    let kernel: FieldKernel | null = null;
+    try {
+      if (!device) {
+        const adapter = await navigator.gpu.requestAdapter();
+        if (!adapter) {
+          throw new Error("No WebGPU adapter available");
+        }
+        device = await adapter.requestDevice({
+          label: "field-kernel",
+          // Wide passes (the worldgen colorizer) bind more storage buffers
+          // than the default limit of 8.
+          requiredLimits: {
+            maxStorageBuffersPerShaderStage: Math.min(
+              adapter.limits.maxStorageBuffersPerShaderStage,
+              16,
+            ),
+          },
+        });
+        device.addEventListener("uncapturederror", (event) => {
+          console.error("WebGPU uncaptured error:", event.error.message);
+        });
+        const info = adapter.info;
+        adapterInfo =
+          [info?.description, info?.vendor, info?.architecture]
+            .filter((part) => !!part)
+            .join(" · ") || "unknown adapter";
       }
-      device = await adapter.requestDevice({
-        label: "field-kernel",
-        // Wide passes (the worldgen colorizer) bind more storage buffers
-        // than the default limit of 8.
-        requiredLimits: {
-          maxStorageBuffersPerShaderStage: Math.min(
-            adapter.limits.maxStorageBuffersPerShaderStage,
-            16,
-          ),
-        },
-      });
-      device.addEventListener("uncapturederror", (event) => {
-        console.error("WebGPU uncaptured error:", event.error.message);
-      });
-      const info = adapter.info;
-      adapterInfo =
-        [info?.description, info?.vendor, info?.architecture]
-          .filter((part) => !!part)
-          .join(" · ") || "unknown adapter";
-    }
 
-    let context: GPUCanvasContext | null = null;
-    const format = navigator.gpu.getPreferredCanvasFormat();
-    if (canvas) {
-      // The TS dom lib's getContext overloads don't know "webgpu" yet.
-      context = canvas.getContext(
-        "webgpu",
-      ) as unknown as GPUCanvasContext | null;
-      if (!context) {
-        throw new Error("Could not create a WebGPU canvas context");
+      let context: GPUCanvasContext | null = null;
+      const format = navigator.gpu.getPreferredCanvasFormat();
+      if (canvas) {
+        // The TS dom lib's getContext overloads don't know "webgpu" yet.
+        context = canvas.getContext(
+          "webgpu",
+        ) as unknown as GPUCanvasContext | null;
+        if (!context) {
+          throw new Error("Could not create a WebGPU canvas context");
+        }
+        context.configure({ device, format, alphaMode: "opaque" });
       }
-      context.configure({ device, format, alphaMode: "opaque" });
-    }
 
-    const kernel = new FieldKernel(
-      device,
-      context,
-      canvas,
-      config,
-      adapterInfo,
-      options.device === undefined,
-    );
-    await kernel.build(format);
-    return kernel;
+      kernel = new FieldKernel(
+        device,
+        context,
+        canvas,
+        config,
+        adapterInfo,
+        ownsDevice,
+      );
+      await kernel.build(format);
+      return kernel;
+    } catch (error) {
+      kernel?.destroy();
+      if (kernel === null && ownsDevice) device?.destroy();
+      throw error;
+    }
   }
 
   destroy(): void {
-    if (this.ownsDevice) {
-      this.device.destroy();
+    if (this.destroyed) return;
+    this.destroyed = true;
+    for (const buffers of [
+      ...this.fixedBuffers.values(),
+      ...this.gridBuffers.values(),
+    ]) {
+      for (const buffer of buffers) buffer.destroy();
     }
+    for (const buffer of this.uniformBuffers.values()) buffer.destroy();
+    this.gridUniform?.destroy();
+    this.outTexture?.destroy();
+    if (this.ownsDevice) this.device.destroy();
   }
 
   private async build(canvasFormat: GPUTextureFormat): Promise<void> {
