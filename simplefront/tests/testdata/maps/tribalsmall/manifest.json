@@ -1,0 +1,20 @@
+{
+  "categories": ["new", "fictional"],
+  "id": "Tribalsmall",
+  "layers": true,
+  "map": {
+    "height": 64,
+    "num_land_tiles": 1474,
+    "width": 64
+  },
+  "map4x": {
+    "height": 32,
+    "num_land_tiles": 248,
+    "width": 32
+  },
+  "multiplayer_frequency": 0,
+  "name": "Tribal Small",
+  "nations": [],
+  "terrain_colors": true,
+  "translation_key": "map.tribalsmall"
+}

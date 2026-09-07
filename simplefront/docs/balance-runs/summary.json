@@ -1,0 +1,2490 @@
+{
+  "docs/balance-runs/initial-balanced.json.gz": {
+    "runs": 10,
+    "completed": 0,
+    "medianVictorySeconds": null,
+    "medianLeaderShare": 0.14230288236978106,
+    "medianSurvivors": 42.5,
+    "medianFirstEliminationSeconds": 487.1,
+    "medianFirstContactSeconds": 24,
+    "perRun": [
+      {
+        "seed": "simplefront-pace-01",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 112444340,
+        "wallMs": 31982.232375,
+        "firstContactSeconds": 29.5,
+        "firstEliminationSeconds": 487.5,
+        "firstActionSeconds": 0.1,
+        "survivors": 40,
+        "leaderShare": 0.13866413536440206,
+        "medianSurvivorTroops": 1331.5,
+        "foodBlockedSeconds": 114,
+        "purchases": 273,
+        "spend": {
+          "farm": "210000000",
+          "city": "266000000",
+          "land": "1323027600",
+          "transport": "205335600"
+        },
+        "rejected": 172
+      },
+      {
+        "seed": "simplefront-pace-02",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 783477435,
+        "wallMs": 33335.693750000006,
+        "firstContactSeconds": 26.1,
+        "firstEliminationSeconds": 497.3,
+        "firstActionSeconds": 0.1,
+        "survivors": 44,
+        "leaderShare": 0.14850306619054077,
+        "medianSurvivorTroops": 923.5,
+        "foodBlockedSeconds": 256,
+        "purchases": 237,
+        "spend": {
+          "farm": "180000000",
+          "city": "234000000",
+          "land": "1291710800",
+          "transport": "197271000"
+        },
+        "rejected": 140
+      },
+      {
+        "seed": "simplefront-pace-03",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1787449809,
+        "wallMs": 47230.299334,
+        "firstContactSeconds": 20.8,
+        "firstEliminationSeconds": 481.3,
+        "firstActionSeconds": 0.1,
+        "survivors": 39,
+        "leaderShare": 0.12685139146288177,
+        "medianSurvivorTroops": 1708,
+        "foodBlockedSeconds": 108,
+        "purchases": 279,
+        "spend": {
+          "farm": "231000000",
+          "city": "250000000",
+          "land": "1383641000",
+          "transport": "216801000"
+        },
+        "rejected": 122
+      },
+      {
+        "seed": "simplefront-pace-04",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 2003292630,
+        "wallMs": 41821.878375,
+        "firstContactSeconds": 21.5,
+        "firstEliminationSeconds": 396.1,
+        "firstActionSeconds": 0.1,
+        "survivors": 43,
+        "leaderShare": 0.33548795371333,
+        "medianSurvivorTroops": 868,
+        "foodBlockedSeconds": 52,
+        "purchases": 219,
+        "spend": {
+          "farm": "175500000",
+          "city": "204000000",
+          "land": "2140153600",
+          "transport": "209669800"
+        },
+        "rejected": 170
+      },
+      {
+        "seed": "simplefront-pace-05",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 529795932,
+        "wallMs": 31424.268083000003,
+        "firstContactSeconds": 25.6,
+        "firstEliminationSeconds": 486.7,
+        "firstActionSeconds": 0.1,
+        "survivors": 43,
+        "leaderShare": 0.1459416293751601,
+        "medianSurvivorTroops": 1271,
+        "foodBlockedSeconds": 66,
+        "purchases": 232,
+        "spend": {
+          "farm": "171000000",
+          "city": "236000000",
+          "land": "1312548200",
+          "transport": "192804800"
+        },
+        "rejected": 134
+      },
+      {
+        "seed": "simplefront-pace-06",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 32853882,
+        "wallMs": 28145.667707999994,
+        "firstContactSeconds": 21.5,
+        "firstEliminationSeconds": 155.5,
+        "firstActionSeconds": 0.1,
+        "survivors": 17,
+        "leaderShare": 0.19117359007970589,
+        "medianSurvivorTroops": 2328,
+        "foodBlockedSeconds": 160,
+        "purchases": 335,
+        "spend": {
+          "farm": "262500000",
+          "city": "320000000",
+          "land": "1881310800",
+          "transport": "215081200"
+        },
+        "rejected": 105
+      },
+      {
+        "seed": "simplefront-pace-07",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 2067882330,
+        "wallMs": 32775.239791,
+        "firstContactSeconds": 26.9,
+        "firstEliminationSeconds": 547.8,
+        "firstActionSeconds": 0.1,
+        "survivors": 42,
+        "leaderShare": 0.07783754463680333,
+        "medianSurvivorTroops": 1051.5,
+        "foodBlockedSeconds": 124,
+        "purchases": 241,
+        "spend": {
+          "farm": "171000000",
+          "city": "254000000",
+          "land": "1244551400",
+          "transport": "202158200"
+        },
+        "rejected": 191
+      },
+      {
+        "seed": "simplefront-pace-08",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1731365487,
+        "wallMs": 34793.89429200001,
+        "firstContactSeconds": 15.8,
+        "firstEliminationSeconds": 437.6,
+        "firstActionSeconds": 0.1,
+        "survivors": 41,
+        "leaderShare": 0.18386596151817866,
+        "medianSurvivorTroops": 1143,
+        "foodBlockedSeconds": 118,
+        "purchases": 238,
+        "spend": {
+          "farm": "186000000",
+          "city": "228000000",
+          "land": "1363946600",
+          "transport": "216021000"
+        },
+        "rejected": 129
+      },
+      {
+        "seed": "simplefront-pace-09",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 515828088,
+        "wallMs": 32828.463665999996,
+        "firstContactSeconds": 24,
+        "firstEliminationSeconds": 658.4,
+        "firstActionSeconds": 0.1,
+        "survivors": 45,
+        "leaderShare": 0.13617803492594435,
+        "medianSurvivorTroops": 1366,
+        "foodBlockedSeconds": 266,
+        "purchases": 241,
+        "spend": {
+          "farm": "186000000",
+          "city": "234000000",
+          "land": "1244151600",
+          "transport": "198727200"
+        },
+        "rejected": 133
+      },
+      {
+        "seed": "simplefront-pace-10",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 148115553,
+        "wallMs": 33231.48766699998,
+        "firstContactSeconds": 24,
+        "firstEliminationSeconds": 533.6,
+        "firstActionSeconds": 0.1,
+        "survivors": 62,
+        "leaderShare": 0.07251879642604228,
+        "medianSurvivorTroops": 664.5,
+        "foodBlockedSeconds": 98,
+        "purchases": 163,
+        "spend": {
+          "farm": "138000000",
+          "city": "142000000",
+          "land": "1118996400",
+          "transport": "193119600"
+        },
+        "rejected": 184
+      }
+    ],
+    "policies": {
+      "120": {
+        "balanced": {
+          "seats": 760,
+          "survival": 1,
+          "meanLandShare": 0.0067487515969329465,
+          "medianTroops": 604.5
+        },
+        "farm-first": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "expansion-first": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "military-first": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        }
+      },
+      "300": {
+        "balanced": {
+          "seats": 760,
+          "survival": 0.9973684210526316,
+          "meanLandShare": 0.011083269693920188,
+          "medianTroops": 596
+        },
+        "farm-first": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "expansion-first": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "military-first": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        }
+      },
+      "600": {
+        "balanced": {
+          "seats": 760,
+          "survival": 0.9578947368421052,
+          "meanLandShare": 0.01296677824380597,
+          "medianTroops": 681
+        },
+        "farm-first": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "expansion-first": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "military-first": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        }
+      }
+    }
+  },
+  "docs/balance-runs/initial-policies-0.json.gz": {
+    "runs": 10,
+    "completed": 0,
+    "medianVictorySeconds": null,
+    "medianLeaderShare": 0.15799544968283386,
+    "medianSurvivors": 37,
+    "medianFirstEliminationSeconds": 0.4,
+    "medianFirstContactSeconds": 0.4,
+    "perRun": [
+      {
+        "seed": "simplefront-pace-01",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 422291909,
+        "wallMs": 30387.0365,
+        "firstContactSeconds": 1.4,
+        "firstEliminationSeconds": 1.4,
+        "firstActionSeconds": 0.1,
+        "survivors": 50,
+        "leaderShare": 0.09075019964139884,
+        "medianSurvivorTroops": 1035,
+        "foodBlockedSeconds": 44,
+        "purchases": 161,
+        "spend": {
+          "farm": "135000000",
+          "city": "142000000",
+          "land": "1172982200",
+          "transport": "184622400"
+        },
+        "rejected": 108
+      },
+      {
+        "seed": "simplefront-pace-02",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 308919998,
+        "wallMs": 30325.723250000003,
+        "firstContactSeconds": 1.4,
+        "firstEliminationSeconds": 1.4,
+        "firstActionSeconds": 0.1,
+        "survivors": 42,
+        "leaderShare": 0.1503714083382302,
+        "medianSurvivorTroops": 1202,
+        "foodBlockedSeconds": 152,
+        "purchases": 255,
+        "spend": {
+          "farm": "195000000",
+          "city": "250000000",
+          "land": "1377308400",
+          "transport": "177142000"
+        },
+        "rejected": 141
+      },
+      {
+        "seed": "simplefront-pace-03",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 311216774,
+        "wallMs": 29090.118583000003,
+        "firstContactSeconds": 0.4,
+        "firstEliminationSeconds": 0.4,
+        "firstActionSeconds": 0.1,
+        "survivors": 39,
+        "leaderShare": 0.1372176769274812,
+        "medianSurvivorTroops": 1214,
+        "foodBlockedSeconds": 100,
+        "purchases": 237,
+        "spend": {
+          "farm": "186000000",
+          "city": "226000000",
+          "land": "1365551200",
+          "transport": "187386600"
+        },
+        "rejected": 135
+      },
+      {
+        "seed": "simplefront-pace-04",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1579206367,
+        "wallMs": 29038.400624999995,
+        "firstContactSeconds": 0.2,
+        "firstEliminationSeconds": 0.2,
+        "firstActionSeconds": 0.1,
+        "survivors": 25,
+        "leaderShare": 0.19689915472585093,
+        "medianSurvivorTroops": 1696,
+        "foodBlockedSeconds": 254,
+        "purchases": 334,
+        "spend": {
+          "farm": "250500000",
+          "city": "334000000",
+          "land": "1464325200",
+          "transport": "170848600"
+        },
+        "rejected": 145
+      },
+      {
+        "seed": "simplefront-pace-05",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1405459996,
+        "wallMs": 36415.983916,
+        "firstContactSeconds": 0.3,
+        "firstEliminationSeconds": 0.3,
+        "firstActionSeconds": 0.1,
+        "survivors": 35,
+        "leaderShare": 0.16135545209359792,
+        "medianSurvivorTroops": 1297,
+        "foodBlockedSeconds": 114,
+        "purchases": 254,
+        "spend": {
+          "farm": "202500000",
+          "city": "238000000",
+          "land": "1383058200",
+          "transport": "191946600"
+        },
+        "rejected": 145
+      },
+      {
+        "seed": "simplefront-pace-06",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 148438410,
+        "wallMs": 25300.401375000016,
+        "firstContactSeconds": 1.5,
+        "firstEliminationSeconds": 1.5,
+        "firstActionSeconds": 0.1,
+        "survivors": 25,
+        "leaderShare": 0.5209209118715062,
+        "medianSurvivorTroops": 1572,
+        "foodBlockedSeconds": 104,
+        "purchases": 284,
+        "spend": {
+          "farm": "217500000",
+          "city": "278000000",
+          "land": "2427974800",
+          "transport": "407353400"
+        },
+        "rejected": 127
+      },
+      {
+        "seed": "simplefront-pace-07",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 578991268,
+        "wallMs": 31134.741666000016,
+        "firstContactSeconds": 0.4,
+        "firstEliminationSeconds": 0.4,
+        "firstActionSeconds": 0.1,
+        "survivors": 41,
+        "leaderShare": 0.1115129051213669,
+        "medianSurvivorTroops": 1242,
+        "foodBlockedSeconds": 172,
+        "purchases": 214,
+        "spend": {
+          "farm": "168000000",
+          "city": "204000000",
+          "land": "1251381200",
+          "transport": "189970400"
+        },
+        "rejected": 129
+      },
+      {
+        "seed": "simplefront-pace-08",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 967003900,
+        "wallMs": 27326.76424999998,
+        "firstContactSeconds": 0.3,
+        "firstEliminationSeconds": 0.3,
+        "firstActionSeconds": 0.1,
+        "survivors": 33,
+        "leaderShare": 0.2119965646612123,
+        "medianSurvivorTroops": 1349,
+        "foodBlockedSeconds": 92,
+        "purchases": 275,
+        "spend": {
+          "farm": "217500000",
+          "city": "260000000",
+          "land": "1455566400",
+          "transport": "198091200"
+        },
+        "rejected": 110
+      },
+      {
+        "seed": "simplefront-pace-09",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1042962120,
+        "wallMs": 28514.341957999975,
+        "firstContactSeconds": 0.2,
+        "firstEliminationSeconds": 0.2,
+        "firstActionSeconds": 0.1,
+        "survivors": 27,
+        "leaderShare": 0.1546354472720698,
+        "medianSurvivorTroops": 1511,
+        "foodBlockedSeconds": 174,
+        "purchases": 281,
+        "spend": {
+          "farm": "207000000",
+          "city": "286000000",
+          "land": "1473611000",
+          "transport": "191239400"
+        },
+        "rejected": 101
+      },
+      {
+        "seed": "simplefront-pace-10",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 897866708,
+        "wallMs": 30304.058334,
+        "firstContactSeconds": 1.1,
+        "firstEliminationSeconds": 1.1,
+        "firstActionSeconds": 0.1,
+        "survivors": 43,
+        "leaderShare": 0.1965224728412361,
+        "medianSurvivorTroops": 917,
+        "foodBlockedSeconds": 82,
+        "purchases": 225,
+        "spend": {
+          "farm": "186000000",
+          "city": "202000000",
+          "land": "1283117400",
+          "transport": "181372200"
+        },
+        "rejected": 74
+      }
+    ],
+    "policies": {
+      "120": {
+        "balanced": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "farm-first": {
+          "seats": 260,
+          "survival": 0.9461538461538461,
+          "meanLandShare": 0.006313246337203307,
+          "medianTroops": 605
+        },
+        "expansion-first": {
+          "seats": 250,
+          "survival": 0.936,
+          "meanLandShare": 0.006457472615226992,
+          "medianTroops": 602.5
+        },
+        "military-first": {
+          "seats": 250,
+          "survival": 0.964,
+          "meanLandShare": 0.006509183504346912,
+          "medianTroops": 648
+        }
+      },
+      "300": {
+        "balanced": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "farm-first": {
+          "seats": 260,
+          "survival": 0.9461538461538461,
+          "meanLandShare": 0.010349421706380526,
+          "medianTroops": 610.5
+        },
+        "expansion-first": {
+          "seats": 250,
+          "survival": 0.932,
+          "meanLandShare": 0.010638520996248246,
+          "medianTroops": 606
+        },
+        "military-first": {
+          "seats": 250,
+          "survival": 0.944,
+          "meanLandShare": 0.010044388193283009,
+          "medianTroops": 636.5
+        }
+      },
+      "600": {
+        "balanced": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "farm-first": {
+          "seats": 260,
+          "survival": 0.9153846153846154,
+          "meanLandShare": 0.012755607634240733,
+          "medianTroops": 707.5
+        },
+        "expansion-first": {
+          "seats": 250,
+          "survival": 0.868,
+          "meanLandShare": 0.01271310400940198,
+          "medianTroops": 712.5
+        },
+        "military-first": {
+          "seats": 250,
+          "survival": 0.876,
+          "meanLandShare": 0.012901625759014006,
+          "medianTroops": 694
+        }
+      }
+    }
+  },
+  "docs/balance-runs/initial-policies-1.json.gz": {
+    "runs": 10,
+    "completed": 0,
+    "medianVictorySeconds": null,
+    "medianLeaderShare": 0.16354020702436378,
+    "medianSurvivors": 36,
+    "medianFirstEliminationSeconds": 1.5499999999999998,
+    "medianFirstContactSeconds": 1.5499999999999998,
+    "perRun": [
+      {
+        "seed": "simplefront-pace-01",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1003097429,
+        "wallMs": 27875.716500000002,
+        "firstContactSeconds": 5.3,
+        "firstEliminationSeconds": 5.3,
+        "firstActionSeconds": 0.1,
+        "survivors": 38,
+        "leaderShare": 0.1281471771459567,
+        "medianSurvivorTroops": 1285,
+        "foodBlockedSeconds": 154,
+        "purchases": 265,
+        "spend": {
+          "farm": "223500000",
+          "city": "232000000",
+          "land": "1340055800",
+          "transport": "174061200"
+        },
+        "rejected": 142
+      },
+      {
+        "seed": "simplefront-pace-02",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1892886873,
+        "wallMs": 31424.313875,
+        "firstContactSeconds": 2.1,
+        "firstEliminationSeconds": 2.1,
+        "firstActionSeconds": 0.1,
+        "survivors": 38,
+        "leaderShare": 0.2931941117087797,
+        "medianSurvivorTroops": 1184,
+        "foodBlockedSeconds": 106,
+        "purchases": 266,
+        "spend": {
+          "farm": "216000000",
+          "city": "244000000",
+          "land": "2123378600",
+          "transport": "236271400"
+        },
+        "rejected": 157
+      },
+      {
+        "seed": "simplefront-pace-03",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 726935540,
+        "wallMs": 25483.330041,
+        "firstContactSeconds": 0.2,
+        "firstEliminationSeconds": 0.2,
+        "firstActionSeconds": 0.1,
+        "survivors": 23,
+        "leaderShare": 0.17173680483358195,
+        "medianSurvivorTroops": 3068,
+        "foodBlockedSeconds": 110,
+        "purchases": 326,
+        "spend": {
+          "farm": "252000000",
+          "city": "316000000",
+          "land": "1622927800",
+          "transport": "182006000"
+        },
+        "rejected": 110
+      },
+      {
+        "seed": "simplefront-pace-04",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1823578631,
+        "wallMs": 28508.778540999992,
+        "firstContactSeconds": 1.9,
+        "firstEliminationSeconds": 1.9,
+        "firstActionSeconds": 0.1,
+        "survivors": 22,
+        "leaderShare": 0.19421717970739352,
+        "medianSurvivorTroops": 2136,
+        "foodBlockedSeconds": 208,
+        "purchases": 301,
+        "spend": {
+          "farm": "231000000",
+          "city": "294000000",
+          "land": "1580425600",
+          "transport": "180203600"
+        },
+        "rejected": 165
+      },
+      {
+        "seed": "simplefront-pace-05",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1608558308,
+        "wallMs": 39301.18116599998,
+        "firstContactSeconds": 0.6,
+        "firstEliminationSeconds": 0.6,
+        "firstActionSeconds": 0.1,
+        "survivors": 36,
+        "leaderShare": 0.21635100724735945,
+        "medianSurvivorTroops": 1134,
+        "foodBlockedSeconds": 156,
+        "purchases": 229,
+        "spend": {
+          "farm": "175500000",
+          "city": "224000000",
+          "land": "1638271800",
+          "transport": "194310800"
+        },
+        "rejected": 169
+      },
+      {
+        "seed": "simplefront-pace-06",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 523988679,
+        "wallMs": 23494.937249999988,
+        "firstContactSeconds": 0.4,
+        "firstEliminationSeconds": 0.4,
+        "firstActionSeconds": 0.1,
+        "survivors": 28,
+        "leaderShare": 0.14035167020747638,
+        "medianSurvivorTroops": 2331.5,
+        "foodBlockedSeconds": 180,
+        "purchases": 325,
+        "spend": {
+          "farm": "256500000",
+          "city": "308000000",
+          "land": "1555152800",
+          "transport": "174188600"
+        },
+        "rejected": 100
+      },
+      {
+        "seed": "simplefront-pace-07",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 281458087,
+        "wallMs": 30549.53008300002,
+        "firstContactSeconds": 6.1,
+        "firstEliminationSeconds": 6.1,
+        "firstActionSeconds": 0.1,
+        "survivors": 29,
+        "leaderShare": 0.17306272506742607,
+        "medianSurvivorTroops": 1415,
+        "foodBlockedSeconds": 172,
+        "purchases": 276,
+        "spend": {
+          "farm": "210000000",
+          "city": "272000000",
+          "land": "1338140000",
+          "transport": "176679800"
+        },
+        "rejected": 102
+      },
+      {
+        "seed": "simplefront-pace-08",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 134907363,
+        "wallMs": 27620.26883300001,
+        "firstContactSeconds": 1.2,
+        "firstEliminationSeconds": 1.2,
+        "firstActionSeconds": 0.1,
+        "survivors": 36,
+        "leaderShare": 0.15534360921514562,
+        "medianSurvivorTroops": 1498.5,
+        "foodBlockedSeconds": 220,
+        "purchases": 268,
+        "spend": {
+          "farm": "198000000",
+          "city": "272000000",
+          "land": "1514931800",
+          "transport": "182022200"
+        },
+        "rejected": 119
+      },
+      {
+        "seed": "simplefront-pace-09",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 90178631,
+        "wallMs": 32705.124249999964,
+        "firstContactSeconds": 2.9,
+        "firstEliminationSeconds": 2.9,
+        "firstActionSeconds": 0.1,
+        "survivors": 48,
+        "leaderShare": 0.08419593484910123,
+        "medianSurvivorTroops": 967.5,
+        "foodBlockedSeconds": 56,
+        "purchases": 201,
+        "spend": {
+          "farm": "150000000",
+          "city": "202000000",
+          "land": "1239808400",
+          "transport": "192192600"
+        },
+        "rejected": 130
+      },
+      {
+        "seed": "simplefront-pace-10",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1309928991,
+        "wallMs": 28581.570583000022,
+        "firstContactSeconds": 0.3,
+        "firstEliminationSeconds": 0.3,
+        "firstActionSeconds": 0.1,
+        "survivors": 41,
+        "leaderShare": 0.12145730687519776,
+        "medianSurvivorTroops": 854,
+        "foodBlockedSeconds": 154,
+        "purchases": 250,
+        "spend": {
+          "farm": "207000000",
+          "city": "224000000",
+          "land": "1391554400",
+          "transport": "176697000"
+        },
+        "rejected": 131
+      }
+    ],
+    "policies": {
+      "120": {
+        "balanced": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "farm-first": {
+          "seats": 250,
+          "survival": 0.96,
+          "meanLandShare": 0.006261115882414987,
+          "medianTroops": 621
+        },
+        "expansion-first": {
+          "seats": 260,
+          "survival": 0.9461538461538461,
+          "meanLandShare": 0.006338223243706227,
+          "medianTroops": 607
+        },
+        "military-first": {
+          "seats": 250,
+          "survival": 0.96,
+          "meanLandShare": 0.006627732827072876,
+          "medianTroops": 610
+        }
+      },
+      "300": {
+        "balanced": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "farm-first": {
+          "seats": 250,
+          "survival": 0.956,
+          "meanLandShare": 0.010375145022525574,
+          "medianTroops": 627.5
+        },
+        "expansion-first": {
+          "seats": 260,
+          "survival": 0.9461538461538461,
+          "meanLandShare": 0.010422845698350829,
+          "medianTroops": 604.5
+        },
+        "military-first": {
+          "seats": 250,
+          "survival": 0.944,
+          "meanLandShare": 0.009830010999111034,
+          "medianTroops": 579
+        }
+      },
+      "600": {
+        "balanced": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "farm-first": {
+          "seats": 250,
+          "survival": 0.904,
+          "meanLandShare": 0.012928144163690885,
+          "medianTroops": 734
+        },
+        "expansion-first": {
+          "seats": 260,
+          "survival": 0.9076923076923077,
+          "meanLandShare": 0.01331205370440556,
+          "medianTroops": 774.5
+        },
+        "military-first": {
+          "seats": 250,
+          "survival": 0.824,
+          "meanLandShare": 0.012232819539242719,
+          "medianTroops": 729
+        }
+      }
+    }
+  },
+  "docs/balance-runs/initial-policies-2.json.gz": {
+    "runs": 10,
+    "completed": 0,
+    "medianVictorySeconds": null,
+    "medianLeaderShare": 0.16381141798128646,
+    "medianSurvivors": 41,
+    "medianFirstEliminationSeconds": 1.85,
+    "medianFirstContactSeconds": 1.85,
+    "perRun": [
+      {
+        "seed": "simplefront-pace-01",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1566029961,
+        "wallMs": 28934.745125,
+        "firstContactSeconds": 1.5,
+        "firstEliminationSeconds": 1.5,
+        "firstActionSeconds": 0.1,
+        "survivors": 43,
+        "leaderShare": 0.14672512769515889,
+        "medianSurvivorTroops": 1334,
+        "foodBlockedSeconds": 136,
+        "purchases": 278,
+        "spend": {
+          "farm": "232500000",
+          "city": "246000000",
+          "land": "1297112600",
+          "transport": "192410600"
+        },
+        "rejected": 131
+      },
+      {
+        "seed": "simplefront-pace-02",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 675334364,
+        "wallMs": 33458.985583999995,
+        "firstContactSeconds": 3.8,
+        "firstEliminationSeconds": 3.8,
+        "firstActionSeconds": 0.1,
+        "survivors": 47,
+        "leaderShare": 0.11502358028597688,
+        "medianSurvivorTroops": 1006,
+        "foodBlockedSeconds": 16,
+        "purchases": 181,
+        "spend": {
+          "farm": "147000000",
+          "city": "166000000",
+          "land": "1184287400",
+          "transport": "192597800"
+        },
+        "rejected": 200
+      },
+      {
+        "seed": "simplefront-pace-03",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 503530211,
+        "wallMs": 29087.758084,
+        "firstContactSeconds": 2,
+        "firstEliminationSeconds": 2,
+        "firstActionSeconds": 0.1,
+        "survivors": 27,
+        "leaderShare": 0.1987222950473866,
+        "medianSurvivorTroops": 1313,
+        "foodBlockedSeconds": 254,
+        "purchases": 323,
+        "spend": {
+          "farm": "265500000",
+          "city": "292000000",
+          "land": "1544725000",
+          "transport": "195213000"
+        },
+        "rejected": 121
+      },
+      {
+        "seed": "simplefront-pace-04",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 98560590,
+        "wallMs": 35860.614665999994,
+        "firstContactSeconds": 1.9,
+        "firstEliminationSeconds": 1.9,
+        "firstActionSeconds": 0.1,
+        "survivors": 51,
+        "leaderShare": 0.23651102171194383,
+        "medianSurvivorTroops": 750,
+        "foodBlockedSeconds": 42,
+        "purchases": 191,
+        "spend": {
+          "farm": "163500000",
+          "city": "164000000",
+          "land": "1322856400",
+          "transport": "216776200"
+        },
+        "rejected": 149
+      },
+      {
+        "seed": "simplefront-pace-05",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 11231942,
+        "wallMs": 32852.94766599999,
+        "firstContactSeconds": 2.1,
+        "firstEliminationSeconds": 2.1,
+        "firstActionSeconds": 0.1,
+        "survivors": 33,
+        "leaderShare": 0.1934788832135485,
+        "medianSurvivorTroops": 1300,
+        "foodBlockedSeconds": 256,
+        "purchases": 247,
+        "spend": {
+          "farm": "201000000",
+          "city": "226000000",
+          "land": "1281683800",
+          "transport": "170067400"
+        },
+        "rejected": 111
+      },
+      {
+        "seed": "simplefront-pace-06",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 99362406,
+        "wallMs": 24638.788,
+        "firstContactSeconds": 0.4,
+        "firstEliminationSeconds": 0.4,
+        "firstActionSeconds": 0.1,
+        "survivors": 29,
+        "leaderShare": 0.16821106239358738,
+        "medianSurvivorTroops": 2001,
+        "foodBlockedSeconds": 250,
+        "purchases": 321,
+        "spend": {
+          "farm": "259500000",
+          "city": "296000000",
+          "land": "1455494600",
+          "transport": "185090600"
+        },
+        "rejected": 141
+      },
+      {
+        "seed": "simplefront-pace-07",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1354378948,
+        "wallMs": 28150.79225,
+        "firstContactSeconds": 1.9,
+        "firstEliminationSeconds": 1.9,
+        "firstActionSeconds": 0.1,
+        "survivors": 39,
+        "leaderShare": 0.15941177356898553,
+        "medianSurvivorTroops": 1110,
+        "foodBlockedSeconds": 148,
+        "purchases": 263,
+        "spend": {
+          "farm": "214500000",
+          "city": "240000000",
+          "land": "1344746400",
+          "transport": "199101400"
+        },
+        "rejected": 115
+      },
+      {
+        "seed": "simplefront-pace-08",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1638577005,
+        "wallMs": 29205.729708,
+        "firstContactSeconds": 1.8,
+        "firstEliminationSeconds": 1.8,
+        "firstActionSeconds": 0.1,
+        "survivors": 36,
+        "leaderShare": 0.13188386144133557,
+        "medianSurvivorTroops": 1313,
+        "foodBlockedSeconds": 114,
+        "purchases": 277,
+        "spend": {
+          "farm": "217500000",
+          "city": "264000000",
+          "land": "1421595200",
+          "transport": "207614000"
+        },
+        "rejected": 136
+      },
+      {
+        "seed": "simplefront-pace-09",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 407618365,
+        "wallMs": 33457.94491600001,
+        "firstContactSeconds": 0.8,
+        "firstEliminationSeconds": 0.8,
+        "firstActionSeconds": 0.1,
+        "survivors": 47,
+        "leaderShare": 0.10055899591676837,
+        "medianSurvivorTroops": 1147,
+        "foodBlockedSeconds": 214,
+        "purchases": 208,
+        "spend": {
+          "farm": "177000000",
+          "city": "180000000",
+          "land": "1137075400",
+          "transport": "201665400"
+        },
+        "rejected": 109
+      },
+      {
+        "seed": "simplefront-pace-10",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 137778531,
+        "wallMs": 30680.184875000035,
+        "firstContactSeconds": 0.9,
+        "firstEliminationSeconds": 0.9,
+        "firstActionSeconds": 0.1,
+        "survivors": 49,
+        "leaderShare": 0.174358510750501,
+        "medianSurvivorTroops": 934,
+        "foodBlockedSeconds": 94,
+        "purchases": 185,
+        "spend": {
+          "farm": "150000000",
+          "city": "170000000",
+          "land": "1259790200",
+          "transport": "198154200"
+        },
+        "rejected": 125
+      }
+    ],
+    "policies": {
+      "120": {
+        "balanced": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "farm-first": {
+          "seats": 250,
+          "survival": 0.956,
+          "meanLandShare": 0.0065886181801744804,
+          "medianTroops": 606
+        },
+        "expansion-first": {
+          "seats": 250,
+          "survival": 0.94,
+          "meanLandShare": 0.006196326598261236,
+          "medianTroops": 616.5
+        },
+        "military-first": {
+          "seats": 260,
+          "survival": 0.9576923076923077,
+          "meanLandShare": 0.006597901939853753,
+          "medianTroops": 629
+        }
+      },
+      "300": {
+        "balanced": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "farm-first": {
+          "seats": 250,
+          "survival": 0.952,
+          "meanLandShare": 0.010723138814808119,
+          "medianTroops": 609.5
+        },
+        "expansion-first": {
+          "seats": 250,
+          "survival": 0.936,
+          "meanLandShare": 0.010132802965239794,
+          "medianTroops": 633
+        },
+        "military-first": {
+          "seats": 260,
+          "survival": 0.9423076923076923,
+          "meanLandShare": 0.009880771490860528,
+          "medianTroops": 598
+        }
+      },
+      "600": {
+        "balanced": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "farm-first": {
+          "seats": 250,
+          "survival": 0.912,
+          "meanLandShare": 0.013277403607105718,
+          "medianTroops": 749.5
+        },
+        "expansion-first": {
+          "seats": 250,
+          "survival": 0.892,
+          "meanLandShare": 0.012652413024152835,
+          "medianTroops": 720.5
+        },
+        "military-first": {
+          "seats": 260,
+          "survival": 0.8807692307692307,
+          "meanLandShare": 0.012587665464761701,
+          "medianTroops": 767
+        }
+      }
+    }
+  },
+  "docs/balance-runs/calibrated-balanced.json.gz": {
+    "runs": 10,
+    "completed": 0,
+    "medianVictorySeconds": null,
+    "medianLeaderShare": 0.3630987358555952,
+    "medianSurvivors": 7,
+    "medianFirstEliminationSeconds": 47.55,
+    "medianFirstContactSeconds": 13.6,
+    "perRun": [
+      {
+        "seed": "simplefront-pace-01",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1074031429,
+        "wallMs": 10553.124875000001,
+        "firstContactSeconds": 18.5,
+        "firstEliminationSeconds": 67.6,
+        "firstActionSeconds": 0.1,
+        "survivors": 6,
+        "leaderShare": 0.3627145203332881,
+        "medianSurvivorTroops": 2034157.5,
+        "foodBlockedSeconds": 406,
+        "purchases": 1399,
+        "spend": {
+          "farm": "225000000",
+          "city": "2498000000",
+          "land": "7770150000",
+          "transport": "2326280000"
+        },
+        "rejected": 87
+      },
+      {
+        "seed": "simplefront-pace-02",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1999980319,
+        "wallMs": 11849.120041999999,
+        "firstContactSeconds": 7.4,
+        "firstEliminationSeconds": 9.7,
+        "firstActionSeconds": 0.1,
+        "survivors": 7,
+        "leaderShare": 0.34070123099639893,
+        "medianSurvivorTroops": 2566464,
+        "foodBlockedSeconds": 310,
+        "purchases": 1681,
+        "spend": {
+          "farm": "321000000",
+          "city": "2934000000",
+          "land": "9537760400",
+          "transport": "1571840000"
+        },
+        "rejected": 108
+      },
+      {
+        "seed": "simplefront-pace-03",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1177040234,
+        "wallMs": 11249.263750000002,
+        "firstContactSeconds": 15.7,
+        "firstEliminationSeconds": 43.2,
+        "firstActionSeconds": 0.1,
+        "survivors": 6,
+        "leaderShare": 0.5155870963853606,
+        "medianSurvivorTroops": 1454702.5,
+        "foodBlockedSeconds": 418,
+        "purchases": 1284,
+        "spend": {
+          "farm": "222000000",
+          "city": "2272000000",
+          "land": "8376330200",
+          "transport": "1684157600"
+        },
+        "rejected": 93
+      },
+      {
+        "seed": "simplefront-pace-04",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1941983557,
+        "wallMs": 10604.97625,
+        "firstContactSeconds": 10.9,
+        "firstEliminationSeconds": 43.2,
+        "firstActionSeconds": 0.1,
+        "survivors": 7,
+        "leaderShare": 0.3634829513779023,
+        "medianSurvivorTroops": 1264214,
+        "foodBlockedSeconds": 338,
+        "purchases": 1661,
+        "spend": {
+          "farm": "273000000",
+          "city": "2958000000",
+          "land": "8756163600",
+          "transport": "1797985600"
+        },
+        "rejected": 113
+      },
+      {
+        "seed": "simplefront-pace-05",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1063605770,
+        "wallMs": 14487.644124999999,
+        "firstContactSeconds": 12.7,
+        "firstEliminationSeconds": 68.6,
+        "firstActionSeconds": 0.1,
+        "survivors": 8,
+        "leaderShare": 0.3881330139070952,
+        "medianSurvivorTroops": 1819737.5,
+        "foodBlockedSeconds": 390,
+        "purchases": 1882,
+        "spend": {
+          "farm": "331500000",
+          "city": "3322000000",
+          "land": "8730096200",
+          "transport": "2449897200"
+        },
+        "rejected": 109
+      },
+      {
+        "seed": "simplefront-pace-06",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 522523650,
+        "wallMs": 13666.056165999995,
+        "firstContactSeconds": 16.6,
+        "firstEliminationSeconds": 44.6,
+        "firstActionSeconds": 0.1,
+        "survivors": 10,
+        "leaderShare": 0.2729135590411186,
+        "medianSurvivorTroops": 1767072,
+        "foodBlockedSeconds": 370,
+        "purchases": 1874,
+        "spend": {
+          "farm": "246000000",
+          "city": "3420000000",
+          "land": "8152342000",
+          "transport": "1622381200"
+        },
+        "rejected": 128
+      },
+      {
+        "seed": "simplefront-pace-07",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 442602039,
+        "wallMs": 11638.990458,
+        "firstContactSeconds": 16.4,
+        "firstEliminationSeconds": 50.9,
+        "firstActionSeconds": 0.1,
+        "survivors": 6,
+        "leaderShare": 0.47205773779927374,
+        "medianSurvivorTroops": 1808011.5,
+        "foodBlockedSeconds": 366,
+        "purchases": 1685,
+        "spend": {
+          "farm": "292500000",
+          "city": "2980000000",
+          "land": "9829623000",
+          "transport": "2046999400"
+        },
+        "rejected": 107
+      },
+      {
+        "seed": "simplefront-pace-08",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 450808334,
+        "wallMs": 10859.141917,
+        "firstContactSeconds": 8.6,
+        "firstEliminationSeconds": 46.4,
+        "firstActionSeconds": 0.1,
+        "survivors": 6,
+        "leaderShare": 0.4035920384516868,
+        "medianSurvivorTroops": 2288518.5,
+        "foodBlockedSeconds": 286,
+        "purchases": 1466,
+        "spend": {
+          "farm": "228000000",
+          "city": "2628000000",
+          "land": "8304595200",
+          "transport": "1784045600"
+        },
+        "rejected": 117
+      },
+      {
+        "seed": "simplefront-pace-09",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1979959453,
+        "wallMs": 11802.511209000004,
+        "firstContactSeconds": 14.5,
+        "firstEliminationSeconds": 48.7,
+        "firstActionSeconds": 0.1,
+        "survivors": 11,
+        "leaderShare": 0.28772469074417273,
+        "medianSurvivorTroops": 769812,
+        "foodBlockedSeconds": 332,
+        "purchases": 1849,
+        "spend": {
+          "farm": "240000000",
+          "city": "3378000000",
+          "land": "7195662000",
+          "transport": "1684436600"
+        },
+        "rejected": 107
+      },
+      {
+        "seed": "simplefront-pace-10",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1732981693,
+        "wallMs": 12277.697375000003,
+        "firstContactSeconds": 9.7,
+        "firstEliminationSeconds": 53.5,
+        "firstActionSeconds": 0.1,
+        "survivors": 9,
+        "leaderShare": 0.306558784974913,
+        "medianSurvivorTroops": 1594064,
+        "foodBlockedSeconds": 380,
+        "purchases": 2034,
+        "spend": {
+          "farm": "336000000",
+          "city": "3620000000",
+          "land": "9618092000",
+          "transport": "1673871600"
+        },
+        "rejected": 122
+      }
+    ],
+    "policies": {
+      "120": {
+        "balanced": {
+          "seats": 760,
+          "survival": 0.7578947368421053,
+          "meanLandShare": 0.01265716556001494,
+          "medianTroops": 3851
+        },
+        "farm-first": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "expansion-first": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "military-first": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        }
+      },
+      "300": {
+        "balanced": {
+          "seats": 760,
+          "survival": 0.28421052631578947,
+          "meanLandShare": 0.01293924081550438,
+          "medianTroops": 1157
+        },
+        "farm-first": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "expansion-first": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "military-first": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        }
+      },
+      "600": {
+        "balanced": {
+          "seats": 760,
+          "survival": 0.13157894736842105,
+          "meanLandShare": 0.013103236212848262,
+          "medianTroops": 1021
+        },
+        "farm-first": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "expansion-first": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "military-first": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        }
+      }
+    }
+  },
+  "docs/balance-runs/calibrated-policies-0.json.gz": {
+    "runs": 10,
+    "completed": 0,
+    "medianVictorySeconds": null,
+    "medianLeaderShare": 0.4129789510162877,
+    "medianSurvivors": 6,
+    "medianFirstEliminationSeconds": 0.4,
+    "medianFirstContactSeconds": 0.4,
+    "perRun": [
+      {
+        "seed": "simplefront-pace-01",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 468299510,
+        "wallMs": 10231.376708,
+        "firstContactSeconds": 1.4,
+        "firstEliminationSeconds": 1.4,
+        "firstActionSeconds": 0.1,
+        "survivors": 6,
+        "leaderShare": 0.5280778676791875,
+        "medianSurvivorTroops": 992007.5,
+        "foodBlockedSeconds": 234,
+        "purchases": 925,
+        "spend": {
+          "farm": "310500000",
+          "city": "1436000000",
+          "land": "11908557000",
+          "transport": "1679674000"
+        },
+        "rejected": 91
+      },
+      {
+        "seed": "simplefront-pace-02",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 380047594,
+        "wallMs": 10965.457167,
+        "firstContactSeconds": 1.8,
+        "firstEliminationSeconds": 1.8,
+        "firstActionSeconds": 0.1,
+        "survivors": 7,
+        "leaderShare": 0.33970679082101585,
+        "medianSurvivorTroops": 942388,
+        "foodBlockedSeconds": 402,
+        "purchases": 919,
+        "spend": {
+          "farm": "367500000",
+          "city": "1348000000",
+          "land": "10885833600",
+          "transport": "2247240400"
+        },
+        "rejected": 105
+      },
+      {
+        "seed": "simplefront-pace-03",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 401593634,
+        "wallMs": 10710.858957999997,
+        "firstContactSeconds": 0.4,
+        "firstEliminationSeconds": 0.4,
+        "firstActionSeconds": 0.1,
+        "survivors": 6,
+        "leaderShare": 0.5187210896653558,
+        "medianSurvivorTroops": 912291,
+        "foodBlockedSeconds": 428,
+        "purchases": 1080,
+        "spend": {
+          "farm": "379500000",
+          "city": "1654000000",
+          "land": "10923990000",
+          "transport": "1706188000"
+        },
+        "rejected": 108
+      },
+      {
+        "seed": "simplefront-pace-04",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1275414114,
+        "wallMs": 10789.008458000004,
+        "firstContactSeconds": 0.2,
+        "firstEliminationSeconds": 0.2,
+        "firstActionSeconds": 0.1,
+        "survivors": 7,
+        "leaderShare": 0.44811583721315673,
+        "medianSurvivorTroops": 41311,
+        "foodBlockedSeconds": 426,
+        "purchases": 780,
+        "spend": {
+          "farm": "198000000",
+          "city": "1296000000",
+          "land": "7597685400",
+          "transport": "2304159800"
+        },
+        "rejected": 107
+      },
+      {
+        "seed": "simplefront-pace-05",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 783258964,
+        "wallMs": 17580.927165999994,
+        "firstContactSeconds": 0.3,
+        "firstEliminationSeconds": 0.3,
+        "firstActionSeconds": 0.1,
+        "survivors": 5,
+        "leaderShare": 0.3772996429055734,
+        "medianSurvivorTroops": 1022610,
+        "foodBlockedSeconds": 190,
+        "purchases": 968,
+        "spend": {
+          "farm": "430500000",
+          "city": "1362000000",
+          "land": "11601716000",
+          "transport": "2035466000"
+        },
+        "rejected": 93
+      },
+      {
+        "seed": "simplefront-pace-06",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 809537048,
+        "wallMs": 11660.145000000004,
+        "firstContactSeconds": 1.5,
+        "firstEliminationSeconds": 1.5,
+        "firstActionSeconds": 0.1,
+        "survivors": 6,
+        "leaderShare": 0.5056878964576835,
+        "medianSurvivorTroops": 443484.5,
+        "foodBlockedSeconds": 272,
+        "purchases": 785,
+        "spend": {
+          "farm": "235500000",
+          "city": "1256000000",
+          "land": "8740943600",
+          "transport": "1916106800"
+        },
+        "rejected": 109
+      },
+      {
+        "seed": "simplefront-pace-07",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1466187299,
+        "wallMs": 12313.143333,
+        "firstContactSeconds": 0.4,
+        "firstEliminationSeconds": 0.4,
+        "firstActionSeconds": 0.1,
+        "survivors": 6,
+        "leaderShare": 0.3209631002425831,
+        "medianSurvivorTroops": 1265329,
+        "foodBlockedSeconds": 368,
+        "purchases": 1067,
+        "spend": {
+          "farm": "315000000",
+          "city": "1714000000",
+          "land": "9211516000",
+          "transport": "2373299800"
+        },
+        "rejected": 113
+      },
+      {
+        "seed": "simplefront-pace-08",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 539974903,
+        "wallMs": 10695.262499999997,
+        "firstContactSeconds": 0.3,
+        "firstEliminationSeconds": 0.3,
+        "firstActionSeconds": 0.1,
+        "survivors": 7,
+        "leaderShare": 0.39188476547785867,
+        "medianSurvivorTroops": 672341,
+        "foodBlockedSeconds": 372,
+        "purchases": 960,
+        "spend": {
+          "farm": "378000000",
+          "city": "1416000000",
+          "land": "10729685800",
+          "transport": "2112145600"
+        },
+        "rejected": 92
+      },
+      {
+        "seed": "simplefront-pace-09",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1995175295,
+        "wallMs": 9413.545457999993,
+        "firstContactSeconds": 0.2,
+        "firstEliminationSeconds": 0.2,
+        "firstActionSeconds": 0.1,
+        "survivors": 4,
+        "leaderShare": 0.3954255751932378,
+        "medianSurvivorTroops": 1733585.5,
+        "foodBlockedSeconds": 304,
+        "purchases": 756,
+        "spend": {
+          "farm": "138000000",
+          "city": "1328000000",
+          "land": "8845647800",
+          "transport": "1054639400"
+        },
+        "rejected": 98
+      },
+      {
+        "seed": "simplefront-pace-10",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1123932891,
+        "wallMs": 9047.108084000007,
+        "firstContactSeconds": 1.1,
+        "firstEliminationSeconds": 1.1,
+        "firstActionSeconds": 0.1,
+        "survivors": 5,
+        "leaderShare": 0.4305323268393376,
+        "medianSurvivorTroops": 861120,
+        "foodBlockedSeconds": 400,
+        "purchases": 735,
+        "spend": {
+          "farm": "144000000",
+          "city": "1278000000",
+          "land": "9238953800",
+          "transport": "914060000"
+        },
+        "rejected": 74
+      }
+    ],
+    "policies": {
+      "120": {
+        "balanced": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "farm-first": {
+          "seats": 260,
+          "survival": 0.6961538461538461,
+          "meanLandShare": 0.011007398032213837,
+          "medianTroops": 3445
+        },
+        "expansion-first": {
+          "seats": 250,
+          "survival": 0.672,
+          "meanLandShare": 0.012107279000738297,
+          "medianTroops": 3863.5
+        },
+        "military-first": {
+          "seats": 250,
+          "survival": 0.676,
+          "meanLandShare": 0.010635145926562102,
+          "medianTroops": 4098
+        }
+      },
+      "300": {
+        "balanced": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "farm-first": {
+          "seats": 260,
+          "survival": 0.21923076923076923,
+          "meanLandShare": 0.008853704869163894,
+          "medianTroops": 1238.5
+        },
+        "expansion-first": {
+          "seats": 250,
+          "survival": 0.212,
+          "meanLandShare": 0.009303017975259535,
+          "medianTroops": 1174.5
+        },
+        "military-first": {
+          "seats": 250,
+          "survival": 0.288,
+          "meanLandShare": 0.02029851285991953,
+          "medianTroops": 1495
+        }
+      },
+      "600": {
+        "balanced": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "farm-first": {
+          "seats": 260,
+          "survival": 0.06923076923076923,
+          "meanLandShare": 0.007834983199987947,
+          "medianTroops": 1052.5
+        },
+        "expansion-first": {
+          "seats": 250,
+          "survival": 0.072,
+          "meanLandShare": 0.007980713887507722,
+          "medianTroops": 1068
+        },
+        "military-first": {
+          "seats": 250,
+          "survival": 0.16,
+          "meanLandShare": 0.02345739727885006,
+          "medianTroops": 1197.5
+        }
+      }
+    }
+  },
+  "docs/balance-runs/calibrated-policies-1.json.gz": {
+    "runs": 10,
+    "completed": 0,
+    "medianVictorySeconds": null,
+    "medianLeaderShare": 0.4630023052931338,
+    "medianSurvivors": 5.5,
+    "medianFirstEliminationSeconds": 1.5499999999999998,
+    "medianFirstContactSeconds": 1.5499999999999998,
+    "perRun": [
+      {
+        "seed": "simplefront-pace-01",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 410484440,
+        "wallMs": 11151.526582999999,
+        "firstContactSeconds": 5.3,
+        "firstEliminationSeconds": 5.7,
+        "firstActionSeconds": 0.1,
+        "survivors": 4,
+        "leaderShare": 0.47766276424234205,
+        "medianSurvivorTroops": 1487805.5,
+        "foodBlockedSeconds": 250,
+        "purchases": 584,
+        "spend": {
+          "farm": "151500000",
+          "city": "966000000",
+          "land": "8315418800",
+          "transport": "2184549600"
+        },
+        "rejected": 78
+      },
+      {
+        "seed": "simplefront-pace-02",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 299602569,
+        "wallMs": 11296.360333,
+        "firstContactSeconds": 2.1,
+        "firstEliminationSeconds": 2.1,
+        "firstActionSeconds": 0.1,
+        "survivors": 8,
+        "leaderShare": 0.3453118172640841,
+        "medianSurvivorTroops": 544202,
+        "foodBlockedSeconds": 418,
+        "purchases": 1000,
+        "spend": {
+          "farm": "342000000",
+          "city": "1544000000",
+          "land": "10319013800",
+          "transport": "2510130000"
+        },
+        "rejected": 85
+      },
+      {
+        "seed": "simplefront-pace-03",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1909496856,
+        "wallMs": 11309.186125000004,
+        "firstContactSeconds": 0.2,
+        "firstEliminationSeconds": 0.2,
+        "firstActionSeconds": 0.1,
+        "survivors": 5,
+        "leaderShare": 0.32768310506411125,
+        "medianSurvivorTroops": 1691981,
+        "foodBlockedSeconds": 570,
+        "purchases": 775,
+        "spend": {
+          "farm": "268500000",
+          "city": "1192000000",
+          "land": "9404381800",
+          "transport": "1532082400"
+        },
+        "rejected": 93
+      },
+      {
+        "seed": "simplefront-pace-04",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 678420259,
+        "wallMs": 9575.502833999999,
+        "firstContactSeconds": 1.9,
+        "firstEliminationSeconds": 1.9,
+        "firstActionSeconds": 0.1,
+        "survivors": 5,
+        "leaderShare": 0.3231930569995028,
+        "medianSurvivorTroops": 1684475,
+        "foodBlockedSeconds": 256,
+        "purchases": 844,
+        "spend": {
+          "farm": "159000000",
+          "city": "1476000000",
+          "land": "8013872600",
+          "transport": "1484693400"
+        },
+        "rejected": 98
+      },
+      {
+        "seed": "simplefront-pace-05",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1169913961,
+        "wallMs": 13722.002708,
+        "firstContactSeconds": 0.6,
+        "firstEliminationSeconds": 0.6,
+        "firstActionSeconds": 0.1,
+        "survivors": 6,
+        "leaderShare": 0.5072096912715274,
+        "medianSurvivorTroops": 1082170.5,
+        "foodBlockedSeconds": 234,
+        "purchases": 847,
+        "spend": {
+          "farm": "253500000",
+          "city": "1356000000",
+          "land": "10142615400",
+          "transport": "2118180600"
+        },
+        "rejected": 115
+      },
+      {
+        "seed": "simplefront-pace-06",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 689412749,
+        "wallMs": 13036.496334000003,
+        "firstContactSeconds": 0.4,
+        "firstEliminationSeconds": 0.4,
+        "firstActionSeconds": 0.1,
+        "survivors": 6,
+        "leaderShare": 0.5331103376576414,
+        "medianSurvivorTroops": 437456.5,
+        "foodBlockedSeconds": 212,
+        "purchases": 774,
+        "spend": {
+          "farm": "252000000",
+          "city": "1212000000",
+          "land": "8489169200",
+          "transport": "1970320600"
+        },
+        "rejected": 98
+      },
+      {
+        "seed": "simplefront-pace-07",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1920328920,
+        "wallMs": 11483.252332999997,
+        "firstContactSeconds": 5.3,
+        "firstEliminationSeconds": 6.1,
+        "firstActionSeconds": 0.1,
+        "survivors": 6,
+        "leaderShare": 0.4746191746146544,
+        "medianSurvivorTroops": 823694,
+        "foodBlockedSeconds": 342,
+        "purchases": 927,
+        "spend": {
+          "farm": "402000000",
+          "city": "1318000000",
+          "land": "11641333200",
+          "transport": "2666051000"
+        },
+        "rejected": 128
+      },
+      {
+        "seed": "simplefront-pace-08",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1405816552,
+        "wallMs": 11081.933707999997,
+        "firstContactSeconds": 1.2,
+        "firstEliminationSeconds": 1.2,
+        "firstActionSeconds": 0.1,
+        "survivors": 4,
+        "leaderShare": 0.45138543597161324,
+        "medianSurvivorTroops": 1471003.5,
+        "foodBlockedSeconds": 210,
+        "purchases": 713,
+        "spend": {
+          "farm": "252000000",
+          "city": "1090000000",
+          "land": "8746007600",
+          "transport": "2355551400"
+        },
+        "rejected": 79
+      },
+      {
+        "seed": "simplefront-pace-09",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1516053809,
+        "wallMs": 11770.515707999992,
+        "firstContactSeconds": 2.9,
+        "firstEliminationSeconds": 2.9,
+        "firstActionSeconds": 0.1,
+        "survivors": 6,
+        "leaderShare": 0.280251322153415,
+        "medianSurvivorTroops": 1426558,
+        "foodBlockedSeconds": 394,
+        "purchases": 968,
+        "spend": {
+          "farm": "391500000",
+          "city": "1414000000",
+          "land": "12164911600",
+          "transport": "1827482000"
+        },
+        "rejected": 94
+      },
+      {
+        "seed": "simplefront-pace-10",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1767546115,
+        "wallMs": 9874.510708999995,
+        "firstContactSeconds": 0.3,
+        "firstEliminationSeconds": 0.3,
+        "firstActionSeconds": 0.1,
+        "survivors": 5,
+        "leaderShare": 0.49584896563154485,
+        "medianSurvivorTroops": 1583416,
+        "foodBlockedSeconds": 316,
+        "purchases": 1064,
+        "spend": {
+          "farm": "235500000",
+          "city": "1814000000",
+          "land": "9215859000",
+          "transport": "1161890400"
+        },
+        "rejected": 99
+      }
+    ],
+    "policies": {
+      "120": {
+        "balanced": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "farm-first": {
+          "seats": 250,
+          "survival": 0.66,
+          "meanLandShare": 0.011259353011194987,
+          "medianTroops": 3687
+        },
+        "expansion-first": {
+          "seats": 260,
+          "survival": 0.7,
+          "meanLandShare": 0.012110844149898523,
+          "medianTroops": 4123
+        },
+        "military-first": {
+          "seats": 250,
+          "survival": 0.672,
+          "meanLandShare": 0.010300411336618003,
+          "medianTroops": 4331
+        }
+      },
+      "300": {
+        "balanced": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "farm-first": {
+          "seats": 250,
+          "survival": 0.176,
+          "meanLandShare": 0.00826825777094728,
+          "medianTroops": 1188
+        },
+        "expansion-first": {
+          "seats": 260,
+          "survival": 0.2230769230769231,
+          "meanLandShare": 0.009659340493766202,
+          "medianTroops": 1240
+        },
+        "military-first": {
+          "seats": 250,
+          "survival": 0.3,
+          "meanLandShare": 0.020722264912835804,
+          "medianTroops": 1512.5
+        }
+      },
+      "600": {
+        "balanced": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "farm-first": {
+          "seats": 250,
+          "survival": 0.068,
+          "meanLandShare": 0.009132576956109025,
+          "medianTroops": 1101
+        },
+        "expansion-first": {
+          "seats": 260,
+          "survival": 0.09615384615384616,
+          "meanLandShare": 0.010164789631860103,
+          "medianTroops": 1093.5
+        },
+        "military-first": {
+          "seats": 250,
+          "survival": 0.156,
+          "meanLandShare": 0.01992936461299703,
+          "medianTroops": 1375
+        }
+      }
+    }
+  },
+  "docs/balance-runs/calibrated-policies-2.json.gz": {
+    "runs": 10,
+    "completed": 0,
+    "medianVictorySeconds": null,
+    "medianLeaderShare": 0.46238454700236553,
+    "medianSurvivors": 5,
+    "medianFirstEliminationSeconds": 1.85,
+    "medianFirstContactSeconds": 1.85,
+    "perRun": [
+      {
+        "seed": "simplefront-pace-01",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 311403758,
+        "wallMs": 11919.383041000001,
+        "firstContactSeconds": 1.5,
+        "firstEliminationSeconds": 1.5,
+        "firstActionSeconds": 0.1,
+        "survivors": 7,
+        "leaderShare": 0.28261688438879595,
+        "medianSurvivorTroops": 1004438,
+        "foodBlockedSeconds": 318,
+        "purchases": 822,
+        "spend": {
+          "farm": "240000000",
+          "city": "1324000000",
+          "land": "8628419000",
+          "transport": "2123032800"
+        },
+        "rejected": 120
+      },
+      {
+        "seed": "simplefront-pace-02",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1143485880,
+        "wallMs": 11212.71075,
+        "firstContactSeconds": 3.8,
+        "firstEliminationSeconds": 3.8,
+        "firstActionSeconds": 0.1,
+        "survivors": 8,
+        "leaderShare": 0.2646114903042083,
+        "medianSurvivorTroops": 760045.5,
+        "foodBlockedSeconds": 328,
+        "purchases": 934,
+        "spend": {
+          "farm": "268500000",
+          "city": "1510000000",
+          "land": "9228844600",
+          "transport": "1750777000"
+        },
+        "rejected": 90
+      },
+      {
+        "seed": "simplefront-pace-03",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 2108004480,
+        "wallMs": 12270.545500000004,
+        "firstContactSeconds": 2,
+        "firstEliminationSeconds": 2,
+        "firstActionSeconds": 0.1,
+        "survivors": 7,
+        "leaderShare": 0.4681402461992798,
+        "medianSurvivorTroops": 595634,
+        "foodBlockedSeconds": 548,
+        "purchases": 687,
+        "spend": {
+          "farm": "168000000",
+          "city": "1150000000",
+          "land": "7527262600",
+          "transport": "2743838800"
+        },
+        "rejected": 119
+      },
+      {
+        "seed": "simplefront-pace-04",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 81668694,
+        "wallMs": 9944.944499999998,
+        "firstContactSeconds": 3.9,
+        "firstEliminationSeconds": 3.9,
+        "firstActionSeconds": 0.1,
+        "survivors": 5,
+        "leaderShare": 0.6603685455559071,
+        "medianSurvivorTroops": 449859,
+        "foodBlockedSeconds": 264,
+        "purchases": 799,
+        "spend": {
+          "farm": "247500000",
+          "city": "1268000000",
+          "land": "11505437600",
+          "transport": "1145211600"
+        },
+        "rejected": 80
+      },
+      {
+        "seed": "simplefront-pace-05",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 229430885,
+        "wallMs": 13277.362625000002,
+        "firstContactSeconds": 2.1,
+        "firstEliminationSeconds": 2.1,
+        "firstActionSeconds": 0.1,
+        "survivors": 5,
+        "leaderShare": 0.4932423269900104,
+        "medianSurvivorTroops": 82756,
+        "foodBlockedSeconds": 306,
+        "purchases": 753,
+        "spend": {
+          "farm": "207000000",
+          "city": "1230000000",
+          "land": "9806400400",
+          "transport": "1807992000"
+        },
+        "rejected": 82
+      },
+      {
+        "seed": "simplefront-pace-06",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 278891363,
+        "wallMs": 11609.054749999996,
+        "firstContactSeconds": 0.4,
+        "firstEliminationSeconds": 0.4,
+        "firstActionSeconds": 0.1,
+        "survivors": 5,
+        "leaderShare": 0.43508264400548446,
+        "medianSurvivorTroops": 602437,
+        "foodBlockedSeconds": 326,
+        "purchases": 979,
+        "spend": {
+          "farm": "283500000",
+          "city": "1580000000",
+          "land": "10364922600",
+          "transport": "1706090200"
+        },
+        "rejected": 85
+      },
+      {
+        "seed": "simplefront-pace-07",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 4663869,
+        "wallMs": 10493.58991699999,
+        "firstContactSeconds": 1.9,
+        "firstEliminationSeconds": 1.9,
+        "firstActionSeconds": 0.1,
+        "survivors": 4,
+        "leaderShare": 0.5203182208561226,
+        "medianSurvivorTroops": 1636863.5,
+        "foodBlockedSeconds": 398,
+        "purchases": 860,
+        "spend": {
+          "farm": "279000000",
+          "city": "1348000000",
+          "land": "10581083400",
+          "transport": "1949752600"
+        },
+        "rejected": 73
+      },
+      {
+        "seed": "simplefront-pace-08",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1407415135,
+        "wallMs": 10869.233791000006,
+        "firstContactSeconds": 1.8,
+        "firstEliminationSeconds": 1.8,
+        "firstActionSeconds": 0.1,
+        "survivors": 5,
+        "leaderShare": 0.4566288478054513,
+        "medianSurvivorTroops": 335246,
+        "foodBlockedSeconds": 334,
+        "purchases": 828,
+        "spend": {
+          "farm": "300000000",
+          "city": "1256000000",
+          "land": "10042199400",
+          "transport": "2177578800"
+        },
+        "rejected": 96
+      },
+      {
+        "seed": "simplefront-pace-09",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1873282306,
+        "wallMs": 10348.007834000004,
+        "firstContactSeconds": 0.8,
+        "firstEliminationSeconds": 0.8,
+        "firstActionSeconds": 0.1,
+        "survivors": 5,
+        "leaderShare": 0.5496391387545391,
+        "medianSurvivorTroops": 1018676,
+        "foodBlockedSeconds": 382,
+        "purchases": 763,
+        "spend": {
+          "farm": "141000000",
+          "city": "1338000000",
+          "land": "8074672400",
+          "transport": "1720712600"
+        },
+        "rejected": 102
+      },
+      {
+        "seed": "simplefront-pace-10",
+        "completed": false,
+        "victorySeconds": null,
+        "finalHash": 1555983894,
+        "wallMs": 11787.342124999996,
+        "firstContactSeconds": 0.9,
+        "firstEliminationSeconds": 0.9,
+        "firstActionSeconds": 0.1,
+        "survivors": 7,
+        "leaderShare": 0.38472780967017733,
+        "medianSurvivorTroops": 812445,
+        "foodBlockedSeconds": 332,
+        "purchases": 565,
+        "spend": {
+          "farm": "145500000",
+          "city": "936000000",
+          "land": "8300580800",
+          "transport": "1963119000"
+        },
+        "rejected": 111
+      }
+    ],
+    "policies": {
+      "120": {
+        "balanced": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "farm-first": {
+          "seats": 250,
+          "survival": 0.644,
+          "meanLandShare": 0.0109123837936386,
+          "medianTroops": 3392.5
+        },
+        "expansion-first": {
+          "seats": 250,
+          "survival": 0.708,
+          "meanLandShare": 0.01223366330666425,
+          "medianTroops": 3729.5
+        },
+        "military-first": {
+          "seats": 260,
+          "survival": 0.6923076923076923,
+          "meanLandShare": 0.010523390786013399,
+          "medianTroops": 4217.5
+        }
+      },
+      "300": {
+        "balanced": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "farm-first": {
+          "seats": 250,
+          "survival": 0.156,
+          "meanLandShare": 0.008389579472344016,
+          "medianTroops": 1100
+        },
+        "expansion-first": {
+          "seats": 250,
+          "survival": 0.224,
+          "meanLandShare": 0.009641790595006706,
+          "medianTroops": 1248.5
+        },
+        "military-first": {
+          "seats": 260,
+          "survival": 0.3076923076923077,
+          "meanLandShare": 0.020266586462400777,
+          "medianTroops": 1602
+        }
+      },
+      "600": {
+        "balanced": {
+          "seats": 0,
+          "survival": null,
+          "meanLandShare": null,
+          "medianTroops": null
+        },
+        "farm-first": {
+          "seats": 250,
+          "survival": 0.072,
+          "meanLandShare": 0.006954150281004686,
+          "medianTroops": 1039.5
+        },
+        "expansion-first": {
+          "seats": 250,
+          "survival": 0.092,
+          "meanLandShare": 0.010454941312962377,
+          "medianTroops": 1124.5
+        },
+        "military-first": {
+          "seats": 260,
+          "survival": 0.17307692307692307,
+          "meanLandShare": 0.02155031832516802,
+          "medianTroops": 1287
+        }
+      }
+    }
+  }
+}

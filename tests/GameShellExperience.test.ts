@@ -1,5 +1,7 @@
 import { html, render } from "lit";
 import { beforeAll, describe, expect, test, vi } from "vitest";
+import { CameraRenderer } from "../src/client/shell/CameraRenderer";
+import { translateText } from "../src/client/Utils";
 
 let GameShellPage: typeof import("../src/client/GameShellPage").GameShellPage;
 
@@ -45,6 +47,44 @@ function workerFrame(overrides: Record<string, unknown> = {}) {
 }
 
 describe("universal game shell lifecycle", () => {
+  test.each([true, false])(
+    "provides a homepage exit with GPU support %s",
+    (supported) => {
+      const page = workerPage("openfront");
+      const container = document.createElement("div");
+      const support = vi
+        .spyOn(CameraRenderer, "isSupported")
+        .mockReturnValue(supported);
+      try {
+        render(page.render(), container);
+        const homeSelector = `a[aria-label="${translateText("play_page.back_home")}"]`;
+        const home = container.querySelector<HTMLAnchorElement>(homeSelector);
+        expect(home?.getAttribute("href")).toBe("/");
+        page.ambient = true;
+        render(page.render(), container);
+        expect(container.querySelector(homeSelector)).toBeNull();
+      } finally {
+        support.mockRestore();
+      }
+    },
+  );
+  test("offers the independent SimpleFront application in the game picker", () => {
+    const page = workerPage("openfront");
+    const container = document.createElement("div");
+    const supported = vi
+      .spyOn(CameraRenderer, "isSupported")
+      .mockReturnValue(true);
+    try {
+      render(page.render(), container);
+    } finally {
+      supported.mockRestore();
+    }
+    expect(
+      container.querySelector(
+        'select[aria-label="Game"] option[value="simplefront"]',
+      )?.textContent,
+    ).toContain("SimpleFront (live)");
+  });
   test("shows every completed field tick without waiting for scalar readback", async () => {
     let finish!: () => void;
     const page = new GameShellPage() as any;

@@ -1,0 +1,143 @@
+{
+  "categories": ["featured", "new", "fictional"],
+  "elevation": true,
+  "featured_rank": 1,
+  "hydro": true,
+  "id": "Verdantia",
+  "layers": true,
+  "map": {
+    "height": 256,
+    "num_land_tiles": 66369,
+    "width": 512
+  },
+  "map4x": {
+    "height": 128,
+    "num_land_tiles": 15548,
+    "width": 256
+  },
+  "multiplayer_frequency": 0,
+  "name": "Verdantia",
+  "nations": [
+    {
+      "coordinates": [222, 104],
+      "name": "Aldermoor"
+    },
+    {
+      "coordinates": [349, 172],
+      "name": "Bramblehold"
+    },
+    {
+      "coordinates": [460, 168],
+      "name": "Cindermarch"
+    },
+    {
+      "coordinates": [400, 106],
+      "name": "Dunravel"
+    },
+    {
+      "coordinates": [138, 104],
+      "name": "Elderwyn"
+    },
+    {
+      "coordinates": [281, 108],
+      "name": "Fenwater"
+    },
+    {
+      "coordinates": [101, 166],
+      "name": "Greenhollow"
+    },
+    {
+      "coordinates": [68, 101],
+      "name": "Hearthvale"
+    },
+    {
+      "coordinates": [239, 142],
+      "name": "Ironbark"
+    },
+    {
+      "coordinates": [25, 169],
+      "name": "Junipergarde"
+    },
+    {
+      "coordinates": [401, 173],
+      "name": "Kelnmere"
+    },
+    {
+      "coordinates": [301, 152],
+      "name": "Larkspur"
+    },
+    {
+      "coordinates": [486, 91],
+      "name": "Mosswend"
+    },
+    {
+      "coordinates": [279, 198],
+      "name": "Northreach"
+    },
+    {
+      "coordinates": [438, 87],
+      "name": "Oakenfast"
+    },
+    {
+      "coordinates": [195, 154],
+      "name": "Pinehaven"
+    },
+    {
+      "coordinates": [387, 62],
+      "name": "Quillbrook"
+    },
+    {
+      "coordinates": [64, 197],
+      "name": "Rushmere"
+    },
+    {
+      "coordinates": [347, 113],
+      "name": "Stonecreek"
+    },
+    {
+      "coordinates": [105, 70],
+      "name": "Thornfield"
+    },
+    {
+      "coordinates": [57, 43],
+      "name": "Umbervale"
+    },
+    {
+      "coordinates": [434, 209],
+      "name": "Verdance"
+    },
+    {
+      "coordinates": [238, 193],
+      "name": "Willowmarch"
+    },
+    {
+      "coordinates": [176, 231],
+      "name": "Yarrowden"
+    },
+    {
+      "coordinates": [151, 176],
+      "name": "Zephyrhold"
+    }
+  ],
+  "terrain_colors": true,
+  "translation_key": "map.verdantia",
+  "world_engine": {
+    "coastFalloff": 0.78,
+    "coastRoughness": 0.42,
+    "continentScale": 0.92,
+    "elevationCooling": 0.35,
+    "height": 256,
+    "lakeElevationRange": 0.03,
+    "lakeWaterThreshold": 1.2,
+    "latitudeEffect": 0.72,
+    "mountainStrength": 0.56,
+    "rainNoise": 0.62,
+    "riverFlowRetention": 0.82,
+    "riverStrongThreshold": 0.48,
+    "riverWeakThreshold": 0.28,
+    "seaLevel": 0.46,
+    "seed": 42,
+    "warmthRainfall": 0.42,
+    "width": 512
+  }
+}

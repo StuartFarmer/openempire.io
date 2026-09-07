@@ -4,8 +4,9 @@ import fs from "fs";
 import { lookup as lookupMime } from "mrmime";
 import path from "path";
 import { fileURLToPath } from "url";
-import { defineConfig, loadEnv, type Plugin } from "vite";
+import { build, createServer, defineConfig, loadEnv, type Plugin } from "vite";
 import { createHtmlPlugin } from "vite-plugin-html";
+import { configDefaults } from "vitest/config";
 import {
   type AssetManifest,
   buildAssetUrl,
@@ -32,6 +33,40 @@ function gitCommit(): string {
   } catch {
     return "LOCAL";
   }
+}
+
+// Serve/build the independent app without importing any of its gameplay code.
+function simplefrontApp(): Plugin {
+  const configFile = path.join(__dirname, "simplefront/vite.config.ts");
+  let outDir: string;
+  let building = false;
+  return {
+    name: "simplefront-app",
+    enforce: "pre", // Route before the root HTML fallback rewrites requests.
+    configResolved(config) {
+      outDir = path.resolve(config.root, config.build.outDir, "simplefront");
+      building = config.command === "build";
+    },
+    async configureServer(server) {
+      if (!server.httpServer) return;
+      const app = await createServer({
+        configFile,
+        base: "/simplefront/",
+        server: { middlewareMode: true, hmr: { server: server.httpServer } },
+      });
+      server.middlewares.use((req, res, next) => {
+        if (/^\/simplefront(?:\/|\?|$)/.test(req.url ?? "")) {
+          app.middlewares(req, res, next);
+        } else next();
+      });
+      server.httpServer?.once("close", () => void app.close());
+    },
+    async closeBundle() {
+      if (building) {
+        await build({ configFile, base: "/simplefront/", build: { outDir } });
+      }
+    },
+  };
 }
 
 /**
@@ -210,6 +245,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     test: {
+      exclude: [...configDefaults.exclude, "simplefront/**"],
       globals: true,
       environment: "jsdom",
       setupFiles: "./tests/setup.ts",
@@ -226,6 +262,7 @@ export default defineConfig(({ mode }) => {
     },
 
     plugins: [
+      simplefrontApp(),
       ...(!isProduction
         ? [serveProprietaryDir(proprietaryDir, resourcesDir), serveEarthData()]
         : []),

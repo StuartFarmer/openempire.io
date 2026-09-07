@@ -6,7 +6,7 @@ import "./FlagPicker";
 
 /**
  * The front page. Deliberately spare and dark, matching the #shell viewer
- * rather than the old marketing splash: a title, who you are, and the two ways
+ * rather than the old marketing splash: a title, who you are, and the ways
  * in. No nav bar — settings and help were chrome around a game that now starts
  * in one click.
  */
@@ -60,6 +60,13 @@ export class PlayPage extends LitElement {
             >
               ${translateText("play_page.start_game")}
             </button>
+            <a
+              data-demos
+              href="/simplefront/demos/"
+              class="w-full py-3 rounded border border-white/20 bg-white/10 hover:bg-white/20 text-white text-center text-base font-semibold tracking-wide transition-colors"
+            >
+              ${translateText("play_page.demos")}
+            </a>
             <a
               href="#generator"
               class="w-full py-2.5 rounded border border-white/10 hover:bg-white/10 text-white/60 hover:text-white/90 text-center text-sm tracking-wide transition-colors"

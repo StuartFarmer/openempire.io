@@ -49,8 +49,10 @@ export function nearestEnemyAI(
   opts: { commit?: number } = {},
 ): void {
   const commit = opts.commit ?? 0.6;
+  const owned = ctx.scalars.tilesOwned;
   for (let p = 1; p < ctx.playerCount; p += 1) {
     if (p === ctx.localPlayer) continue;
+    if (Array.isArray(owned) && (owned[p] ?? 0) === 0) continue;
     ctx.setPlayer(p, {
       alive: 1,
       attacking: 1,

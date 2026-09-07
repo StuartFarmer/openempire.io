@@ -1,0 +1,24 @@
+import "./city-demand/CityDemandDemo";
+import "./DemoGallery";
+import "./demos.css";
+import "./urban-growth/UrbanGrowthDemo";
+
+const root = document.querySelector("#demos-root")!;
+function showDemo() {
+  const tag =
+    window.location.hash === "#urban-growth"
+      ? "urban-growth-demo"
+      : window.location.hash === "#city-demand"
+        ? "city-demand-demo"
+        : "demo-gallery";
+  if (root.firstElementChild?.tagName.toLowerCase() === tag) return;
+  root.replaceChildren(document.createElement(tag));
+  document.title =
+    tag === "urban-growth-demo"
+      ? "Urban Growth · SimpleFront Demos"
+      : tag === "city-demand-demo"
+        ? "Demand-led City · SimpleFront Demos"
+        : "SimpleFront · Demos";
+}
+window.addEventListener("hashchange", showDemo);
+showDemo();

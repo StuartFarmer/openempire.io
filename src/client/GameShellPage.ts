@@ -45,6 +45,7 @@ import {
   type ShellView,
 } from "./shell/MapLayerViews";
 import { themeProvider } from "./theme/ThemeProvider";
+import { translateText } from "./Utils";
 import type { PlayerView } from "./view";
 import { FieldViewerBase } from "./viewer/FieldViewerBase";
 import { loadMapInputs, type MapInputBundle } from "./webgpu/MapInputs";
@@ -2776,6 +2777,12 @@ export class GameShellPage extends FieldViewerBase {
         class="w-full h-full bg-neutral-950 text-white overflow-auto"
       >
         <div class="max-w-3xl mx-auto p-8 text-white/80 leading-7">
+          <a
+            href="/"
+            aria-label=${translateText("play_page.back_home")}
+            class="inline-block mb-4 hover:text-white"
+            >← ${translateText("play_page.home")}</a
+          >
           <h1 class="text-2xl font-semibold text-white mb-4">Game Shell</h1>
           <p>This browser does not expose <code>navigator.gpu</code>.</p>
         </div>
@@ -2830,9 +2837,21 @@ export class GameShellPage extends FieldViewerBase {
         <div
           class="absolute top-3 left-3 flex items-center gap-3 text-sm text-white bg-black/60 backdrop-blur px-3 py-2 rounded flex-wrap max-w-[calc(100%-1.5rem)]"
         >
+          <a
+            href="/"
+            aria-label=${translateText("play_page.back_home")}
+            title=${translateText("play_page.leave_game")}
+            class="rounded px-2 py-1 hover:bg-white/10"
+            >← ${translateText("play_page.home")}</a
+          >
           <select
+            aria-label="Game"
             class="bg-black/40 border border-white/20 px-2 py-1 text-white"
             @change=${(e: Event) => {
+              if ((e.target as HTMLSelectElement).value === "simplefront") {
+                window.location.assign("/simplefront/#shell");
+                return;
+              }
               this.systemId = (e.target as HTMLSelectElement).value;
               this.paramValues = {};
               // Apply the newly-selected game's default map; the view resets to
@@ -2851,6 +2870,7 @@ export class GameShellPage extends FieldViewerBase {
                   ${s.name}
                 </option>`,
             )}
+            <option value="simplefront">SimpleFront (live)</option>
           </select>
           <select
             class="bg-black/40 border border-white/20 px-2 py-1 text-white"

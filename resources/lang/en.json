@@ -536,6 +536,10 @@
     "warning": "WARNING"
   },
   "play_page": {
+    "demos": "Demos",
+    "home": "Home",
+    "back_home": "Back to homepage",
+    "leave_game": "Return to the homepage and leave this game",
     "map_generator": "Map Generator",
     "start_game": "Start Game"
   },

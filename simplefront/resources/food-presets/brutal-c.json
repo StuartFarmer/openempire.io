@@ -1,0 +1,27 @@
+{
+  "name": "brutal-c",
+  "description": "brutal-comeback front point 3/6 — finalGini 0.604, finalAlive 18.667, leaderDrawdown 0.018",
+  "source": "sweep brutal-comeback · cell campaignMaxStalls=2,maxWarShare=0.430686,popPerDensity=8000,supplyRadius=10,threatDriftPerPass=14,threatPowerRatio=1.70557,warSupplyAttrition=0.00957014",
+  "overrides": {
+    "popPerDensity": 8000,
+    "maxWarShare": 0.430686,
+    "warSupplyAttrition": 0.00957014,
+    "threatPowerRatio": 1.70557,
+    "threatDriftPerPass": 14
+  },
+  "metrics": {
+    "mean_finalAlive": 18.6667,
+    "mean_finalGini": 0.6037,
+    "mean_finalLeaderShare": 0.1774,
+    "mean_totalStarved": 27486.6667,
+    "mean_urbanAreaTotal": 117.3333
+  },
+  "run": {
+    "map": "Verdantia",
+    "ticks": 3000,
+    "nations": 25,
+    "bots": 40,
+    "difficulty": "Medium",
+    "seeds": 3
+  }
+}

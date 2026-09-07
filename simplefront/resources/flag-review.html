@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Flag review</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 13px/1.4 system-ui, sans-serif; background: #111418; color: #e6e9ee; }
+  header {
+    position: sticky; top: 0; z-index: 10; background: #161a20; border-bottom: 1px solid #2a3038;
+    padding: 10px 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  }
+  header h1 { font-size: 14px; margin: 0; font-weight: 600; }
+  input[type=search] { background: #0d1013; border: 1px solid #2a3038; color: #e6e9ee; padding: 6px 10px; border-radius: 6px; width: 220px; }
+  button { background: #232a33; border: 1px solid #333c47; color: #e6e9ee; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+  button:hover { background: #2c343f; }
+  .stat { color: #9aa4b2; }
+  .stat b { color: #e6e9ee; }
+  #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; padding: 14px; }
+  .cell {
+    background: #1a1f26; border: 1px solid #262d36; border-radius: 8px; padding: 6px; text-align: center;
+    cursor: pointer; user-select: none; position: relative; transition: opacity .1s;
+  }
+  .cell img { width: 100%; height: 72px; object-fit: contain; background:
+      repeating-conic-gradient(#20262e 0% 25%, #191e25 0% 50%) 50% / 16px 16px; border-radius: 4px; }
+  .cell .name { margin-top: 5px; font-size: 10px; color: #9aa4b2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cell.reject { opacity: .32; border-color: #7a2230; }
+  .cell.reject::after { content: "✕"; position: absolute; top: 4px; right: 6px; color: #ff6b7f; font-weight: 700; font-size: 15px; }
+  .cell.fam { border-left-width: 4px; }
+  .cell .fambadge { position: absolute; top: 4px; left: 5px; background: #2c343f; color: #cdd5df; font-size: 10px; padding: 0 5px; border-radius: 8px; }
+  #sentinel { height: 40px; }
+  dialog { background: #161a20; color: #e6e9ee; border: 1px solid #2a3038; border-radius: 10px; max-width: 640px; width: 90%; }
+  textarea { width: 100%; height: 240px; background: #0d1013; color: #e6e9ee; border: 1px solid #2a3038; border-radius: 6px; font: 12px/1.4 ui-monospace, monospace; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Flag review</h1>
+  <input type="search" id="q" placeholder="filter by name/slug…" />
+  <label class="stat"><input type="checkbox" id="famOnly" /> variant families only</label>
+  <label class="stat"><input type="checkbox" id="groupBase" checked /> group variants</label>
+  <span class="stat">showing <b id="nShown">0</b> / <b id="nTotal">0</b></span>
+  <span class="stat">rejected <b id="nReject">0</b></span>
+  <button id="exportBtn">Export rejects</button>
+  <button id="clearBtn">Clear rejects</button>
+  <span class="stat">click a flag to toggle reject · saved locally</span>
+</header>
+<div id="grid"></div>
+<div id="sentinel"></div>
+
+<dialog id="exportDlg">
+  <p>Paste this list back to me to delete the rejected flags:</p>
+  <textarea id="exportText" readonly></textarea>
+  <div style="margin-top:10px; display:flex; gap:8px;">
+    <button id="copyBtn">Copy to clipboard</button>
+    <button onclick="document.getElementById('exportDlg').close()">Close</button>
+  </div>
+</dialog>
+
+<script>
+const STORE_KEY = "flag-review-rejects";
+let all = [];
+let filtered = [];
+let shown = 0;
+const PAGE = 200;
+const rejects = new Set(JSON.parse(localStorage.getItem(STORE_KEY) || "[]"));
+
+const grid = document.getElementById("grid");
+const q = document.getElementById("q");
+const famOnly = document.getElementById("famOnly");
+const groupBase = document.getElementById("groupBase");
+const famSize = new Map();       // base -> count
+
+function slugOf(id) { return id.replace(/^flag:/, ""); }
+
+function hueFor(base) {          // stable color per family for visual grouping
+  let h = 0;
+  for (let i = 0; i < base.length; i++) h = (h * 31 + base.charCodeAt(i)) & 0xffff;
+  return h % 360;
+}
+
+function updateStats() {
+  document.getElementById("nShown").textContent = shown;
+  document.getElementById("nTotal").textContent = filtered.length;
+  document.getElementById("nReject").textContent = rejects.size;
+}
+
+function makeCell(f) {
+  const slug = slugOf(f.id);
+  const size = famSize.get(f.base) || 1;
+  const div = document.createElement("div");
+  div.className = "cell" + (rejects.has(slug) ? " reject" : "") + (size > 1 ? " fam" : "");
+  div.dataset.slug = slug;
+  if (size > 1) {
+    div.style.borderLeftColor = `hsl(${hueFor(f.base)} 60% 55%)`;
+    const badge = document.createElement("div");
+    badge.className = "fambadge";
+    badge.textContent = "×" + size;
+    badge.title = "variant family: " + f.base;
+    div.appendChild(badge);
+  }
+  const img = document.createElement("img");
+  img.loading = "lazy";
+  img.src = "flags/" + slug + ".svg";
+  const name = document.createElement("div");
+  name.className = "name";
+  name.textContent = f.name;
+  name.title = f.name + "  (" + slug + ")";
+  div.append(img, name);
+  div.addEventListener("click", () => {
+    if (rejects.has(slug)) rejects.delete(slug); else rejects.add(slug);
+    div.classList.toggle("reject");
+    localStorage.setItem(STORE_KEY, JSON.stringify([...rejects]));
+    updateStats();
+  });
+  return div;
+}
+
+let renderToken = 0;
+function renderAll() {
+  const myToken = ++renderToken;   // aborts any in-flight render when filter changes
+  shown = 0;
+  const step = () => {
+    if (myToken !== renderToken) return;
+    const next = filtered.slice(shown, shown + PAGE);
+    const frag = document.createDocumentFragment();
+    next.forEach(f => frag.appendChild(makeCell(f)));
+    grid.appendChild(frag);
+    shown += next.length;
+    updateStats();
+    if (shown < filtered.length) requestAnimationFrame(step);
+  };
+  step();
+}
+
+function applyFilter() {
+  const term = q.value.trim().toLowerCase();
+  filtered = all.filter(f => {
+    if (term && !(f.name.toLowerCase().includes(term) || f.id.toLowerCase().includes(term))) return false;
+    if (famOnly.checked && (famSize.get(f.base) || 1) < 2) return false;
+    return true;
+  });
+  if (groupBase.checked) {
+    filtered = filtered.slice().sort((a, b) =>
+      a.base < b.base ? -1 : a.base > b.base ? 1 : (a.name < b.name ? -1 : 1));
+  }
+  grid.innerHTML = "";
+  renderAll();
+}
+
+q.addEventListener("input", applyFilter);
+famOnly.addEventListener("change", applyFilter);
+groupBase.addEventListener("change", applyFilter);
+
+document.getElementById("exportBtn").addEventListener("click", () => {
+  document.getElementById("exportText").value = JSON.stringify([...rejects].sort(), null, 0);
+  document.getElementById("exportDlg").showModal();
+});
+document.getElementById("copyBtn").addEventListener("click", () => {
+  navigator.clipboard.writeText(document.getElementById("exportText").value);
+});
+document.getElementById("clearBtn").addEventListener("click", () => {
+  if (!confirm("Clear all reject marks?")) return;
+  rejects.clear();
+  localStorage.setItem(STORE_KEY, JSON.stringify([]));
+  applyFilter();
+});
+
+fetch("flags/flags.review.json")
+  .then(r => r.json())
+  .then(d => {
+    all = d.flags;
+    famSize.clear();
+    for (const f of all) famSize.set(f.base, (famSize.get(f.base) || 0) + 1);
+    applyFilter();
+  })
+  .catch(e => { grid.innerHTML = "<p style='padding:20px'>Could not load flags/flags.review.json — run via the dev server (npm run dev) and open /flag-review.html</p>"; });
+</script>
+</body>
+</html>

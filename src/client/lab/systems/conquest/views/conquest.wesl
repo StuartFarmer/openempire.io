@@ -3,6 +3,7 @@
 // brightened by population, contested borders flaring toward white.
 import package::kernel::{OFF, inBounds};
 import package::layers;
+import package::params;
 import shared::palette::unpackTint;
 
 const P1 = vec3f(0.86, 0.33, 0.33);
@@ -40,6 +41,9 @@ fn color(x: i32, y: i32, i: u32) -> vec4f {
   }
   if (contested) {
     c = mix(c, vec3f(1.0, 0.9, 0.7), 0.4);
+  }
+  if (me != 1u) {
+    c = mix(c, vec3f(0.0), 0.55 * clamp(params::maskFade(), 0.0, 1.0));
   }
   return vec4f(c, 1.0);
 }

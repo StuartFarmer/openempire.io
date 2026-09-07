@@ -15,6 +15,7 @@ export default [
   includeIgnoreFile(gitignorePath),
   {
     ignores: [
+      "simplefront/**",
       "src/server/gatekeeper/**",
       "tests/pathfinding/playground/**",
       ".claude/**",

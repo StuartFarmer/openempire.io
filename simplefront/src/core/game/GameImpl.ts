@@ -1,0 +1,1560 @@
+import { Config } from "../configuration/Config";
+import { SharedWaterCache } from "../execution/nation/SharedWaterCache";
+import {
+  changePlotOwner,
+  tickPaintedEconomy,
+} from "../execution/utils/PaintedEconomy";
+import { renderNumber } from "../formatting/NumberFormat";
+import { AbstractGraph } from "../pathfinding/algorithms/AbstractGraph";
+import { PathFinder } from "../pathfinding/types";
+import { AllPlayersStats, ClientID, Winner } from "../Schemas";
+import { ATTACK_INDEX_SENT } from "../StatsSchemas";
+import { simpleHash } from "../Util";
+import { AllianceImpl } from "./AllianceImpl";
+import { AllianceRequestImpl } from "./AllianceRequestImpl";
+import {
+  Alliance,
+  AllianceRequest,
+  Cell,
+  ColoredTeams,
+  Duos,
+  EmojiMessage,
+  Execution,
+  Game,
+  GameMode,
+  GameUpdates,
+  HumansVsNations,
+  LandUse,
+  MessageType,
+  MutableAlliance,
+  Nation,
+  Player,
+  PlayerID,
+  PlayerInfo,
+  PlayerType,
+  Quads,
+  SpawnArea,
+  Team,
+  TeamGameSpawnAreas,
+  TerrainType,
+  TerraNullius,
+  TribalStructures,
+  Trios,
+  Unit,
+  UnitInfo,
+  UnitType,
+} from "./Game";
+import { GameMap, TileRef } from "./GameMap";
+import { GameUpdate, GameUpdateType } from "./GameUpdates";
+import { LayerName } from "./MapLayers";
+import { MotionPlanRecord, packMotionPlans } from "./MotionPlans";
+import { PlayerImpl } from "./PlayerImpl";
+import { RailNetwork } from "./RailNetwork";
+import { createRailNetwork } from "./RailNetworkImpl";
+import { Stats } from "./Stats";
+import { StatsImpl } from "./StatsImpl";
+import { assignTeams } from "./TeamAssignment";
+import { TerraNulliusImpl } from "./TerraNulliusImpl";
+import { UnitGrid, UnitPredicate } from "./UnitGrid";
+import { WaterManager } from "./WaterManager";
+
+export function createGame(
+  humans: PlayerInfo[],
+  nations: Nation[],
+  gameMap: GameMap,
+  miniGameMap: GameMap,
+  config: Config,
+  teamGameSpawnAreas?: TeamGameSpawnAreas,
+): Game {
+  const stats = new StatsImpl();
+  return new GameImpl(
+    humans,
+    nations,
+    gameMap,
+    miniGameMap,
+    config,
+    stats,
+    teamGameSpawnAreas,
+  );
+}
+
+export type CellString = string;
+
+export class GameImpl implements Game {
+  private _ticks = 0;
+  private startTick: number | null = null;
+
+  private unInitExecs: Execution[] = [];
+
+  _players: Map<PlayerID, PlayerImpl> = new Map<PlayerID, PlayerImpl>();
+  _playersBySmallID: Player[] = [];
+
+  private execs: Execution[] = [];
+  private _width: number;
+  private _height: number;
+  _terraNullius: TerraNulliusImpl;
+
+  allianceRequests: AllianceRequestImpl[] = [];
+
+  private nextPlayerID = 1;
+  private _nextUnitID = 1;
+
+  private updates: GameUpdates = createGameUpdatesMap();
+  private tileUpdatePairs: number[] = [];
+  // Urban density deltas (add-urban-core-growth): packed `tile | (byte<<24)`,
+  // byte = round(density/1000·255). Drained to packedDensityUpdates each tick.
+  private densityUpdatePairs: number[] = [];
+  // Tile combat-damage deltas (rework-settlement-ecology): same packing,
+  // byte = round(damage/1000·255). Drained to packedDamageUpdates each tick.
+  private damageUpdatePairs: number[] = [];
+  // Field maturity deltas (rework-settlement-ecology §1b): same packing,
+  // byte = round(maturity/1000·255), pushed by PlayerImpl.setFarmMaturity
+  // only when the BYTE changes (ripening moves ~1 byte/tick — the same
+  // upload-flood guard as damage). Drained to packedFieldUpdates each tick.
+  public fieldUpdatePairs: number[] = [];
+  // Burn events (rework-persistent-tiles-and-burn): raw TileRefs of tiles set
+  // ablaze this tick (every tile taken in combat), pushed by addTileDamage.
+  // Each becomes a one-shot fire in the renderers — replacing the old
+  // dead-unit-only trigger so a whole captured district burns, not just a
+  // razed nucleus. Drained to packedBurns each tick.
+  private burnUpdates: number[] = [];
+  /** [smallID, tilesOwned, gold, troops] quads — see PlayerImpl.toUpdate. */
+  private playerStatsQuads: number[] = [];
+  /** [smallID, direction, index, troops] quads — see packAttackTroopDeltas. */
+  private attackTroopsQuads: number[] = [];
+  private motionPlanRecords: MotionPlanRecord[] = [];
+  private planDrivenUnitIds = new Set<number>();
+  private unitGrid: UnitGrid;
+  private _unitMap = new Map<number, Unit>();
+  /** Tribal plot occupancy: one structure per tile. */
+  private _plotOccupancy = new Map<TileRef, Unit>();
+
+  private playerTeams: Team[] = [];
+  private botTeam: Team = ColoredTeams.Bot;
+  private _railNetwork: RailNetwork = createRailNetwork(this);
+
+  // Used to assign unique IDs to each new alliance
+  private nextAllianceID: number = 0;
+
+  private _isPaused: boolean = false;
+  private _winner: Player | Team | null = null;
+  private _waterManager: WaterManager;
+  private _sharedWaterCache: SharedWaterCache;
+  private _teamGameSpawnAreas: TeamGameSpawnAreas | undefined;
+
+  constructor(
+    private _humans: PlayerInfo[],
+    private _nations: Nation[],
+    private _map: GameMap,
+    private miniGameMap: GameMap,
+    private _config: Config,
+    private _stats: Stats,
+    teamGameSpawnAreas?: TeamGameSpawnAreas,
+  ) {
+    const constructorStart = performance.now();
+
+    this._teamGameSpawnAreas = teamGameSpawnAreas;
+    this._terraNullius = new TerraNulliusImpl();
+    this._width = _map.width();
+    this._height = _map.height();
+    this.unitGrid = new UnitGrid(this._map);
+    this._waterManager = new WaterManager(
+      this._map,
+      this.miniGameMap,
+      _config.disableNavMesh(),
+    );
+    this._sharedWaterCache = new SharedWaterCache(this);
+
+    if (_config.gameConfig().gameMode === GameMode.Team) {
+      this.populateTeams();
+    }
+    this.addPlayers();
+
+    console.log(
+      `[GameImpl] Constructor total: ${(performance.now() - constructorStart).toFixed(0)}ms`,
+    );
+  }
+
+  private populateTeams() {
+    let numPlayerTeams = this._config.playerTeams();
+
+    // HumansVsNations mode always has exactly 2 teams
+    if (numPlayerTeams === HumansVsNations) {
+      this.playerTeams = [ColoredTeams.Humans, ColoredTeams.Nations];
+      return;
+    }
+
+    if (typeof numPlayerTeams !== "number") {
+      const players = this._humans.length + this._nations.length;
+      switch (numPlayerTeams) {
+        case Duos:
+          numPlayerTeams = Math.ceil(players / 2);
+          break;
+        case Trios:
+          numPlayerTeams = Math.ceil(players / 3);
+          break;
+        case Quads:
+          numPlayerTeams = Math.ceil(players / 4);
+          break;
+        default:
+          throw new Error(`Unknown TeamCountConfig ${numPlayerTeams}`);
+      }
+    }
+    if (numPlayerTeams < 2) {
+      throw new Error(`Too few teams: ${numPlayerTeams}`);
+    } else if (numPlayerTeams < 8) {
+      this.playerTeams = [ColoredTeams.Red, ColoredTeams.Blue];
+      if (numPlayerTeams >= 3) this.playerTeams.push(ColoredTeams.Yellow);
+      if (numPlayerTeams >= 4) this.playerTeams.push(ColoredTeams.Green);
+      if (numPlayerTeams >= 5) this.playerTeams.push(ColoredTeams.Purple);
+      if (numPlayerTeams >= 6) this.playerTeams.push(ColoredTeams.Orange);
+      if (numPlayerTeams >= 7) this.playerTeams.push(ColoredTeams.Teal);
+    } else {
+      this.playerTeams = [];
+      for (let i = 1; i <= numPlayerTeams; i++) {
+        this.playerTeams.push(`Team ${i}`);
+      }
+    }
+  }
+
+  private addPlayers() {
+    if (this.config().gameConfig().gameMode === GameMode.FFA) {
+      this._humans.forEach((p) => this.addPlayer(p));
+      this._nations.forEach((n) => this.addPlayer(n.playerInfo));
+      return;
+    }
+
+    if (this._config.playerTeams() === HumansVsNations) {
+      this._humans.forEach((p) => this.addPlayer(p, ColoredTeams.Humans));
+      this._nations.forEach((n) =>
+        this.addPlayer(n.playerInfo, ColoredTeams.Nations),
+      );
+      return;
+    }
+
+    // Team mode
+    const allPlayers = [
+      ...this._humans,
+      ...this._nations.map((n) => n.playerInfo),
+    ];
+    const playerToTeam = assignTeams(allPlayers, this.playerTeams);
+    for (const [playerInfo, team] of playerToTeam.entries()) {
+      if (team === "kicked") {
+        console.warn(`Player ${playerInfo.name} was kicked from team`);
+        continue;
+      }
+      this.addPlayer(playerInfo, team);
+    }
+  }
+
+  isOnEdgeOfMap(ref: TileRef): boolean {
+    return this._map.isOnEdgeOfMap(ref);
+  }
+
+  owner(ref: TileRef): Player | TerraNullius {
+    return this.playerBySmallID(this.ownerID(ref));
+  }
+
+  playerBySmallID(id: number): Player | TerraNullius {
+    if (id === 0) {
+      return this.terraNullius();
+    }
+    return this._playersBySmallID[id - 1];
+  }
+  map(): GameMap {
+    return this._map;
+  }
+  miniMap(): GameMap {
+    return this.miniGameMap;
+  }
+
+  addUpdate(update: GameUpdate) {
+    (this.updates[update.type] as GameUpdate[]).push(update);
+  }
+
+  nextUnitID(): number {
+    const old = this._nextUnitID;
+    this._nextUnitID++;
+    return old;
+  }
+
+  setFallout(tile: TileRef, value: boolean) {
+    if (value && this.hasOwner(tile)) {
+      throw Error(`cannot set fallout, tile ${tile} has owner`);
+    }
+    if (this._map.hasFallout(tile)) {
+      return;
+    }
+    this._map.setFallout(tile, value);
+    this.recordTileUpdate(tile);
+  }
+
+  setWater(tile: TileRef): void {
+    if (!this.isLand(tile)) return;
+    if (this.hasOwner(tile)) {
+      throw Error(`cannot set water, tile ${tile} has owner`);
+    }
+    // Clear fallout if present (water tiles shouldn't have fallout)
+    if (this._map.hasFallout(tile)) {
+      this._map.setFallout(tile, false);
+    }
+    this._map.setWater(tile);
+    this.recordTileUpdate(tile);
+  }
+
+  queueWaterConversion(tile: TileRef): void {
+    if (!this.isLand(tile)) return;
+    if (this.hasOwner(tile)) {
+      throw Error(`cannot queue water conversion, tile ${tile} has owner`);
+    }
+    if (!this._config.waterNukes()) {
+      this.setFallout(tile, true);
+      return;
+    }
+    this._waterManager.queueTile(tile);
+  }
+
+  unit(id: number): Unit | undefined {
+    return this._unitMap.get(id);
+  }
+
+  units(...types: UnitType[]): Unit[] {
+    return Array.from(this._players.values()).flatMap((p) => p.units(...types));
+  }
+
+  unitCount(type: UnitType): number {
+    let total = 0;
+    for (const player of this._players.values()) {
+      total += player.unitCount(type);
+    }
+    return total;
+  }
+
+  unitInfo(type: UnitType): UnitInfo {
+    return this.config().unitInfo(type);
+  }
+
+  nations(): Nation[] {
+    return this._nations;
+  }
+
+  createAllianceRequest(
+    requestor: Player,
+    recipient: Player,
+  ): AllianceRequest | null {
+    if (requestor.isAlliedWith(recipient)) {
+      console.log("cannot request alliance, already allied");
+      return null;
+    }
+    if (
+      recipient
+        .incomingAllianceRequests()
+        .find((ar) => ar.requestor() === requestor) !== undefined
+    ) {
+      console.log(`duplicate alliance request from ${requestor.name()}`);
+      return null;
+    }
+    const correspondingReq = requestor
+      .incomingAllianceRequests()
+      .find((ar) => ar.requestor() === recipient);
+    if (correspondingReq !== undefined) {
+      console.log(`got corresponding alliance requests, accepting`);
+      correspondingReq.accept();
+      return null;
+    }
+    const ar = new AllianceRequestImpl(requestor, recipient, this._ticks, this);
+    this.allianceRequests.push(ar);
+    this.addUpdate(ar.toUpdate());
+    return ar;
+  }
+
+  acceptAllianceRequest(request: AllianceRequestImpl) {
+    this.allianceRequests = this.allianceRequests.filter(
+      (ar) => ar !== request,
+    );
+
+    const requestor = request.requestor();
+    const recipient = request.recipient();
+
+    const existing = requestor.allianceWith(recipient);
+    if (existing) {
+      throw new Error(
+        `cannot accept alliance request, already allied with ${recipient.name()}`,
+      );
+    }
+
+    // Create and register the new alliance
+    const alliance = new AllianceImpl(
+      this,
+      requestor as PlayerImpl,
+      recipient as PlayerImpl,
+      this._ticks,
+      this.nextAllianceID++,
+    );
+    (alliance.requestor() as PlayerImpl)._alliances.push(alliance);
+    (alliance.recipient() as PlayerImpl)._alliances.push(alliance);
+    (request.requestor() as PlayerImpl).pastOutgoingAllianceRequests.push(
+      request,
+    );
+
+    this.addUpdate({
+      type: GameUpdateType.AllianceRequestReply,
+      request: request.toUpdate(),
+      accepted: true,
+    });
+  }
+
+  rejectAllianceRequest(request: AllianceRequestImpl) {
+    this.allianceRequests = this.allianceRequests.filter(
+      (ar) => ar !== request,
+    );
+    (request.requestor() as PlayerImpl).pastOutgoingAllianceRequests.push(
+      request,
+    );
+    this.addUpdate({
+      type: GameUpdateType.AllianceRequestReply,
+      request: request.toUpdate(),
+      accepted: false,
+    });
+  }
+
+  hasPlayer(id: PlayerID): boolean {
+    return this._players.has(id);
+  }
+  config(): Config {
+    return this._config;
+  }
+
+  isPaused(): boolean {
+    return this._isPaused;
+  }
+
+  setPaused(paused: boolean): void {
+    this._isPaused = paused;
+    this.addUpdate({ type: GameUpdateType.GamePaused, paused });
+  }
+
+  inSpawnPhase(): boolean {
+    return this.startTick === null;
+  }
+
+  endSpawnPhase(): void {
+    if (this.startTick !== null) {
+      return;
+    }
+    this.startTick = this._ticks;
+    this.addUpdate({
+      type: GameUpdateType.SpawnPhaseEnd,
+      startTick: this.startTick,
+    });
+  }
+
+  ticks(): number {
+    return this._ticks;
+  }
+
+  executeNextTick(): GameUpdates {
+    this.updates = createGameUpdatesMap();
+    this.tileUpdatePairs.length = 0;
+    this.execs.forEach((e) => {
+      if (
+        (!this.inSpawnPhase() || e.activeDuringSpawnPhase()) &&
+        e.isActive()
+      ) {
+        e.tick(this._ticks);
+      }
+    });
+    const inited: Execution[] = [];
+    const unInited: Execution[] = [];
+    this.unInitExecs.forEach((e) => {
+      if (!this.inSpawnPhase() || e.activeDuringSpawnPhase()) {
+        e.init(this, this._ticks);
+        inited.push(e);
+      } else {
+        unInited.push(e);
+      }
+    });
+
+    this.removeInactiveExecutions();
+
+    this.execs.push(...inited);
+    this.unInitExecs = unInited;
+    for (const player of this._players.values()) {
+      tickPaintedEconomy(this, player);
+      const update = player.toUpdate(
+        this.playerStatsQuads,
+        this.attackTroopsQuads,
+      );
+      if (update !== null) this.addUpdate(update);
+    }
+    if (this.ticks() % 10 === 0) {
+      this.addUpdate({
+        type: GameUpdateType.Hash,
+        tick: this.ticks(),
+        hash: this.hash(),
+      });
+    }
+    // Flush pending water conversions + throttled graph rebuild
+    const waterChangedTiles = this._waterManager.tick(this._ticks);
+    for (const tile of waterChangedTiles) {
+      this.recordTileUpdate(tile);
+    }
+    this.healTileDamage();
+    if (!this.config().paintedEconomy()) this.decayTileTenure();
+    this._ticks++;
+    return this.updates;
+  }
+
+  private recordTileUpdate(tile: TileRef): void {
+    // Low 16 bits: tile state, bits 16-23: terrain byte
+    this.tileUpdatePairs.push(
+      tile,
+      (this._map.tileState(tile) & 0xffff) |
+        (this._map.terrainByte(tile) << 16),
+    );
+  }
+
+  drainPackedTileUpdates(): Uint32Array {
+    const pairs = this.tileUpdatePairs;
+    const packed = new Uint32Array(pairs.length);
+    for (let i = 0; i < pairs.length; i++) {
+      packed[i] = pairs[i];
+    }
+    pairs.length = 0;
+    return packed;
+  }
+
+  /** Record a per-tile urban-density change for the renderer (byte 0..255). */
+  recordDensityUpdate(tile: TileRef, byte: number): void {
+    this.densityUpdatePairs.push(tile | (byte << 24));
+  }
+
+  drainPackedDensityUpdates(): Uint32Array | null {
+    const pairs = this.densityUpdatePairs;
+    if (pairs.length === 0) return null;
+    const packed = new Uint32Array(pairs);
+    pairs.length = 0;
+    return packed;
+  }
+
+  drainPackedDamageUpdates(): Uint32Array | null {
+    const pairs = this.damageUpdatePairs;
+    if (pairs.length === 0) return null;
+    const packed = new Uint32Array(pairs);
+    pairs.length = 0;
+    return packed;
+  }
+
+  drainPackedFieldUpdates(): Uint32Array | null {
+    const pairs = this.fieldUpdatePairs;
+    if (pairs.length === 0) return null;
+    const packed = new Uint32Array(pairs);
+    pairs.length = 0;
+    return packed;
+  }
+
+  drainPackedPlayerUpdates(): Float64Array | null {
+    const quads = this.playerStatsQuads;
+    if (quads.length === 0) return null;
+    const packed = Float64Array.from(quads);
+    quads.length = 0;
+    return packed;
+  }
+
+  drainPackedAttackUpdates(): Float64Array | null {
+    const quads = this.attackTroopsQuads;
+    if (quads.length === 0) return null;
+    const packed = Float64Array.from(quads);
+    quads.length = 0;
+    return packed;
+  }
+
+  recordMotionPlan(record: MotionPlanRecord): void {
+    switch (record.kind) {
+      case "grid":
+        this.planDrivenUnitIds.add(record.unitId);
+        break;
+      case "train":
+        this.planDrivenUnitIds.add(record.engineUnitId);
+        for (const unitId of record.carUnitIds) {
+          this.planDrivenUnitIds.add(unitId);
+        }
+        break;
+    }
+    this.motionPlanRecords.push(record);
+  }
+
+  private isUnitPlanDriven(unitId: number): boolean {
+    return this.planDrivenUnitIds.has(unitId);
+  }
+
+  maybeAddUnitUpdate(unit: Unit): void {
+    if (!this.isUnitPlanDriven(unit.id())) {
+      this.addUpdate(unit.toUpdate());
+    }
+  }
+
+  onUnitMoved(unit: Unit): void {
+    this.updateUnitTile(unit);
+    this.maybeAddUnitUpdate(unit);
+  }
+
+  drainPackedMotionPlans(): Uint32Array | null {
+    const records = this.motionPlanRecords;
+    if (records.length === 0) {
+      return null;
+    }
+    const packed = packMotionPlans(records);
+    records.length = 0;
+    return packed;
+  }
+
+  private hash(): number {
+    let hash = 1;
+    this._players.forEach((p) => {
+      hash += p.hash();
+    });
+    return hash;
+  }
+
+  terraNullius(): TerraNullius {
+    return this._terraNullius;
+  }
+
+  removeInactiveExecutions(): void {
+    // Compact in place to avoid reallocating the (large) executions array
+    // every tick.
+    const execs = this.execs;
+    const inSpawnPhase = this.inSpawnPhase();
+    let w = 0;
+    for (let i = 0; i < execs.length; i++) {
+      const exec = execs[i];
+      const keep = inSpawnPhase
+        ? !exec.activeDuringSpawnPhase() || exec.isActive()
+        : exec.isActive();
+      if (keep) {
+        execs[w++] = exec;
+      }
+    }
+    execs.length = w;
+  }
+
+  players(): Player[] {
+    return Array.from(this._players.values()).filter((p) => p.isAlive());
+  }
+
+  allPlayers(): Player[] {
+    return Array.from(this._players.values());
+  }
+
+  executions(): Execution[] {
+    return [...this.execs, ...this.unInitExecs];
+  }
+
+  addExecution(...exec: Execution[]) {
+    this.unInitExecs.push(...exec);
+  }
+
+  removeExecution(exec: Execution) {
+    this.execs = this.execs.filter((execution) => execution !== exec);
+    this.unInitExecs = this.unInitExecs.filter(
+      (execution) => execution !== exec,
+    );
+  }
+
+  playerView(id: PlayerID): Player {
+    return this.player(id);
+  }
+
+  addPlayer(playerInfo: PlayerInfo, team: Team | null = null): Player {
+    // Every player type starts at the population the ghost infrastructure
+    // feeds (no human/nation/bot asymmetry — idling at spawn must not
+    // starve).
+    const startTroops = this.config().food().startPopulation;
+    const player = new PlayerImpl(
+      this,
+      this.nextPlayerID,
+      playerInfo,
+      startTroops,
+      team ?? this.maybeAssignTeam(playerInfo),
+    );
+    this._playersBySmallID.push(player);
+    this.nextPlayerID++;
+    this._players.set(playerInfo.id, player);
+    return player;
+  }
+
+  private maybeAssignTeam(player: PlayerInfo): Team | null {
+    if (this._config.gameConfig().gameMode !== GameMode.Team) {
+      return null;
+    }
+    if (player.playerType === PlayerType.Bot) {
+      return this.botTeam;
+    }
+    const rand = simpleHash(player.id);
+    return this.playerTeams[rand % this.playerTeams.length];
+  }
+
+  player(id: PlayerID): Player {
+    const player = this._players.get(id);
+    if (player === undefined) {
+      throw new Error(`Player with id ${id} not found`);
+    }
+    return player;
+  }
+
+  playerByClientID(id: ClientID): Player | null {
+    for (const [, player] of this._players) {
+      if (player.clientID() === id) {
+        return player;
+      }
+    }
+    return null;
+  }
+
+  isOnMap(cell: Cell): boolean {
+    return (
+      cell.x >= 0 &&
+      cell.x < this._width &&
+      cell.y >= 0 &&
+      cell.y < this._height
+    );
+  }
+
+  neighborsWithDiag(tile: TileRef): TileRef[] {
+    const x = this.x(tile);
+    const y = this.y(tile);
+    const ns: TileRef[] = [];
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        if (dx === 0 && dy === 0) continue; // Skip the center tile
+        const newX = x + dx;
+        const newY = y + dy;
+        if (
+          newX >= 0 &&
+          newX < this._width &&
+          newY >= 0 &&
+          newY < this._height
+        ) {
+          ns.push(this._map.ref(newX, newY));
+        }
+      }
+    }
+    return ns;
+  }
+
+  // Zero-allocation neighbor iteration for performance-critical code
+  forEachNeighborWithDiag(
+    tile: TileRef,
+    callback: (neighbor: TileRef) => void,
+  ): void {
+    this._map.forEachNeighborWithDiag(tile, callback);
+  }
+
+  // Tile combat damage (rework-settlement-ecology): sparse — only tiles that
+  // have seen combat are tracked; healed tiles are dropped. Map iteration is
+  // insertion-ordered and inserts are deterministic, so healing is too.
+  private _tileDamage = new Map<TileRef, number>();
+
+  tileDamage(tile: TileRef): number {
+    return this._tileDamage.get(tile) ?? 0;
+  }
+
+  addTileDamage(tile: TileRef, milli: number): void {
+    if (milli <= 0) return;
+    const next = Math.min(1000, this.tileDamage(tile) + milli);
+    this._tileDamage.set(tile, next);
+    this.damageUpdatePairs.push(tile | (Math.round((next * 255) / 1000) << 24));
+    // Combat damage IS the burn (rework-persistent-tiles-and-burn): every
+    // conquered tile lights a one-shot fire in the renderers. Re-igniting an
+    // already-damaged tile (re-conquest) burns again — that's intended.
+    this.burnUpdates.push(tile);
+  }
+
+  drainPackedBurns(): Uint32Array | null {
+    const burns = this.burnUpdates;
+    if (burns.length === 0) return null;
+    const packed = new Uint32Array(burns);
+    burns.length = 0;
+    return packed;
+  }
+
+  tileDamageEntries(): IterableIterator<[TileRef, number]> {
+    return this._tileDamage.entries();
+  }
+
+  /** Heal every damaged tile by the per-tick rate; fully healed tiles drop
+   *  out of the sparse map (and only then can tenure/growth resume). */
+  private healTileDamage(): void {
+    if (this._tileDamage.size === 0) return;
+    const heal = this.config().food().tileDamageHealMilli;
+    if (heal <= 0) return;
+    const healed: TileRef[] = [];
+    for (const [tile, dmg] of this._tileDamage) {
+      const next = dmg - heal;
+      if (next <= 0) {
+        healed.push(tile);
+      } else {
+        this._tileDamage.set(tile, next);
+        // Emit a render delta only when the QUANTIZED byte steps (8-wide
+        // bands): healing moves ~1 byte/tick, and re-uploading every damaged
+        // tile every tick floods the render channel (measured 1.8k one-pixel
+        // GPU uploads/tick — the 3fps bug). An 8-step fade is invisible.
+        const prevQ = Math.round((dmg * 255) / 1000) & ~7;
+        const nextQ = Math.round((next * 255) / 1000) & ~7;
+        if (nextQ !== prevQ) {
+          this.damageUpdatePairs.push(tile | (nextQ << 24));
+        }
+      }
+    }
+    for (const tile of healed) {
+      this._tileDamage.delete(tile);
+      this.damageUpdatePairs.push(tile); // byte 0 — fully healed, tint gone
+    }
+  }
+
+  // Tile stability (rework-settlement-ecology): sparse demand-gated tenure.
+  // Accrual happens per player in TileTenure.tenureTick; this holds the
+  // ledger, the vacancy decay, and the ownership-flip hard reset.
+  private _tileTenure = new Map<TileRef, number>();
+
+  tileTenure(tile: TileRef): number {
+    return this._tileTenure.get(tile) ?? 0;
+  }
+
+  setTileTenure(tile: TileRef, milli: number): void {
+    if (milli <= 0) {
+      this._tileTenure.delete(tile);
+    } else {
+      this._tileTenure.set(tile, milli);
+    }
+  }
+
+  tileTenureEntries(): IterableIterator<[TileRef, number]> {
+    return this._tileTenure.entries();
+  }
+
+  /**
+   * Vacancy decay, run on the supply cadence: a tenured tile that is no
+   * longer occupied (no urban density, no Farmland) loses tenure slowly —
+   * depopulation is a setback, not a crater. Combat damage pauses the clock
+   * entirely (no accrual, no decay).
+   */
+  private decayTileTenure(): void {
+    if (this._tileTenure.size === 0) return;
+    const f = this.config().food();
+    const period = Math.max(1, f.supplyRefreshTicks);
+    if (this._ticks % period !== 0) return;
+    const decay = f.tenureDecayMilli * period;
+    if (decay <= 0) return;
+    const dead: TileRef[] = [];
+    for (const [tile, v] of this._tileTenure) {
+      if (this.tileDamage(tile) > 0) continue; // battlefield: clock paused
+      const owner = this.owner(tile);
+      const occupied =
+        owner.isPlayer() &&
+        ((owner as PlayerImpl).density(tile) > 0 ||
+          this.plotAt(tile)?.type() === UnitType.Farmland);
+      if (occupied) continue;
+      const next = v - decay;
+      if (next <= 0) {
+        dead.push(tile);
+      } else {
+        this._tileTenure.set(tile, next);
+      }
+    }
+    for (const t of dead) this._tileTenure.delete(t);
+  }
+
+  conquer(owner: PlayerImpl, tile: TileRef): void {
+    if (!this.isLand(tile)) {
+      throw Error(`cannot conquer water`);
+    }
+    if (this.isImpassable(tile)) {
+      throw Error(`cannot conquer impassable terrain`);
+    }
+    const previousOwner = this.owner(tile) as TerraNullius | PlayerImpl;
+    if (previousOwner === owner) return;
+    // Fertility accounting mirrors _tiles: incremental on transfer, never a
+    // full-map scan.
+    const crop = this._map.layer("crop", tile);
+    // Persistent tiles + burn-on-conquest (rework-persistent-tiles-and-burn):
+    // the tile KEEPS its land-use type for the captor instead of scorching to
+    // raw. Capture the prior zone, reset the fill to initial (the captor
+    // inherits an initial farmland / empty lot that regrows), and burn it.
+    let priorZone: LandUse | undefined;
+    if (previousOwner.isPlayer()) {
+      priorZone = previousOwner._landUse.get(tile);
+      previousOwner._lastTileChange = this._ticks;
+      previousOwner._tiles.delete(tile);
+      previousOwner._borderTiles.delete(tile);
+      previousOwner._fertilitySum -= crop;
+      // Strip the prior owner's fill + zone (setDensity(0) with the zone still
+      // set emits the empty-lot render byte, which is correct — the tile is now
+      // the captor's empty lot until it regrows a house).
+      previousOwner.setDensity(tile, 0);
+      previousOwner.setFarmMaturity(tile, 0);
+      previousOwner._landUse.delete(tile);
+    }
+    // Stability hard-resets on an ownership flip (rework-settlement-ecology):
+    // conquest yields tenure-zero land the captor must re-stabilize.
+    this._tileTenure.delete(tile);
+    this._map.setOwnerID(tile, owner.smallID());
+    owner._tiles.add(tile);
+    owner._fertilitySum += crop;
+    owner._lastTileChange = this._ticks;
+    this.updateBorders(tile);
+    this._map.setFallout(tile, false);
+    // Transfer the zone to the captor and seed the initial fill so the tile
+    // regrows as their own once the burn heals. Wilderness (no prior zone)
+    // stays raw. The burn itself is the combat damage applied by the attack.
+    if (this.config().paintedEconomy()) {
+      const plot = this.plotAt(tile);
+      if (plot && plot.owner() !== owner) owner.captureUnit(plot);
+      if (plot?.type() === UnitType.Settlement)
+        owner.setDensity(tile, this.config().food().popPerDensity);
+      if (plot?.type() === UnitType.Farmland) owner.setFarmMaturity(tile, 1000);
+    } else if (priorZone === LandUse.Field) {
+      owner._landUse.set(tile, LandUse.Field);
+      owner.setFarmMaturity(tile, this.config().food().farmSeedMilli);
+    } else if (priorZone === LandUse.Urban) {
+      owner._landUse.set(tile, LandUse.Urban);
+      // Density stays 0; the empty-lot render byte was already emitted above.
+    }
+    this.recordTileUpdate(tile);
+  }
+
+  relinquish(tile: TileRef) {
+    if (!this.hasOwner(tile)) {
+      throw new Error(`Cannot relinquish tile because it is unowned`);
+    }
+    if (this.isWater(tile)) {
+      throw new Error("Cannot relinquish water");
+    }
+
+    const previousOwner = this.owner(tile) as PlayerImpl;
+    if (this.config().paintedEconomy()) this.plotAt(tile)?.delete(false);
+    previousOwner._lastTileChange = this._ticks;
+    previousOwner._tiles.delete(tile);
+    previousOwner._borderTiles.delete(tile);
+    previousOwner._fertilitySum -= this._map.layer("crop", tile);
+    // Relinquished ground reverts to raw WILD, not to a persistent lot: drop
+    // the zone FIRST so setDensity(0) sees no Urban zone, then force-clear the
+    // density render byte (an empty-lot tile is already at density 0, so
+    // setDensity would early-return and leave the empty-lot wash behind).
+    const wasUrban = previousOwner._landUse.get(tile) === LandUse.Urban;
+    previousOwner._landUse.delete(tile);
+    previousOwner.setDensity(tile, 0);
+    previousOwner.setFarmMaturity(tile, 0);
+    if (wasUrban) this.recordDensityUpdate(tile, 0);
+    this._tileTenure.delete(tile);
+
+    this._map.setOwnerID(tile, 0);
+    this.updateBorders(tile);
+    this.recordTileUpdate(tile);
+  }
+
+  // Reusable neighbor buffer to avoid closures/allocation in updateBorders.
+  private borderNbuf: TileRef[] = [0, 0, 0, 0];
+
+  private updateBorders(tile: TileRef) {
+    this.updateBorderStatus(tile);
+    const numNeighbors = this._map.neighbors4(tile, this.borderNbuf);
+    for (let i = 0; i < numNeighbors; i++) {
+      this.updateBorderStatus(this.borderNbuf[i]);
+    }
+  }
+
+  private updateBorderStatus(t: TileRef): void {
+    if (!this._map.hasOwner(t)) {
+      return;
+    }
+    const owner = this.owner(t) as PlayerImpl;
+    if (this._map.isBorder(t)) {
+      owner._borderTiles.add(t);
+    } else {
+      owner._borderTiles.delete(t);
+    }
+  }
+
+  target(targeter: Player, target: Player) {
+    this.addUpdate({
+      type: GameUpdateType.TargetPlayer,
+      playerID: targeter.smallID(),
+      targetID: target.smallID(),
+    });
+  }
+
+  public breakAlliance(breaker: Player, alliance: MutableAlliance) {
+    let other: Player;
+    if (alliance.requestor() === breaker) {
+      other = alliance.recipient();
+    } else {
+      other = alliance.requestor();
+    }
+    if (!breaker.isAlliedWith(other)) {
+      throw new Error(
+        `${breaker} not allied with ${other}, cannot break alliance`,
+      );
+    }
+    if (!other.isTraitor() && !other.isDisconnected()) {
+      breaker.markTraitor();
+    }
+
+    this.detachAlliance(alliance);
+
+    this.addUpdate({
+      type: GameUpdateType.BrokeAlliance,
+      traitorID: breaker.smallID(),
+      betrayedID: other.smallID(),
+      allianceID: alliance.id(),
+    });
+  }
+
+  public expireAlliance(alliance: Alliance) {
+    const p1Set = new Set(alliance.recipient().alliances());
+    const alliances = alliance
+      .requestor()
+      .alliances()
+      .filter((a) => p1Set.has(a));
+    if (alliances.length !== 1) {
+      throw new Error(
+        `cannot expire alliance: must have exactly one alliance, have ${alliances.length}`,
+      );
+    }
+    this.detachAlliance(alliances[0]);
+    this.addUpdate({
+      type: GameUpdateType.AllianceExpired,
+      player1ID: alliance.requestor().smallID(),
+      player2ID: alliance.recipient().smallID(),
+    });
+  }
+
+  public removeAlliancesByPlayerSilently(player: Player): void {
+    // Snapshot — detachAlliance reassigns the player's _alliances as it goes.
+    const removed = [...(player as PlayerImpl)._alliances];
+    for (const alliance of removed) this.detachAlliance(alliance);
+  }
+
+  /** Remove an alliance from both participants' per-player alliance lists. */
+  private detachAlliance(alliance: Alliance): void {
+    const requestor = alliance.requestor() as PlayerImpl;
+    const recipient = alliance.recipient() as PlayerImpl;
+    requestor._alliances = requestor._alliances.filter((a) => a !== alliance);
+    recipient._alliances = recipient._alliances.filter((a) => a !== alliance);
+  }
+
+  public isSpawnImmunityActive(): boolean {
+    return (
+      this.inSpawnPhase() ||
+      this.ticksSinceStart() < this.config().spawnImmunityDuration()
+    );
+  }
+
+  public elapsedGameSeconds(): number {
+    return this.ticksSinceStart() / 10;
+  }
+
+  public isNationSpawnImmunityActive(): boolean {
+    return (
+      this.inSpawnPhase() ||
+      this.ticksSinceStart() < this.config().nationSpawnImmunityDuration()
+    );
+  }
+
+  private ticksSinceStart(): number {
+    if (this.inSpawnPhase()) {
+      return 0;
+    }
+
+    return Math.max(0, this.ticks() - this.startTick!);
+  }
+
+  sendEmojiUpdate(msg: EmojiMessage): void {
+    this.addUpdate({
+      type: GameUpdateType.Emoji,
+      emoji: msg,
+    });
+  }
+
+  setWinner(winner: Player | Team, allPlayersStats: AllPlayersStats): void {
+    this._winner = winner;
+    // OFM: snapshot final tiles for standings (bots skipped in recordFinalTiles).
+    for (const player of this.players()) {
+      this.stats().recordFinalTiles(player, player.numTilesOwned());
+    }
+    this.addUpdate({
+      type: GameUpdateType.Win,
+      winner: this.makeWinner(winner),
+      allPlayersStats,
+    });
+  }
+
+  getWinner(): Player | Team | null {
+    return this._winner;
+  }
+
+  private makeWinner(winner: string | Player): Winner | undefined {
+    if (typeof winner === "string") {
+      return [
+        "team",
+        winner,
+        ...this.players()
+          .filter((p) => p.team() === winner && p.clientID() !== null)
+          .map((p) => p.clientID()!),
+      ];
+    } else {
+      const clientId = winner.clientID();
+      if (clientId === null) {
+        return ["nation", winner.name()];
+      }
+      return [
+        "player",
+        clientId,
+        // TODO: Assists (vote for peace)
+      ];
+    }
+  }
+
+  teams(): Team[] {
+    if (this._config.gameConfig().gameMode !== GameMode.Team) {
+      return [];
+    }
+    return [this.botTeam, ...this.playerTeams];
+  }
+
+  teamSpawnArea(team: Team): SpawnArea | undefined {
+    if (!this._teamGameSpawnAreas) {
+      return undefined;
+    }
+    const numTeams = this.playerTeams.length;
+    const areas = this._teamGameSpawnAreas[String(numTeams)];
+    if (!areas) {
+      return undefined;
+    }
+    const teamIndex = this.playerTeams.indexOf(team);
+    if (teamIndex < 0 || teamIndex >= areas.length) {
+      return undefined;
+    }
+    return areas[teamIndex];
+  }
+
+  displayMessage(
+    message: string,
+    type: MessageType,
+    playerID: PlayerID | null,
+    goldAmount?: bigint,
+    params?: Record<string, string | number>,
+    unitID?: number,
+    focusPlayerID?: PlayerID,
+  ): void {
+    let id: number | null = null;
+    if (playerID !== null) {
+      id = this.player(playerID).smallID();
+    }
+    const focusID =
+      focusPlayerID !== undefined
+        ? this.player(focusPlayerID).smallID()
+        : undefined;
+    this.addUpdate({
+      type: GameUpdateType.DisplayEvent,
+      messageType: type,
+      message: message,
+      playerID: id,
+      goldAmount: goldAmount,
+      params: params,
+      unitID: unitID,
+      focusPlayerID: focusID,
+    });
+  }
+
+  displayChat(
+    message: string,
+    category: string,
+    target: PlayerID | undefined,
+    playerID: PlayerID | null,
+    isFrom: boolean,
+    recipient: string,
+  ): void {
+    let id: number | null = null;
+    if (playerID !== null) {
+      id = this.player(playerID).smallID();
+    }
+    this.addUpdate({
+      type: GameUpdateType.DisplayChatEvent,
+      key: message,
+      category: category,
+      target: target,
+      playerID: id,
+      isFrom,
+      recipient: recipient,
+    });
+  }
+
+  displayIncomingUnit(
+    unitID: number,
+    message: string,
+    type: MessageType,
+    playerID: PlayerID,
+  ): void {
+    const id = this.player(playerID).smallID();
+
+    this.addUpdate({
+      type: GameUpdateType.UnitIncoming,
+      unitID: unitID,
+      message: message,
+      messageType: type,
+      playerID: id,
+    });
+  }
+
+  addUnit(u: Unit) {
+    this.unitGrid.addUnit(u);
+    this._unitMap.set(u.id(), u);
+    if (TribalStructures.has(u.type())) {
+      for (const t of this.plotTiles(u.tile())) {
+        this._plotOccupancy.set(t, u);
+      }
+    }
+    changePlotOwner(this, u.type(), null, u.owner());
+    if (this.config().paintedEconomy()) {
+      if (u.type() === UnitType.Settlement)
+        u.owner().setDensity(u.tile(), this.config().food().popPerDensity);
+      if (u.type() === UnitType.Farmland)
+        u.owner().setFarmMaturity(u.tile(), 1000);
+    }
+  }
+  removeUnit(u: Unit) {
+    changePlotOwner(this, u.type(), u.owner(), null);
+    if (
+      this.config().paintedEconomy() &&
+      (u.type() === UnitType.Settlement || u.type() === UnitType.Farmland)
+    ) {
+      const owner = u.owner() as PlayerImpl;
+      owner._landUse.delete(u.tile());
+      owner.setDensity(u.tile(), 0);
+      owner.setFarmMaturity(u.tile(), 0);
+      this.recordDensityUpdate(u.tile(), 0);
+    }
+    this.unitGrid.removeUnit(u);
+    this._unitMap.delete(u.id());
+    this.planDrivenUnitIds.delete(u.id());
+    if (TribalStructures.has(u.type())) {
+      for (const t of this.plotTiles(u.tile())) {
+        if (this._plotOccupancy.get(t) === u) {
+          this._plotOccupancy.delete(t);
+        }
+      }
+    }
+    if (u.hasTrainStation()) {
+      this._railNetwork.removeStation(u);
+    }
+  }
+
+  /**
+   * The footprint of a tribal plot: a single tile. (The 2×2 look is the
+   * SPRITE inside the tile, not the footprint — see add-tile-painted-
+   * structures revision.) Kept as an array for call-site symmetry.
+   */
+  plotTiles(anchor: TileRef): TileRef[] {
+    return [anchor];
+  }
+
+  /** The tribal plot (if any) covering this tile. */
+  plotAt(tile: TileRef): Unit | undefined {
+    return this._plotOccupancy.get(tile);
+  }
+  updateUnitTile(u: Unit) {
+    this.unitGrid.updateUnitCell(u);
+  }
+
+  hasUnitNearby(
+    tile: TileRef,
+    searchRange: number,
+    type: UnitType,
+    playerId?: PlayerID,
+    includeUnderConstruction?: boolean,
+  ) {
+    return this.unitGrid.hasUnitNearby(
+      tile,
+      searchRange,
+      type,
+      playerId,
+      includeUnderConstruction,
+    );
+  }
+
+  anyUnitNearby(
+    tile: TileRef,
+    searchRange: number,
+    types: readonly UnitType[],
+    predicate: (unit: Unit) => boolean,
+    playerId?: PlayerID,
+    includeUnderConstruction?: boolean,
+  ): boolean {
+    return this.unitGrid.anyUnitNearby(
+      tile,
+      searchRange,
+      types,
+      predicate,
+      playerId,
+      includeUnderConstruction,
+    );
+  }
+
+  nearbyUnits(
+    tile: TileRef,
+    searchRange: number,
+    types: UnitType | readonly UnitType[],
+    predicate?: UnitPredicate,
+    includeUnderConstruction?: boolean,
+  ): Array<{ unit: Unit; distSquared: number }> {
+    return this.unitGrid.nearbyUnits(
+      tile,
+      searchRange,
+      types,
+      predicate,
+      includeUnderConstruction,
+    ) as Array<{
+      unit: Unit;
+      distSquared: number;
+    }>;
+  }
+
+  ref(x: number, y: number): TileRef {
+    return this._map.ref(x, y);
+  }
+  isValidRef(ref: TileRef): boolean {
+    return this._map.isValidRef(ref);
+  }
+  x(ref: TileRef): number {
+    return this._map.x(ref);
+  }
+  y(ref: TileRef): number {
+    return this._map.y(ref);
+  }
+  cell(ref: TileRef): Cell {
+    return this._map.cell(ref);
+  }
+  width(): number {
+    return this._map.width();
+  }
+  height(): number {
+    return this._map.height();
+  }
+  numLandTiles(): number {
+    return this._map.numLandTiles();
+  }
+  isValidCoord(x: number, y: number): boolean {
+    return this._map.isValidCoord(x, y);
+  }
+  isLand(ref: TileRef): boolean {
+    return this._map.isLand(ref);
+  }
+  isImpassable(ref: TileRef): boolean {
+    return this._map.isImpassable(ref);
+  }
+  isOceanShore(ref: TileRef): boolean {
+    return this._map.isOceanShore(ref);
+  }
+  isOcean(ref: TileRef): boolean {
+    return this._map.isOcean(ref);
+  }
+  isShoreline(ref: TileRef): boolean {
+    return this._map.isShoreline(ref);
+  }
+  magnitude(ref: TileRef): number {
+    return this._map.magnitude(ref);
+  }
+  terrainByte(ref: TileRef): number {
+    return this._map.terrainByte(ref);
+  }
+  setShorelineBit(ref: TileRef): void {
+    this._map.setShorelineBit(ref);
+  }
+  clearShorelineBit(ref: TileRef): void {
+    this._map.clearShorelineBit(ref);
+  }
+  setOcean(ref: TileRef): void {
+    this._map.setOcean(ref);
+  }
+  setMagnitude(ref: TileRef, value: number): void {
+    this._map.setMagnitude(ref, value);
+  }
+  ownerID(ref: TileRef): number {
+    return this._map.ownerID(ref);
+  }
+  hasOwner(ref: TileRef): boolean {
+    return this._map.hasOwner(ref);
+  }
+  setOwnerID(ref: TileRef, playerId: number): void {
+    return this._map.setOwnerID(ref, playerId);
+  }
+  hasFallout(ref: TileRef): boolean {
+    return this._map.hasFallout(ref);
+  }
+  isBorder(ref: TileRef): boolean {
+    return this._map.isBorder(ref);
+  }
+  neighbors(ref: TileRef): TileRef[] {
+    return this._map.neighbors(ref);
+  }
+  // Zero-allocation neighbor iteration (cardinal only)
+  forEachNeighbor(tile: TileRef, callback: (neighbor: TileRef) => void): void {
+    this._map.forEachNeighbor(tile, callback);
+  }
+  neighbors4(ref: TileRef, out: TileRef[]): number {
+    return this._map.neighbors4(ref, out);
+  }
+  isWater(ref: TileRef): boolean {
+    return this._map.isWater(ref);
+  }
+  isShore(ref: TileRef): boolean {
+    return this._map.isShore(ref);
+  }
+  cost(ref: TileRef): number {
+    return this._map.cost(ref);
+  }
+  terrainType(ref: TileRef): TerrainType {
+    return this._map.terrainType(ref);
+  }
+  forEachTile(fn: (tile: TileRef) => void): void {
+    return this._map.forEachTile(fn);
+  }
+  manhattanDist(c1: TileRef, c2: TileRef): number {
+    return this._map.manhattanDist(c1, c2);
+  }
+  euclideanDistSquared(c1: TileRef, c2: TileRef): number {
+    return this._map.euclideanDistSquared(c1, c2);
+  }
+  circleSearch(
+    tile: TileRef,
+    radius: number,
+    filter?: (tile: TileRef, d2: number) => boolean,
+  ): Set<TileRef> {
+    return this._map.circleSearch(tile, radius, filter);
+  }
+  bfs(
+    tile: TileRef,
+    filter: (gm: GameMap, tile: TileRef) => boolean,
+  ): Set<TileRef> {
+    return this._map.bfs(tile, filter);
+  }
+  tileState(tile: TileRef): number {
+    return this._map.tileState(tile);
+  }
+  tileStateBuffer(): Uint16Array {
+    return this._map.tileStateBuffer();
+  }
+  updateTile(tile: TileRef, state: number): boolean {
+    return this._map.updateTile(tile, state);
+  }
+  numTilesWithFallout(): number {
+    return this._map.numTilesWithFallout();
+  }
+  layer(name: LayerName, ref: TileRef): number {
+    return this._map.layer(name, ref);
+  }
+  stats(): Stats {
+    return this._stats;
+  }
+  railNetwork(): RailNetwork {
+    return this._railNetwork;
+  }
+  miniWaterHPA(): PathFinder<number> | null {
+    return this._waterManager.miniWaterHPA();
+  }
+  miniWaterGraph(): AbstractGraph | null {
+    return this._waterManager.miniWaterGraph();
+  }
+  waterGraphVersion(): number {
+    return this._waterManager.waterGraphVersion();
+  }
+  getWaterComponent(tile: TileRef): number | null {
+    return this._waterManager.getWaterComponent(tile);
+  }
+  hasWaterComponent(tile: TileRef, component: number): boolean {
+    return this._waterManager.hasWaterComponent(tile, component);
+  }
+  getWaterComponentSize(tile: TileRef): number | null {
+    return this._waterManager.getWaterComponentSize(tile);
+  }
+  sharedWaterComponents(player: Player): Set<number> | null {
+    return this._sharedWaterCache.get(player);
+  }
+  conquerPlayer(conqueror: Player, conquered: Player) {
+    if (conquered.isDisconnected() && conqueror.isOnSameTeam(conquered)) {
+      const ships = conquered
+        .units()
+        .filter(
+          (u) =>
+            u.type() === UnitType.Warship ||
+            u.type() === UnitType.TransportShip,
+        );
+
+      for (const ship of ships) {
+        conqueror.captureUnit(ship);
+      }
+    }
+
+    // Don't transfer gold when the conquered player didn't play (never attacked anyone)
+    // This is especially important when starting gold is enabled
+    const stats = this._stats.getPlayerStats(conquered);
+    const attacksSent = stats?.attacks?.[ATTACK_INDEX_SENT] ?? 0n;
+    const skipGoldTransfer =
+      attacksSent === 0n && conquered.type() === PlayerType.Human;
+    const gold = skipGoldTransfer ? 0n : conquered.gold();
+    const goldCaptured = skipGoldTransfer
+      ? 0n
+      : this._config.conquerGoldAmount(conquered);
+
+    if (skipGoldTransfer) {
+      this.displayMessage(
+        "events_display.conquered_no_gold",
+        MessageType.CONQUERED_PLAYER,
+        conqueror.id(),
+        undefined,
+        {
+          name: conquered.displayName(),
+        },
+      );
+    } else {
+      this.displayMessage(
+        "events_display.received_gold_from_conquest",
+        MessageType.CONQUERED_PLAYER,
+        conqueror.id(),
+        gold,
+        {
+          gold: renderNumber(goldCaptured),
+          name: conquered.displayName(),
+        },
+      );
+      conqueror.addGold(goldCaptured);
+      conquered.removeGold(gold);
+
+      // Record stats
+      this.stats().goldWar(conqueror, conquered, goldCaptured);
+    }
+
+    // OFM: per-kill log for standings (humans-only filtered in recordKill).
+    this.stats().recordKill(conqueror, conquered, this.ticks());
+
+    this.addUpdate({
+      type: GameUpdateType.ConquestEvent,
+      conquerorId: conqueror.id(),
+      conqueredId: conquered.id(),
+      gold: goldCaptured,
+    });
+  }
+}
+
+// Or a more dynamic approach that will catch new enum values:
+const createGameUpdatesMap = (): GameUpdates => {
+  const map = {} as GameUpdates;
+  Object.values(GameUpdateType)
+    .filter((key) => !isNaN(Number(key))) // Filter out reverse mappings
+    .forEach((key) => {
+      map[key as GameUpdateType] = [];
+    });
+  return map;
+};
