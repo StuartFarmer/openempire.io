@@ -53,6 +53,40 @@ export class DemoGallery extends LitElement {
           <span class="open-demo">Open experiment <span>↗</span></span>
         </div>
       </a>
+      <a class="demo-card demand-card" href="#city-population">
+        <div class="card-art" aria-hidden="true">
+          <div class="art-river"></div>
+          <div class="art-town"></div>
+          <span>03 / POPULATION & HOUSING</span>
+        </div>
+        <div class="card-copy">
+          <p class="eyebrow">POPULATION-LED CITY LAB</p>
+          <h2>More people.<br />Room to grow.</h2>
+          <p>
+            A copy of experiment 02 with a tunable development-to-fertility
+            gradient and housing-driven growth. Same terrain, numbered levels
+            and four-sided upgrades.
+          </p>
+          <span class="open-demo">Open experiment <span>↗</span></span>
+        </div>
+      </a>
+      <a class="demo-card demand-card" href="#city-local">
+        <div class="card-art" aria-hidden="true">
+          <div class="art-river"></div>
+          <div class="art-town"></div>
+          <span>04 / LOCAL GROWTH & OWNERSHIP</span>
+        </div>
+        <div class="card-copy">
+          <p class="eyebrow">LOCAL DEVELOPMENT LAB</p>
+          <h2>No governing centre.<br />Every tile endures.</h2>
+          <p>
+            Demo 3 with local neighbourhood rules, tile-by-tile capture and
+            cross-border upgrade support. Same terrain, streets, ages and
+            fertility controls.
+          </p>
+          <span class="open-demo">Open experiment <span>↗</span></span>
+        </div>
+      </a>
       <footer class="gallery-footer">
         Isolated city experiments · no gameplay changes
         <a href="../#shell">Go to SimpleFront gameplay ↗</a>

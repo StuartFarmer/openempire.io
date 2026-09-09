@@ -1,13 +1,15 @@
 import { mkdir, open } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { gzipSync } from "node:zlib";
+import { DEFAULT_CONFIG } from "../src/core/development/CityDevelopmentConfig";
 import { runPaintedBalance } from "../tests/perf/balance/PaintedBalance";
 import { paintedMapLoader } from "./painted-map-loader";
 
 const { values } = parseArgs({
   options: {
     seed: { type: "string" },
+    organic: { type: "boolean", default: false },
     ticks: { type: "string", default: "12000" },
     "compare-policies": { type: "boolean", default: false },
     rotation: { type: "string", default: "0" },
@@ -28,6 +30,10 @@ const seeds = values.seed
       (_, i) => `simplefront-pace-${String(i + 1).padStart(2, "0")}`,
     );
 const path = values.out ? resolve(values.out) : null;
+if (values.organic && path && !basename(path).includes("organic"))
+  throw new Error(
+    "Organic result filenames must contain 'organic' to keep retained painted results separate.",
+  );
 if (path) await mkdir(dirname(path), { recursive: true });
 const file = path ? await open(path, "wx") : null;
 const results = [];
@@ -40,6 +46,7 @@ try {
         sampleEvery: 10,
         comparePolicies: values["compare-policies"],
         policyRotation: rotation as 0 | 1 | 2,
+        cityDevelopment: values.organic ? { ...DEFAULT_CONFIG } : undefined,
       },
       paintedMapLoader(),
     );
@@ -52,6 +59,10 @@ try {
         victorySeconds: result.victorySeconds,
         wallMs: Math.round(result.wallMs),
         finalHash: result.finalHash,
+        elapsedSimulationSeconds: result.elapsedSimulationSeconds,
+        tickMs: result.performance.tickMs,
+        observerMs: result.performance.observerMs,
+        developmentPayloadBytes: result.performance.developmentPayloadBytes,
       }),
     );
   }

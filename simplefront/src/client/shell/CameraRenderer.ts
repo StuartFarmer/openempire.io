@@ -6,6 +6,9 @@
 // sim view textures under the exact same transform.
 
 import { assetUrl } from "src/core/AssetUrls";
+import type { CityDevelopmentUpdate } from "../../core/game/GameUpdates";
+import { CityAges, type AgeStyle } from "../games/simplefront/visuals/CityAges";
+import { CityStreets } from "../games/simplefront/visuals/CityStreets";
 
 const BUFFER_USAGE = { COPY_DST: 0x8, UNIFORM: 0x40, STORAGE: 0x80 } as const;
 // Fire lifetime (flame + ash) and cap — must match FIRE_DUR/ASH_DUR in FIRE_WGSL
@@ -48,6 +51,8 @@ struct Cam {
 // tilled rows can only be drawn here, where fract(map) exists. A 1×1 dummy
 // is bound when no plane is set (plotEnabled stays 0).
 @group(0) @binding(3) var plotPlane: texture_2d<u32>;
+@group(0) @binding(4) var citySprites: texture_2d<u32>;
+@group(0) @binding(5) var cityPalette: texture_2d<f32>;
 
 @vertex
 fn vs(@builtin(vertex_index) vi: u32) -> @builtin(position) vec4f {
@@ -67,6 +72,30 @@ fn fs(@builtin(position) position: vec4f) -> @location(0) vec4f {
   );
   let inside = map.x >= 0.0 && map.y >= 0.0 &&
     map.x < CAM.mapSize.x && map.y < CAM.mapSize.y;
+  // Read metadata without filtering: interpolated alpha would invent sprites
+  // at a border or mix brightness with the legacy plot encoding.
+  let tile = vec2i(floor(map));
+  let metadata = u32(round(textureLoad(terrain, tile, 0).a * 255.0));
+  if (inside && metadata >= 128u && metadata <= 254u) {
+    let words = textureLoad(citySprites, tile, 0).rg;
+    let level = (words.y >> 24u) & 127u;
+    if (level > 0u) {
+      var urban = vec3f(0.0);
+      if (CAM.invScale <= 0.5) {
+        let cell = vec2u(floor(fract(map) * 2.0));
+        let pixel = cell.y * 2u + cell.x;
+        let code = (words.x >> (pixel * 3u)) & 7u;
+        urban = textureLoad(cityPalette, vec2i(i32(code), i32(level)), 0).rgb;
+      } else {
+        // Average the same four palette pixels when they are sub-pixel.
+        for (var pixel = 0u; pixel < 4u; pixel++) {
+          let code = (words.x >> (pixel * 3u)) & 7u;
+          urban += textureLoad(cityPalette, vec2i(i32(code), i32(level)), 0).rgb / 4.0;
+        }
+      }
+      color = vec4f(urban * (f32(metadata) - 128.0) / 126.0, 1.0);
+    }
+  }
   let encodedPlot = color.a <= 4.5 / 255.0;
   var plotKind = 0u;
   if (encodedPlot) {
@@ -338,6 +367,11 @@ export class CameraRenderer {
   private plotTexture: GPUTexture | null = null;
   private plotDummy: GPUTexture | null = null;
   private plotEnabled = false;
+  private cityStreets = new CityStreets();
+  private readonly cityAges = new CityAges();
+  private cityTexture: GPUTexture | null = null;
+  private cityDummy: GPUTexture | null = null;
+  private cityPalette: GPUTexture | null = null;
   /** Staging row-padded buffer when the map width isn't 256-aligned. */
   private plotStaging: Uint8Array | null = null;
   private boatPipeline: GPURenderPipeline | null = null;
@@ -679,6 +713,9 @@ export class CameraRenderer {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.cityTexture?.destroy();
+    this.cityDummy?.destroy();
+    this.cityPalette?.destroy();
     this.fireBuffer?.destroy();
     this.fireBuffer = null;
     this.firePipeline = null;
@@ -744,6 +781,8 @@ export class CameraRenderer {
         { binding: 1, resource: this.sampler },
         { binding: 2, resource: this.texture.createView() },
         { binding: 3, resource: this.plotView() },
+        { binding: 4, resource: this.cityView() },
+        { binding: 5, resource: this.cityPaletteView() },
       ],
     });
     this.surfaceView = null;
@@ -761,6 +800,102 @@ export class CameraRenderer {
     return this.plotDummy.createView();
   }
 
+  private cityView(): GPUTextureView {
+    if (this.cityTexture) return this.cityTexture.createView();
+    this.cityDummy ??= this.device.createTexture({
+      label: "shell-city-dummy",
+      size: [1, 1],
+      format: "rg32uint",
+      usage: TEXTURE_USAGE.TEXTURE_BINDING,
+    });
+    return this.cityDummy.createView();
+  }
+
+  private cityPaletteView(): GPUTextureView {
+    if (!this.cityPalette) {
+      this.cityPalette = this.device.createTexture({
+        label: "shell-city-palette",
+        size: [6, 101],
+        format: "rgba8unorm",
+        usage: TEXTURE_USAGE.TEXTURE_BINDING | TEXTURE_USAGE.COPY_DST,
+      });
+      this.writeCityPalette();
+    }
+    return this.cityPalette.createView();
+  }
+
+  private writeCityPalette(): void {
+    if (!this.cityPalette) return;
+    this.device.queue.writeTexture(
+      { texture: this.cityPalette },
+      this.cityAges.pixels(),
+      { bytesPerRow: 24 },
+      [6, 101],
+    );
+  }
+
+  setCityAgeLevels(levels: readonly number[]): void {
+    this.cityAges.setAgeLevels(levels);
+    this.writeCityPalette();
+  }
+
+  setCityPalette(palette: readonly AgeStyle[]): void {
+    this.cityAges.setPalette(palette);
+    this.writeCityPalette();
+  }
+
+  resetCityPalette(): void {
+    this.cityAges.reset();
+    this.writeCityPalette();
+  }
+
+  clearCityDevelopment(): void {
+    this.cityTexture?.destroy();
+    this.cityTexture = null;
+    this.cityStreets = new CityStreets();
+    if (this.bindGroup) this.rebuildBindGroup();
+  }
+
+  /** One RG32 texel (8 bytes) per map tile, with only dirty row runs uploaded. */
+  applyCityDevelopment(update: CityDevelopmentUpdate): void {
+    if (update.reset) {
+      this.cityTexture?.destroy();
+      this.cityTexture = this.device.createTexture({
+        label: "shell-city-sprites",
+        size: [update.width, update.height],
+        format: "rg32uint",
+        usage: TEXTURE_USAGE.TEXTURE_BINDING | TEXTURE_USAGE.COPY_DST,
+      });
+      if (this.bindGroup) this.rebuildBindGroup();
+    }
+    const dirty = [...this.cityStreets.apply(update)].sort((a, b) => a - b);
+    if (!this.cityTexture) return;
+    for (let first = 0; first < dirty.length; ) {
+      const tile = dirty[first];
+      let end = first + 1;
+      while (
+        end < dirty.length &&
+        dirty[end] === dirty[end - 1] + 1 &&
+        Math.floor(dirty[end] / update.width) ===
+          Math.floor(tile / update.width)
+      )
+        end++;
+      const words = new Uint32Array((end - first) * 2);
+      for (let i = first; i < end; i++)
+        words.set(this.cityStreets.sprite(dirty[i]), (i - first) * 2);
+      this.device.queue.writeTexture(
+        {
+          texture: this.cityTexture,
+          origin: [tile % update.width, Math.floor(tile / update.width)],
+        },
+        words,
+        {},
+        [end - first, 1],
+      );
+      first = end;
+    }
+  }
+
   /** (Re)build the bind group for the current surface + plot plane. */
   private rebuildBindGroup(): void {
     const view = this.surfaceView ?? this.texture?.createView();
@@ -773,6 +908,8 @@ export class CameraRenderer {
         { binding: 1, resource: this.sampler },
         { binding: 2, resource: view },
         { binding: 3, resource: this.plotView() },
+        { binding: 4, resource: this.cityView() },
+        { binding: 5, resource: this.cityPaletteView() },
       ],
     });
   }

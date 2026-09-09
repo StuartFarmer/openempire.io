@@ -8,6 +8,7 @@ import {
   paintedState,
 } from "../src/core/execution/utils/PaintedEconomy";
 import { UnitType } from "../src/core/game/Game";
+import { GameUpdateType } from "../src/core/game/GameUpdates";
 import { aiFixture } from "./util/PaintedAISetup";
 
 test("depleted AI rebuilds both missing essential plots using paid resources", async () => {
@@ -85,4 +86,41 @@ test("no city, no troops and no legal site reports no-site without inventing rec
     kind: "wait",
     reason: "no-site",
   });
+});
+
+test("organic zero-farm recovery buys from baseline refill before resuming paid expansion", async () => {
+  const { game, player } = await aiFixture({ organic: true });
+  player.units(UnitType.Farmland)[0].delete(false);
+  player.removeFoodMilli(player.foodMilli());
+  const actions = [];
+  // Recovery now rebuilds income before expeditions, within 90 simulated seconds.
+  for (let i = 0; i < 900; i++) {
+    const tick = game.ticks();
+    actions.push(
+      ...game
+        .executeNextTick()
+        [GameUpdateType.PaintedAction].map((a) => ({ ...a, tick })),
+    );
+  }
+  console.info(
+    "organic zero-farm recovery [tick:kind:troops:milli-food]",
+    actions
+      .slice(0, 4)
+      .map((a) => `${a.tick}:${a.kind}:${a.troops}:${a.spentMilli}`)
+      .join(", "),
+  );
+  expect(actions[0]).toMatchObject({
+    kind: "farm",
+    outcome: "committed",
+    spentMilli: 1_500_000n,
+  });
+  console.info(
+    "first funded recovery expedition",
+    actions.find((a) => a.kind === "land"),
+  );
+  expect(
+    actions.some((a) => a.kind === "land" && a.outcome === "committed"),
+  ).toBe(true);
+  expect(actions.every((a) => a.outcome === "committed")).toBe(true);
+  expect(player.foodMilli()).toBeGreaterThanOrEqual(0n);
 });

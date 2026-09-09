@@ -4,13 +4,17 @@
 // and drives the HUD/hover/labels from the small per-tick summary below.
 import type { AssetManifest } from "../../core/AssetUrls";
 import type { PaintedEconomyConfig } from "../../core/configuration/PaintedEconomyConfig";
+import type { GrowthConfig } from "../../core/development/CityDevelopmentConfig";
 import type { PaintedResourceSnapshot } from "../../core/execution/utils/PaintedEconomy";
 import {
   UnitType,
   type Difficulty,
   type GameMapType,
 } from "../../core/game/Game";
-import type { PaintResultUpdate } from "../../core/game/GameUpdates";
+import type {
+  CityDevelopmentUpdate,
+  PaintResultUpdate,
+} from "../../core/game/GameUpdates";
 import type { RulesetID } from "../../core/game/Rulesets";
 import type { Intent } from "../../core/Schemas";
 import type { LivePlotAction } from "../games/LiveGameRuntime";
@@ -42,7 +46,26 @@ export function packTransportShips(units: readonly ShellTransportSource[]) {
 }
 
 /** The human's live stats readout (shipped each tick). */
+export interface ShellUrbanSummary {
+  population: number;
+  idle: number;
+  deployed: number;
+  housing: number;
+  occupancy: number | null;
+  birthsPerSecond: number;
+  pressure: number;
+  status:
+    | "no-housing"
+    | "vacancies"
+    | "construction"
+    | "no-space"
+    | "disabled"
+    | "waiting";
+  upgradeBlocked: boolean;
+}
+
 export interface ShellMyStats {
+  urban?: ShellUrbanSummary;
   painted?: PaintedResourceSnapshot;
   paintedPricing?: Pick<
     PaintedEconomyConfig,
@@ -86,6 +109,9 @@ export type ShellSimIn =
       /** Which game's Config and live runtime to use. Omitted = `openfront`;
        *  LeanFront may install its GPU economy before each worker tick. */
       ruleset?: RulesetID;
+      /** Internal next-match integration seam. Only SimpleFront accepts this;
+       * absence retains normal-match rules until the release gate. */
+      cityDevelopment?: GrowthConfig;
     }
   | { type: "running"; running: boolean; turbo: boolean }
   // The worker resolves attack-vs-boat + ratio-scaled troops (needs Game reads).
@@ -105,6 +131,7 @@ export type ShellSimIn =
  * structured-clone data.
  */
 export interface ShellSimFrame {
+  development?: CityDevelopmentUpdate;
   matchResult?: SimpleFrontMatchResult | null;
   type: "frame";
   tick: number;
@@ -150,6 +177,8 @@ export type ShellSimOut =
   // hover readout — never a separate approximation.
   | {
       type: "ready";
+      /** Actual enabled rules, absent on ordinary matches. */
+      cityDevelopment?: Readonly<GrowthConfig>;
       popPerDensity: number;
       fertility: Uint8Array;
       suitability: Uint8Array;

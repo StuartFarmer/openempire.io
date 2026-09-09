@@ -1,5 +1,6 @@
 import { defineFieldSystem } from "../../webgpu/FieldDynamics";
 import liveGameView from "../shared/live-game.wesl?raw";
+import cityView from "./visuals/city-view.wesl?raw";
 
 // SimpleFront starts as a copy of OpenFront Live, ready for simplification.
 // The CPU simulation is rendered over the GPU terrain
@@ -58,12 +59,15 @@ export const simplefront = defineFieldSystem({
   },
 
   views: {
-    simplefront: { source: liveGameView },
+    simplefront: { source: cityView },
   },
 
-  modules: import.meta.glob("./**/*.wesl", {
-    query: "?raw",
-    import: "default",
-    eager: true,
-  }) as Record<string, string>,
+  modules: {
+    "./territory.wesl": liveGameView,
+    ...(import.meta.glob("./**/*.wesl", {
+      query: "?raw",
+      import: "default",
+      eager: true,
+    }) as Record<string, string>),
+  },
 });

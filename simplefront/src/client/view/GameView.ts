@@ -498,6 +498,7 @@ export class GameView implements GameMap {
     }
     gu.updates[GameUpdateType.Unit].forEach((update) => {
       let unit = this._units.get(update.id);
+      const previousTile = unit?.tile() ?? update.pos;
       const isStructure = STRUCTURE_TYPES.has(update.unitType);
       if (unit !== undefined) {
         // Structure changes that affect rendering: owner changed (captured),
@@ -526,7 +527,7 @@ export class GameView implements GameMap {
       }
       if (!update.isActive) {
         this.unitGrid.removeUnit(unit);
-      } else if (unit.tile() !== unit.lastTile()) {
+      } else if (unit.tile() !== previousTile) {
         this.unitGrid.updateUnitCell(unit);
       }
       if (!unit.isActive()) {

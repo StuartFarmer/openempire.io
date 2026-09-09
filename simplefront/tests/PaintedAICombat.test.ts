@@ -1,10 +1,15 @@
 import { expect, test } from "vitest";
+import {
+  cityDevelopmentState,
+  foundCityDevelopment,
+} from "../src/core/development/CityDevelopmentExecution";
 import { AttackExecution } from "../src/core/execution/AttackExecution";
 import {
   decidePaintedAI,
   paintedAIState,
 } from "../src/core/execution/utils/PaintedAI";
 import { PlayerInfo, PlayerType, UnitType } from "../src/core/game/Game";
+import { GameUpdateType } from "../src/core/game/GameUpdates";
 import { aiFixture } from "./util/PaintedAISetup";
 
 async function frontier() {
@@ -177,4 +182,89 @@ test("continuous city demand cannot starve a favorable campaign indefinitely", a
   expect(
     choices.some((a) => a.kind === "attack" && a.targetID === enemy.id()),
   ).toBe(true);
+});
+
+test("organic opening concentrates an affordable paid hostile push at 8000 people", async () => {
+  const { game, player } = await aiFixture({
+    organic: true,
+    inertResources: true,
+  });
+  const enemy = game.addPlayer(
+    new PlayerInfo("Neighbor", PlayerType.Human, null, "neighbor"),
+  );
+  for (let y = 30; y < 70; y++)
+    for (let x = 56; x < 76; x++) enemy.conquer(game.ref(x, y));
+  for (let y = 46; y < 55; y++) player.conquer(game.ref(55, y));
+  enemy.setSpawnTile(game.ref(60, 50));
+  enemy.setTroops(8000);
+  game.config().gameConfig().spawnImmunityDuration = 0;
+  const state = paintedAIState(player)!;
+  state.policy = "military-first";
+  const decision = decidePaintedAI(game, player, state);
+  expect(decision).toMatchObject({
+    kind: "attack",
+    targetID: enemy.id(),
+    troops: 2400,
+  });
+  const before = enemy.numTilesOwned();
+  let paid = false;
+  let hostile = false;
+  for (let i = 0; i < 30; i++) {
+    const tick = game.ticks();
+    const updates = game.executeNextTick()[GameUpdateType.PaintedAction];
+    for (const a of updates)
+      if (a.kind === "land" && a.outcome === "committed") {
+        console.info("organic hostile dispatch", {
+          tick,
+          troops: a.troops,
+          spentMilli: a.spentMilli,
+        });
+        expect(a.spentMilli).toBe(BigInt(a.troops) * 200n);
+        paid = true;
+      }
+    hostile ||= player.outgoingAttacks().some((a) => a.target() === enemy);
+  }
+  expect(paid).toBe(true);
+  expect(hostile).toBe(true);
+  expect(enemy.numTilesOwned()).toBeLessThan(before);
+  expect(player.troops()).toBeGreaterThan(0);
+});
+
+test("organic target ranking values developed housing equally with or without seed units", async () => {
+  const { game, player } = await aiFixture({
+    organic: true,
+    inertResources: true,
+  });
+  const enemies = ["a-seed", "z-housing"].map((id) =>
+    game.addPlayer(new PlayerInfo(id, PlayerType.Human, null, id)),
+  );
+  const targets = [game.ref(40, 30), game.ref(60, 30)];
+  for (const [i, enemy] of enemies.entries()) {
+    for (let y = 10; y <= 30; y++)
+      for (let x = 40 + 20 * i; x < 50 + 20 * i; x++)
+        enemy.conquer(game.ref(x, y));
+    enemy.setSpawnTile(targets[i]);
+    enemy.setTroops(80);
+    foundCityDevelopment(game, enemy, targets[i]);
+    player.conquer(game.ref(40 + 20 * i, 31));
+  }
+  enemies[0].buildUnit(UnitType.Settlement, targets[0], {});
+  const model = cityDevelopmentState(player)!.model;
+  const snapshot = model.deterministicState();
+  snapshot.tiles.find(([tile]) => tile === targets[1])![1] = 2;
+  model.restore(snapshot);
+  game.config().gameConfig().spawnImmunityDuration = 0;
+  const state = paintedAIState(player)!;
+  state.policy = "military-first";
+  expect(decidePaintedAI(game, player, state)).toMatchObject({
+    kind: "attack",
+    targetID: enemies[1].id(),
+  });
+  snapshot.tiles.find(([tile]) => tile === targets[1])![1] = 1;
+  model.restore(snapshot);
+  // Equal physical housing uses the existing deterministic target tie-break.
+  expect(decidePaintedAI(game, player, state)).toMatchObject({
+    kind: "attack",
+    targetID: enemies[0].id(),
+  });
 });

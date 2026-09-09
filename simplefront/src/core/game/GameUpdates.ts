@@ -17,6 +17,18 @@ import {
 } from "./Game";
 import { TileRef } from "./GameMap";
 
+/** Physical urban field only: no city membership or governing seed.
+ * Quads are [tile, level, ownerSmallID, terrainMagnitude]. Level zero removes
+ * a tile. A reset replaces all prior development, even with an empty array.
+ * Quad order on reset preserves establishment order for visual replay. */
+export interface CityDevelopmentUpdate {
+  reset: boolean;
+  width: number;
+  height: number;
+  seed: number;
+  tiles: Uint32Array;
+}
+
 export interface GameUpdateViewData {
   tick: number;
   updates: GameUpdates;

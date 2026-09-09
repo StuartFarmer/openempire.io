@@ -4,6 +4,12 @@ import {
   foodCapacityMilli,
   troopCapacity,
 } from "../../configuration/PaintedEconomyConfig";
+import {
+  cityDevelopmentState,
+  organicHousingCapacity,
+  organicPopulationPerSecond,
+  tickCityDevelopment,
+} from "../../development/CityDevelopmentExecution";
 import { Game, Player, UnitType } from "../../game/Game";
 import {
   GameUpdateType,
@@ -60,7 +66,10 @@ export function paintedResources(
       .units(UnitType.TransportShip)
       .reduce((sum, boat) => sum + boat.troops(), 0);
   const total = player.troops() + deployed;
-  const troopCap = troopCapacity(s.cities, c);
+  const troopCap = game.config().cityDevelopment()
+    ? organicHousingCapacity(game, player)
+    : troopCapacity(s.cities, c);
+  const organic = cityDevelopmentState(player);
   const active =
     player.isAlive() && player.hasSpawned() && !game.inSpawnPhase();
   return {
@@ -79,12 +88,15 @@ export function paintedResources(
     totalTroops: total,
     troopCapacity: troopCap,
     troopGain: active
-      ? capacityScaledGain(
-          total,
-          troopCap,
-          c.troopBootstrapFraction,
-          c.troopGrowthRate,
-        )
+      ? organic
+        ? organicPopulationPerSecond(game, player, total, troopCap) *
+          (game.config().msPerTick() / 1000)
+        : capacityScaledGain(
+            total,
+            troopCap,
+            c.troopBootstrapFraction,
+            c.troopGrowthRate,
+          )
       : 0,
     farms: s.farms,
     cities: s.cities,
@@ -182,13 +194,15 @@ export function tickPaintedEconomy(game: Game, player: Player): void {
     c.foodBootstrapFraction * Number(snapshot.foodCapacityMilli),
     c.foodGrowthRate,
   );
-  const troops = advanceResource(
-    snapshot.totalTroops,
-    snapshot.troopCapacity,
-    s.troopCredit,
-    c.troopBootstrapFraction * snapshot.troopCapacity,
-    c.troopGrowthRate,
-  );
+  const troops = game.config().cityDevelopment()
+    ? tickCityDevelopment(game, player, snapshot.totalTroops, s.troopCredit)
+    : advanceResource(
+        snapshot.totalTroops,
+        snapshot.troopCapacity,
+        s.troopCredit,
+        c.troopBootstrapFraction * snapshot.troopCapacity,
+        c.troopGrowthRate,
+      );
   player.addFoodMilli(BigInt(food.amount) - snapshot.foodMilli);
   player.addTroops(troops.amount - snapshot.totalTroops);
   s.foodCredit = food.credit;

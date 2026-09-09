@@ -32,3 +32,21 @@ test("real Verdantia runner replays deterministic paid AI traces and reports unf
     ),
   ).toBe(true);
 }, 30000);
+
+test("retained painted final hash includes eliminated members of the initial cohort", async () => {
+  const result = await runPaintedBalance(
+    {
+      seed: "simplefront-pace-01",
+      maxTicks: 1000,
+      sampleEvery: 10,
+      policyRotation: 0,
+      comparePolicies: false,
+    },
+    paintedMapLoader(path.join(__dirname, "../resources/maps")),
+  );
+  expect(result.events.some((event) => event.event === "eliminated")).toBe(
+    true,
+  );
+  // Independently retained pre-Stage7 result for this exact seed/setup.
+  expect(result.finalHash).toBe(1241618257);
+}, 30000);

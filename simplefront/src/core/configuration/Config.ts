@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { AssetManifest } from "../AssetUrls";
+import type { GrowthConfig } from "../development/CityDevelopmentConfig";
 import { DoomsdayClockSpeed } from "../game/DoomsdayClock";
 import {
   Difficulty,
@@ -22,8 +23,8 @@ import { GameConfig, TeamCountConfig } from "../Schemas";
 import { NukeType } from "../StatsSchemas";
 import { assertNever, sigmoid, toInt, within } from "../Util";
 import { FOOD_DEFAULTS, FoodConfig } from "./FoodConfig";
-import { PaintedEconomyConfig, troopCapacity } from "./PaintedEconomyConfig";
 import type { PaintedAIConfig } from "./PaintedAIConfig";
+import { PaintedEconomyConfig, troopCapacity } from "./PaintedEconomyConfig";
 
 export {
   FOOD_DEFAULTS,
@@ -45,6 +46,7 @@ export interface SimplePlotEconomyConfig {
 
 interface EconomyPlayer {
   paintedCityCount(): number;
+  organicHousingCapacity?(): number;
   type(): PlayerType;
   isLobbyCreator(): boolean;
   numTilesOwned(): number;
@@ -940,6 +942,11 @@ export class Config {
     return null;
   }
 
+  /** Null keeps organic city development disabled for every normal ruleset. */
+  cityDevelopment(): Readonly<GrowthConfig> | null {
+    return null;
+  }
+
   paintedAI(): Readonly<PaintedAIConfig> | null {
     return null;
   }
@@ -970,7 +977,10 @@ export class Config {
 
   maxTroops(player: EconomyPlayer): number {
     const painted = this.paintedEconomy();
-    if (painted) return troopCapacity(player.paintedCityCount(), painted);
+    if (painted)
+      return this.cityDevelopment() && player.organicHousingCapacity
+        ? player.organicHousingCapacity()
+        : troopCapacity(player.paintedCityCount(), painted);
     if (
       player.type() === PlayerType.Human &&
       this.hasInfiniteTroopsFor(player)

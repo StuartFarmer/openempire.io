@@ -1,5 +1,6 @@
 import { html, svg } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import cityPaletteDefaults from "../../docs/city-local-palette.json";
 import english from "../../resources/lang/en.json";
 import { getAssetManifest, getCdnBase } from "../core/AssetUrls";
 import {
@@ -8,6 +9,11 @@ import {
   type FoodConfig,
 } from "../core/configuration/FoodConfig";
 import { PAINTED_DEFAULTS } from "../core/configuration/PaintedEconomyConfig";
+import {
+  DEFAULT_CONFIG,
+  validateConfig,
+  type GrowthConfig,
+} from "../core/development/CityDevelopmentConfig";
 import { borderSegment } from "../core/execution/utils/BorderSegment";
 import {
   Difficulty,
@@ -39,6 +45,8 @@ import {
   type GameNation,
   type WorkerGameDefinition,
 } from "./games/experience";
+import type { AgeStyle } from "./games/simplefront/visuals/CityAges";
+import "./games/simplefront/visuals/CityDevelopmentControls";
 import { TUNING_GROUPS } from "./hud/layers/TuningPanel";
 import {
   composeTerrain,
@@ -102,6 +110,7 @@ interface PlayerHistory {
 }
 
 interface GamePlayerStats {
+  urban?: import("./webgpu/ShellSimProtocol").ShellUrbanSummary;
   painted?: import("../core/execution/utils/PaintedEconomy").PaintedResourceSnapshot;
   paintedPricing?: import("./webgpu/ShellSimProtocol").ShellMyStats["paintedPricing"];
   troops: number;
@@ -238,6 +247,11 @@ const CLIMATE_KNOBS: {
 
 @customElement("game-shell-page")
 export class GameShellPage extends FieldViewerBase {
+  protected override get maxScale(): number {
+    return this.activeCityDevelopment
+      ? 64 * (window.devicePixelRatio || 1)
+      : super.maxScale;
+  }
   // Terrain-mode view (the derived-color modes + baked layer bitmaps), separate
   // from the base `view` (a sim system's declared views).
   @state() private shellView: ShellViewKey = "terrain";
@@ -284,6 +298,46 @@ export class GameShellPage extends FieldViewerBase {
   // per-tick summary the worker ships. Deltas apply in place and only changed
   // tiles upload (run-merged writeBufferU32Range) — the GPU buffers retain rest.
   private worker: Worker | null = null;
+  private workerGeneration = 0;
+  private workerReady = false;
+  @state() private nextCityDevelopment?: Readonly<GrowthConfig>;
+  private hasNextCityDevelopment = false;
+  @state() private activeCityDevelopment?: Readonly<GrowthConfig>;
+  @state() private cityAgeLevels = [...cityPaletteDefaults.ageLevels];
+  @state() private cityPalette: readonly AgeStyle[] = structuredClone(
+    cityPaletteDefaults.palettes,
+  );
+
+  /** Internal integration seam; applies only when the next worker starts. */
+  setNextCityDevelopment(config: GrowthConfig | undefined): void {
+    if (config !== undefined) validateConfig(config);
+    this.hasNextCityDevelopment = true;
+    this.nextCityDevelopment =
+      config === undefined ? undefined : Object.freeze({ ...config });
+  }
+
+  get cityDevelopmentConfig(): Readonly<GrowthConfig> | undefined {
+    return this.activeCityDevelopment;
+  }
+
+  setCityAgeLevels(levels: readonly number[]): void {
+    this.renderer?.setCityAgeLevels(levels);
+    this.cityAgeLevels = [...levels];
+    this.needsRedraw = true;
+  }
+
+  setCityPalette(palette: readonly AgeStyle[]): void {
+    this.renderer?.setCityPalette(palette);
+    this.cityPalette = structuredClone(palette);
+    this.needsRedraw = true;
+  }
+
+  resetCityPalette(): void {
+    this.renderer?.resetCityPalette();
+    this.cityAgeLevels = [...cityPaletteDefaults.ageLevels];
+    this.cityPalette = structuredClone(cityPaletteDefaults.palettes);
+    this.needsRedraw = true;
+  }
   private ownerScratch: Uint32Array | null = null;
   private readonly playerFill = new Uint32Array(256);
   private readonly playerBorder = new Uint32Array(256);
@@ -372,6 +426,7 @@ export class GameShellPage extends FieldViewerBase {
    * the current build, and the sim is already warm when you press Start.
    */
   @property({ type: Boolean, reflect: true }) ambient = false;
+  private ambientVisible = true;
   /** Counter seeding which shot gets picked next (no longer a pacing clock). */
   private ambientClock = 0;
   private ambientTarget: { cx: number; cy: number; scale: number } | null =
@@ -474,14 +529,26 @@ export class GameShellPage extends FieldViewerBase {
     window.addEventListener("keydown", this.onKeyDown);
     if (this.hasAttribute("ambient")) {
       window.addEventListener("showPage", this.onAmbientPageChange);
+      this.ambientVisible = window.currentPageId
+        ? window.currentPageId === "page-play"
+        : !location.hash || location.hash === "#play";
+      this.classList.toggle("hidden", !this.ambientVisible);
     }
   }
 
   private onAmbientPageChange = (e: Event): void => {
     const page = (e as CustomEvent<string>).detail;
+    this.ambientVisible = page === "page-play";
+    this.classList.toggle("hidden", !this.ambientVisible);
+    this.running = this.ambientVisible;
+    this.postWorker({ type: "running", running: this.running, turbo: false });
     if (page === "page-play") {
       if (!this.kernel) void this.loadWorld();
-    } else {
+      else if (!this.worker)
+        void this.restartSim().then(() => this.uploadBakedTint());
+    } else if (!this.workerReady) {
+      // Initialization prewarms synchronously; terminate it rather than merely
+      // queueing a pause behind the work. Finished worlds can pause and resume.
       this.destroySim();
     }
   };
@@ -620,6 +687,7 @@ export class GameShellPage extends FieldViewerBase {
     // and it is pointer-events-none, so hit-testing hid this from every check
     // that only asked "is the button clickable".
     this.style.zIndex = this.ambient ? "0" : "9999";
+    if (this.ambient && !this.ambientVisible) return;
     if (!CameraRenderer.isSupported()) {
       this.status = "WebGPU is not supported in this browser.";
       return;
@@ -638,6 +706,58 @@ export class GameShellPage extends FieldViewerBase {
     this.updateFrontLabels();
     this.updateBuildPreview();
     this.updateSegmentHighlight();
+    this.updateCityLevelLabels();
+  }
+
+  /** Inspect only visible tiles at readable zoom, reusing the camera overlay. */
+  private updateCityLevelLabels(): void {
+    const container = this.querySelector("#shell-labels");
+    const canvas = this.querySelector<HTMLCanvasElement>("#shell-canvas");
+    if (!container) return;
+    const labels = new Map(
+      Array.from(
+        container.querySelectorAll<HTMLElement>("[data-city-level]"),
+        (el) => [Number(el.dataset.cityLevel), el],
+      ),
+    );
+    const { cx, cy, scale } = this.camera;
+    const dpr = window.devicePixelRatio || 1;
+    if (
+      this.activeCityDevelopment &&
+      this.showingGame &&
+      canvas &&
+      this.plotU32 &&
+      scale / dpr >= 24
+    ) {
+      const left = Math.max(0, Math.floor(cx - canvas.width / (2 * scale)));
+      const right = Math.min(
+        this.mapWidth,
+        Math.ceil(cx + canvas.width / (2 * scale)),
+      );
+      const top = Math.max(0, Math.floor(cy - canvas.height / (2 * scale)));
+      const bottom = Math.min(
+        this.mapHeight,
+        Math.ceil(cy + canvas.height / (2 * scale)),
+      );
+      for (let y = top; y < bottom; y++)
+        for (let x = left; x < right; x++) {
+          const tile = y * this.mapWidth + x,
+            level = (this.plotU32[tile] >>> 16) & 255;
+          if (!level) continue;
+          const el = labels.get(tile) ?? document.createElement("span");
+          if (!labels.has(tile)) {
+            el.dataset.cityLevel = String(tile);
+            el.style.cssText =
+              "position:absolute;pointer-events:none;transform:translate(-50%,-50%);font:bold 11px system-ui;color:white;text-shadow:0 1px 2px black,0 0 3px black";
+            container.appendChild(el);
+          }
+          el.textContent = String(level);
+          el.style.left = `${((x + 0.5 - cx) * scale + canvas.width / 2) / dpr}px`;
+          el.style.top = `${((y + 0.5 - cy) * scale + canvas.height / 2) / dpr}px`;
+          labels.delete(tile);
+        }
+    }
+    for (const el of labels.values()) el.remove();
   }
 
   /** Load the flag library once (lazy). Clears the per-player URL cache so any
@@ -1058,13 +1178,14 @@ export class GameShellPage extends FieldViewerBase {
     this.tool = "pan"; // start in pan; the brush tool is opt-in per game
     this.destroySim();
     await this.deriveTerrain(mapData);
+    if (this.ambient && !this.ambientVisible) return;
     const game = this.selectedGame();
     if (game !== undefined) {
       if (game.backend === "worker") {
         // Worker games keep their existing authoritative simulation.
         // `ready` may arrive synchronously from a test worker, so establish
         // the desired loop state before the worker can inspect it.
-        this.running = true;
+        this.running = !this.ambient || this.ambientVisible;
         await this.startWorker();
         // 1:1 terrain: swap the derived tint for the baked terrain-colors
         // plane — the exact pixels the WebGL game's TerrainPass draws.
@@ -1076,7 +1197,7 @@ export class GameShellPage extends FieldViewerBase {
       await this.applyGameView(game.view);
       this.tool = "pan";
       this.centeredOnSpawn = false;
-      this.running = true;
+      this.running = !this.ambient || this.ambientVisible;
       this.pendingFit = true;
       return;
     }
@@ -1093,6 +1214,8 @@ export class GameShellPage extends FieldViewerBase {
    * The worker owns every core `Game` read and returns render/HUD conduits. */
   private async startWorker(): Promise<void> {
     this.destroySim();
+    const generation = this.workerGeneration;
+    if (this.ambient && !this.ambientVisible) return;
     const mapType = GameMapType[this.mapKey as keyof typeof GameMapType];
     if (mapType === undefined) return;
     const n = this.mapWidth * this.mapHeight;
@@ -1129,10 +1252,16 @@ export class GameShellPage extends FieldViewerBase {
     this.previewQueryTile = -1;
     const { default: Worker } =
       await import("./webgpu/ShellSim.worker.ts?worker&inline");
+    if (
+      generation !== this.workerGeneration ||
+      (this.ambient && !this.ambientVisible)
+    )
+      return;
     const worker = new Worker();
     this.worker = worker;
-    worker.onmessage = (e: MessageEvent<ShellSimOut>) =>
-      this.onWorkerMessage(e.data);
+    worker.onmessage = (e: MessageEvent<ShellSimOut>) => {
+      if (this.worker === worker) this.onWorkerMessage(e.data);
+    };
     this.postWorker({
       type: "init",
       mapType,
@@ -1142,11 +1271,26 @@ export class GameShellPage extends FieldViewerBase {
       assetManifest: getAssetManifest(),
       ambient: this.ambient,
       ruleset: this.selectedLiveGame()!.id,
+      cityDevelopment:
+        this.isPaintedGame() && !this.ambient
+          ? this.hasNextCityDevelopment
+            ? this.nextCityDevelopment
+            : DEFAULT_CONFIG
+          : undefined,
     });
   }
 
   private onWorkerMessage(msg: ShellSimOut): void {
     if (msg.type === "ready") {
+      this.workerReady = true;
+      this.activeCityDevelopment =
+        msg.cityDevelopment === undefined
+          ? undefined
+          : Object.freeze({ ...msg.cityDevelopment });
+      if (this.activeCityDevelopment) {
+        this.renderer?.setCityAgeLevels(this.cityAgeLevels);
+        this.renderer?.setCityPalette(this.cityPalette);
+      }
       this.popPerDensity = msg.popPerDensity;
       this.fertilityPlane = msg.fertility;
       this.suitabilityPlane = msg.suitability;
@@ -1197,7 +1341,29 @@ export class GameShellPage extends FieldViewerBase {
     // r8uint plane only needs the TYPE, and only re-uploads when a type
     // actually changes — so a field merely ripening (maturity churn) doesn't
     // trigger a full-plane DMA every tick.
+    // Upper plot bits carry physical level only in the internal organic mode.
+    // Structure/maturity deltas must preserve this independent physical field.
+    if (f.plot && this.plotU32)
+      for (let i = 0; i < f.plot.length; i += 2)
+        f.plot[i + 1] |= this.plotU32[f.plot[i]] & 0xff0000;
     this.applyPairs("plot", this.plotU32, f.plot);
+    if (f.development && this.plotU32) {
+      if (f.development.reset) {
+        for (let tile = 0; tile < this.plotU32.length; tile++) {
+          if (this.plotU32[tile] >>> 16 === 0) continue;
+          this.plotU32[tile] &= 0xffff;
+          this.markDirty("plot", tile);
+        }
+      }
+      const updates = f.development.tiles;
+      for (let i = 0; i < updates.length; i += 4) {
+        const tile = updates[i];
+        this.plotU32[tile] =
+          (this.plotU32[tile] & 0xffff) | (updates[i + 1] << 16);
+        this.markDirty("plot", tile);
+      }
+      this.renderer?.applyCityDevelopment(f.development);
+    }
     if (this.selectedLiveGame()?.id === "leanfront-simple" && f.simplePlots) {
       this.simplePlots.clear();
       for (let i = 0; i + 5 < f.simplePlots.length; i += 6) {
@@ -1399,6 +1565,9 @@ export class GameShellPage extends FieldViewerBase {
   }
 
   private destroySim(): void {
+    this.workerGeneration++;
+    this.workerReady = false;
+    this.activeCityDevelopment = undefined;
     this.onStrokeEnd(true);
     this.matchResult = null;
     for (const t of this.tunePending.values()) clearTimeout(t);
@@ -1421,6 +1590,7 @@ export class GameShellPage extends FieldViewerBase {
     this.plotBytes = null;
     this.plotBytesDirty = false;
     this.renderer?.setPlotPlane(0, 0);
+    this.renderer?.clearCityDevelopment();
     this.highlightU32 = null;
     this.litHighlight = [];
     this.lastSegKey = -1;
@@ -1460,7 +1630,11 @@ export class GameShellPage extends FieldViewerBase {
   protected onStrokeStart(): void {
     super.onStrokeStart();
     this.lastGestureKey = -1;
-    if (this.isPaintedGame() && this.buildType !== null) {
+    if (
+      this.isPaintedGame() &&
+      this.buildType !== null &&
+      !this.disabledCityTool()
+    ) {
       this.paintStroke = new PaintStroke(this.mapWidth, this.mapHeight);
       this.paintStrokeKind =
         this.buildType === UnitType.Settlement ? "city" : "farm";
@@ -1471,7 +1645,16 @@ export class GameShellPage extends FieldViewerBase {
     return this.selectedLiveGame()?.id === "simplefront";
   }
 
+  private disabledCityTool(): boolean {
+    return (
+      this.isPaintedGame() &&
+      !!this.activeCityDevelopment &&
+      this.buildType === UnitType.Settlement
+    );
+  }
+
   protected paintTool(): boolean {
+    if (this.disabledCityTool()) return false;
     return this.isPaintedGame() && !this.inSpawn && this.buildType !== null
       ? true
       : super.paintTool();
@@ -1663,6 +1846,12 @@ export class GameShellPage extends FieldViewerBase {
     this.lastGestureKey = tile;
     if (this.buildType !== null) {
       if (this.isPaintedGame()) {
+        if (
+          this.activeCityDevelopment &&
+          (this.plotU32?.[tile] ?? 0) >>> 16 > 0
+        )
+          return true;
+        if (this.disabledCityTool()) return true;
         this.paintStroke?.add(x, y);
         if (this.paintStroke?.isFull())
           this.status = paintedText("paint_limit");
@@ -2350,7 +2539,7 @@ export class GameShellPage extends FieldViewerBase {
    * front to front so what is on screen is combat, not empty ocean.
    */
   private stepAmbient(): void {
-    if (!this.ambient) return;
+    if (!this.ambient || !this.ambientVisible) return;
     this.paramValues.ambientView = 1;
     // Just run — no turbo. The worker already ticks the backdrop slower than
     // real time, and a fast-forward at the start reads as a glitch rather than
@@ -2997,247 +3186,261 @@ export class GameShellPage extends FieldViewerBase {
         ></div>
 
         <div
-          class="absolute top-3 left-3 flex items-center gap-3 text-sm text-white bg-black/60 backdrop-blur px-3 py-2 rounded flex-wrap max-w-[calc(100%-1.5rem)]"
+          class="absolute top-3 left-3 right-3 flex flex-col items-start gap-2 pointer-events-none max-h-[calc(100%-14rem)]"
         >
-          <a
-            href="/"
-            aria-label=${translateText("play_page.back_home")}
-            title=${translateText("play_page.leave_game")}
-            class="rounded px-2 py-1 hover:bg-white/10"
-            >← ${translateText("play_page.home")}</a
+          <div
+            data-shell-toolbar
+            class="pointer-events-auto shrink-0 flex items-center gap-3 text-sm text-white bg-black/60 backdrop-blur px-3 py-2 rounded flex-wrap max-w-full"
           >
-          <select
-            aria-label="Game"
-            class="bg-black/40 border border-white/20 px-2 py-1 text-white"
-            @change=${(e: Event) => {
-              if ((e.target as HTMLSelectElement).value === "openfront") {
-                window.location.assign("/#shell");
-                return;
-              }
-              this.systemId = (e.target as HTMLSelectElement).value;
-              this.paramValues = {};
-              // Apply the newly-selected game's default map; the view resets to
-              // a terrain view in onSystemMounted (the game overlay is opt-in).
-              const sys = this.systems.find((s) => s.id === this.systemId);
-              if (sys?.defaultMap && sys.defaultMap in GameMapType) {
-                this.mapKey = sys.defaultMap;
-              }
-              this.destroySim();
-              void this.loadWorld();
-            }}
-          >
-            ${this.systems.map(
-              (s) =>
-                html`<option value=${s.id} ?selected=${s.id === this.systemId}>
-                  ${s.name}
-                </option>`,
-            )}
-            ${import.meta.env.BASE_URL === "/simplefront/"
-              ? html`<option value="openfront">OpenFront (live)</option>`
-              : null}
-          </select>
-          <select
-            class="bg-black/40 border border-white/20 px-2 py-1 text-white"
-            @change=${(e: Event) => {
-              this.mapKey = (e.target as HTMLSelectElement).value;
-              this.destroySim();
-              void this.loadWorld();
-            }}
-          >
-            ${Object.keys(GameMapType).map(
-              (key) =>
-                html`<option value=${key} ?selected=${key === this.mapKey}>
-                  ${key}
-                </option>`,
-            )}
-          </select>
-          <select
-            class="bg-black/40 border border-white/20 px-2 py-1 text-white"
-            @change=${(e: Event) => {
-              const v = (e.target as HTMLSelectElement).value;
-              const name = v.slice(v.indexOf(":") + 1);
-              if (v.startsWith("game:")) void this.applyGameView(name);
-              else void this.applyTerrainView(name as ShellViewKey);
-            }}
-          >
-            ${VIEW_KEYS.map(
-              (view) =>
-                html`<option
-                  value="terrain:${view}"
-                  ?selected=${!this.showingGame && view === this.shellView}
-                >
-                  ${view}
-                </option>`,
-            )}
-            ${game
-              ? html`<optgroup label=${compiled?.system.name ?? "game"}>
-                  ${(compiled?.viewNames ?? []).map(
-                    (view) =>
-                      html`<option
-                        value="game:${view}"
-                        ?selected=${this.showingGame && view === this.view}
-                      >
-                        ${view}
-                      </option>`,
-                  )}
-                </optgroup>`
-              : null}
-          </select>
-          <button
-            class="border border-white/20 px-2 py-1 hover:bg-white/10"
-            title="Cycle layer (n / shift+n)"
-            @click=${() => this.cycleView(1)}
-          >
-            ⟳
-          </button>
-          <button
-            class="border border-white/20 px-2 py-1 hover:bg-white/10"
-            @click=${() => this.toggleRunning()}
-          >
-            ${this.running ? "Pause" : "Play"}
-          </button>
-          <label
-            class="flex items-center gap-1 cursor-pointer select-none text-white/80"
-          >
-            <input
-              type="checkbox"
-              .checked=${this.turbo}
-              @change=${(e: Event) =>
-                this.setTurbo((e.target as HTMLInputElement).checked)}
-            />
-            turbo
-          </label>
-          <span class="text-white/70">week ${this.weekReadout}</span>
-          ${game
-            ? html`<span class="text-white/70">tick ${this.tickReadout}</span>`
-            : null}
-          ${this.selectedLiveGame() !== undefined
-            ? html`<label
-                class="flex items-center gap-1 text-white/80"
-                title="Bot count — applied on restart"
-              >
-                bots
-                <input
-                  type="number"
-                  min="0"
-                  max="400"
-                  class="w-16 bg-black/40 border border-white/20 px-1 py-0.5 text-white"
-                  .value=${String(this.simBots)}
-                  @change=${(e: Event) => {
-                    const n = (e.target as HTMLInputElement).valueAsNumber;
-                    this.simBots = Math.max(0, Math.min(400, n || 0));
-                    void this.restartSim();
-                  }}
-                />
-              </label>`
-            : null}
-          ${this.isPaintedGame()
-            ? html`<label class="flex items-center gap-1 text-white/80">
-                ${paintedText("difficulty_next")}
-                <select
-                  data-match-difficulty
-                  class="bg-black text-white"
-                  .value=${this.matchDifficulty}
-                  @change=${(e: Event) =>
-                    this.setMatchDifficulty(
-                      (e.target as HTMLSelectElement).value,
+            <a
+              href="/"
+              aria-label=${translateText("play_page.back_home")}
+              title=${translateText("play_page.leave_game")}
+              class="rounded px-2 py-1 hover:bg-white/10"
+              >← ${translateText("play_page.home")}</a
+            >
+            <select
+              aria-label="Game"
+              class="bg-black/40 border border-white/20 px-2 py-1 text-white"
+              @change=${(e: Event) => {
+                if ((e.target as HTMLSelectElement).value === "openfront") {
+                  window.location.assign("/#shell");
+                  return;
+                }
+                this.systemId = (e.target as HTMLSelectElement).value;
+                this.paramValues = {};
+                // Apply the newly-selected game's default map; the view resets to
+                // a terrain view in onSystemMounted (the game overlay is opt-in).
+                const sys = this.systems.find((s) => s.id === this.systemId);
+                if (sys?.defaultMap && sys.defaultMap in GameMapType) {
+                  this.mapKey = sys.defaultMap;
+                }
+                this.destroySim();
+                void this.loadWorld();
+              }}
+            >
+              ${this.systems.map(
+                (s) =>
+                  html`<option
+                    value=${s.id}
+                    ?selected=${s.id === this.systemId}
+                  >
+                    ${s.name}
+                  </option>`,
+              )}
+              ${import.meta.env.BASE_URL === "/simplefront/"
+                ? html`<option value="openfront">OpenFront (live)</option>`
+                : null}
+            </select>
+            <select
+              class="bg-black/40 border border-white/20 px-2 py-1 text-white"
+              @change=${(e: Event) => {
+                this.mapKey = (e.target as HTMLSelectElement).value;
+                this.destroySim();
+                void this.loadWorld();
+              }}
+            >
+              ${Object.keys(GameMapType).map(
+                (key) =>
+                  html`<option value=${key} ?selected=${key === this.mapKey}>
+                    ${key}
+                  </option>`,
+              )}
+            </select>
+            <select
+              class="bg-black/40 border border-white/20 px-2 py-1 text-white"
+              @change=${(e: Event) => {
+                const v = (e.target as HTMLSelectElement).value;
+                const name = v.slice(v.indexOf(":") + 1);
+                if (v.startsWith("game:")) void this.applyGameView(name);
+                else void this.applyTerrainView(name as ShellViewKey);
+              }}
+            >
+              ${VIEW_KEYS.map(
+                (view) =>
+                  html`<option
+                    value="terrain:${view}"
+                    ?selected=${!this.showingGame && view === this.shellView}
+                  >
+                    ${view}
+                  </option>`,
+              )}
+              ${game
+                ? html`<optgroup label=${compiled?.system.name ?? "game"}>
+                    ${(compiled?.viewNames ?? []).map(
+                      (view) =>
+                        html`<option
+                          value="game:${view}"
+                          ?selected=${this.showingGame && view === this.view}
+                        >
+                          ${view}
+                        </option>`,
                     )}
+                  </optgroup>`
+                : null}
+            </select>
+            <button
+              class="border border-white/20 px-2 py-1 hover:bg-white/10"
+              title="Cycle layer (n / shift+n)"
+              @click=${() => this.cycleView(1)}
+            >
+              ⟳
+            </button>
+            <button
+              class="border border-white/20 px-2 py-1 hover:bg-white/10"
+              @click=${() => this.toggleRunning()}
+            >
+              ${this.running ? "Pause" : "Play"}
+            </button>
+            <label
+              class="flex items-center gap-1 cursor-pointer select-none text-white/80"
+            >
+              <input
+                type="checkbox"
+                .checked=${this.turbo}
+                @change=${(e: Event) =>
+                  this.setTurbo((e.target as HTMLInputElement).checked)}
+              />
+              turbo
+            </label>
+            <span class="text-white/70">week ${this.weekReadout}</span>
+            ${game
+              ? html`<span class="text-white/70"
+                  >tick ${this.tickReadout}</span
+                >`
+              : null}
+            ${this.selectedLiveGame() !== undefined
+              ? html`<label
+                  class="flex items-center gap-1 text-white/80"
+                  title="Bot count — applied on restart"
                 >
-                  ${Object.values(Difficulty).map(
-                    (d) =>
+                  bots
+                  <input
+                    type="number"
+                    min="0"
+                    max="400"
+                    class="w-16 bg-black/40 border border-white/20 px-1 py-0.5 text-white"
+                    .value=${String(this.simBots)}
+                    @change=${(e: Event) => {
+                      const n = (e.target as HTMLInputElement).valueAsNumber;
+                      this.simBots = Math.max(0, Math.min(400, n || 0));
+                      void this.restartSim();
+                    }}
+                  />
+                </label>`
+              : null}
+            ${this.isPaintedGame()
+              ? html`<label class="flex items-center gap-1 text-white/80">
+                  ${paintedText("difficulty_next")}
+                  <select
+                    data-match-difficulty
+                    class="bg-black text-white"
+                    .value=${this.matchDifficulty}
+                    @change=${(e: Event) =>
+                      this.setMatchDifficulty(
+                        (e.target as HTMLSelectElement).value,
+                      )}
+                  >
+                    ${Object.values(Difficulty).map(
+                      (d) =>
+                        html`<option
+                          value=${d}
+                          .selected=${d === this.matchDifficulty}
+                        >
+                          ${d}
+                        </option>`,
+                    )}
+                  </select>
+                </label>`
+              : null}
+            <span class="text-white/70">zoom ${this.zoomReadout}×</span>
+            ${this.selectedGame() !== undefined
+              ? html`<button
+                  class="border border-white/20 px-2 py-1 hover:bg-white/10"
+                  title="Restart the game on this map"
+                  @click=${() => void this.restartSim()}
+                >
+                  restart
+                </button>`
+              : null}
+            ${this.selectedGame() !== undefined
+              ? html`<button
+                  class="border border-white/20 px-2 py-1 hover:bg-white/10 ${this
+                    .showStats
+                    ? "bg-white/10"
+                    : ""}"
+                  title="Live statistics (yours, and whoever you hover)"
+                  @click=${() => (this.showStats = !this.showStats)}
+                >
+                  stats
+                </button>`
+              : null}
+            ${this.derivedOk
+              ? html`<button
+                  class="border border-white/20 px-2 py-1 hover:bg-white/10 ${this
+                    .showKnobs
+                    ? "bg-white/10"
+                    : ""}"
+                  @click=${() => (this.showKnobs = !this.showKnobs)}
+                >
+                  climate
+                </button>`
+              : null}
+            ${this.selectedGame() === undefined && this.hasBrushPainting()
+              ? html`<div class="flex items-center gap-1">
+                  <button
+                    class="border border-white/20 px-2 py-1 hover:bg-white/10 ${this
+                      .tool === "pan"
+                      ? "bg-white/15"
+                      : ""}"
+                    title="Pan tool (drag to move the map)"
+                    @click=${() => (this.tool = "pan")}
+                  >
+                    ✋ pan
+                  </button>
+                  <button
+                    class="border border-white/20 px-2 py-1 hover:bg-white/10 ${this
+                      .tool === "brush"
+                      ? "bg-white/15"
+                      : ""}"
+                    title="Brush tool (drag on the map to paint)"
+                    @click=${() => (this.tool = "brush")}
+                  >
+                    🖌 brush
+                  </button>
+                </div>`
+              : null}
+            ${this.selectedGame() === undefined &&
+            this.tool === "brush" &&
+            (compiled?.brushNames.length ?? 0) > 0
+              ? html`<select
+                  class="bg-black/40 border border-white/20 px-2 py-1 text-white"
+                  title="Active brush"
+                  @change=${(e: Event) => {
+                    this.brush = (e.target as HTMLSelectElement).value;
+                  }}
+                >
+                  ${(compiled?.brushNames ?? []).map(
+                    (name) =>
                       html`<option
-                        value=${d}
-                        .selected=${d === this.matchDifficulty}
+                        value=${name}
+                        ?selected=${name === this.brush}
                       >
-                        ${d}
+                        ${name}
                       </option>`,
                   )}
-                </select>
-              </label>`
-            : null}
-          <span class="text-white/70">zoom ${this.zoomReadout}×</span>
-          ${this.selectedGame() !== undefined
-            ? html`<button
-                class="border border-white/20 px-2 py-1 hover:bg-white/10"
-                title="Restart the game on this map"
-                @click=${() => void this.restartSim()}
-              >
-                restart
-              </button>`
-            : null}
-          ${this.selectedGame() !== undefined
-            ? html`<button
-                class="border border-white/20 px-2 py-1 hover:bg-white/10 ${this
-                  .showStats
-                  ? "bg-white/10"
-                  : ""}"
-                title="Live statistics (yours, and whoever you hover)"
-                @click=${() => (this.showStats = !this.showStats)}
-              >
-                stats
-              </button>`
-            : null}
-          ${this.derivedOk
-            ? html`<button
-                class="border border-white/20 px-2 py-1 hover:bg-white/10 ${this
-                  .showKnobs
-                  ? "bg-white/10"
-                  : ""}"
-                @click=${() => (this.showKnobs = !this.showKnobs)}
-              >
-                climate
-              </button>`
-            : null}
-          ${this.selectedGame() === undefined && this.hasBrushPainting()
-            ? html`<div class="flex items-center gap-1">
-                <button
-                  class="border border-white/20 px-2 py-1 hover:bg-white/10 ${this
-                    .tool === "pan"
-                    ? "bg-white/15"
-                    : ""}"
-                  title="Pan tool (drag to move the map)"
-                  @click=${() => (this.tool = "pan")}
-                >
-                  ✋ pan
-                </button>
-                <button
-                  class="border border-white/20 px-2 py-1 hover:bg-white/10 ${this
-                    .tool === "brush"
-                    ? "bg-white/15"
-                    : ""}"
-                  title="Brush tool (drag on the map to paint)"
-                  @click=${() => (this.tool = "brush")}
-                >
-                  🖌 brush
-                </button>
-              </div>`
-            : null}
-          ${this.selectedGame() === undefined &&
-          this.tool === "brush" &&
-          (compiled?.brushNames.length ?? 0) > 0
-            ? html`<select
-                class="bg-black/40 border border-white/20 px-2 py-1 text-white"
-                title="Active brush"
-                @change=${(e: Event) => {
-                  this.brush = (e.target as HTMLSelectElement).value;
-                }}
-              >
-                ${(compiled?.brushNames ?? []).map(
-                  (name) =>
-                    html`<option value=${name} ?selected=${name === this.brush}>
-                      ${name}
-                    </option>`,
-                )}
-              </select>`
-            : null}
-          ${this.derivedNote
-            ? html`<span class="text-amber-300/80">${this.derivedNote}</span>`
-            : null}
-          ${this.status
-            ? html`<span class="text-amber-300">${this.status}</span>`
-            : null}
-        </div>
+                </select>`
+              : null}
+            ${this.derivedNote
+              ? html`<span class="text-amber-300/80">${this.derivedNote}</span>`
+              : null}
+            ${this.status
+              ? html`<span class="text-amber-300">${this.status}</span>`
+              : null}
+          </div>
 
+          ${this.renderCityControls()}
+        </div>
         ${this.selectedGame() !== undefined ? this.renderPlayerHud() : null}
         ${this.renderStatsPanel()}
         ${game && this.selectedFieldGame() !== undefined
@@ -3251,6 +3454,25 @@ export class GameShellPage extends FieldViewerBase {
   }
 
   /** Shared human HUD; each game supplies its resource and action surface. */
+  private renderCityControls() {
+    return this.isPaintedGame() && this.activeCityDevelopment && !this.ambient
+      ? html`<city-development-controls
+          .config=${this.nextCityDevelopment ?? this.activeCityDevelopment}
+          .ageLevels=${this.cityAgeLevels}
+          .palette=${this.cityPalette}
+          .summary=${this.myStats?.urban}
+          @city-next-match=${(e: CustomEvent<GrowthConfig>) =>
+            this.setNextCityDevelopment(e.detail)}
+          @city-visuals=${(
+            e: CustomEvent<{ levels: number[]; styles: AgeStyle[] }>,
+          ) => {
+            this.setCityAgeLevels(e.detail.levels);
+            this.setCityPalette(e.detail.styles);
+          }}
+        ></city-development-controls>`
+      : null;
+  }
+
   private renderPlayerHud() {
     const s = this.myStats;
     const fieldGame = this.selectedFieldGame();
@@ -3263,7 +3485,8 @@ export class GameShellPage extends FieldViewerBase {
         <span class="text-white/95 tabular-nums text-base">${value}</span>
       </div>
     `;
-    const painted = s?.painted;
+    const painted =
+      this.activeCityDevelopment && this.inSpawn ? undefined : s?.painted;
     const rows: [string, string | number][] = this.isPaintedGame()
       ? [
           [
@@ -3517,24 +3740,35 @@ export class GameShellPage extends FieldViewerBase {
               label: paintedText("paint_city"),
               cost: prices.cityCostMilli,
             },
-          ].map(
-            (action) =>
-              html`<button
-                class="border px-2 py-1 rounded ${this.buildType === action.type
-                  ? "bg-emerald-500/30 border-emerald-300/60"
-                  : "border-white/20"}"
-                @click=${() => {
-                  this.onStrokeEnd(true);
-                  this.buildType = action.type;
-                }}
-              >
-                ${action.label}${action.cost === null
-                  ? ""
-                  : ` · ${Number(action.cost) / 1000}`}
-              </button>`,
-          )}
+          ]
+            .filter(
+              (action) =>
+                !this.activeCityDevelopment ||
+                action.type !== UnitType.Settlement,
+            )
+            .map(
+              (action) =>
+                html`<button
+                  class="border px-2 py-1 rounded ${this.buildType ===
+                  action.type
+                    ? "bg-emerald-500/30 border-emerald-300/60"
+                    : "border-white/20"}"
+                  @click=${() => {
+                    this.onStrokeEnd(true);
+                    this.buildType = action.type;
+                  }}
+                >
+                  ${action.label}${action.cost === null
+                    ? ""
+                    : ` · ${Number(action.cost) / 1000}`}
+                </button>`,
+            )}
         </div>
-        <span>${paintedText("paint_hint")}</span>
+        <span
+          >${this.activeCityDevelopment
+            ? "Drag to paint farms. Cities grow automatically. Minimum housing: 10,000."
+            : paintedText("paint_hint")}</span
+        >
         <span
           >${paintedText("dispatch_cost")}:
           ${Number(prices.landDispatchMilliPerTroop) / 1000} /

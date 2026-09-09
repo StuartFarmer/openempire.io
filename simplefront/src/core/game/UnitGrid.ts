@@ -18,6 +18,12 @@ export type UnitPredicate<TUnit extends GridUnit = GridUnit> = (value: {
 export class UnitGrid<TUnit extends GridUnit = Unit> {
   private grid: Map<UnitType, Set<TUnit>>[][];
   private readonly cellSize = 100;
+  private readonly unitsByTile = new Map<TileRef, Set<TUnit>>();
+  private readonly indexedTile = new WeakMap<TUnit, TileRef>();
+  // Exact queries retain the coarse bucket's insertion order, even when a
+  // unit moves within that bucket onto a tile occupied by a newer unit.
+  private readonly insertionOrder = new WeakMap<TUnit, number>();
+  private nextOrder = 0;
 
   constructor(private gm: GameMap) {
     this.grid = Array(Math.ceil(gm.height() / this.cellSize))
@@ -41,11 +47,13 @@ export class UnitGrid<TUnit extends GridUnit = Unit> {
 
     if (this.isValidCell(gridX, gridY)) {
       const unitSet = this.grid[gridY][gridX].get(unit.type());
+      if (!unitSet?.has(unit)) this.insertionOrder.set(unit, this.nextOrder++);
       if (unitSet !== undefined) {
         unitSet.add(unit);
       } else {
         this.grid[gridY][gridX].set(unit.type(), new Set<TUnit>([unit]));
       }
+      this.addAtTile(unit, tile);
     }
   }
 
@@ -56,6 +64,7 @@ export class UnitGrid<TUnit extends GridUnit = Unit> {
   }
 
   removeUnitByTile(unit: TUnit, tile: TileRef) {
+    this.removeAtTile(unit);
     const [gridX, gridY] = this.getGridCoords(this.gm.x(tile), this.gm.y(tile));
 
     if (this.isValidCell(gridX, gridY)) {
@@ -64,6 +73,25 @@ export class UnitGrid<TUnit extends GridUnit = Unit> {
         unitSet.delete(unit);
       }
     }
+  }
+
+  private addAtTile(unit: TUnit, tile: TileRef): void {
+    if (this.indexedTile.get(unit) !== tile) this.removeAtTile(unit);
+    let units = this.unitsByTile.get(tile);
+    if (!units) this.unitsByTile.set(tile, (units = new Set()));
+    units.add(unit);
+    this.indexedTile.set(unit, tile);
+  }
+
+  private removeAtTile(unit: TUnit): void {
+    // UnitView.lastTile is the start of the tick, not necessarily the previous
+    // indexed position; inactive updates can also move before removal.
+    const tile = this.indexedTile.get(unit);
+    if (tile === undefined) return;
+    const units = this.unitsByTile.get(tile);
+    units?.delete(unit);
+    if (units?.size === 0) this.unitsByTile.delete(tile);
+    this.indexedTile.delete(unit);
   }
 
   /**
@@ -83,6 +111,8 @@ export class UnitGrid<TUnit extends GridUnit = Unit> {
     if (gridX !== newGridX || gridY !== newGridY) {
       this.removeUnitByTile(unit, oldTile);
       this.addUnit(unit);
+    } else if (this.isValidCell(gridX, gridY)) {
+      this.addAtTile(unit, newTile);
     }
   }
 
@@ -150,6 +180,27 @@ export class UnitGrid<TUnit extends GridUnit = Unit> {
       searchRange,
     );
     const rangeSquared = searchRange * searchRange;
+
+    if (searchRange === 0) {
+      // Preserve the existing range calculation at bucket boundaries; fixing
+      // its zero-radius edge behaviour separately would change game replays.
+      if (startGridX > endGridX || startGridY > endGridY) return nearby;
+      const units = this.unitsByTile.get(tile);
+      if (!units) return nearby;
+      const ordered = [...units].sort(
+        (a, b) => this.insertionOrder.get(a)! - this.insertionOrder.get(b)!,
+      );
+      for (const type of Array.isArray(types) ? types : [types]) {
+        for (const unit of ordered) {
+          if (unit.type() !== type || !unit.isActive()) continue;
+          if (!includeUnderConstruction && unit.isUnderConstruction()) continue;
+          const value = { unit, distSquared: 0 };
+          if (predicate !== undefined && !predicate(value)) continue;
+          nearby.push(value);
+        }
+      }
+      return nearby;
+    }
 
     if (Array.isArray(types)) {
       for (let cy = startGridY; cy <= endGridY; cy++) {

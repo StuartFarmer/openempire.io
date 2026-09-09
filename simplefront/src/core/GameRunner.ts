@@ -1,3 +1,4 @@
+import type { GrowthConfig } from "./development/CityDevelopmentConfig";
 import { DoomsdayClockExecution } from "./execution/DoomsdayClockExecution";
 import { Executor } from "./execution/ExecutionManager";
 import { RecomputeRailClusterExecution } from "./execution/RecomputeRailClusterExecution";
@@ -44,8 +45,15 @@ export async function createGameRunner(
   /** Which game's rules to build. Defaults to `openfront`; see Rulesets.ts —
    *  the seam ships with zero divergence and is proven identical. */
   ruleset: RulesetID = DEFAULT_RULESET,
+  cityDevelopment?: GrowthConfig,
 ): Promise<GameRunner> {
-  const config = createRulesetConfig(ruleset, gameStart.config, null, false);
+  const config = createRulesetConfig(
+    ruleset,
+    gameStart.config,
+    null,
+    false,
+    cityDevelopment,
+  );
   const gameMap = await loadGameMap(gameStart.config.gameMap, mapLoader);
   const random = new PseudoRandom(simpleHash(gameStart.gameID));
 

@@ -62,6 +62,9 @@ export function fixedClockPlayerActionBatch(
 }
 
 export abstract class FieldViewerBase extends LitElement {
+  protected get maxScale(): number {
+    return MAX_SCALE;
+  }
   @state() protected systemId = LAB_SYSTEMS[0]?.id ?? "";
   @state() protected mapKey = "Verdantia";
   @state() protected view = "";
@@ -440,7 +443,7 @@ export abstract class FieldViewerBase extends LitElement {
     if (!r || r.mapWidth === 0) return;
     const minScale = r.fitScale() * 0.5;
     this.camera.scale = Math.min(
-      MAX_SCALE,
+      this.maxScale,
       Math.max(minScale, this.camera.scale),
     );
     this.camera.cx = Math.min(r.mapWidth, Math.max(0, this.camera.cx));
@@ -554,7 +557,7 @@ export abstract class FieldViewerBase extends LitElement {
     const factor = Math.exp(-event.deltaY * 0.0015);
     const minScale = r.fitScale() * 0.5;
     const scale = Math.min(
-      MAX_SCALE,
+      this.maxScale,
       Math.max(minScale, this.camera.scale * factor),
     );
     this.camera = {

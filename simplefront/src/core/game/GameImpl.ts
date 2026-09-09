@@ -1,4 +1,7 @@
 import { Config } from "../configuration/Config";
+import { cityDevelopmentEligibility } from "../development/CityDevelopmentExecution";
+import { CityDevelopmentState } from "../development/CityDevelopmentState";
+import { cityDevelopmentTerrain } from "../development/CityDevelopmentTerrain";
 import { SharedWaterCache } from "../execution/nation/SharedWaterCache";
 import {
   changePlotOwner,
@@ -81,6 +84,7 @@ export function createGame(
 export type CellString = string;
 
 export class GameImpl implements Game {
+  readonly cityDevelopment: CityDevelopmentState | null;
   private _ticks = 0;
   private startTick: number | null = null;
 
@@ -157,6 +161,15 @@ export class GameImpl implements Game {
     this._terraNullius = new TerraNulliusImpl();
     this._width = _map.width();
     this._height = _map.height();
+    const development = _config.cityDevelopment();
+    this.cityDevelopment = development
+      ? new CityDevelopmentState(
+          cityDevelopmentTerrain(_map),
+          development,
+          undefined,
+          (tile) => this.ownerID(tile),
+        )
+      : null;
     this.unitGrid = new UnitGrid(this._map);
     this._waterManager = new WaterManager(
       this._map,
@@ -609,8 +622,28 @@ export class GameImpl implements Game {
     return packed;
   }
 
-  private hash(): number {
+  /** Read-only current-state digest, also used by periodic replay updates. */
+  hash(): number {
     let hash = 1;
+    // Hash the physical field once, including neutral and defeated players' work.
+    if (this.cityDevelopment) {
+      const physical = this.cityDevelopment.deterministicState();
+      const relevantTiles = new Set(physical.tiles.map(([tile]) => tile));
+      for (const tile of this.cityDevelopment.developedTiles())
+        this.forEachNeighbor(tile, (next) => relevantTiles.add(next));
+      const ownership = [...relevantTiles]
+        .sort((a, b) => a - b)
+        .map((tile) => {
+          const owner = this.owner(tile);
+          return [
+            tile,
+            this.ownerID(tile),
+            this.tileDamage(tile),
+            owner.isPlayer() && cityDevelopmentEligibility(this, owner)(tile),
+          ];
+        });
+      hash += simpleHash(JSON.stringify([physical, ownership]));
+    }
     this._players.forEach((p) => {
       hash += p.hash();
     });
@@ -900,6 +933,7 @@ export class GameImpl implements Game {
     // conquest yields tenure-zero land the captor must re-stabilize.
     this._tileTenure.delete(tile);
     this._map.setOwnerID(tile, owner.smallID());
+    this.cityDevelopment?.ownershipChanged(tile, previousOwner.smallID());
     owner._tiles.add(tile);
     owner._fertilitySum += crop;
     owner._lastTileChange = this._ticks;
@@ -950,6 +984,7 @@ export class GameImpl implements Game {
     this._tileTenure.delete(tile);
 
     this._map.setOwnerID(tile, 0);
+    this.cityDevelopment?.ownershipChanged(tile, previousOwner.smallID());
     this.updateBorders(tile);
     this.recordTileUpdate(tile);
   }

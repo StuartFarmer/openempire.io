@@ -499,6 +499,10 @@ export class PlayerView {
     return this.state.painted?.cities ?? 0;
   }
 
+  organicHousingCapacity(): number {
+    return this.state.painted?.troopCapacity ?? 0;
+  }
+
   foodProduction(): number {
     return this.state.foodProduction;
   }

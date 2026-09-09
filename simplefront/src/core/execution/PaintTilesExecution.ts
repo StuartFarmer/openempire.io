@@ -1,3 +1,4 @@
+import { isOrganicUrbanTile } from "../development/CityDevelopmentExecution";
 import { Execution, Game, Player, Structures, UnitType } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { GameUpdateType, PaintResultUpdate } from "../game/GameUpdates";
@@ -34,6 +35,7 @@ function purchase(
   const type = kind === "city" ? UnitType.Settlement : UnitType.Farmland;
   if (
     !c ||
+    (kind === "city" && !!game.config().cityDevelopment()) ||
     !player.hasSpawned() ||
     !player.isAlive() ||
     game.inSpawnPhase() ||
@@ -48,6 +50,8 @@ function purchase(
     return "invalid";
   const existing = game.plotAt(tile);
   if (existing) return existing.type() === type ? "duplicate" : "invalid";
+  if (game.config().cityDevelopment() && isOrganicUrbanTile(player, tile))
+    return "invalid";
   if (game.nearbyUnits(tile, 0, Structures.types, undefined, true).length > 0)
     return "invalid";
   const cost = kind === "city" ? c.cityCostMilli : c.farmCostMilli;

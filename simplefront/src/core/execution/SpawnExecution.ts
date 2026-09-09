@@ -1,3 +1,4 @@
+import { foundCityDevelopment } from "../development/CityDevelopmentExecution";
 import {
   Execution,
   Game,
@@ -53,8 +54,14 @@ export class SpawnExecution implements Execution {
       player = this.mg.addPlayer(this.playerInfo);
     }
 
-    // Security: If random spawn is enabled, prevent players from re-rolling their spawn location
-    if (this.mg.config().isRandomSpawn() && player.hasSpawned()) {
+    // Stage 2 organic state persists beyond its active founder; replaying a
+    // selected spawn must not mint another free level-one centre. Normal
+    // SimpleFront selected-spawn rerolls remain unchanged.
+    if (
+      player.hasSpawned() &&
+      (this.mg.config().isRandomSpawn() ||
+        this.mg.config().cityDevelopment() !== null)
+    ) {
       return;
     }
 
@@ -69,7 +76,7 @@ export class SpawnExecution implements Execution {
       return;
     }
 
-    const kit = painted
+    let kit = painted
       ? spawn.tiles
           .filter(
             (t) =>
@@ -85,6 +92,27 @@ export class SpawnExecution implements Execution {
           )
           .slice(0, 2)
       : [];
+    if (painted && this.mg.config().cityDevelopment() && kit.length === 2) {
+      const centre = kit[0];
+      const farm = spawn.tiles
+        .filter(
+          (tile) =>
+            tile !== centre &&
+            this.mg.isLand(tile) &&
+            !this.mg.isImpassable(tile) &&
+            this.mg.tileDamage(tile) === 0 &&
+            !this.mg.plotAt(tile),
+        )
+        .sort(
+          (a, b) =>
+            Number(this.mg.manhattanDist(b, centre) >= 2) -
+              Number(this.mg.manhattanDist(a, centre) >= 2) ||
+            this.mg.manhattanDist(a, centre) -
+              this.mg.manhattanDist(b, centre) ||
+            a - b,
+        )[0];
+      if (farm !== undefined) kit = [centre, farm];
+    }
     if (painted) {
       if (kit.length !== 2) return;
       player.tiles().forEach((t) => player.relinquish(t));
@@ -113,6 +141,7 @@ export class SpawnExecution implements Execution {
 
     if (painted) {
       player.setCore(kit[0]);
+      foundCityDevelopment(this.mg, player, kit[0]);
       player.buildUnit(UnitType.Settlement, kit[0], {});
       player.buildUnit(UnitType.Farmland, kit[1], {});
       player.removeFoodMilli(player.foodMilli());

@@ -1,7 +1,11 @@
 import { SpawnExecution } from "../../src/core/execution/SpawnExecution";
 import { Game, Player, PlayerInfo, PlayerType } from "../../src/core/game/Game";
 import { createGame } from "../../src/core/game/GameImpl";
-import { SimpleFrontConfig } from "../../src/core/game/Rulesets";
+import type { GameMap } from "../../src/core/game/GameMap";
+import {
+  SimpleFrontCityConfig,
+  SimpleFrontConfig,
+} from "../../src/core/game/Rulesets";
 import { setup } from "./Setup";
 
 export async function aiFixture(
@@ -9,10 +13,15 @@ export async function aiFixture(
     inertResources?: boolean;
     playerType?: PlayerType.Bot | PlayerType.Nation | PlayerType.Human;
     inSpawn?: boolean;
+    organic?: boolean;
+    map?: GameMap;
   } = {},
 ): Promise<{ game: Game; player: Player }> {
   const base = await setup("plains");
-  class AIConfig extends SimpleFrontConfig {
+  const BaseConfig: typeof SimpleFrontConfig = options.organic
+    ? SimpleFrontCityConfig
+    : SimpleFrontConfig;
+  class AIConfig extends BaseConfig {
     override paintedEconomy() {
       const c = super.paintedEconomy();
       return options.inertResources
@@ -29,7 +38,7 @@ export async function aiFixture(
   const game = createGame(
     [],
     [],
-    base.map(),
+    options.map ?? base.map(),
     base.miniMap(),
     new AIConfig(base.config().gameConfig(), null, false),
   );

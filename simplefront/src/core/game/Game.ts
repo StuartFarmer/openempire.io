@@ -646,6 +646,7 @@ export interface Player {
   addFoodMilli(amount: bigint): void;
   removeFoodMilli(amount: bigint): bigint;
   paintedCityCount(): number;
+  organicHousingCapacity(): number;
   addFood(toAdd: Gold): void;
   removeFood(toRemove: Gold): Gold;
   /** Sum of owned tiles' crop-layer bytes (production input). */

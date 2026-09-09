@@ -1,3 +1,8 @@
+import {
+  cityDevelopmentHash,
+  organicHousingCapacity,
+} from "../development/CityDevelopmentExecution";
+import type { CityDevelopmentAccount } from "../development/CityDevelopmentState";
 import type { PaintedAIState } from "../execution/utils/PaintedAI";
 import {
   PaintedEconomyState,
@@ -121,6 +126,8 @@ export class PlayerImpl implements Player {
     pendingLandingTroops: 0,
     lastRefillTick: -1,
   };
+  /** One RNG/timing account referencing the game's shared physical tile field. */
+  public readonly _cityDevelopment: CityDevelopmentAccount | null;
   /** Sum of owned tiles' crop-layer bytes — maintained by GameImpl on
    *  conquer/relinquish, never recomputed by scanning. */
   public _fertilitySum: number = 0;
@@ -224,6 +231,7 @@ export class PlayerImpl implements Player {
     private readonly _team: Team | null,
   ) {
     this._troops = toInt(startTroops);
+    this._cityDevelopment = mg.cityDevelopment?.account(playerInfo.id) ?? null;
     // Tribal age: no gold — the food stake is the survival budget
     // (enough for the first farms, not for comfort).
     this._gold = 0n;
@@ -1288,6 +1296,10 @@ export class PlayerImpl implements Player {
     return this._paintedEconomy.cities;
   }
 
+  organicHousingCapacity(): number {
+    return organicHousingCapacity(this.mg, this);
+  }
+
   removeFood(toRemove: Gold): Gold {
     if (toRemove <= 0n) {
       return 0n;
@@ -1991,7 +2003,8 @@ export class PlayerImpl implements Player {
       legacy +
       simpleHash(
         `${this._foodMilli}:${deployed}:${JSON.stringify(this._paintedEconomy)}:${JSON.stringify(ai)}`,
-      )
+      ) +
+      cityDevelopmentHash(this)
     );
   }
   toString(): string {

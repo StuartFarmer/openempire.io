@@ -1,4 +1,5 @@
 import { capacityScaledGain } from "../../configuration/PaintedEconomyConfig";
+import { cityDevelopmentState } from "../../development/CityDevelopmentExecution";
 import { Game, Player, PlayerID, Structures, UnitType } from "../../game/Game";
 import { TileRef } from "../../game/GameMap";
 import type { PlayerImpl } from "../../game/PlayerImpl";
@@ -98,7 +99,7 @@ function paintSite(
   game: Game,
   player: Player,
   state: PaintedAIState,
-): TileRef | null {
+): Record<"farm" | "city", TileRef | null> {
   const candidates = windowTiles(
     player.tiles(),
     state.plotCursor,
@@ -107,13 +108,18 @@ function paintSite(
   state.plotCursor =
     (state.plotCursor + candidates.length) %
     Math.max(1, player.numTilesOwned());
-  let best: TileRef | null = null,
-    bestInterior = -1;
+  const organic = cityDevelopmentState(player)?.model;
+  const best: Record<"farm" | "city", TileRef | null> = {
+    farm: null,
+    city: null,
+  };
+  const score = { farm: -Infinity, city: -Infinity };
   for (const tile of candidates) {
     if (
       !game.isLand(tile) ||
       game.isImpassable(tile) ||
       game.tileDamage(tile) > 0 ||
+      organic?.level(tile) ||
       game.plotAt(tile) ||
       game.nearbyUnits(tile, 0, Structures.types, undefined, true).length > 0
     )
@@ -121,12 +127,25 @@ function paintSite(
     const interior = game
       .neighbors(tile)
       .filter((t) => game.owner(t) === player).length;
-    if (
-      interior > bestInterior ||
-      (interior === bestInterior && (best === null || tile < best))
-    ) {
-      best = tile;
-      bestInterior = interior;
+    const neighbours = game.neighbors(tile);
+    const urbanNeighbours = organic
+      ? neighbours.filter((t) => organic.level(t) > 0).length
+      : 0;
+    for (const kind of ["farm", "city"] as const) {
+      if (organic && kind === "city") continue;
+      // Keep a young neighbourhood's support ring free when another farm site exists.
+      const value =
+        interior -
+        (organic && kind === "farm"
+          ? urbanNeighbours * 5 + (organic.work(tile) > 0 ? 5 : 0)
+          : 0);
+      if (
+        value > score[kind] ||
+        (value === score[kind] && (best[kind] === null || tile < best[kind]!))
+      ) {
+        best[kind] = tile;
+        score[kind] = value;
+      }
     }
   }
   return best;
@@ -162,9 +181,11 @@ function borderSources(
     const available = new Set(tiles);
     const front = [tiles[0]];
     available.delete(tiles[0]);
-    for (let i = 0; i < front.length && front.length < 8; i++) {
+    // Keep organic pushes concentrated; population scaling does not change tactics.
+    const width = game.config().cityDevelopment() ? 1 : 8;
+    for (let i = 0; i < front.length && front.length < width; i++) {
       for (const neighbor of game.neighbors(front[i])) {
-        if (front.length === 8) break;
+        if (front.length === width) break;
         if (available.delete(neighbor)) front.push(neighbor);
       }
     }
@@ -234,6 +255,7 @@ function enemyOrder(
   player: Player,
   state: PaintedAIState,
   groups: Map<PlayerID | null, TileRef[]>,
+  foodBudget?: bigint,
 ): Extract<PaintedAIDecision, { kind: "attack" }> | null {
   const cfg = game.config().paintedAI()!,
     c = game.config().paintedEconomy()!;
@@ -243,7 +265,7 @@ function enemyOrder(
     resources.totalTroops,
     state.reserveRatio,
     cfg.enemyShare,
-    resources.foodMilli,
+    foodBudget ?? resources.foodMilli,
     c.landDispatchMilliPerTroop,
   );
   if (troops <= 0) return null;
@@ -282,7 +304,15 @@ function enemyOrder(
           tile,
         );
       loss += estimate.attackerTroopLoss;
-      reward += estimate.defenderTroopLoss + (game.plotAt(tile) ? 25 : 0);
+      const organic = cityDevelopmentState(player)?.model;
+      reward +=
+        estimate.defenderTroopLoss +
+        (organic
+          ? (organic.capacity[tile] / organic.config.ruralCapacity) * 25 +
+            (game.plotAt(tile)?.type() === UnitType.Farmland ? 25 : 0)
+          : game.plotAt(tile)
+            ? 25
+            : 0);
       for (const outgoing of enemy.outgoingAttacks())
         for (const t of game.neighbors(tile)) contact += outgoing.troopsAt(t);
     }
@@ -405,11 +435,14 @@ export function decidePaintedAI(
   }
   const retreat = campaignRetreat(game, player, state);
   if (retreat) return retreat;
-  const site = paintSite(game, player, state);
+  const organic = cityDevelopmentState(player)?.model;
+  const noHousing = !organic && resources.cities === 0;
+  const sites = paintSite(game, player, state);
   const plot = (
     kind: "farm" | "city",
     reserve = 0n,
   ): PaintedAIDecision | null => {
+    const site = sites[kind];
     if (
       site === null ||
       game
@@ -428,11 +461,11 @@ export function decidePaintedAI(
     const action = plot("farm");
     if (action) return action;
   }
-  if (resources.cities === 0) {
+  if (noHousing) {
     const action = plot("city");
     if (action) return action;
   }
-  if (resources.cities === 0 && site === null && resources.idleTroops === 0)
+  if (noHousing && sites.city === null && resources.idleTroops === 0)
     return { kind: "wait", reason: "no-site" };
   const incoming = player
     .incomingAttacks()
@@ -476,7 +509,7 @@ export function decidePaintedAI(
           1.25);
   const transport =
     !enemy && !neutral ? transportOrder(game, player, state) : null;
-  const military =
+  let military =
     (state.policy === "military-first" || pressing
       ? (enemy ?? neutral)
       : (neutral ?? enemy)) ?? transport;
@@ -491,7 +524,7 @@ export function decidePaintedAI(
   const reserve =
     dispatchCost < c.farmCostMilli / 3n ? dispatchCost : c.farmCostMilli / 3n;
   const cityWanted =
-    resources.totalTroops >= resources.troopCapacity * cfg.cityFill;
+    !organic && resources.totalTroops >= resources.troopCapacity * cfg.cityFill;
   const city = cityWanted ? plot("city", reserve) : null;
   let projected = Number(resources.foodMilli);
   for (let i = 0; i < cfg.budgetHorizonTicks; i++)
@@ -502,6 +535,7 @@ export function decidePaintedAI(
       c.foodGrowthRate,
     );
   let budgetTroops = resources.idleTroops,
+    budgetPopulation = resources.totalTroops,
     commitments = 0;
   const hostileFront = [...groups.keys()].some(
     (id) =>
@@ -512,11 +546,22 @@ export function decidePaintedAI(
   const budgetShare = sources.length ? cfg.neutralShare : cfg.enemyShare;
   if (sources.length || hostileFront || transport)
     for (let i = 0; i < cfg.budgetHorizonTicks; i += cfg.decisionTicks) {
+      // Forecast recruitment into existing vacancies, without inventing future housing.
+      const recruits = organic
+        ? Math.min(
+            Math.max(0, resources.troopCapacity - budgetPopulation),
+            resources.troopGain * cfg.decisionTicks,
+          )
+        : 0;
+      budgetTroops += recruits;
+      budgetPopulation += recruits;
       const next = Math.max(
         0,
         Math.min(
           Math.floor(budgetTroops * budgetShare),
-          budgetTroops - Math.ceil(resources.totalTroops * state.reserveRatio),
+          Math.floor(
+            budgetTroops - Math.ceil(budgetPopulation * state.reserveRatio),
+          ),
         ),
       );
       commitments += next;
@@ -528,10 +573,64 @@ export function decidePaintedAI(
       (military?.kind === "transport"
         ? c.transportDispatchMilliPerTroop
         : c.landDispatchMilliPerTroop);
-  const farm = Number(planned) > projected ? plot("farm", reserve) : null;
+  // One additional farm funds future expeditions as the opening grows.
+  const foodShortfall = Number(planned) > projected;
+  const farm =
+    foodShortfall || (organic && resources.farms < 2)
+      ? plot("farm", organic ? 0n : reserve)
+      : null;
   // Continuous capacity demand must not consume every decision forever.
   // Reserve one in three discretionary decisions for an available expedition.
   const militaryDue = Math.floor(game.ticks() / cfg.decisionTicks) % 3 === 2;
+  let savingForArmy = false;
+  if (organic) {
+    if (military?.kind === "attack" || military?.kind === "transport") {
+      const price =
+        military.kind === "transport"
+          ? c.transportDispatchMilliPerTroop
+          : c.landDispatchMilliPerTroop;
+      const share =
+        military.kind === "attack" && military.targetID !== null
+          ? cfg.enemyShare
+          : cfg.neutralShare;
+      const desired = Math.max(
+        0,
+        Math.min(
+          Math.floor(resources.idleTroops * share),
+          resources.idleTroops -
+            Math.ceil(resources.totalTroops * state.reserveRatio),
+        ),
+      );
+      // Wait for a useful force, capped by what a full treasury could support.
+      // The cap keeps a landlocked/no-farm-site AI from waiting for impossible food.
+      const treasuryTroops =
+        price > 0n ? Number(resources.foodCapacityMilli / price) : desired;
+      const minimum = Math.max(
+        1,
+        Math.min(
+          Math.floor(Math.min(desired, treasuryTroops) / 4),
+          price > 0n ? Number(c.farmCostMilli / 3n / price) : desired,
+        ),
+      );
+      const savings = foodShortfall && farm ? c.farmCostMilli : 0n;
+      const availableFood =
+        resources.foodMilli > savings ? resources.foodMilli - savings : 0n;
+      if (price > 0n && dispatchCost > availableFood) {
+        // Re-score hostile targets with the smaller affordable force; never
+        // use the winning estimate from an army we can no longer dispatch.
+        military =
+          military.kind === "attack" && military.targetID !== null
+            ? enemyOrder(game, player, state, groups, availableFood)
+            : { ...military, troops: Number(availableFood / price) };
+      }
+      savingForArmy = !military || military.troops < minimum;
+      if (savingForArmy) military = null;
+    }
+    // Savings are real: a required but unaffordable farm must not fall through
+    // to an attack that spends its construction money. Keep expedition slots
+    // only when the attack leaves the entire farm cost untouched.
+    if (foodShortfall && farm && (!militaryDue || !military)) return farm;
+  }
   const choices =
     militaryDue ||
     state.policy === "expansion-first" ||
@@ -543,6 +642,7 @@ export function decidePaintedAI(
   for (const choice of choices)
     if (choice && choice.kind !== "wait") return choice;
   if (
+    savingForArmy ||
     city?.kind === "wait" ||
     farm?.kind === "wait" ||
     transport?.kind === "wait" ||

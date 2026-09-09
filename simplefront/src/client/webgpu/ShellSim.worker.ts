@@ -38,6 +38,10 @@ import {
   simpleFrontResult,
 } from "../shell/SimpleFrontMatch";
 import {
+  cityDevelopmentSummary,
+  CityDevelopmentUpdates,
+} from "./CityDevelopmentUpdates";
+import {
   packTransportShips,
   type ShellFrontLabel,
   type ShellSimFrame,
@@ -113,6 +117,7 @@ const AMBIENT_PREWARM_TICKS = 220;
 
 // Per-tick capture from the GameRunner callback.
 let pending: GameUpdateViewData | null = null;
+let developmentUpdates = new CityDevelopmentUpdates();
 
 function myPlayer(): Player | null {
   return game && clientID ? game.playerByClientID(clientID) : null;
@@ -140,6 +145,16 @@ async function init(msg: Extract<ShellSimIn, { type: "init" }>): Promise<void> {
   queued = [];
   turn = 0;
   pending = null;
+  developmentUpdates = new CityDevelopmentUpdates();
+  knownNames.clear();
+  prevUnitTiles.clear();
+  prevFrontTiles = [];
+  supplyPrevTiles = [];
+  supplyLastCalc = -2;
+  lastBorderChangeSent = -1;
+  unitDiffClock = 0;
+  spawnAnchorSent = false;
+  nationSpawnsSent = false;
   ambient = msg.ambient === true;
   runtime?.dispose();
   runtime = null;
@@ -178,6 +193,7 @@ async function init(msg: Extract<ShellSimIn, { type: "init" }>): Promise<void> {
       if (!(gu as ErrorUpdate).errMsg) pending = gu as GameUpdateViewData;
     },
     msg.ruleset ?? DEFAULT_RULESET,
+    msg.cityDevelopment,
   );
   game = gr.game;
   runtime = await createLiveGameRuntime(msg.ruleset ?? DEFAULT_RULESET, game);
@@ -223,10 +239,16 @@ async function init(msg: Extract<ShellSimIn, { type: "init" }>): Promise<void> {
     }
     pending = null;
   }
-  post({ type: "ready", popPerDensity, fertility, suitability }, [
-    fertility.buffer,
-    suitability.buffer,
-  ]);
+  post(
+    {
+      type: "ready",
+      popPerDensity,
+      fertility,
+      suitability,
+      cityDevelopment: game.config().cityDevelopment() ?? undefined,
+    },
+    [fertility.buffer, suitability.buffer],
+  );
   // One frame immediately, WITHOUT stepping. Frames are otherwise only
   // produced by the run loop, so a game that starts (or restarts) paused would
   // leave the client on the previous game's state — stale tick, no spawn-phase
@@ -542,6 +564,7 @@ function buildFrame(g: Game): {
   const myStats = me
     ? {
         painted,
+        urban: painted ? cityDevelopmentSummary(g, me, painted) : undefined,
         ...(prices
           ? {
               paintedPricing: {
@@ -608,6 +631,7 @@ function buildFrame(g: Game): {
     myBorder = Uint32Array.from(me.borderTiles());
   }
   const frame: ShellSimFrame = {
+    development: developmentUpdates.read(g),
     matchResult:
       g.config().paintedEconomy() && !ambient
         ? simpleFrontResult(g, me?.id() ?? null)
@@ -637,6 +661,7 @@ function buildFrame(g: Game): {
     myBorder,
   };
   const transfer: Transferable[] = [stats.buffer, transportShips.buffer];
+  if (frame.development) transfer.push(frame.development.tiles.buffer);
   if (frame.simplePlots) transfer.push(frame.simplePlots.buffer);
   for (const a of [
     owner,
@@ -781,7 +806,9 @@ ctx.onmessage = (e: MessageEvent<ShellSimIn>) => {
   try {
     switch (msg.type) {
       case "init":
-        void init(msg);
+        void init(msg).catch((error: Error) =>
+          post({ type: "error", message: error.message }),
+        );
         break;
       case "running":
         setRunning(msg.running, msg.turbo);

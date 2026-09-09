@@ -1,0 +1,1077 @@
+{
+  "methodology": "Forty pre-recovery-fix real-game simulations, eight concurrent processes. CPU timing/memory are contended process observations; no human playtest. Incomplete games have null victory time. Final recovery fix checked separately by full-seed replay and targeted regressions.",
+  "groups": {
+    "balanced": {
+      "runs": 10,
+      "completed": 0,
+      "medianVictorySeconds": null,
+      "medianSurvivors": 9.5,
+      "medianLeaderShare": 0.23761846645271134,
+      "medianFirstExpansion": 8.5,
+      "medianFirstUpgrade": 136.8,
+      "medianFirstEnemyCapture": 11.05,
+      "developedAreaRange": [
+        11300,
+        14236
+      ],
+      "perRun": [
+        {
+          "seed": "simplefront-pace-01",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 1683044006751305,
+          "survivors": 6,
+          "leaderShare": 0.2673085325980503,
+          "development": {
+            "developedArea": 12163,
+            "summedLevels": 22135,
+            "physicalHousing": 2213500,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 125
+          },
+          "firstExpansion": 8.8,
+          "firstUpgrade": 111,
+          "firstEnemyCapture": 11.4,
+          "coreP95Ms": 38.10245799999393,
+          "observerP95Ms": 3.159124999976484,
+          "meanDevelopmentBytes": 51.66881507188894,
+          "peakRSS": 383647744
+        },
+        {
+          "seed": "simplefront-pace-02",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 2625108350923357,
+          "survivors": 12,
+          "leaderShare": 0.1679097168858955,
+          "development": {
+            "developedArea": 13975,
+            "summedLevels": 26604,
+            "physicalHousing": 2660400,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 121
+          },
+          "firstExpansion": 8.3,
+          "firstUpgrade": 139.3,
+          "firstEnemyCapture": 11.8,
+          "coreP95Ms": 50.388375000009546,
+          "observerP95Ms": 5.020542000012938,
+          "meanDevelopmentBytes": 60.758221781523716,
+          "peakRSS": 383778816
+        },
+        {
+          "seed": "simplefront-pace-03",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 2060108867499564,
+          "survivors": 13,
+          "leaderShare": 0.25121668248730583,
+          "development": {
+            "developedArea": 13273,
+            "summedLevels": 25187,
+            "physicalHousing": 2518700,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 126
+          },
+          "firstExpansion": 8.8,
+          "firstUpgrade": 157,
+          "firstEnemyCapture": 10.4,
+          "coreP95Ms": 49.378249999994296,
+          "observerP95Ms": 4.815292000006593,
+          "meanDevelopmentBytes": 59.16774086927781,
+          "peakRSS": 384139264
+        },
+        {
+          "seed": "simplefront-pace-04",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 2770553564609981,
+          "survivors": 13,
+          "leaderShare": 0.20493001250583856,
+          "development": {
+            "developedArea": 13706,
+            "summedLevels": 27753,
+            "physicalHousing": 2775300,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 114
+          },
+          "firstExpansion": 8.5,
+          "firstUpgrade": 107,
+          "firstEnemyCapture": 10.3,
+          "coreP95Ms": 49.960458999994444,
+          "observerP95Ms": 5.068792000005487,
+          "meanDevelopmentBytes": 61.094034043959674,
+          "peakRSS": 389890048
+        },
+        {
+          "seed": "simplefront-pace-05",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 2378191064090829,
+          "survivors": 8,
+          "leaderShare": 0.21229791016890415,
+          "development": {
+            "developedArea": 11300,
+            "summedLevels": 19583,
+            "physicalHousing": 1958300,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 129
+          },
+          "firstExpansion": 8,
+          "firstUpgrade": 134.3,
+          "firstEnemyCapture": 12.3,
+          "coreP95Ms": 34.771082999999635,
+          "observerP95Ms": 2.955083000008017,
+          "meanDevelopmentBytes": 47.11684019170385,
+          "peakRSS": 386449408
+        },
+        {
+          "seed": "simplefront-pace-06",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 3385991819020813,
+          "survivors": 15,
+          "leaderShare": 0.1694917808012777,
+          "development": {
+            "developedArea": 14236,
+            "summedLevels": 27647,
+            "physicalHousing": 2764700,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 127
+          },
+          "firstExpansion": 8.5,
+          "firstUpgrade": 150.5,
+          "firstEnemyCapture": 10.9,
+          "coreP95Ms": 55.314541999978246,
+          "observerP95Ms": 5.867834000004223,
+          "meanDevelopmentBytes": 67.40968434969426,
+          "peakRSS": 379404288
+        },
+        {
+          "seed": "simplefront-pace-07",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 2469883527701849,
+          "survivors": 9,
+          "leaderShare": 0.22402025041811688,
+          "development": {
+            "developedArea": 13116,
+            "summedLevels": 24923,
+            "physicalHousing": 2492300,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 125
+          },
+          "firstExpansion": 8.3,
+          "firstUpgrade": 126,
+          "firstEnemyCapture": 11.9,
+          "coreP95Ms": 45.689790999982506,
+          "observerP95Ms": 4.173041000001831,
+          "meanDevelopmentBytes": 56.98892745000826,
+          "peakRSS": 390070272
+        },
+        {
+          "seed": "simplefront-pace-08",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 2583016691121905,
+          "survivors": 6,
+          "leaderShare": 0.2868206542210972,
+          "development": {
+            "developedArea": 12452,
+            "summedLevels": 22943,
+            "physicalHousing": 2294300,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 137
+          },
+          "firstExpansion": 8.5,
+          "firstUpgrade": 169,
+          "firstEnemyCapture": 11.2,
+          "coreP95Ms": 40.294332999998005,
+          "observerP95Ms": 3.5330829999875277,
+          "meanDevelopmentBytes": 50.84382746653446,
+          "peakRSS": 391626752
+        },
+        {
+          "seed": "simplefront-pace-09",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 1867039244775694,
+          "survivors": 10,
+          "leaderShare": 0.261628169778059,
+          "development": {
+            "developedArea": 12189,
+            "summedLevels": 23339,
+            "physicalHousing": 2333900,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 122
+          },
+          "firstExpansion": 8.8,
+          "firstUpgrade": 181,
+          "firstEnemyCapture": 10.8,
+          "coreP95Ms": 53.27862499997718,
+          "observerP95Ms": 5.204375000001164,
+          "meanDevelopmentBytes": 56.53809287721038,
+          "peakRSS": 372867072
+        },
+        {
+          "seed": "simplefront-pace-10",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 1771716985331834,
+          "survivors": 7,
+          "leaderShare": 0.28501258117494616,
+          "development": {
+            "developedArea": 11943,
+            "summedLevels": 21908,
+            "physicalHousing": 2190800,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 119
+          },
+          "firstExpansion": 8.5,
+          "firstUpgrade": 103.5,
+          "firstEnemyCapture": 10.6,
+          "coreP95Ms": 50.712458000009065,
+          "observerP95Ms": 4.465416999999434,
+          "meanDevelopmentBytes": 47.22128573789456,
+          "peakRSS": 375652352
+        }
+      ]
+    },
+    "policies-0": {
+      "runs": 10,
+      "completed": 0,
+      "medianVictorySeconds": null,
+      "medianSurvivors": 13,
+      "medianLeaderShare": 0.19295906221278006,
+      "medianFirstExpansion": 8.5,
+      "medianFirstUpgrade": 137.65,
+      "medianFirstEnemyCapture": 1,
+      "developedAreaRange": [
+        13083,
+        17084
+      ],
+      "perRun": [
+        {
+          "seed": "simplefront-pace-01",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 3957860765423958,
+          "survivors": 11,
+          "leaderShare": 0.18269071403818046,
+          "development": {
+            "developedArea": 14574,
+            "summedLevels": 33524,
+            "physicalHousing": 3352400,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 109
+          },
+          "firstExpansion": 8.8,
+          "firstUpgrade": 111,
+          "firstEnemyCapture": 1.4,
+          "coreP95Ms": 67.10408399999142,
+          "observerP95Ms": 5.827707999997074,
+          "meanDevelopmentBytes": 68.35630474301769,
+          "peakRSS": 377683968
+        },
+        {
+          "seed": "simplefront-pace-02",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 3506387387093630,
+          "survivors": 15,
+          "leaderShare": 0.16840693697358708,
+          "development": {
+            "developedArea": 15301,
+            "summedLevels": 31524,
+            "physicalHousing": 3152400,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 125
+          },
+          "firstExpansion": 8.3,
+          "firstUpgrade": 139.3,
+          "firstEnemyCapture": 1.8,
+          "coreP95Ms": 71.27770799999416,
+          "observerP95Ms": 6.192250000021886,
+          "meanDevelopmentBytes": 66.12725169393488,
+          "peakRSS": 380878848
+        },
+        {
+          "seed": "simplefront-pace-03",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 4034711109049319,
+          "survivors": 15,
+          "leaderShare": 0.19388569964893249,
+          "development": {
+            "developedArea": 17084,
+            "summedLevels": 37887,
+            "physicalHousing": 3788700,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 114
+          },
+          "firstExpansion": 8.8,
+          "firstUpgrade": 174.3,
+          "firstEnemyCapture": 0.4,
+          "coreP95Ms": 78.82433400000446,
+          "observerP95Ms": 6.933125000039581,
+          "meanDevelopmentBytes": 81.84300115683358,
+          "peakRSS": 397606912
+        },
+        {
+          "seed": "simplefront-pace-04",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 3178749687595653,
+          "survivors": 12,
+          "leaderShare": 0.17708568759511217,
+          "development": {
+            "developedArea": 13836,
+            "summedLevels": 29820,
+            "physicalHousing": 2982000,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 107
+          },
+          "firstExpansion": 8.5,
+          "firstUpgrade": 107,
+          "firstEnemyCapture": 0.3,
+          "coreP95Ms": 62.520916999987094,
+          "observerP95Ms": 5.779041000001598,
+          "meanDevelopmentBytes": 63.59676086597257,
+          "peakRSS": 376373248
+        },
+        {
+          "seed": "simplefront-pace-05",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 2359405894572402,
+          "survivors": 12,
+          "leaderShare": 0.1962060600581597,
+          "development": {
+            "developedArea": 13083,
+            "summedLevels": 25670,
+            "physicalHousing": 2567000,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 119
+          },
+          "firstExpansion": 8,
+          "firstUpgrade": 140,
+          "firstEnemyCapture": 12.3,
+          "coreP95Ms": 56.08316700000432,
+          "observerP95Ms": 4.7979169999598525,
+          "meanDevelopmentBytes": 53.4906627003801,
+          "peakRSS": 383860736
+        },
+        {
+          "seed": "simplefront-pace-06",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 4491268651491033,
+          "survivors": 14,
+          "leaderShare": 0.23815335472886437,
+          "development": {
+            "developedArea": 15409,
+            "summedLevels": 33177,
+            "physicalHousing": 3317700,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 116
+          },
+          "firstExpansion": 8.5,
+          "firstUpgrade": 150.5,
+          "firstEnemyCapture": 1.5,
+          "coreP95Ms": 69.59983299998567,
+          "observerP95Ms": 6.2519589999865275,
+          "meanDevelopmentBytes": 72.51826144438935,
+          "peakRSS": 381485056
+        },
+        {
+          "seed": "simplefront-pace-07",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 2244467091902955,
+          "survivors": 14,
+          "leaderShare": 0.21873163675812504,
+          "development": {
+            "developedArea": 14541,
+            "summedLevels": 30083,
+            "physicalHousing": 3008300,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 122
+          },
+          "firstExpansion": 8.3,
+          "firstUpgrade": 126,
+          "firstEnemyCapture": 0.4,
+          "coreP95Ms": 62.21291599998949,
+          "observerP95Ms": 5.70150000002468,
+          "meanDevelopmentBytes": 64.76681540241283,
+          "peakRSS": 377995264
+        },
+        {
+          "seed": "simplefront-pace-08",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 3304068105558787,
+          "survivors": 12,
+          "leaderShare": 0.1973210384366195,
+          "development": {
+            "developedArea": 14017,
+            "summedLevels": 28827,
+            "physicalHousing": 2882700,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 130
+          },
+          "firstExpansion": 8.5,
+          "firstUpgrade": 136,
+          "firstEnemyCapture": 0.3,
+          "coreP95Ms": 60.06029199998011,
+          "observerP95Ms": 5.559708999993745,
+          "meanDevelopmentBytes": 55.645678400264416,
+          "peakRSS": 374865920
+        },
+        {
+          "seed": "simplefront-pace-09",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 2382262198506270,
+          "survivors": 14,
+          "leaderShare": 0.15465051454745438,
+          "development": {
+            "developedArea": 14550,
+            "summedLevels": 29284,
+            "physicalHousing": 2928400,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 127
+          },
+          "firstExpansion": 8.8,
+          "firstUpgrade": 181,
+          "firstEnemyCapture": 0.9,
+          "coreP95Ms": 60.41808399997535,
+          "observerP95Ms": 5.627124999999069,
+          "meanDevelopmentBytes": 59.7190547017022,
+          "peakRSS": 381779968
+        },
+        {
+          "seed": "simplefront-pace-10",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 2760599842035364,
+          "survivors": 11,
+          "leaderShare": 0.19203242477662763,
+          "development": {
+            "developedArea": 15281,
+            "summedLevels": 32654,
+            "physicalHousing": 3265400,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 117
+          },
+          "firstExpansion": 8.5,
+          "firstUpgrade": 103.5,
+          "firstEnemyCapture": 1.1,
+          "coreP95Ms": 64.36704199999804,
+          "observerP95Ms": 5.940000000002328,
+          "meanDevelopmentBytes": 64.94397620228061,
+          "peakRSS": 368328704
+        }
+      ]
+    },
+    "policies-1": {
+      "runs": 10,
+      "completed": 0,
+      "medianVictorySeconds": null,
+      "medianSurvivors": 14,
+      "medianLeaderShare": 0.17302505687896458,
+      "medianFirstExpansion": 8.5,
+      "medianFirstUpgrade": 137.3,
+      "medianFirstEnemyCapture": 2,
+      "developedAreaRange": [
+        14249,
+        17984
+      ],
+      "perRun": [
+        {
+          "seed": "simplefront-pace-01",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 3764435449743803,
+          "survivors": 14,
+          "leaderShare": 0.18586990914432944,
+          "development": {
+            "developedArea": 15119,
+            "summedLevels": 32554,
+            "physicalHousing": 3255400,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 108
+          },
+          "firstExpansion": 8.8,
+          "firstUpgrade": 111,
+          "firstEnemyCapture": 5.7,
+          "coreP95Ms": 61.26791699999012,
+          "observerP95Ms": 5.577000000048429,
+          "meanDevelopmentBytes": 69.78152371508841,
+          "peakRSS": 385990656
+        },
+        {
+          "seed": "simplefront-pace-02",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 2307169810778309,
+          "survivors": 13,
+          "leaderShare": 0.2463951543642363,
+          "development": {
+            "developedArea": 14249,
+            "summedLevels": 28773,
+            "physicalHousing": 2877300,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 117
+          },
+          "firstExpansion": 8.3,
+          "firstUpgrade": 139.3,
+          "firstEnemyCapture": 2.1,
+          "coreP95Ms": 55.14587500001653,
+          "observerP95Ms": 5.104083999991417,
+          "meanDevelopmentBytes": 62.10940340439597,
+          "peakRSS": 372883456
+        },
+        {
+          "seed": "simplefront-pace-03",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 3593000105597267,
+          "survivors": 16,
+          "leaderShare": 0.12878000271210957,
+          "development": {
+            "developedArea": 17984,
+            "summedLevels": 39573,
+            "physicalHousing": 3957300,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 108
+          },
+          "firstExpansion": 8.8,
+          "firstUpgrade": 156,
+          "firstEnemyCapture": 0.6,
+          "coreP95Ms": 77.57916699998896,
+          "observerP95Ms": 7.307207999983802,
+          "meanDevelopmentBytes": 75.13468848124278,
+          "peakRSS": 435109888
+        },
+        {
+          "seed": "simplefront-pace-04",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 3154365344248543,
+          "survivors": 14,
+          "leaderShare": 0.1625156322982115,
+          "development": {
+            "developedArea": 14376,
+            "summedLevels": 31110,
+            "physicalHousing": 3111000,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 111
+          },
+          "firstExpansion": 8.5,
+          "firstUpgrade": 107,
+          "firstEnemyCapture": 1.9,
+          "coreP95Ms": 58.494166999997105,
+          "observerP95Ms": 5.3422499999869615,
+          "meanDevelopmentBytes": 67.29333994381093,
+          "peakRSS": 379469824
+        },
+        {
+          "seed": "simplefront-pace-05",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 4223415100801693,
+          "survivors": 10,
+          "leaderShare": 0.16759330410281909,
+          "development": {
+            "developedArea": 14995,
+            "summedLevels": 31337,
+            "physicalHousing": 3133700,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 120
+          },
+          "firstExpansion": 8,
+          "firstUpgrade": 135.3,
+          "firstEnemyCapture": 12.3,
+          "coreP95Ms": 54.67512500000885,
+          "observerP95Ms": 4.638208000003942,
+          "meanDevelopmentBytes": 66.62568170550323,
+          "peakRSS": 383909888
+        },
+        {
+          "seed": "simplefront-pace-06",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 3854983016920271,
+          "survivors": 14,
+          "leaderShare": 0.18038542090433787,
+          "development": {
+            "developedArea": 15054,
+            "summedLevels": 31560,
+            "physicalHousing": 3156000,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 115
+          },
+          "firstExpansion": 8.5,
+          "firstUpgrade": 159.3,
+          "firstEnemyCapture": 0.4,
+          "coreP95Ms": 56.843499999988126,
+          "observerP95Ms": 5.161167000012938,
+          "meanDevelopmentBytes": 65.05371013055694,
+          "peakRSS": 382713856
+        },
+        {
+          "seed": "simplefront-pace-07",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 3387341496411028,
+          "survivors": 15,
+          "leaderShare": 0.14565535114285283,
+          "development": {
+            "developedArea": 15232,
+            "summedLevels": 33265,
+            "physicalHousing": 3326500,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 114
+          },
+          "firstExpansion": 8.3,
+          "firstUpgrade": 126,
+          "firstEnemyCapture": 11.9,
+          "coreP95Ms": 58.39466699998593,
+          "observerP95Ms": 5.518167000031099,
+          "meanDevelopmentBytes": 67.02495455296645,
+          "peakRSS": 376471552
+        },
+        {
+          "seed": "simplefront-pace-08",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 3467732583122847,
+          "survivors": 11,
+          "leaderShare": 0.1822537630520273,
+          "development": {
+            "developedArea": 14527,
+            "summedLevels": 30507,
+            "physicalHousing": 3050700,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 118
+          },
+          "firstExpansion": 8.5,
+          "firstUpgrade": 147.5,
+          "firstEnemyCapture": 1.2,
+          "coreP95Ms": 54.667207999998936,
+          "observerP95Ms": 4.950875000009546,
+          "meanDevelopmentBytes": 64.1864154685176,
+          "peakRSS": 369704960
+        },
+        {
+          "seed": "simplefront-pace-09",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 2678045844087400,
+          "survivors": 15,
+          "leaderShare": 0.1380162425228646,
+          "development": {
+            "developedArea": 16010,
+            "summedLevels": 34635,
+            "physicalHousing": 3463500,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 124
+          },
+          "firstExpansion": 8.8,
+          "firstUpgrade": 183.3,
+          "firstEnemyCapture": 10.8,
+          "coreP95Ms": 63.58616600005189,
+          "observerP95Ms": 5.926875000004657,
+          "meanDevelopmentBytes": 72.9281110560238,
+          "peakRSS": 380796928
+        },
+        {
+          "seed": "simplefront-pace-10",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 2754412975285613,
+          "survivors": 15,
+          "leaderShare": 0.17845680965511007,
+          "development": {
+            "developedArea": 15790,
+            "summedLevels": 35592,
+            "physicalHousing": 3559200,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 110
+          },
+          "firstExpansion": 8.5,
+          "firstUpgrade": 103.5,
+          "firstEnemyCapture": 0.3,
+          "coreP95Ms": 64.68725000000268,
+          "observerP95Ms": 6.37208400000236,
+          "meanDevelopmentBytes": 68.98297802016195,
+          "peakRSS": 382074880
+        }
+      ]
+    },
+    "policies-2": {
+      "runs": 10,
+      "completed": 0,
+      "medianVictorySeconds": null,
+      "medianSurvivors": 11.5,
+      "medianLeaderShare": 0.2038828368666094,
+      "medianFirstExpansion": 8.5,
+      "medianFirstUpgrade": 134.65,
+      "medianFirstEnemyCapture": 7.75,
+      "developedAreaRange": [
+        12820,
+        16498
+      ],
+      "perRun": [
+        {
+          "seed": "simplefront-pace-01",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 2637189118230652,
+          "survivors": 11,
+          "leaderShare": 0.15029607196130723,
+          "development": {
+            "developedArea": 13582,
+            "summedLevels": 26984,
+            "physicalHousing": 2698400,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 112
+          },
+          "firstExpansion": 8.8,
+          "firstUpgrade": 111,
+          "firstEnemyCapture": 11.4,
+          "coreP95Ms": 47.94724999999744,
+          "observerP95Ms": 4.474291999998968,
+          "meanDevelopmentBytes": 56.73244091885639,
+          "peakRSS": 366919680
+        },
+        {
+          "seed": "simplefront-pace-02",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 2610983536694885,
+          "survivors": 11,
+          "leaderShare": 0.2746312284349621,
+          "development": {
+            "developedArea": 13997,
+            "summedLevels": 27853,
+            "physicalHousing": 2785300,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 128
+          },
+          "firstExpansion": 8.3,
+          "firstUpgrade": 135,
+          "firstEnemyCapture": 11.8,
+          "coreP95Ms": 52.85412500001257,
+          "observerP95Ms": 4.882125000003725,
+          "meanDevelopmentBytes": 60.29019996694761,
+          "peakRSS": 378978304
+        },
+        {
+          "seed": "simplefront-pace-03",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 3761567256950457,
+          "survivors": 16,
+          "leaderShare": 0.18843134595971012,
+          "development": {
+            "developedArea": 15756,
+            "summedLevels": 33731,
+            "physicalHousing": 3373100,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 122
+          },
+          "firstExpansion": 8.8,
+          "firstUpgrade": 157,
+          "firstEnemyCapture": 11.6,
+          "coreP95Ms": 59.31416700000409,
+          "observerP95Ms": 5.466833000013139,
+          "meanDevelopmentBytes": 68.89968600231367,
+          "peakRSS": 392970240
+        },
+        {
+          "seed": "simplefront-pace-04",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 3059503708774229,
+          "survivors": 12,
+          "leaderShare": 0.2205095752535069,
+          "development": {
+            "developedArea": 13443,
+            "summedLevels": 27979,
+            "physicalHousing": 2797900,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 113
+          },
+          "firstExpansion": 8.5,
+          "firstUpgrade": 107,
+          "firstEnemyCapture": 10.3,
+          "coreP95Ms": 48.61854199998197,
+          "observerP95Ms": 4.444167000008747,
+          "meanDevelopmentBytes": 61.9573624194348,
+          "peakRSS": 382074880
+        },
+        {
+          "seed": "simplefront-pace-05",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 3597892110126775,
+          "survivors": 12,
+          "leaderShare": 0.2800253130226461,
+          "development": {
+            "developedArea": 13408,
+            "summedLevels": 28189,
+            "physicalHousing": 2818900,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 110
+          },
+          "firstExpansion": 8,
+          "firstUpgrade": 134.3,
+          "firstEnemyCapture": 12.3,
+          "coreP95Ms": 42.74891700000444,
+          "observerP95Ms": 3.8363339999923483,
+          "meanDevelopmentBytes": 54.84713270533796,
+          "peakRSS": 381911040
+        },
+        {
+          "seed": "simplefront-pace-06",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 4082906389665238,
+          "survivors": 15,
+          "leaderShare": 0.14181319591978184,
+          "development": {
+            "developedArea": 16498,
+            "summedLevels": 34194,
+            "physicalHousing": 3419400,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 128
+          },
+          "firstExpansion": 8.5,
+          "firstUpgrade": 159,
+          "firstEnemyCapture": 2.4,
+          "coreP95Ms": 57.10625000001164,
+          "observerP95Ms": 5.043999999994412,
+          "meanDevelopmentBytes": 71.28342422740043,
+          "peakRSS": 385794048
+        },
+        {
+          "seed": "simplefront-pace-07",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 2493422688079784,
+          "survivors": 11,
+          "leaderShare": 0.17148066115204388,
+          "development": {
+            "developedArea": 15327,
+            "summedLevels": 33155,
+            "physicalHousing": 3315500,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 113
+          },
+          "firstExpansion": 8.3,
+          "firstUpgrade": 126,
+          "firstEnemyCapture": 1.9,
+          "coreP95Ms": 49.08749999999418,
+          "observerP95Ms": 3.9066660000098636,
+          "meanDevelopmentBytes": 77.50917203767972,
+          "peakRSS": 385056768
+        },
+        {
+          "seed": "simplefront-pace-08",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 2535813416708275,
+          "survivors": 11,
+          "leaderShare": 0.21933432777350872,
+          "development": {
+            "developedArea": 13685,
+            "summedLevels": 26944,
+            "physicalHousing": 2694400,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 126
+          },
+          "firstExpansion": 8.5,
+          "firstUpgrade": 169,
+          "firstEnemyCapture": 2,
+          "coreP95Ms": 41.55095799997798,
+          "observerP95Ms": 3.5568750000093132,
+          "meanDevelopmentBytes": 51.584200958519254,
+          "peakRSS": 373637120
+        },
+        {
+          "seed": "simplefront-pace-09",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 1969588482390558,
+          "survivors": 14,
+          "leaderShare": 0.156955807681297,
+          "development": {
+            "developedArea": 14500,
+            "summedLevels": 31139,
+            "physicalHousing": 3113900,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 117
+          },
+          "firstExpansion": 8.8,
+          "firstUpgrade": 161.8,
+          "firstEnemyCapture": 0.8,
+          "coreP95Ms": 44.958582999999635,
+          "observerP95Ms": 4.110458000010112,
+          "meanDevelopmentBytes": 61.36902991241117,
+          "peakRSS": 381796352
+        },
+        {
+          "seed": "simplefront-pace-10",
+          "completed": false,
+          "victorySeconds": null,
+          "elapsedSeconds": 1200.1,
+          "hash": 1923153054495915,
+          "survivors": 10,
+          "leaderShare": 0.23762600009040366,
+          "development": {
+            "developedArea": 12820,
+            "summedLevels": 26398,
+            "physicalHousing": 2639800,
+            "neutralDevelopedArea": 0,
+            "historicalCentreSeeds": 115
+          },
+          "firstExpansion": 8.5,
+          "firstUpgrade": 103.5,
+          "firstEnemyCapture": 5.2,
+          "coreP95Ms": 36.68370799999684,
+          "observerP95Ms": 3.2391670000215527,
+          "meanDevelopmentBytes": 55.42885473475459,
+          "peakRSS": 374259712
+        }
+      ]
+    }
+  },
+  "replay": {
+    "seed": "simplefront-pace-01",
+    "hash": 1683044006751305,
+    "samples": 1201,
+    "events": 19966,
+    "cadenceEvents": 1054,
+    "exact": true
+  },
+  "postFixReplay": {
+    "seed": "simplefront-pace-01",
+    "hash": 1683044006751305,
+    "samples": 1201,
+    "events": 19966,
+    "cadenceEvents": 1054,
+    "exact": true,
+    "aiSHA256": "19d807a3a8acab3aca96f015952119685041162955beb9e02f8355fce23dda5b"
+  },
+  "policies": {
+    "600": {
+      "farm-first": {
+        "seats": 760,
+        "survivors": 258,
+        "landShare": 6.4006689870270765,
+        "survival": 0.3394736842105263,
+        "meanLandShare": 0.008421932877667206
+      },
+      "expansion-first": {
+        "seats": 760,
+        "survivors": 263,
+        "landShare": 6.147463424189005,
+        "survival": 0.3460526315789474,
+        "meanLandShare": 0.008088767663406585
+      },
+      "military-first": {
+        "seats": 760,
+        "survivors": 382,
+        "landShare": 7.684762464403562,
+        "survival": 0.5026315789473684,
+        "meanLandShare": 0.010111529558425739
+      }
+    },
+    "900": {
+      "farm-first": {
+        "seats": 760,
+        "survivors": 152,
+        "landShare": 9.141828263195166,
+        "survival": 0.2,
+        "meanLandShare": 0.012028721398941008
+      },
+      "expansion-first": {
+        "seats": 760,
+        "survivors": 139,
+        "landShare": 8.476939535023881,
+        "survival": 0.18289473684210528,
+        "meanLandShare": 0.011153867809241949
+      },
+      "military-first": {
+        "seats": 760,
+        "survivors": 215,
+        "landShare": 10.363919902364048,
+        "survival": 0.28289473684210525,
+        "meanLandShare": 0.013636736713636905
+      }
+    },
+    "1200": {
+      "farm-first": {
+        "seats": 760,
+        "survivors": 122,
+        "landShare": 9.315644352031825,
+        "survival": 0.16052631578947368,
+        "meanLandShare": 0.012257426778989243
+      },
+      "expansion-first": {
+        "seats": 760,
+        "survivors": 116,
+        "landShare": 9.471801594117741,
+        "survival": 0.15263157894736842,
+        "meanLandShare": 0.01246289683436545
+      },
+      "military-first": {
+        "seats": 760,
+        "survivors": 152,
+        "landShare": 10.646280643071318,
+        "survival": 0.2,
+        "meanLandShare": 0.014008264004041208
+      }
+    }
+  }
+}

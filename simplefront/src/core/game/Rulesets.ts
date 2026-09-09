@@ -20,6 +20,12 @@
 import { Config, type SimplePlotEconomyConfig } from "../configuration/Config";
 import { paintedAIConfig } from "../configuration/PaintedAIConfig";
 import { PAINTED_DEFAULTS } from "../configuration/PaintedEconomyConfig";
+import {
+  DEFAULT_CONFIG,
+  GAME_POPULATION_SCALE,
+  validateConfig,
+  type GrowthConfig,
+} from "../development/CityDevelopmentConfig";
 import type { GameConfig } from "../Schemas";
 import { UnitInfo, UnitType } from "./Game";
 import { UserSettings } from "./UserSettings";
@@ -63,6 +69,33 @@ export class SimpleFrontConfig extends Config {
   }
   override paintedEconomy() {
     return PAINTED_DEFAULTS;
+  }
+}
+
+/** Internal Stage 2 fixture. Deliberately absent from RulesetID/RULESET_IDS. */
+export class SimpleFrontCityConfig extends SimpleFrontConfig {
+  private readonly development: Readonly<GrowthConfig>;
+
+  constructor(
+    gameConfig: GameConfig,
+    userSettings: UserSettings | null,
+    isReplay: boolean,
+    development: GrowthConfig = DEFAULT_CONFIG,
+  ) {
+    super(gameConfig, userSettings, isReplay);
+    validateConfig(development);
+    this.development =
+      development === DEFAULT_CONFIG
+        ? DEFAULT_CONFIG
+        : Object.freeze({ ...development });
+  }
+
+  override paintedEconomy() {
+    return { ...PAINTED_DEFAULTS, startingTroops: 80 * GAME_POPULATION_SCALE };
+  }
+
+  override cityDevelopment() {
+    return this.development;
   }
 }
 
@@ -111,7 +144,18 @@ export function createRulesetConfig(
   gameConfig: GameConfig,
   userSettings: UserSettings | null,
   isReplay: boolean,
+  cityDevelopment?: GrowthConfig,
 ): Config {
+  if (cityDevelopment !== undefined) {
+    if (ruleset !== "simplefront")
+      throw new Error("City development requires SimpleFront.");
+    return new SimpleFrontCityConfig(
+      gameConfig,
+      userSettings,
+      isReplay,
+      cityDevelopment,
+    );
+  }
   switch (ruleset) {
     case "openfront":
       return new Config(gameConfig, userSettings, isReplay);
