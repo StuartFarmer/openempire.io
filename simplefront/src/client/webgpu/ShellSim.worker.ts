@@ -30,6 +30,17 @@ import {
 import { DEFAULT_RULESET } from "../../core/game/Rulesets";
 import { createGameRunner, GameRunner } from "../../core/GameRunner";
 import type { GameStartInfo, Intent, StampedIntent } from "../../core/Schemas";
+import { TickChainAuthority } from "../../core/sync/TickChainAuthority";
+import type {
+  StateCheckpoint,
+  TickBlock,
+} from "../../core/sync/TickChainProtocol";
+import { replayTickChain } from "../../core/sync/TickChainReplay";
+import { TickChainSession } from "../../core/sync/TickChainSession";
+import {
+  loadTickGenesis,
+  orderedDevelopment,
+} from "../../core/sync/TickGenesis";
 import { generateID } from "../../core/Util";
 import type { LiveGameRuntime } from "../games/LiveGameRuntime";
 import { createLiveGameRuntime } from "../games/registry";
@@ -61,6 +72,13 @@ let game: Game | null = null;
 let runtime: LiveGameRuntime | null = null;
 let clientID = "";
 let turn = 0;
+let authority: TickChainAuthority | null = null;
+let chainSession: TickChainSession | null = null;
+let sealedPending: TickBlock | null = null;
+let commandSequence = 0;
+let stateCheckpoints: StateCheckpoint[] = [];
+let initializationGeneration = 0;
+let halted = false;
 let running = false;
 let runGeneration = 0;
 let turbo = false;
@@ -140,8 +158,17 @@ function computePlot(g: Game, tile: number): number {
 }
 
 async function init(msg: Extract<ShellSimIn, { type: "init" }>): Promise<void> {
+  const initialization = ++initializationGeneration;
   setRunning(false, false);
   if (stepInFlight) await stepInFlight;
+  if (initialization !== initializationGeneration) return;
+  halted = true;
+  chainSession?.stop();
+  authority = null;
+  chainSession = null;
+  sealedPending = null;
+  commandSequence = 0;
+  stateCheckpoints = [];
   queued = [];
   turn = 0;
   pending = null;
@@ -155,14 +182,28 @@ async function init(msg: Extract<ShellSimIn, { type: "init" }>): Promise<void> {
   unitDiffClock = 0;
   spawnAnchorSent = false;
   nationSpawnsSent = false;
-  ambient = msg.ambient === true;
+  ambient = msg.recoverRecord
+    ? msg.recoverRecord.genesis.initialization === "ambient"
+    : msg.ambient === true;
   runtime?.dispose();
   runtime = null;
   pendingPlotActions = [];
   globalThis.__ASSET_MANIFEST__ = msg.assetManifest;
   globalThis.__CDN_BASE__ = msg.cdnBase;
-  clientID = generateID();
-  const gameStart: GameStartInfo = {
+  const recovery = msg.recoverRecord;
+  if (
+    recovery &&
+    (msg.ruleset !== "simplefront" ||
+      recovery.genesis.gameStartInfo.config.gameMap !== msg.mapType)
+  )
+    throw new Error("Incompatible recovery match");
+  const development = recovery
+    ? (orderedDevelopment(recovery.genesis) ?? undefined)
+    : msg.cityDevelopment;
+  clientID = recovery
+    ? recovery.genesis.gameStartInfo.players[0].clientID
+    : generateID();
+  const gameStart: GameStartInfo = recovery?.genesis.gameStartInfo ?? {
     gameID: generateID(),
     lobbyCreatedAt: 0,
     config: {
@@ -185,24 +226,139 @@ async function init(msg: Extract<ShellSimIn, { type: "init" }>): Promise<void> {
     players: [{ clientID, username: "You", clanTag: null }],
   };
   const loader = new FetchGameMapLoader((path) => assetUrl(`maps/${path}`));
-  gr = await createGameRunner(
-    gameStart,
-    clientID,
-    loader,
-    (gu) => {
-      if (!(gu as ErrorUpdate).errMsg) pending = gu as GameUpdateViewData;
-    },
-    msg.ruleset ?? DEFAULT_RULESET,
-    msg.cityDevelopment,
-  );
+  const loaded =
+    (msg.ruleset ?? DEFAULT_RULESET) === "simplefront"
+      ? await loadTickGenesis(
+          gameStart,
+          development ?? null,
+          loader,
+          __SIMPLEFRONT_SIMULATION_BUILD__,
+          ambient ? "ambient" : "normal",
+        )
+      : null;
+  if (initialization !== initializationGeneration) return;
+  // Reconstruct render planes without emitting replay-time frames/audio.
+  const restoredOwner = new Map<number, number>();
+  const restoredDensity = new Map<number, number>();
+  const restoredDamage = new Map<number, number>();
+  const restoredFields = new Map<number, number>();
+  let replaying = !!recovery;
+  const capture = (gu: GameUpdateViewData | ErrorUpdate) => {
+    if (initialization !== initializationGeneration)
+      throw new Error("Stale worker initialization");
+    if ("errMsg" in gu) throw new Error(gu.errMsg);
+    pending = gu;
+    if (replaying) {
+      for (let i = 0; i < gu.packedTileUpdates.length; i += 2)
+        restoredOwner.set(gu.packedTileUpdates[i], gu.packedTileUpdates[i + 1]);
+      for (const [updates, plane] of [
+        [gu.packedDensityUpdates, restoredDensity],
+        [gu.packedDamageUpdates, restoredDamage],
+        [gu.packedFieldUpdates, restoredFields],
+      ] as const)
+        for (const packed of updates ?? [])
+          plane.set(packed & 0xffffff, packed);
+    }
+    for (const hash of gu.updates[GameUpdateType.Hash])
+      stateCheckpoints.push({
+        tick: hash.tick,
+        phase: "post-economy-pre-water-healing-v1",
+        algorithm: "legacy-simplefront-state-v1",
+        stateHash: hash.hash,
+      });
+  };
+  const replayed = recovery
+    ? await replayTickChain(
+        recovery,
+        recovery.appliedThrough.tick,
+        loaded!.freshLoader(),
+        __SIMPLEFRONT_SIMULATION_BUILD__,
+        {
+          stateHashEveryTicks: msg.stateHashEveryTicks ?? 0,
+          clientID,
+          onUpdate: capture,
+        },
+      )
+    : null;
+  const nextRunner =
+    replayed?.runner ??
+    (await createGameRunner(
+      gameStart,
+      clientID,
+      loaded?.freshLoader() ?? loader,
+      capture,
+      msg.ruleset ?? DEFAULT_RULESET,
+      development,
+      (msg.ruleset ?? DEFAULT_RULESET) === "simplefront"
+        ? { stateHashEveryTicks: msg.stateHashEveryTicks ?? 0 }
+        : undefined,
+    ));
+  if (initialization !== initializationGeneration) return;
+  gr = nextRunner;
   game = gr.game;
+  if (loaded) {
+    const nextAuthority = recovery
+      ? await TickChainAuthority.restoreLocal(recovery)
+      : await TickChainAuthority.create(loaded.genesis);
+    const nextSession =
+      replayed?.session ??
+      (await TickChainSession.create(loaded.genesis, (block) => {
+        if (nextRunner.game.ticks() !== block.tick)
+          throw new Error("Core tick does not match verified block");
+        nextRunner.addTurn({ turnNumber: block.tick, intents: block.intents });
+        if (
+          !nextRunner.executeNextTick() ||
+          nextRunner.game.ticks() !== block.tick + 1
+        )
+          throw new Error("Verified core tick failed");
+      }));
+    if (initialization !== initializationGeneration) return;
+    authority = nextAuthority;
+    chainSession = nextSession;
+    if (recovery) {
+      if (nextAuthority.head().tick > nextSession.appliedThrough().tick + 1)
+        throw new Error("Unexpected local pending history");
+      sealedPending =
+        recovery.blocks[nextSession.appliedThrough().tick + 1] ?? null;
+      // Finish the retained in-flight tick on this fresh runner as part of
+      // rebuilding, even when playback is paused or this tick ends the match.
+      if (sealedPending) {
+        await nextSession.receive(sealedPending);
+        if (initialization !== initializationGeneration) return;
+        sealedPending = null;
+      }
+      commandSequence = recovery.blocks.reduce(
+        (n, block) =>
+          n +
+          block.intents.filter((intent) => intent.clientID === clientID).length,
+        0,
+      );
+      const restored = pending as GameUpdateViewData | null;
+      if (restored) {
+        restored.packedTileUpdates = Uint32Array.from(
+          Array.from(restoredOwner).flat(),
+        );
+        restored.packedDensityUpdates = Uint32Array.from(
+          restoredDensity.values(),
+        );
+        restored.packedDamageUpdates = Uint32Array.from(
+          restoredDamage.values(),
+        );
+        restored.packedFieldUpdates = Uint32Array.from(restoredFields.values());
+        restored.packedBurns = undefined;
+        // Historical deaths must not replay transient burn effects.
+        restored.updates[GameUpdateType.Unit] = [];
+      }
+    }
+  }
+  replaying = false;
   runtime = await createLiveGameRuntime(msg.ruleset ?? DEFAULT_RULESET, game);
   // Singleplayer has NO spawn timer (GameRunner only adds SpawnTimerExecution
   // for multiplayer) — the phase ends when a HUMAN picks a spawn. The backdrop
   // has no human, so without this the world sits in the spawn phase forever
   // and the nations mill about placing spawns instead of playing. Add the very
   // same timer the multiplayer path uses.
-  if (msg.ambient === true) {
+  if (ambient && !recovery) {
     ambient = true;
     game.addExecution(new SpawnTimerExecution());
   }
@@ -227,18 +383,25 @@ async function init(msg: Extract<ShellSimIn, { type: "init" }>): Promise<void> {
     if (!game.config().paintedEconomy())
       suitability[t] = Math.round(climateSuitability(game, t) * 255);
   }
-  if (ambient) {
+  if (ambient && !recovery) {
     // The spawn phase runs on a 100-tick timer, and the backdrop deliberately
     // ticks slower than real time — left alone that is ~30s of nations
     // shuffling into place before anything happens. Burn those ticks here,
     // before anyone can see them, so the very first painted frame is a game
     // already under way.
     while (game.ticks() < AMBIENT_PREWARM_TICKS) {
-      gr.addTurn({ turnNumber: turn++, intents: [] });
-      gr.executeNextTick();
+      if (authority && chainSession) {
+        await chainSession.receive(await authority.sealNext());
+      } else {
+        gr.addTurn({ turnNumber: turn++, intents: [] });
+        gr.executeNextTick();
+      }
+      if (initialization !== initializationGeneration) return;
     }
     pending = null;
   }
+  if (initialization !== initializationGeneration) return;
+  halted = false;
   post(
     {
       type: "ready",
@@ -631,6 +794,7 @@ function buildFrame(g: Game): {
     myBorder = Uint32Array.from(me.borderTiles());
   }
   const frame: ShellSimFrame = {
+    chain: chainSession?.appliedThrough(),
     development: developmentUpdates.read(g),
     matchResult:
       g.config().paintedEconomy() && !ambient
@@ -743,10 +907,26 @@ async function stepAndPost(generation: number): Promise<void> {
   if (!gr || !game) return;
   await runtime?.beforeTick();
   if (!running || !gr || !game || generation !== runGeneration) return;
-  gr.addTurn({ turnNumber: turn++, intents: queued });
-  queued = [];
-  pending = null;
-  gr.executeNextTick();
+  if (authority && chainSession) {
+    if (!sealedPending) {
+      for (const intent of queued) {
+        authority.submit(intent.clientID, commandSequence, intent);
+        commandSequence++;
+      }
+      queued = [];
+      sealedPending = await authority.sealNext();
+    }
+    // Pausing during sealing retains this block for the next resume.
+    if (!running || generation !== runGeneration) return;
+    pending = null;
+    await chainSession.receive(sealedPending);
+    sealedPending = null;
+  } else {
+    gr.addTurn({ turnNumber: turn++, intents: queued });
+    queued = [];
+    pending = null;
+    gr.executeNextTick();
+  }
   await runtime?.afterTick?.();
   postPlotActionResults();
   const { frame, transfer } = buildFrame(game);
@@ -767,9 +947,24 @@ async function loop(generation: number): Promise<void> {
   const start = performance.now();
   const step = stepAndPost(generation).catch((err: unknown) => {
     setRunning(false, turbo);
+    halted = true;
+    const message = err instanceof Error ? err.message : String(err);
+    if (authority && chainSession) {
+      const applied = chainSession.appliedThrough();
+      post({
+        type: "chain_failure",
+        message,
+        record: authority.record(
+          applied,
+          stateCheckpoints.filter((c) => c.tick <= applied.tick),
+        ),
+      });
+      chainSession.stop();
+      return;
+    }
     post({
       type: "error",
-      message: err instanceof Error ? err.message : String(err),
+      message,
     });
   });
   stepInFlight = step;
@@ -782,6 +977,7 @@ async function loop(generation: number): Promise<void> {
 }
 
 function setRunning(run: boolean, tb: boolean): void {
+  if (run && halted) return;
   if (run && !ambient && game?.config().paintedEconomy() && game.getWinner())
     return;
   turbo = tb;
@@ -797,6 +993,7 @@ function setRunning(run: boolean, tb: boolean): void {
 }
 
 function stamp(intent: Intent): void {
+  if (halted) return;
   if (!ambient && game?.config().paintedEconomy() && game.getWinner()) return;
   queued.push({ ...intent, clientID } as StampedIntent);
 }
@@ -805,6 +1002,20 @@ ctx.onmessage = (e: MessageEvent<ShellSimIn>) => {
   const msg = e.data;
   try {
     switch (msg.type) {
+      case "export_chain":
+        void (async () => {
+          if (stepInFlight) await stepInFlight;
+          if (!authority || !chainSession)
+            throw new Error("This match has no tick-chain record");
+          post({
+            type: "chain_record",
+            record: authority.record(
+              chainSession.appliedThrough(),
+              stateCheckpoints,
+            ),
+          });
+        })().catch((error) => post({ type: "error", message: String(error) }));
+        break;
       case "init":
         void init(msg).catch((error: Error) =>
           post({ type: "error", message: error.message }),

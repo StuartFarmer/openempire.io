@@ -103,10 +103,14 @@ export function paintedResources(
   };
 }
 
-export function reconcilePaintedCapacity(game: Game, player: Player): void {
+export function reconcilePaintedCapacity(
+  game: Game,
+  player: Player,
+  snapshot?: PaintedResourceSnapshot,
+): void {
   if (!game.config().paintedEconomy()) return;
-  const s = paintedState(player),
-    snapshot = paintedResources(game, player);
+  const s = paintedState(player);
+  snapshot ??= paintedResources(game, player);
   if (snapshot.foodMilli >= snapshot.foodCapacityMilli) {
     player.removeFoodMilli(snapshot.foodMilli - snapshot.foodCapacityMilli);
     s.foodCredit = 0;
@@ -185,17 +189,26 @@ export function tickPaintedEconomy(game: Game, player: Player): void {
     return;
   const s = paintedState(player);
   if (s.lastRefillTick === game.ticks()) return;
-  reconcilePaintedCapacity(game, player);
   const snapshot = paintedResources(game, player);
+  reconcilePaintedCapacity(game, player, snapshot);
+  // Reconciliation only changes food and fractional credits. Housing, total
+  // troops and the birth rate in this snapshot remain valid until construction.
+  const foodMilli = player.foodMilli();
   const food = advanceResource(
-    Number(snapshot.foodMilli),
+    Number(foodMilli),
     Number(snapshot.foodCapacityMilli),
     s.foodCredit,
     c.foodBootstrapFraction * Number(snapshot.foodCapacityMilli),
     c.foodGrowthRate,
   );
   const troops = game.config().cityDevelopment()
-    ? tickCityDevelopment(game, player, snapshot.totalTroops, s.troopCredit)
+    ? tickCityDevelopment(
+        game,
+        player,
+        snapshot.totalTroops,
+        s.troopCredit,
+        snapshot,
+      )
     : advanceResource(
         snapshot.totalTroops,
         snapshot.troopCapacity,
@@ -203,7 +216,7 @@ export function tickPaintedEconomy(game: Game, player: Player): void {
         c.troopBootstrapFraction * snapshot.troopCapacity,
         c.troopGrowthRate,
       );
-  player.addFoodMilli(BigInt(food.amount) - snapshot.foodMilli);
+  player.addFoodMilli(BigInt(food.amount) - foodMilli);
   player.addTroops(troops.amount - snapshot.totalTroops);
   s.foodCredit = food.credit;
   s.troopCredit = troops.credit;

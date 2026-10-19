@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { afterEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type {
   ShellSimFrame,
   ShellSimIn,
@@ -8,7 +8,9 @@ import type {
 } from "../src/client/webgpu/ShellSimProtocol";
 import { Difficulty, GameMapType } from "../src/core/game/Game";
 import { expectedLayersByteLength } from "../src/core/game/MapLayers";
+import { installFakeClockCrypto } from "./util/FakeClockCrypto";
 
+beforeEach(() => installFakeClockCrypto());
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();

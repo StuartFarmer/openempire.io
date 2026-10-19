@@ -75,6 +75,36 @@ test("a local construction opportunity does not visit distant cities", async () 
   }
 });
 
+test("wilderness transfers and maturation retain the ordered housing index", async () => {
+  const { game, local, remote, centre } = await fixture();
+  const model = cityDevelopmentState(local)!.model;
+  for (const tile of game.neighbors(centre))
+    foundCityDevelopment(game, local, tile);
+  const localOrder = model.ownedDevelopedTiles(local.smallID());
+  const remoteOrder = model.ownedDevelopedTiles(remote.smallID());
+  const wilderness = game.ref(31, 31);
+  local.conquer(wilderness);
+  remote.conquer(wilderness);
+  expect(model.ownedDevelopedTiles(local.smallID())).toBe(localOrder);
+  expect(model.ownedDevelopedTiles(remote.smallID())).toBe(remoteOrder);
+
+  const account = cityDevelopmentState(local)!;
+  for (let i = 0; i < 500 && model.level(centre) === 1; i++)
+    model.advanceConstructionStep(
+      account,
+      1000,
+      1000,
+      (tile) => tile === centre,
+      model.growthTiles(local.smallID()),
+    );
+  expect(model.level(centre)).toBeGreaterThan(1);
+  expect(model.ownedDevelopedTiles(local.smallID())).toBe(localOrder);
+
+  remote.conquer(centre);
+  expect([...model.ownedDevelopedTiles(local.smallID())]).not.toContain(centre);
+  expect([...model.ownedDevelopedTiles(remote.smallID())][0]).toBe(centre);
+});
+
 test("unchanged neighbourhoods reuse geometric growth checks", async () => {
   const { game, remote } = await fixture();
   const model = cityDevelopmentState(remote)!.model;
@@ -87,6 +117,26 @@ test("unchanged neighbourhoods reuse geometric growth checks", async () => {
     expect(neighbours.mock.calls.length).toBeLessThan(5);
   } finally {
     neighbours.mockRestore();
+  }
+});
+
+test("unsupported buildings skip structure lookups but become candidates when supported", async () => {
+  const { game, local, centre } = await fixture();
+  const model = cityDevelopmentState(local)!.model;
+  const eligible = cityDevelopmentEligibility(game, local);
+  const nearby = vi.spyOn(game, "nearbyUnits");
+  try {
+    expect(model.candidates(eligible, Infinity, [centre])).toEqual([]);
+    expect(nearby).not.toHaveBeenCalled();
+    for (const tile of game.neighbors(centre))
+      foundCityDevelopment(game, local, tile);
+    expect(model.candidates(eligible, Infinity, [centre])).toMatchObject([
+      { tile: centre, kind: "densify" },
+    ]);
+    game.addTileDamage(centre, 100);
+    expect(model.candidates(eligible, Infinity, [centre])).toEqual([]);
+  } finally {
+    nearby.mockRestore();
   }
 });
 

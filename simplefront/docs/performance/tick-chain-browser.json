@@ -1,0 +1,125 @@
+{
+  "browser": "152.0.7977.77",
+  "generatedAt": "2026-09-09T11:59:49.218Z",
+  "errors": [],
+  "limitations": "One real browser shell/worker match to 600 ticks; synthetic controller failure exercises replacement and terminal stop; not a late-game FPS or remote-network test.",
+  "vector": "24cc194d3e5328a0529c0c593233c19e21e5a3942ae62732fef5cfd5a0384000",
+  "record": {
+    "build": "ffd2e91df5c3e2ff7beb05219b22ae37a49c866219765c3607978a16465e2228",
+    "cursor": {
+      "tick": 600,
+      "chainHash": "33ed0f0dd1bed95dc067588f486c21b2768ba327c72a89c72db17d62a87fcc58"
+    },
+    "blocks": 601,
+    "stateCheckpoints": 0
+  },
+  "recovery": {
+    "replaced": true,
+    "terminated": 1,
+    "restored": {
+      "cursor": {
+        "tick": 600,
+        "chainHash": "33ed0f0dd1bed95dc067588f486c21b2768ba327c72a89c72db17d62a87fcc58"
+      },
+      "stats": {
+        "painted": {
+          "foodMilli": "9450488",
+          "foodCapacityMilli": "10000000",
+          "foodGainMilli": 2626.774624742399,
+          "idleTroops": 53483,
+          "deployedTroops": 0,
+          "totalTroops": 53483,
+          "troopCapacity": 60000,
+          "troopGain": 176.4466888333332,
+          "farms": 1,
+          "cities": 1
+        },
+        "urban": {
+          "population": 53483,
+          "idle": 53483,
+          "deployed": 0,
+          "housing": 60000,
+          "occupancy": 0.8913833333333333,
+          "birthsPerSecond": 1764.466888333332,
+          "pressure": 0.2758888888888888,
+          "status": "construction",
+          "upgradeBlocked": true
+        },
+        "paintedPricing": {
+          "farmCostMilli": "1500000",
+          "cityCostMilli": "2000000",
+          "landDispatchMilliPerTroop": "200",
+          "transportDispatchMilliPerTroop": "200"
+        },
+        "troops": 53483,
+        "food": 9450,
+        "population": 53483,
+        "starved": 0,
+        "tiles": 35,
+        "alive": true,
+        "farmSeeds": 0,
+        "settlementSeeds": 0
+      }
+    },
+    "beforeStats": {
+      "painted": {
+        "foodMilli": "9450488",
+        "foodCapacityMilli": "10000000",
+        "foodGainMilli": 2626.774624742399,
+        "idleTroops": 53483,
+        "deployedTroops": 0,
+        "totalTroops": 53483,
+        "troopCapacity": 60000,
+        "troopGain": 176.4466888333332,
+        "farms": 1,
+        "cities": 1
+      },
+      "urban": {
+        "population": 53483,
+        "idle": 53483,
+        "deployed": 0,
+        "housing": 60000,
+        "occupancy": 0.8913833333333333,
+        "birthsPerSecond": 1764.466888333332,
+        "pressure": 0.2758888888888888,
+        "status": "construction",
+        "upgradeBlocked": true
+      },
+      "paintedPricing": {
+        "farmCostMilli": "1500000",
+        "cityCostMilli": "2000000",
+        "landDispatchMilliPerTroop": "200",
+        "transportDispatchMilliPerTroop": "200"
+      },
+      "troops": 53483,
+      "food": 9450,
+      "population": 53483,
+      "starved": 0,
+      "tiles": 35,
+      "alive": true,
+      "farmSeeds": 0,
+      "settlementSeeds": 0
+    },
+    "currentTick": 601,
+    "status": "Recovered from verified replay; unsent actions were discarded.",
+    "paused": true,
+    "cleared": [
+      "owner",
+      "plot",
+      "density",
+      "front",
+      "damage",
+      "supply",
+      "highlight"
+    ],
+    "highlightedTiles": []
+  },
+  "terminal": {
+    "stopped": true,
+    "worker": true,
+    "running": false,
+    "timer": null,
+    "evidence": true,
+    "status": "Match stopped: Error: Fresh replay already attempted; match stopped. Export the replay for diagnosis, or explicitly restart."
+  }
+}

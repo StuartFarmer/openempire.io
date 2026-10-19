@@ -1,0 +1,147 @@
+{
+  "generatedAt": "2026-09-09T11:59:38.714Z",
+  "build": "ffd2e91df5c3e2ff7beb05219b22ae37a49c866219765c3607978a16465e2228",
+  "map": "SPQR",
+  "seed": "simplefront-pace-01",
+  "ticks": 1000,
+  "repeats": 1,
+  "assets": {
+    "map": "e9147575714e4cc469fccd639da9f3001608af233e5fea35a2b55d3ec14ceb73",
+    "minimap": "79aa26c21ec42175c6793a37fb9599158891edb992fdc0c05cb76cea6b7f78a8",
+    "layers": "4770a0152ef01a2a5c7cdfad7138f8b4b68baa9104159779a5b41726771a5f82",
+    "manifest": "257b2fd90453d96046f25b679a54c4c5fa45e62357c84535c20b32fa9a8e60d3"
+  },
+  "startupMs": 20.338167,
+  "micro": [
+    {
+      "intents": 0,
+      "bytes": 184,
+      "sealAndVerifyMs": {
+        "count": 100,
+        "total": 37.14583800000014,
+        "p50": 0.24541700000003175,
+        "p95": 1.1793749999999932
+      }
+    },
+    {
+      "intents": 1,
+      "bytes": 231,
+      "sealAndVerifyMs": {
+        "count": 100,
+        "total": 19.47562400000004,
+        "p50": 0.14741700000001856,
+        "p95": 0.5159580000000119
+      }
+    },
+    {
+      "intents": 32,
+      "bytes": 1741,
+      "sealAndVerifyMs": {
+        "count": 100,
+        "total": 190.31254600000057,
+        "p50": 1.3144589999999425,
+        "p95": 5.678124999999909
+      }
+    },
+    {
+      "intents": 256,
+      "bytes": 12873,
+      "sealAndVerifyMs": {
+        "count": 100,
+        "total": 691.8560870000008,
+        "p50": 5.020416000000068,
+        "p95": 18.79879200000005
+      }
+    }
+  ],
+  "runs": [
+    {
+      "repeat": 0,
+      "mode": "legacy",
+      "wallMs": 5340.8935839999995,
+      "measuredTicks": 1000,
+      "coreMs": {
+        "count": 1000,
+        "total": 5326.730578999993,
+        "p50": 2.5772079999997004,
+        "p95": 18.61279100000047
+      },
+      "chainOverheadMs": {
+        "count": 1000,
+        "total": 0.946339000005537,
+        "p50": 0.0005419999997684499,
+        "p95": 0.0014580000006390037
+      },
+      "observerMs": {
+        "count": 1000,
+        "total": 12.143553000003067,
+        "p50": 0.002666999999746622,
+        "p95": 0.009167000000161352
+      },
+      "hashCalls": 100,
+      "hashMs": 394.01696299999594,
+      "diagnostic": 17729201365872398,
+      "physical": "dd512d0e4f49f84b1dd4172b724152c04ab07d2bf77f9e09e2cfc1f630ee9ea5",
+      "heapMB": 296.60669708251953
+    },
+    {
+      "repeat": 0,
+      "mode": "disabled",
+      "wallMs": 3156.3656249999985,
+      "measuredTicks": 1000,
+      "coreMs": {
+        "count": 1000,
+        "total": 3152.0340259999957,
+        "p50": 1.8056660000002012,
+        "p95": 9.01812499999869
+      },
+      "chainOverheadMs": {
+        "count": 1000,
+        "total": 0.38168200000654906,
+        "p50": 0.00029099999846948776,
+        "p95": 0.0009580000005371403
+      },
+      "observerMs": {
+        "count": 1000,
+        "total": 3.1653909999931784,
+        "p50": 0.00204200000007404,
+        "p95": 0.007416000000375789
+      },
+      "hashCalls": 0,
+      "hashMs": 0,
+      "diagnostic": 17729201365872398,
+      "physical": "dd512d0e4f49f84b1dd4172b724152c04ab07d2bf77f9e09e2cfc1f630ee9ea5",
+      "heapMB": 317.42359161376953
+    },
+    {
+      "repeat": 0,
+      "mode": "chain",
+      "wallMs": 1833.139959,
+      "measuredTicks": 1000,
+      "coreMs": {
+        "count": 1000,
+        "total": 1686.5660969999662,
+        "p50": 1.6119589999998425,
+        "p95": 2.535541999999623
+      },
+      "chainOverheadMs": {
+        "count": 1000,
+        "total": 144.12499600003866,
+        "p50": 0.10454199999912817,
+        "p95": 0.42666599999938626
+      },
+      "observerMs": {
+        "count": 1000,
+        "total": 1.8780819999774394,
+        "p50": 0.0012499999993451638,
+        "p95": 0.004708000000391621
+      },
+      "hashCalls": 0,
+      "hashMs": 0,
+      "diagnostic": 17729201365872398,
+      "physical": "dd512d0e4f49f84b1dd4172b724152c04ab07d2bf77f9e09e2cfc1f630ee9ea5",
+      "heapMB": 353.3110656738281
+    }
+  ],
+  "limitations": "Sequential headless real-core runs; final 1000 ticks measured; one startup asset load; no browser/render FPS claim; heap includes unreclaimed objects."
+}

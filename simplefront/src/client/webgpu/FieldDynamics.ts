@@ -105,6 +105,8 @@ export interface FieldViewSpec {
   ramp?: readonly string[];
   /** Paint non-land tiles a fixed water color (default true). */
   oceanMask?: boolean;
+  /** Compile an optional 32x32 chunk entry point for incremental rendering. */
+  incremental?: boolean;
 }
 
 export interface FieldPlayersSpec {
@@ -364,7 +366,7 @@ export interface CompiledFieldSystem {
   derivedNames: readonly string[];
   runInit(frame: FieldFrame): void;
   runTick(kernel: FieldKernel, frame: FieldFrame): void;
-  runView(frame: FieldFrame, view: string): void;
+  runView(frame: FieldFrame, view: string, chunks?: Uint32Array): void;
   /** Run the on-demand derivation pipeline (no-op without `derive`). With a
    * `tier` name, runs only the steps whose `tiers` include it (cheap
    * re-derivation reusing settled buffers); with no tier, the full pipeline. */
@@ -1142,6 +1144,7 @@ struct Brush {
   interface PendingLink {
     pass: Omit<FieldPassSpec, "code">;
     root: string;
+    regionRoot?: string;
     generated: Record<string, string>;
     sourcePath: string;
   }
@@ -1208,25 +1211,21 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     const modulePath = `package::${sourcePath
       .replace(/\.wesl$/, "")
       .replace(/\//g, "::")}`;
-    let root: string;
+    let viewBody: string;
     if (isColorView) {
-      root = `
+      viewBody = `
 import ${modulePath}::color;
 import package::kernel::{GRID, refOf};
 
 @group(0) @binding(${binds.length + 1}) var out_tex: texture_storage_2d<rgba8unorm, write>;
 
-@compute @workgroup_size(8, 8)
-fn main(@builtin(global_invocation_id) gid: vec3u) {
-  if (gid.x >= GRID.size.x || gid.y >= GRID.size.y) { return; }
-  let x = i32(gid.x);
-  let y = i32(gid.y);
+fn writeViewPixel(x: i32, y: i32) {
   textureStore(out_tex, vec2i(x, y), color(x, y, refOf(x, y)));
 }
 `;
     } else {
       const stops = rampStops(spec.ramp ?? [], `views.${name}`, diagnostics);
-      root = `
+      viewBody = `
 import ${modulePath}::value;
 import package::kernel::{GRID, refOf, clamp01};
 ${wantsOceanMask ? "import package::layers::land;" : ""}
@@ -1237,11 +1236,7 @@ var<private> RAMP: array<vec3f, ${stops.length}> = array<vec3f, ${stops.length}>
   ${stops.join(",\n  ")},
 );
 
-@compute @workgroup_size(8, 8)
-fn main(@builtin(global_invocation_id) gid: vec3u) {
-  if (gid.x >= GRID.size.x || gid.y >= GRID.size.y) { return; }
-  let x = i32(gid.x);
-  let y = i32(gid.y);
+fn writeViewPixel(x: i32, y: i32) {
   let i = refOf(x, y);
   let v = clamp01(value(x, y, i));
   let t = v * ${stops.length - 1}.0;
@@ -1252,9 +1247,34 @@ ${wantsOceanMask ? "  if (land::val(i) == 0.0) { color = vec3f(0.055, 0.13, 0.20
 }
 `;
     }
+    const fullMain = `
+@compute @workgroup_size(8, 8)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  if (gid.x >= GRID.size.x || gid.y >= GRID.size.y) { return; }
+  writeViewPixel(i32(gid.x), i32(gid.y));
+}
+`;
+    const regionMain = `
+struct ViewRegions { ids: array<vec4u, 512>, }
+@group(1) @binding(0) var<uniform> REGIONS: ViewRegions;
+
+@compute @workgroup_size(8, 8)
+fn main(@builtin(workgroup_id) wg: vec3u,
+        @builtin(local_invocation_id) local: vec3u) {
+  let region = wg.x / 16u;
+  let chunk = REGIONS.ids[region / 4u][region % 4u];
+  let columns = (GRID.size.x + 31u) / 32u;
+  let sub = wg.x % 16u;
+  let xy = vec2u(chunk % columns, chunk / columns) * 32u
+         + vec2u(sub % 4u, sub / 4u) * 8u + local.xy;
+  if (any(xy >= GRID.size)) { return; }
+  writeViewPixel(i32(xy.x), i32(xy.y));
+}
+`;
     pendingLinks.push({
       pass: { name: `view/${name}`, binds: [...binds, "out"], raw: true },
-      root,
+      root: viewBody + fullMain,
+      ...(spec.incremental ? { regionRoot: viewBody + regionMain } : {}),
       generated,
       sourcePath,
     });
@@ -1403,26 +1423,37 @@ ${oceanMask ? "  if (land[i] == 0.0) { color = vec3f(0.055, 0.13, 0.20); }" : ""
   // --- link the WESL passes --------------------------------------------------------
   const linkErrors: string[] = [];
   const linkedPasses = await Promise.all(
-    pendingLinks.map(async ({ pass, root, generated, sourcePath }) => {
-      try {
-        const linked = await link({
-          weslSrc: {
-            "main.wesl": root,
-            "kernel.wesl": KERNEL_WESL,
-            ...generated,
-            ...userModules,
-          },
-          rootModuleName: "main",
-          libs: [SHARED_WESL],
-        });
-        return { ...pass, code: linked.dest } as FieldPassSpec;
-      } catch (error) {
-        linkErrors.push(
-          `${pass.name} (${sourcePath}): ${undynPath((error as Error).message)}`,
-        );
-        return null;
-      }
-    }),
+    pendingLinks.map(
+      async ({ pass, root, regionRoot, generated, sourcePath }) => {
+        try {
+          const linkRoot = (source: string) =>
+            link({
+              weslSrc: {
+                "main.wesl": source,
+                "kernel.wesl": KERNEL_WESL,
+                ...generated,
+                ...userModules,
+              },
+              rootModuleName: "main",
+              libs: [SHARED_WESL],
+            });
+          const [linked, regionLinked] = await Promise.all([
+            linkRoot(root),
+            ...(regionRoot ? [linkRoot(regionRoot)] : []),
+          ]);
+          return {
+            ...pass,
+            code: linked.dest,
+            ...(regionLinked ? { regionCode: regionLinked.dest } : {}),
+          } as FieldPassSpec;
+        } catch (error) {
+          linkErrors.push(
+            `${pass.name} (${sourcePath}): ${undynPath((error as Error).message)}`,
+          );
+          return null;
+        }
+      },
+    ),
   );
   if (linkErrors.length > 0) {
     throw new FieldDynamicsError(linkErrors);
@@ -1704,8 +1735,12 @@ ${oceanMask ? "  if (land[i] == 0.0) { color = vec3f(0.055, 0.13, 0.20); }" : ""
       }
     },
 
-    runView(frame, view) {
-      frame.pass(`view/${view}`);
+    runView(frame, view, chunks) {
+      if (chunks === undefined) {
+        frame.pass(`view/${view}`);
+      } else {
+        frame.passRegions(`view/${view}`, chunks);
+      }
     },
 
     runDerive(frame, tier) {

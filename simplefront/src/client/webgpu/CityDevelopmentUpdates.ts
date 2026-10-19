@@ -75,17 +75,17 @@ export class CityDevelopmentUpdates {
   private previous = new Map<number, number>();
   private initial = true;
   private seed = 0;
+  private revision = -1;
 
   read(game: Game): CityDevelopmentUpdate | undefined {
     const model = (game as GameImpl).cityDevelopment;
     if (!model) return undefined;
     if (this.initial) this.seed = model.deterministicState().seed;
+    const changes = this.initial ? null : model.changesSince(this.revision);
     const out: number[] = [];
-    const present = new Set<number>();
-    // ponytail: scan developed tiles per tick; add a simulation revision journal
-    // only if large-match profiling warrants maintaining another index.
-    for (const tile of model.developedTiles()) {
-      present.add(tile);
+    const present = changes === null ? new Set<number>() : null;
+    for (const tile of changes ?? model.developedTiles()) {
+      present?.add(tile);
       const level = model.level(tile),
         owner = game.owner(tile).smallID();
       const state = level + owner * 128;
@@ -93,11 +93,13 @@ export class CityDevelopmentUpdates {
       this.previous.set(tile, state);
       out.push(tile, level, owner, game.magnitude(tile));
     }
-    for (const tile of this.previous.keys()) {
-      if (present.has(tile)) continue;
-      this.previous.delete(tile);
-      out.push(tile, 0, game.owner(tile).smallID(), game.magnitude(tile));
-    }
+    if (present)
+      for (const tile of this.previous.keys()) {
+        if (present.has(tile)) continue;
+        this.previous.delete(tile);
+        out.push(tile, 0, game.owner(tile).smallID(), game.magnitude(tile));
+      }
+    this.revision = model.developmentRevision;
     if (!this.initial && !out.length) return undefined;
     const reset = this.initial;
     this.initial = false;

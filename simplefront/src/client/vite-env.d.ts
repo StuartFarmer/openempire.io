@@ -1,5 +1,7 @@
 /// <reference types="vite/client" />
 
+declare const __SIMPLEFRONT_SIMULATION_BUILD__: string;
+
 declare module "*.bin" {
   const binContent: string;
   export default binContent;

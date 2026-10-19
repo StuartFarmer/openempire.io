@@ -59,7 +59,7 @@ export const simplefront = defineFieldSystem({
   },
 
   views: {
-    simplefront: { source: cityView },
+    simplefront: { source: cityView, incremental: true },
   },
 
   modules: {

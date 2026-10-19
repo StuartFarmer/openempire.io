@@ -182,7 +182,10 @@ export abstract class FieldViewerBase extends LitElement {
       new Uint8Array(this.compiled.writePlayers(bots)),
     );
     this.playersDirty = false;
+    this.onPlayersUploaded();
   }
+
+  protected onPlayersUploaded(): void {}
 
   /** Run the mounted system's AI (if any) once, then upload intents. */
   protected runAI(): void {

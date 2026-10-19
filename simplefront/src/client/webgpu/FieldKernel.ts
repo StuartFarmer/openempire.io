@@ -54,6 +54,8 @@ export interface FieldPassSpec {
    */
   raw?: boolean;
   code: string;
+  /** Optional complete WGSL entry point that renders selected 32x32 chunks. */
+  regionCode?: string;
 }
 
 export interface FieldKernelConfig {
@@ -70,11 +72,15 @@ export interface FieldFrameResult {
 }
 
 const WORKGROUP = 8;
+const REGION_CHUNK_SIZE = 32;
+const MAX_VIEW_REGIONS = 2048;
+const REGION_UNIFORM_BYTES = MAX_VIEW_REGIONS * 4;
 
 // The TS dom lib ships the WebGPU interfaces but not the GPUBufferUsage /
 // GPUTextureUsage constant namespaces; these are the spec-defined bit values.
 const BUFFER_USAGE = {
   MAP_READ: 0x1,
+  MAP_WRITE: 0x2,
   COPY_SRC: 0x4,
   COPY_DST: 0x8,
   UNIFORM: 0x40,
@@ -154,6 +160,7 @@ interface PassRuntime {
   spec: FieldPassSpec;
   binds: readonly ParsedBind[];
   pipeline: GPUComputePipeline;
+  regionPipeline: GPUComputePipeline | null;
   layout: GPUBindGroupLayout;
   /** Ping-pong resources this pass binds, for polarity cache keys. */
   pingPongResources: readonly string[];
@@ -177,6 +184,9 @@ export class FieldKernel {
   private readonly bufferSpecs = new Map<string, FieldBufferSpec>();
   private passes = new Map<string, PassRuntime>();
   private gridUniform: GPUBuffer | null = null;
+  private regionUniform: GPUBuffer | null = null;
+  private regionLayout: GPUBindGroupLayout | null = null;
+  private regionBindGroup: GPUBindGroup | null = null;
   private outTexture: GPUTexture | null = null;
   private outTextureView: GPUTextureView | null = null;
   private renderPipeline: GPURenderPipeline | null = null;
@@ -288,6 +298,7 @@ export class FieldKernel {
     }
     for (const buffer of this.uniformBuffers.values()) buffer.destroy();
     this.gridUniform?.destroy();
+    this.regionUniform?.destroy();
     this.outTexture?.destroy();
     if (this.ownsDevice) this.device.destroy();
   }
@@ -321,6 +332,29 @@ export class FieldKernel {
       usage: BUFFER_USAGE.UNIFORM | BUFFER_USAGE.COPY_DST,
     });
 
+    if (this.config.passes.some((pass) => pass.regionCode !== undefined)) {
+      this.regionUniform = this.device.createBuffer({
+        label: "field-view-regions",
+        size: REGION_UNIFORM_BYTES,
+        usage: BUFFER_USAGE.UNIFORM | BUFFER_USAGE.COPY_DST,
+      });
+      this.regionLayout = this.device.createBindGroupLayout({
+        label: "field-view-regions",
+        entries: [
+          {
+            binding: 0,
+            visibility: 0x4 /* COMPUTE */,
+            buffer: { type: "uniform" },
+          },
+        ],
+      });
+      this.regionBindGroup = this.device.createBindGroup({
+        label: "field-view-regions",
+        layout: this.regionLayout,
+        entries: [{ binding: 0, resource: { buffer: this.regionUniform } }],
+      });
+    }
+
     const pipelinePromises = this.config.passes.map(async (spec) => {
       const binds = spec.binds.map((ref) => this.parseBind(spec.name, ref));
       const layout = this.device.createBindGroupLayout({
@@ -334,45 +368,55 @@ export class FieldKernel {
           ...binds.map((bind, index) => this.layoutEntry(bind, index + 1)),
         ],
       });
-      const code = this.assemblePass(spec, binds);
-      const module = this.device.createShaderModule({
-        label: `field-pass-${spec.name}`,
-        code,
-      });
-      // WGSL errors are the DSL's type errors — surface them against the
-      // numbered assembled source, tagged with the pass name.
-      const compilation = await module.getCompilationInfo();
-      const wgslErrors = compilation.messages.filter(
-        (message) => message.type === "error",
-      );
-      if (wgslErrors.length > 0) {
-        const numbered = code
-          .split("\n")
-          .map((line, index) => `${String(index + 1).padStart(4)} | ${line}`)
-          .join("\n");
-        throw new Error(
-          `WGSL errors in pass "${spec.name}":\n` +
-            wgslErrors
-              .map(
-                (m) => `  ${spec.name}:${m.lineNum}:${m.linePos} ${m.message}`,
-              )
-              .join("\n") +
-            `\n\nAssembled source:\n${numbered}`,
+      const makePipeline = async (
+        code: string,
+        label: string,
+        bindGroupLayouts: GPUBindGroupLayout[],
+      ): Promise<GPUComputePipeline> => {
+        const module = this.device.createShaderModule({ label, code });
+        // WGSL errors are the DSL's type errors — surface them against the
+        // numbered assembled source, tagged with the pass name.
+        const compilation = await module.getCompilationInfo();
+        const wgslErrors = compilation.messages.filter(
+          (message) => message.type === "error",
         );
-      }
-      const pipeline = await this.device
-        .createComputePipelineAsync({
-          label: `field-pass-${spec.name}`,
-          layout: this.device.createPipelineLayout({
-            bindGroupLayouts: [layout],
-          }),
-          compute: { module, entryPoint: "main" },
-        })
-        .catch((error: unknown) => {
+        if (wgslErrors.length > 0) {
+          const numbered = code
+            .split("\n")
+            .map((line, index) => `${String(index + 1).padStart(4)} | ${line}`)
+            .join("\n");
           throw new Error(
-            `Pipeline creation failed for pass "${spec.name}": ${(error as Error).message}`,
+            `WGSL errors in pass "${label}":\n` +
+              wgslErrors
+                .map((m) => `  ${label}:${m.lineNum}:${m.linePos} ${m.message}`)
+                .join("\n") +
+              `\n\nAssembled source:\n${numbered}`,
           );
-        });
+        }
+        return this.device
+          .createComputePipelineAsync({
+            label,
+            layout: this.device.createPipelineLayout({ bindGroupLayouts }),
+            compute: { module, entryPoint: "main" },
+          })
+          .catch((error: unknown) => {
+            throw new Error(
+              `Pipeline creation failed for pass "${label}": ${(error as Error).message}`,
+            );
+          });
+      };
+      const pipeline = await makePipeline(
+        this.assemblePass(spec, binds),
+        `field-pass-${spec.name}`,
+        [layout],
+      );
+      const regionPipeline = spec.regionCode
+        ? await makePipeline(
+            spec.regionCode,
+            `field-pass-${spec.name}/regions`,
+            [layout, this.regionLayout!],
+          )
+        : null;
       const pingPongResources = [
         ...new Set(
           binds
@@ -386,6 +430,7 @@ export class FieldKernel {
           spec,
           binds,
           pipeline,
+          regionPipeline,
           layout,
           pingPongResources,
           bindGroupCache: new Map(),
@@ -779,6 +824,41 @@ export class FieldKernel {
     return { runtime, bindGroup };
   }
 
+  /** @internal */
+  regionBindGroupsFor(passName: string): {
+    runtime: PassRuntime;
+    fieldBindGroup: GPUBindGroup;
+    regionBindGroup: GPUBindGroup;
+  } | null {
+    const { runtime, bindGroup } = this.bindGroupFor(passName);
+    if (!runtime.regionPipeline) return null;
+    return {
+      runtime,
+      fieldBindGroup: bindGroup,
+      regionBindGroup: this.regionBindGroup!,
+    };
+  }
+
+  /** @internal */
+  stageRegions(encoder: GPUCommandEncoder, chunks: Uint32Array): GPUBuffer {
+    const staging = this.device.createBuffer({
+      label: "field-view-regions-staging",
+      size: REGION_UNIFORM_BYTES,
+      usage: BUFFER_USAGE.MAP_WRITE | BUFFER_USAGE.COPY_SRC,
+      mappedAtCreation: true,
+    });
+    new Uint32Array(staging.getMappedRange()).set(chunks);
+    staging.unmap();
+    encoder.copyBufferToBuffer(
+      staging,
+      0,
+      this.regionUniform!,
+      0,
+      REGION_UNIFORM_BYTES,
+    );
+    return staging;
+  }
+
   beginFrame(): FieldFrame {
     if (this.widthValue === 0 || this.heightValue === 0) {
       throw new Error(
@@ -821,6 +901,8 @@ export class FieldFrame {
   private readonly encoder: GPUCommandEncoder;
   private computePass: GPUComputePassEncoder | null = null;
   private dispatches = 0;
+  private regionDispatched = false;
+  private readonly stagingBuffers: GPUBuffer[] = [];
 
   pass(name: string): void {
     const { runtime, bindGroup } = this.kernel.bindGroupFor(name);
@@ -843,6 +925,44 @@ export class FieldFrame {
     }
   }
 
+  passRegions(name: string, chunks: Uint32Array): void {
+    if (chunks.length === 0) return;
+    if (chunks.length > MAX_VIEW_REGIONS) {
+      throw new RangeError("A view supports at most 2,048 regions");
+    }
+    const columns = Math.ceil(this.kernel.width / REGION_CHUNK_SIZE);
+    const regionCount =
+      columns * Math.ceil(this.kernel.height / REGION_CHUNK_SIZE);
+    for (const chunk of chunks) {
+      if (chunk >= regionCount) {
+        throw new RangeError(
+          `View chunk ID ${chunk} is outside the valid range 0..${regionCount - 1}`,
+        );
+      }
+    }
+    const groups = this.kernel.regionBindGroupsFor(name);
+    if (!groups) {
+      this.pass(name);
+      return;
+    }
+    if (this.regionDispatched) {
+      throw new Error("Only one region dispatch is allowed per FieldFrame");
+    }
+    this.regionDispatched = true;
+    this.computePass?.end();
+    this.computePass = null;
+    this.stagingBuffers.push(this.kernel.stageRegions(this.encoder, chunks));
+    this.computePass = this.encoder.beginComputePass({ label: "field-frame" });
+    this.computePass.setPipeline(groups.runtime.regionPipeline!);
+    this.computePass.setBindGroup(0, groups.fieldBindGroup);
+    this.computePass.setBindGroup(1, groups.regionBindGroup);
+    this.computePass.dispatchWorkgroups(chunks.length * 16);
+    this.dispatches += 1;
+    for (const layer of groups.runtime.spec.advances ?? []) {
+      this.kernel.swap(layer);
+    }
+  }
+
   iterate(name: string, count: number): void {
     for (let i = 0; i < count; i += 1) {
       this.pass(name);
@@ -859,8 +979,12 @@ export class FieldFrame {
     this.computePass?.end();
     this.computePass = null;
     const start = performance.now();
-    this.kernel.device.queue.submit([this.encoder.finish()]);
-    await this.kernel.device.queue.onSubmittedWorkDone();
-    return { gpuMs: performance.now() - start, dispatches: this.dispatches };
+    try {
+      this.kernel.device.queue.submit([this.encoder.finish()]);
+      await this.kernel.device.queue.onSubmittedWorkDone();
+      return { gpuMs: performance.now() - start, dispatches: this.dispatches };
+    } finally {
+      for (const buffer of this.stagingBuffers) buffer.destroy();
+    }
   }
 }

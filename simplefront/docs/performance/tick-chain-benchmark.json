@@ -1,0 +1,321 @@
+{
+  "generatedAt": "2026-09-09T11:58:14.222Z",
+  "build": "6ed0ad01eb8fd4a5d7fd355f20c7111dd3b726ae96cdd7929f89f9837e5e1483",
+  "map": "SPQR",
+  "seed": "simplefront-pace-01",
+  "ticks": 10000,
+  "repeats": 3,
+  "assets": {
+    "map": "e9147575714e4cc469fccd639da9f3001608af233e5fea35a2b55d3ec14ceb73",
+    "minimap": "79aa26c21ec42175c6793a37fb9599158891edb992fdc0c05cb76cea6b7f78a8",
+    "layers": "4770a0152ef01a2a5c7cdfad7138f8b4b68baa9104159779a5b41726771a5f82",
+    "manifest": "257b2fd90453d96046f25b679a54c4c5fa45e62357c84535c20b32fa9a8e60d3"
+  },
+  "startupMs": 15.734999999999985,
+  "micro": [
+    {
+      "intents": 0,
+      "bytes": 184,
+      "sealAndVerifyMs": {
+        "count": 100,
+        "total": 6.465207999999848,
+        "p50": 0.06125000000002956,
+        "p95": 0.08791699999994762
+      }
+    },
+    {
+      "intents": 1,
+      "bytes": 231,
+      "sealAndVerifyMs": {
+        "count": 100,
+        "total": 11.197915999999907,
+        "p50": 0.07941699999997809,
+        "p95": 0.2512919999999781
+      }
+    },
+    {
+      "intents": 32,
+      "bytes": 1741,
+      "sealAndVerifyMs": {
+        "count": 100,
+        "total": 37.008544000000086,
+        "p50": 0.3506250000000364,
+        "p95": 0.5152920000000449
+      }
+    },
+    {
+      "intents": 256,
+      "bytes": 12873,
+      "sealAndVerifyMs": {
+        "count": 100,
+        "total": 227.09954099999987,
+        "p50": 2.2372500000000173,
+        "p95": 2.5241250000000264
+      }
+    }
+  ],
+  "runs": [
+    {
+      "repeat": 0,
+      "mode": "legacy",
+      "wallMs": 141180.393292,
+      "measuredTicks": 1000,
+      "coreMs": {
+        "count": 1000,
+        "total": 25613.09307599983,
+        "p50": 21.749833000008948,
+        "p95": 73.3242079999909
+      },
+      "chainOverheadMs": {
+        "count": 1000,
+        "total": 1.4082690000650473,
+        "p50": 0.0013330000074347481,
+        "p95": 0.0022089999984018505
+      },
+      "observerMs": {
+        "count": 1000,
+        "total": 19.405785999901127,
+        "p50": 0.019583000015700236,
+        "p95": 0.03087499999674037
+      },
+      "hashCalls": 100,
+      "hashMs": 5388.040494000015,
+      "diagnostic": 2481127316754760000,
+      "physical": "8191fe3ae0b19d2c059caed933f9eec1c80fb4ccbf7e28abc34e4a9005beb96e",
+      "heapMB": 346.30865478515625
+    },
+    {
+      "repeat": 0,
+      "mode": "disabled",
+      "wallMs": 124242.509708,
+      "measuredTicks": 1000,
+      "coreMs": {
+        "count": 1000,
+        "total": 21217.393825999374,
+        "p50": 21.655208999989554,
+        "p95": 28.728416999976616
+      },
+      "chainOverheadMs": {
+        "count": 1000,
+        "total": 1.6668599995900877,
+        "p50": 0.0015429999912157655,
+        "p95": 0.002415999973891303
+      },
+      "observerMs": {
+        "count": 1000,
+        "total": 24.12623800037545,
+        "p50": 0.024291999987326562,
+        "p95": 0.037875000009080395
+      },
+      "hashCalls": 0,
+      "hashMs": 0,
+      "diagnostic": 2481127316754760000,
+      "physical": "8191fe3ae0b19d2c059caed933f9eec1c80fb4ccbf7e28abc34e4a9005beb96e",
+      "heapMB": 377.79396057128906
+    },
+    {
+      "repeat": 0,
+      "mode": "chain",
+      "wallMs": 123689.67312500003,
+      "measuredTicks": 1000,
+      "coreMs": {
+        "count": 1000,
+        "total": 22656.80615900067,
+        "p50": 23.038707999978215,
+        "p95": 31.963707999966573
+      },
+      "chainOverheadMs": {
+        "count": 1000,
+        "total": 406.26659399992786,
+        "p50": 0.22995900001842529,
+        "p95": 1.2547499999636784
+      },
+      "observerMs": {
+        "count": 1000,
+        "total": 25.3808440004359,
+        "p50": 0.025666999979875982,
+        "p95": 0.03783300000941381
+      },
+      "hashCalls": 0,
+      "hashMs": 0,
+      "diagnostic": 2481127316754760000,
+      "physical": "8191fe3ae0b19d2c059caed933f9eec1c80fb4ccbf7e28abc34e4a9005beb96e",
+      "heapMB": 380.8532028198242
+    },
+    {
+      "repeat": 1,
+      "mode": "legacy",
+      "wallMs": 163614.40599999996,
+      "measuredTicks": 1000,
+      "coreMs": {
+        "count": 1000,
+        "total": 30989.378914999077,
+        "p50": 26.812541999970563,
+        "p95": 83.50020899996161
+      },
+      "chainOverheadMs": {
+        "count": 1000,
+        "total": 1.8923150022746995,
+        "p50": 0.0017920000245794654,
+        "p95": 0.00254100002348423
+      },
+      "observerMs": {
+        "count": 1000,
+        "total": 25.68746599764563,
+        "p50": 0.02649999991990626,
+        "p95": 0.03837500000372529
+      },
+      "hashCalls": 100,
+      "hashMs": 6000.739545999211,
+      "diagnostic": 2481127316754760000,
+      "physical": "8191fe3ae0b19d2c059caed933f9eec1c80fb4ccbf7e28abc34e4a9005beb96e",
+      "heapMB": 742.5576553344727
+    },
+    {
+      "repeat": 1,
+      "mode": "disabled",
+      "wallMs": 133058.73054200003,
+      "measuredTicks": 1000,
+      "coreMs": {
+        "count": 1000,
+        "total": 22819.270508999354,
+        "p50": 23.217541999998502,
+        "p95": 30.68679099995643
+      },
+      "chainOverheadMs": {
+        "count": 1000,
+        "total": 1.8773510019527748,
+        "p50": 0.0017089999746531248,
+        "p95": 0.0027490000938996673
+      },
+      "observerMs": {
+        "count": 1000,
+        "total": 24.836344998097047,
+        "p50": 0.024916999973356724,
+        "p95": 0.04141700000036508
+      },
+      "hashCalls": 0,
+      "hashMs": 0,
+      "diagnostic": 2481127316754760000,
+      "physical": "8191fe3ae0b19d2c059caed933f9eec1c80fb4ccbf7e28abc34e4a9005beb96e",
+      "heapMB": 377.92166900634766
+    },
+    {
+      "repeat": 1,
+      "mode": "chain",
+      "wallMs": 134086.09529199998,
+      "measuredTicks": 1000,
+      "coreMs": {
+        "count": 1000,
+        "total": 24596.94241700135,
+        "p50": 25.143166999914683,
+        "p95": 33.30870799999684
+      },
+      "chainOverheadMs": {
+        "count": 1000,
+        "total": 458.56878499803133,
+        "p50": 0.2811660001752898,
+        "p95": 1.240749999997206
+      },
+      "observerMs": {
+        "count": 1000,
+        "total": 26.100767998141237,
+        "p50": 0.025708999950438738,
+        "p95": 0.04245800001081079
+      },
+      "hashCalls": 0,
+      "hashMs": 0,
+      "diagnostic": 2481127316754760000,
+      "physical": "8191fe3ae0b19d2c059caed933f9eec1c80fb4ccbf7e28abc34e4a9005beb96e",
+      "heapMB": 380.8820571899414
+    },
+    {
+      "repeat": 2,
+      "mode": "legacy",
+      "wallMs": 173280.33137500007,
+      "measuredTicks": 1000,
+      "coreMs": {
+        "count": 1000,
+        "total": 33676.279181999154,
+        "p50": 28.67604199994821,
+        "p95": 88.44116600009147
+      },
+      "chainOverheadMs": {
+        "count": 1000,
+        "total": 2.3982669985853136,
+        "p50": 0.0022919998737052083,
+        "p95": 0.0034169999416917562
+      },
+      "observerMs": {
+        "count": 1000,
+        "total": 27.754613998928107,
+        "p50": 0.027915999991819263,
+        "p95": 0.043999999994412065
+      },
+      "hashCalls": 100,
+      "hashMs": 6421.484503000043,
+      "diagnostic": 2481127316754760000,
+      "physical": "8191fe3ae0b19d2c059caed933f9eec1c80fb4ccbf7e28abc34e4a9005beb96e",
+      "heapMB": 572.0398635864258
+    },
+    {
+      "repeat": 2,
+      "mode": "disabled",
+      "wallMs": 134538.51558400015,
+      "measuredTicks": 1000,
+      "coreMs": {
+        "count": 1000,
+        "total": 23471.386669003405,
+        "p50": 24.056749999988824,
+        "p95": 30.947374999988824
+      },
+      "chainOverheadMs": {
+        "count": 1000,
+        "total": 1.5919149906840175,
+        "p50": 0.0014580001588910818,
+        "p95": 0.0019159999210387468
+      },
+      "observerMs": {
+        "count": 1000,
+        "total": 25.568743999348953,
+        "p50": 0.02504199999384582,
+        "p95": 0.037958000088110566
+      },
+      "hashCalls": 0,
+      "hashMs": 0,
+      "diagnostic": 2481127316754760000,
+      "physical": "8191fe3ae0b19d2c059caed933f9eec1c80fb4ccbf7e28abc34e4a9005beb96e",
+      "heapMB": 378.01990509033203
+    },
+    {
+      "repeat": 2,
+      "mode": "chain",
+      "wallMs": 133300.5310419998,
+      "measuredTicks": 1000,
+      "coreMs": {
+        "count": 1000,
+        "total": 21694.78641200019,
+        "p50": 22.21841700002551,
+        "p95": 28.563291999977082
+      },
+      "chainOverheadMs": {
+        "count": 1000,
+        "total": 380.5657880019862,
+        "p50": 0.22429100004956126,
+        "p95": 1.1342080000322312
+      },
+      "observerMs": {
+        "count": 1000,
+        "total": 23.77694799960591,
+        "p50": 0.024624999845400453,
+        "p95": 0.037874999921768904
+      },
+      "hashCalls": 0,
+      "hashMs": 0,
+      "diagnostic": 2481127316754760000,
+      "physical": "8191fe3ae0b19d2c059caed933f9eec1c80fb4ccbf7e28abc34e4a9005beb96e",
+      "heapMB": 380.95853424072266
+    }
+  ],
+  "limitations": "Sequential headless real-core runs; final 1000 ticks measured; one startup asset load; no browser/render FPS claim; heap includes unreclaimed objects."
+}

@@ -1,0 +1,433 @@
+{
+  "generatedAt": "2026-09-09T08:20:12.062Z",
+  "url": "http://127.0.0.1:9017",
+  "hardware": {
+    "platform": "darwin",
+    "release": "25.4.0",
+    "arch": "arm64",
+    "cpu": "Apple M2 Max",
+    "logicalCpus": 12,
+    "memoryBytes": 103079215104
+  },
+  "sourceHashes": {
+    "docs/performance/spqr-turbo-browser.mjs": "92e0fc4bb53906027a5938a63295a74afc4c9ab23bccb3302f504e773eecd566",
+    "src/client/GameShellPage.ts": "2163140a2a0b36e22159f61c81ccb0ec72970ba2dda7cecb911759bca704550c",
+    "src/client/shell/CameraRenderer.ts": "1f34f78a595dacac304e1b03a027e173d30602930229bd29d669078a402f247e",
+    "src/client/webgpu/ShellSim.worker.ts": "b48b72dbb936857cedbfa71513600eba5b446d4cb6dbd4d9b005571ddcb34496",
+    "src/client/webgpu/CityDevelopmentUpdates.ts": "05039d82df1be40341dcf2c445a13e3cef5c77765b13b0ae077ee2d76699f290",
+    "src/core/development/CityDevelopmentState.ts": "a4e6fcaf1077554fb2c7c4dde6c17a320f9ff64e993cb48891e03fbddcd07b55"
+  },
+  "protocol": {
+    "map": "SPQR",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "bots": 50,
+    "targetTick": 7000,
+    "deadlineMinutes": 15,
+    "mode": "After-only real GameShellPage and simulation worker, SimpleFront live defaults, valid human land spawn, actual setTurbo(true) API; automatic cities; no further human actions.",
+    "measurements": "Per approximately 500 ticks: received tick progress / real elapsed time, rAF interval p50/p95, synchronous onWorkerFrame CPU wall duration, actual full/partial runView calls. Windows end at the first received frame at or beyond each 500-tick boundary.",
+    "limitations": [
+      "One unseeded match; no old-checkout browser baseline or before/after FPS claim.",
+      "Headless Chrome WebGPU via Vite development server; rAF intervals are presentation opportunities, not GPU completion time or displayed FPS.",
+      "Fixed viewport and camera after the normal spawn transition; no scripted battles, synthetic deltas, or city painting.",
+      "Worker-frame duration measures the main thread only; instrumentation adds small timing overhead.",
+      "OS, browser, and GPU activity are uncontrolled; root's separate Node benchmark completes before this browser run starts."
+    ]
+  },
+  "errors": [],
+  "windows": [
+    {
+      "fromTick": 3,
+      "toTick": 500,
+      "elapsedMs": 3586.7999997138977,
+      "ticksPerSecond": 138.56362218123212,
+      "rafIntervalMs": {
+        "count": 214,
+        "p50": 16.699999999999818,
+        "p95": 16.799999999999272,
+        "max": 16.800000000000182
+      },
+      "workerFrameCpuMs": {
+        "count": 497,
+        "p50": 0.09999990463256836,
+        "p95": 0.20000028610229492,
+        "max": 0.40000009536743164,
+        "total": 40.30000066757202
+      },
+      "fullViews": 103,
+      "partialViews": 112,
+      "playerCount": 106,
+      "simplePlotCount": 0,
+      "matchResult": null
+    },
+    {
+      "fromTick": 500,
+      "toTick": 1000,
+      "elapsedMs": 3546.0999999046326,
+      "ticksPerSecond": 140.99997180379765,
+      "rafIntervalMs": {
+        "count": 212,
+        "p50": 16.699999999999818,
+        "p95": 16.799999999999272,
+        "max": 16.800000000000182
+      },
+      "workerFrameCpuMs": {
+        "count": 500,
+        "p50": 0.09999990463256836,
+        "p95": 0.19999980926513672,
+        "max": 0.3000001907348633,
+        "total": 31.499998092651367
+      },
+      "fullViews": 0,
+      "partialViews": 213,
+      "playerCount": 106,
+      "simplePlotCount": 0,
+      "matchResult": null
+    },
+    {
+      "fromTick": 1000,
+      "toTick": 1500,
+      "elapsedMs": 4148.300000190735,
+      "ticksPerSecond": 120.53130197358206,
+      "rafIntervalMs": {
+        "count": 248,
+        "p50": 16.69999999999891,
+        "p95": 16.799999999999272,
+        "max": 16.80000000000109
+      },
+      "workerFrameCpuMs": {
+        "count": 500,
+        "p50": 0.09999990463256836,
+        "p95": 0.20000028610229492,
+        "max": 0.3000001907348633,
+        "total": 57.50000619888306
+      },
+      "fullViews": 0,
+      "partialViews": 249,
+      "playerCount": 106,
+      "simplePlotCount": 0,
+      "matchResult": null
+    },
+    {
+      "fromTick": 1500,
+      "toTick": 2000,
+      "elapsedMs": 5031.300000190735,
+      "ticksPerSecond": 99.37789437740646,
+      "rafIntervalMs": {
+        "count": 301,
+        "p50": 16.69999999999891,
+        "p95": 16.700000000000728,
+        "max": 16.80000000000109
+      },
+      "workerFrameCpuMs": {
+        "count": 500,
+        "p50": 0.19999980926513672,
+        "p95": 0.3000001907348633,
+        "max": 0.40000009536743164,
+        "total": 87.99998807907104
+      },
+      "fullViews": 0,
+      "partialViews": 302,
+      "playerCount": 106,
+      "simplePlotCount": 0,
+      "matchResult": null
+    },
+    {
+      "fromTick": 2000,
+      "toTick": 2500,
+      "elapsedMs": 5870.799999713898,
+      "ticksPerSecond": 85.16726851951464,
+      "rafIntervalMs": {
+        "count": 351,
+        "p50": 16.700000000000728,
+        "p95": 16.799999999999272,
+        "max": 16.80000000000291
+      },
+      "workerFrameCpuMs": {
+        "count": 500,
+        "p50": 0.20000028610229492,
+        "p95": 0.5,
+        "max": 0.5999999046325684,
+        "total": 130.09999990463257
+      },
+      "fullViews": 0,
+      "partialViews": 351,
+      "playerCount": 106,
+      "simplePlotCount": 0,
+      "matchResult": null
+    },
+    {
+      "fromTick": 2500,
+      "toTick": 3000,
+      "elapsedMs": 6796.300000190735,
+      "ticksPerSecond": 73.56944219442458,
+      "rafIntervalMs": {
+        "count": 407,
+        "p50": 16.700000000000728,
+        "p95": 16.799999999999272,
+        "max": 16.80000000000291
+      },
+      "workerFrameCpuMs": {
+        "count": 500,
+        "p50": 0.40000009536743164,
+        "p95": 0.6999998092651367,
+        "max": 0.8000001907348633,
+        "total": 219.59999799728394
+      },
+      "fullViews": 0,
+      "partialViews": 395,
+      "playerCount": 106,
+      "simplePlotCount": 0,
+      "matchResult": null
+    },
+    {
+      "fromTick": 3000,
+      "toTick": 3500,
+      "elapsedMs": 6915.799999713898,
+      "ticksPerSecond": 72.29821568302795,
+      "rafIntervalMs": {
+        "count": 414,
+        "p50": 16.69999999999709,
+        "p95": 16.799999999995634,
+        "max": 16.80000000000291
+      },
+      "workerFrameCpuMs": {
+        "count": 500,
+        "p50": 0.5999999046325684,
+        "p95": 0.9000000953674316,
+        "max": 1.299999713897705,
+        "total": 294.0000081062317
+      },
+      "fullViews": 0,
+      "partialViews": 397,
+      "playerCount": 106,
+      "simplePlotCount": 0,
+      "matchResult": null
+    },
+    {
+      "fromTick": 3500,
+      "toTick": 4000,
+      "elapsedMs": 7570.10000038147,
+      "ticksPerSecond": 66.04932563305692,
+      "rafIntervalMs": {
+        "count": 453,
+        "p50": 16.69999999999709,
+        "p95": 16.700000000004366,
+        "max": 16.80000000000291
+      },
+      "workerFrameCpuMs": {
+        "count": 500,
+        "p50": 0.9000000953674316,
+        "p95": 1.1999998092651367,
+        "max": 1.3000001907348633,
+        "total": 451.1000008583069
+      },
+      "fullViews": 95,
+      "partialViews": 335,
+      "playerCount": 106,
+      "simplePlotCount": 0,
+      "matchResult": null
+    },
+    {
+      "fromTick": 4000,
+      "toTick": 4500,
+      "elapsedMs": 8355.799999713898,
+      "ticksPerSecond": 59.83867493443117,
+      "rafIntervalMs": {
+        "count": 500,
+        "p50": 16.69999999999709,
+        "p95": 16.799999999995634,
+        "max": 16.80000000000291
+      },
+      "workerFrameCpuMs": {
+        "count": 500,
+        "p50": 1,
+        "p95": 1.299999713897705,
+        "max": 1.6000003814697266,
+        "total": 498.10000371932983
+      },
+      "fullViews": 9,
+      "partialViews": 435,
+      "playerCount": 106,
+      "simplePlotCount": 0,
+      "matchResult": null
+    },
+    {
+      "fromTick": 4500,
+      "toTick": 5000,
+      "elapsedMs": 8839.900000095367,
+      "ticksPerSecond": 56.561725810767754,
+      "rafIntervalMs": {
+        "count": 530,
+        "p50": 16.69999999999709,
+        "p95": 16.799999999995634,
+        "max": 16.80000000000291
+      },
+      "workerFrameCpuMs": {
+        "count": 500,
+        "p50": 1,
+        "p95": 1.4000000953674316,
+        "max": 2.299999713897705,
+        "total": 529.0999960899353
+      },
+      "fullViews": 0,
+      "partialViews": 449,
+      "playerCount": 106,
+      "simplePlotCount": 0,
+      "matchResult": null
+    },
+    {
+      "fromTick": 5000,
+      "toTick": 5500,
+      "elapsedMs": 9641.400000095367,
+      "ticksPerSecond": 51.85968842647896,
+      "rafIntervalMs": {
+        "count": 577,
+        "p50": 16.69999999999709,
+        "p95": 16.799999999995634,
+        "max": 16.80000000000291
+      },
+      "workerFrameCpuMs": {
+        "count": 500,
+        "p50": 1.1999998092651367,
+        "p95": 1.5,
+        "max": 1.9000000953674316,
+        "total": 602.6999955177307
+      },
+      "fullViews": 0,
+      "partialViews": 474,
+      "playerCount": 106,
+      "simplePlotCount": 0,
+      "matchResult": null
+    },
+    {
+      "fromTick": 5500,
+      "toTick": 6000,
+      "elapsedMs": 10848.699999809265,
+      "ticksPerSecond": 46.088471430566855,
+      "rafIntervalMs": {
+        "count": 650,
+        "p50": 16.69999999999709,
+        "p95": 16.79999999998836,
+        "max": 16.80000000000291
+      },
+      "workerFrameCpuMs": {
+        "count": 500,
+        "p50": 1.3000001907348633,
+        "p95": 1.6999998092651367,
+        "max": 2.0999999046325684,
+        "total": 687.8000082969666
+      },
+      "fullViews": 0,
+      "partialViews": 484,
+      "playerCount": 106,
+      "simplePlotCount": 0,
+      "matchResult": null
+    },
+    {
+      "fromTick": 6000,
+      "toTick": 6500,
+      "elapsedMs": 11776.800000190735,
+      "ticksPerSecond": 42.45635486650891,
+      "rafIntervalMs": {
+        "count": 706,
+        "p50": 16.69999999999709,
+        "p95": 16.79999999998836,
+        "max": 16.80000000000291
+      },
+      "workerFrameCpuMs": {
+        "count": 500,
+        "p50": 1.4000000953674316,
+        "p95": 1.700000286102295,
+        "max": 2,
+        "total": 706.0999984741211
+      },
+      "fullViews": 0,
+      "partialViews": 487,
+      "playerCount": 106,
+      "simplePlotCount": 0,
+      "matchResult": null
+    },
+    {
+      "fromTick": 6500,
+      "toTick": 7000,
+      "elapsedMs": 11853.400000095367,
+      "ticksPerSecond": 42.1819899772198,
+      "rafIntervalMs": {
+        "count": 710,
+        "p50": 16.69999999999709,
+        "p95": 16.79999999998836,
+        "max": 16.80000000000291
+      },
+      "workerFrameCpuMs": {
+        "count": 500,
+        "p50": 1.4000000953674316,
+        "p95": 1.6000003814697266,
+        "max": 2,
+        "total": 698.7000036239624
+      },
+      "fullViews": 0,
+      "partialViews": 491,
+      "playerCount": 106,
+      "simplePlotCount": 0,
+      "matchResult": null
+    }
+  ],
+  "browserVersion": "152.0.7977.77",
+  "match": {
+    "selectedMap": "SPQR",
+    "systemId": "simplefront",
+    "bots": 50,
+    "dimensions": [2048, 1024],
+    "spawnTile": 1049653,
+    "cityDevelopment": {
+      "populationRate": 0.2,
+      "lowerLevel": 1,
+      "upperLevel": 10,
+      "lowerLevelBirths": 4.5,
+      "upperLevelBirths": 1.5,
+      "targetOccupancy": 0.85,
+      "maturationScale": 20000,
+      "reach": 20,
+      "rate": 200,
+      "densify": 0.65,
+      "ruralCapacity": 100,
+      "urbanCapacity": 2000,
+      "centreFalloff": 0.75,
+      "slopePenalty": 8,
+      "uphillPenalty": 12,
+      "waterBonus": 0.5,
+      "neighbourWeight": 1.2,
+      "irregularity": 0.15
+    },
+    "adapter": {
+      "vendor": "apple",
+      "architecture": "metal-3",
+      "device": "",
+      "description": ""
+    },
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36",
+    "devicePixelRatio": 1,
+    "hardwareConcurrency": 12
+  },
+  "start": {
+    "tick": 3,
+    "spawned": true,
+    "turbo": true,
+    "running": true
+  },
+  "workerAndGpuErrors": [],
+  "end": {
+    "tick": 7000,
+    "done": true,
+    "errors": [],
+    "running": false,
+    "matchResult": null,
+    "elapsedMs": 104781.5,
+    "developedTiles": 42662
+  },
+  "screenshotSha256": "64eaf83b2188feb937fffd060516cfa50b39c9b4b0e641fb40f916afbb63aa2a",
+  "completed": true
+}

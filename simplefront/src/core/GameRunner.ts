@@ -21,7 +21,7 @@ import {
   PlayerType,
   UnitType,
 } from "./game/Game";
-import { createGame } from "./game/GameImpl";
+import { createGame, type RuntimeDiagnostics } from "./game/GameImpl";
 import { TileRef } from "./game/GameMap";
 import { GameMapLoader } from "./game/GameMapLoader";
 import { ErrorUpdate, GameUpdateViewData } from "./game/GameUpdates";
@@ -46,6 +46,7 @@ export async function createGameRunner(
    *  the seam ships with zero divergence and is proven identical. */
   ruleset: RulesetID = DEFAULT_RULESET,
   cityDevelopment?: GrowthConfig,
+  diagnostics: RuntimeDiagnostics = {},
 ): Promise<GameRunner> {
   const config = createRulesetConfig(
     ruleset,
@@ -84,6 +85,7 @@ export async function createGameRunner(
     gameMap.miniGameMap,
     config,
     gameMap.teamGameSpawnAreas,
+    diagnostics,
   );
 
   const gr = new GameRunner(

@@ -1,0 +1,1119 @@
+{
+  "date": "2026-09-09T08:16:48.910Z",
+  "hardware": "Apple M2 Max",
+  "node": "v25.2.1",
+  "protocol": "Same SPQR seed,50bots,default nations,default city development,one human spawn;8000ticks. No canvas or worker timer/transfer. Timings separate core tick and production city observer plus human city summary. CPU sampling profiler active5000-8000 at1ms interval. One sequential run per variant; host/thermal noise remains.",
+  "sourceHashes": {
+    "simplefront/src/core/development/CityDevelopmentState.ts": "a4e6fcaf1077554fb2c7c4dde6c17a320f9ff64e993cb48891e03fbddcd07b55",
+    "simplefront/src/client/webgpu/CityDevelopmentUpdates.ts": "05039d82df1be40341dcf2c445a13e3cef5c77765b13b0ae077ee2d76699f290",
+    "simplefront/docs/performance/spqr-turbo-core.mts": "0d7e1029885c27303f533982d8fae471c17279e9e0ca1789728937dfabf7bbbb"
+  },
+  "before": {
+    "seed": "spqr-turbo-6000",
+    "windows": [
+      {
+        "tick": 500,
+        "simMs": {
+          "p50": 1.819250000000011,
+          "p95": 3.510249999999928,
+          "total": 1028.2470440000022
+        },
+        "observerMs": {
+          "p50": 0.023958999999990738,
+          "p95": 0.04116599999997561,
+          "total": 13.242288999999573
+        },
+        "payloadBytes": 558568,
+        "developed": 466,
+        "owned": 68556,
+        "alive": 106,
+        "heapMB": 130.50567626953125,
+        "wallMs": 1042.630458
+      },
+      {
+        "tick": 1000,
+        "simMs": {
+          "p50": 1.5833339999999225,
+          "p95": 3.664209000000028,
+          "total": 902.5848660000013
+        },
+        "observerMs": {
+          "p50": 0.0628750000000764,
+          "p95": 0.09670899999991889,
+          "total": 33.040752999999086
+        },
+        "payloadBytes": 196832,
+        "developed": 1377,
+        "owned": 90894,
+        "alive": 106,
+        "heapMB": 123.58842468261719,
+        "wallMs": 936.465125
+      },
+      {
+        "tick": 1500,
+        "simMs": {
+          "p50": 3.291041999999834,
+          "p95": 6.387707999999748,
+          "total": 1780.417787999997
+        },
+        "observerMs": {
+          "p50": 0.15399999999999636,
+          "p95": 0.217874999999367,
+          "total": 79.12975100001222
+        },
+        "payloadBytes": 920040,
+        "developed": 3050,
+        "owned": 201043,
+        "alive": 106,
+        "heapMB": 114.21028900146484,
+        "wallMs": 1860.481166
+      },
+      {
+        "tick": 2000,
+        "simMs": {
+          "p50": 5.467749999999796,
+          "p95": 9.459584000000177,
+          "total": 2983.473420999998
+        },
+        "observerMs": {
+          "p50": 0.3377920000002632,
+          "p95": 0.46570799999972223,
+          "total": 172.60374800001046
+        },
+        "payloadBytes": 1525640,
+        "developed": 5655,
+        "owned": 380652,
+        "alive": 106,
+        "heapMB": 176.00911712646484,
+        "wallMs": 3156.8786660000005
+      },
+      {
+        "tick": 2500,
+        "simMs": {
+          "p50": 7.894290999998702,
+          "p95": 13.984209000000192,
+          "total": 4213.407334000014
+        },
+        "observerMs": {
+          "p50": 0.5934999999990396,
+          "p95": 0.7929160000003321,
+          "total": 306.1468739999973
+        },
+        "payloadBytes": 2525488,
+        "developed": 9071,
+        "owned": 676870,
+        "alive": 106,
+        "heapMB": 267.86878204345703,
+        "wallMs": 4520.157666
+      },
+      {
+        "tick": 3000,
+        "simMs": {
+          "p50": 9.145165999998426,
+          "p95": 19.959624999999505,
+          "total": 5018.9069970000255
+        },
+        "observerMs": {
+          "p50": 0.9335829999999987,
+          "p95": 1.175375000002532,
+          "total": 480.15938000002643
+        },
+        "payloadBytes": 2295168,
+        "developed": 13089,
+        "owned": 923922,
+        "alive": 104,
+        "heapMB": 309.13148498535156,
+        "wallMs": 5499.726999999999
+      },
+      {
+        "tick": 3500,
+        "simMs": {
+          "p50": 10.388584000000264,
+          "p95": 24.149333000001207,
+          "total": 5805.467608000043
+        },
+        "observerMs": {
+          "p50": 1.3689999999987776,
+          "p95": 1.6243330000033893,
+          "total": 689.1303679999801
+        },
+        "payloadBytes": 2305888,
+        "developed": 17455,
+        "owned": 1138360,
+        "alive": 103,
+        "heapMB": 203.06101989746094,
+        "wallMs": 6495.412167000002
+      },
+      {
+        "tick": 4000,
+        "simMs": {
+          "p50": 11.979374999998981,
+          "p95": 29.71412500000224,
+          "total": 6739.561470000015
+        },
+        "observerMs": {
+          "p50": 1.7542499999981374,
+          "p95": 2.070917000000918,
+          "total": 888.5087800000219
+        },
+        "payloadBytes": 1612000,
+        "developed": 21837,
+        "owned": 1227781,
+        "alive": 102,
+        "heapMB": 229.02117156982422,
+        "wallMs": 7628.913291999997
+      },
+      {
+        "tick": 4500,
+        "simMs": {
+          "p50": 15.343124999999418,
+          "p95": 36.38575000000128,
+          "total": 8388.012914999941
+        },
+        "observerMs": {
+          "p50": 2.217499999998836,
+          "p95": 2.572082999999111,
+          "total": 1119.7426200000082
+        },
+        "payloadBytes": 1700208,
+        "developed": 26207,
+        "owned": 1278646,
+        "alive": 100,
+        "heapMB": 195.51235961914062,
+        "wallMs": 9508.704332999998
+      },
+      {
+        "tick": 5000,
+        "simMs": {
+          "p50": 16.9375,
+          "p95": 41.73720800000592,
+          "total": 9316.355078999986
+        },
+        "observerMs": {
+          "p50": 2.6856249999982538,
+          "p95": 3.11287500000617,
+          "total": 1363.9325899999967
+        },
+        "payloadBytes": 1582936,
+        "developed": 30202,
+        "owned": 1314919,
+        "alive": 96,
+        "heapMB": 308.41886138916016,
+        "wallMs": 10681.311458000004
+      },
+      {
+        "tick": 5500,
+        "simMs": {
+          "p50": 19.744291999995767,
+          "p95": 48.25520800000231,
+          "total": 10749.511794000027
+        },
+        "observerMs": {
+          "p50": 3.1484590000036405,
+          "p95": 3.5354580000057467,
+          "total": 1581.2419979999686
+        },
+        "payloadBytes": 1408016,
+        "developed": 34310,
+        "owned": 1325924,
+        "alive": 91,
+        "heapMB": 344.3505859375,
+        "wallMs": 12434.901082999997
+      },
+      {
+        "tick": 6000,
+        "simMs": {
+          "p50": 22.273667000001296,
+          "p95": 53.37116700000479,
+          "total": 12119.257286999833
+        },
+        "observerMs": {
+          "p50": 3.5915420000092126,
+          "p95": 3.9415830000070855,
+          "total": 1803.083553000055
+        },
+        "payloadBytes": 1694520,
+        "developed": 38597,
+        "owned": 1329285,
+        "alive": 88,
+        "heapMB": 190.05999755859375,
+        "wallMs": 13924.177375
+      },
+      {
+        "tick": 6500,
+        "simMs": {
+          "p50": 24.13575000000128,
+          "p95": 59.10120800000732,
+          "total": 13064.495373000085
+        },
+        "observerMs": {
+          "p50": 4.039500000013504,
+          "p95": 4.460084000005736,
+          "total": 2029.9761449997895
+        },
+        "payloadBytes": 1634592,
+        "developed": 42703,
+        "owned": 1329920,
+        "alive": 85,
+        "heapMB": 317.6232604980469,
+        "wallMs": 15095.736874999988
+      },
+      {
+        "tick": 7000,
+        "simMs": {
+          "p50": 23.76966700000048,
+          "p95": 61.87799999999697,
+          "total": 13097.23578999989
+        },
+        "observerMs": {
+          "p50": 4.256374999997206,
+          "p95": 4.7430830000084825,
+          "total": 2163.568130999949
+        },
+        "payloadBytes": 1475408,
+        "developed": 46569,
+        "owned": 1331146,
+        "alive": 81,
+        "heapMB": 271.6404266357422,
+        "wallMs": 15261.964166999998
+      },
+      {
+        "tick": 7500,
+        "simMs": {
+          "p50": 23.681875000009313,
+          "p95": 63.97912499999802,
+          "total": 13127.702544999833
+        },
+        "observerMs": {
+          "p50": 4.479458000001614,
+          "p95": 4.876665999996476,
+          "total": 2258.7400399999897
+        },
+        "payloadBytes": 1373200,
+        "developed": 50256,
+        "owned": 1331655,
+        "alive": 78,
+        "heapMB": 260.44835662841797,
+        "wallMs": 15387.484333
+      },
+      {
+        "tick": 8000,
+        "simMs": {
+          "p50": 25.609415999992052,
+          "p95": 69.40679199999431,
+          "total": 14139.475982999851
+        },
+        "observerMs": {
+          "p50": 4.8590409999887925,
+          "p95": 5.339249999989988,
+          "total": 2440.497086000236
+        },
+        "payloadBytes": 1306440,
+        "developed": 53738,
+        "owned": 1331906,
+        "alive": 75,
+        "heapMB": 616.0710296630859,
+        "wallMs": 16580.980167
+      }
+    ],
+    "hash": 1671419326496717000
+  },
+  "indexOnly": {
+    "seed": "spqr-turbo-6000",
+    "windows": [
+      {
+        "tick": 500,
+        "simMs": {
+          "p50": 1.7902500000000146,
+          "p95": 3.230874999999969,
+          "total": 1013.0190850000013
+        },
+        "observerMs": {
+          "p50": 0.023542000000134067,
+          "p95": 0.0390420000001086,
+          "total": 12.752373000000262
+        },
+        "payloadBytes": 558568,
+        "developed": 466,
+        "owned": 68556,
+        "alive": 106,
+        "heapMB": 130.69671630859375,
+        "wallMs": 1026.758083
+      },
+      {
+        "tick": 1000,
+        "simMs": {
+          "p50": 1.5676669999998012,
+          "p95": 3.6180410000001757,
+          "total": 889.1072809999976
+        },
+        "observerMs": {
+          "p50": 0.062207999999827734,
+          "p95": 0.0929999999998472,
+          "total": 32.112871000002315
+        },
+        "payloadBytes": 196832,
+        "developed": 1377,
+        "owned": 90894,
+        "alive": 106,
+        "heapMB": 122.99250793457031,
+        "wallMs": 922.026541
+      },
+      {
+        "tick": 1500,
+        "simMs": {
+          "p50": 3.1708330000001297,
+          "p95": 6.287832999999864,
+          "total": 1771.9942340000052
+        },
+        "observerMs": {
+          "p50": 0.15183299999989686,
+          "p95": 0.21404100000017934,
+          "total": 82.39590800000587
+        },
+        "payloadBytes": 920040,
+        "developed": 3050,
+        "owned": 201043,
+        "alive": 106,
+        "heapMB": 110.79891967773438,
+        "wallMs": 1855.273209
+      },
+      {
+        "tick": 2000,
+        "simMs": {
+          "p50": 5.13104100000055,
+          "p95": 8.96991700000035,
+          "total": 2843.990708999985
+        },
+        "observerMs": {
+          "p50": 0.3274169999995138,
+          "p95": 0.4324159999996482,
+          "total": 168.28033399999913
+        },
+        "payloadBytes": 1525640,
+        "developed": 5655,
+        "owned": 380652,
+        "alive": 106,
+        "heapMB": 162.54560089111328,
+        "wallMs": 3012.9534160000003
+      },
+      {
+        "tick": 2500,
+        "simMs": {
+          "p50": 7.364540999999008,
+          "p95": 13.30083299999933,
+          "total": 3966.9391190000024
+        },
+        "observerMs": {
+          "p50": 0.5826670000005834,
+          "p95": 0.7741659999992407,
+          "total": 295.7314969999952
+        },
+        "payloadBytes": 2525488,
+        "developed": 9071,
+        "owned": 676870,
+        "alive": 106,
+        "heapMB": 242.26056671142578,
+        "wallMs": 4263.280083000001
+      },
+      {
+        "tick": 3000,
+        "simMs": {
+          "p50": 8.343833000000814,
+          "p95": 18.804958000000624,
+          "total": 4652.195709
+        },
+        "observerMs": {
+          "p50": 0.9018340000002354,
+          "p95": 1.1056250000001455,
+          "total": 463.8296719999835
+        },
+        "payloadBytes": 2295168,
+        "developed": 13089,
+        "owned": 923922,
+        "alive": 104,
+        "heapMB": 318.49337005615234,
+        "wallMs": 5116.662875
+      },
+      {
+        "tick": 3500,
+        "simMs": {
+          "p50": 9.075624999997672,
+          "p95": 21.98762500000157,
+          "total": 5128.139041000053
+        },
+        "observerMs": {
+          "p50": 1.3114999999997963,
+          "p95": 1.5303339999991294,
+          "total": 658.2337259999513
+        },
+        "payloadBytes": 2305888,
+        "developed": 17455,
+        "owned": 1138360,
+        "alive": 103,
+        "heapMB": 186.87725830078125,
+        "wallMs": 5787.020541000002
+      },
+      {
+        "tick": 4000,
+        "simMs": {
+          "p50": 10.43804199999795,
+          "p95": 26.505333000000974,
+          "total": 5873.371347999957
+        },
+        "observerMs": {
+          "p50": 1.6781250000021828,
+          "p95": 1.891542000001209,
+          "total": 839.665283999977
+        },
+        "payloadBytes": 1612000,
+        "developed": 21837,
+        "owned": 1227781,
+        "alive": 102,
+        "heapMB": 267.1705551147461,
+        "wallMs": 6713.745208
+      },
+      {
+        "tick": 4500,
+        "simMs": {
+          "p50": 12.91766700000153,
+          "p95": 33.22729099999924,
+          "total": 7180.378785999921
+        },
+        "observerMs": {
+          "p50": 2.0849579999994603,
+          "p95": 2.343416999996407,
+          "total": 1044.0232230000875
+        },
+        "payloadBytes": 1700208,
+        "developed": 26207,
+        "owned": 1278646,
+        "alive": 100,
+        "heapMB": 212.45443725585938,
+        "wallMs": 8225.172125000001
+      },
+      {
+        "tick": 5000,
+        "simMs": {
+          "p50": 13.552750000002561,
+          "p95": 35.95795899999939,
+          "total": 7601.574546999938
+        },
+        "observerMs": {
+          "p50": 2.4713340000016615,
+          "p95": 2.7596249999987776,
+          "total": 1240.3561019999397
+        },
+        "payloadBytes": 1582936,
+        "developed": 30202,
+        "owned": 1314919,
+        "alive": 96,
+        "heapMB": 257.29357147216797,
+        "wallMs": 8842.727791999998
+      },
+      {
+        "tick": 5500,
+        "simMs": {
+          "p50": 15.79412500000035,
+          "p95": 41.38454199999978,
+          "total": 8845.869333999995
+        },
+        "observerMs": {
+          "p50": 2.9053340000027674,
+          "p95": 3.233209000005445,
+          "total": 1464.3951120000347
+        },
+        "payloadBytes": 1408016,
+        "developed": 34310,
+        "owned": 1325924,
+        "alive": 91,
+        "heapMB": 249.59539031982422,
+        "wallMs": 10408.773083
+      },
+      {
+        "tick": 6000,
+        "simMs": {
+          "p50": 18.42633399999613,
+          "p95": 46.833458000000974,
+          "total": 10327.095304000177
+        },
+        "observerMs": {
+          "p50": 3.349040999994031,
+          "p95": 3.9237500000017462,
+          "total": 1700.9970429999812
+        },
+        "payloadBytes": 1694520,
+        "developed": 38597,
+        "owned": 1329285,
+        "alive": 88,
+        "heapMB": 500.19409942626953,
+        "wallMs": 12029.612374999997
+      },
+      {
+        "tick": 6500,
+        "simMs": {
+          "p50": 19.126957999993465,
+          "p95": 50.805584000001545,
+          "total": 10687.259664000128
+        },
+        "observerMs": {
+          "p50": 3.70662500000617,
+          "p95": 4.204291000001831,
+          "total": 1878.5199189998384
+        },
+        "payloadBytes": 1634592,
+        "developed": 42703,
+        "owned": 1329920,
+        "alive": 85,
+        "heapMB": 266.6255645751953,
+        "wallMs": 12566.845040999993
+      },
+      {
+        "tick": 7000,
+        "simMs": {
+          "p50": 21.505000000004657,
+          "p95": 57.48433300000033,
+          "total": 12078.107837000105
+        },
+        "observerMs": {
+          "p50": 4.260582999995677,
+          "p95": 5.114499999996042,
+          "total": 2218.870716999998
+        },
+        "payloadBytes": 1475408,
+        "developed": 46569,
+        "owned": 1331146,
+        "alive": 81,
+        "heapMB": 523.529296875,
+        "wallMs": 14298.078208000006
+      },
+      {
+        "tick": 7500,
+        "simMs": {
+          "p50": 24.349957999991602,
+          "p95": 66.62479200000234,
+          "total": 13520.991671000156
+        },
+        "observerMs": {
+          "p50": 4.865583999999217,
+          "p95": 5.43691599999147,
+          "total": 2450.4611759999825
+        },
+        "payloadBytes": 1373200,
+        "developed": 50256,
+        "owned": 1331655,
+        "alive": 78,
+        "heapMB": 193.51985931396484,
+        "wallMs": 15972.937874999989
+      },
+      {
+        "tick": 8000,
+        "simMs": {
+          "p50": 23.93399999999383,
+          "p95": 69.96300000000338,
+          "total": 13678.866914000013
+        },
+        "observerMs": {
+          "p50": 5.091583000001265,
+          "p95": 6.069999999992433,
+          "total": 2653.2197490001563
+        },
+        "payloadBytes": 1306440,
+        "developed": 53738,
+        "owned": 1331906,
+        "alive": 75,
+        "heapMB": 407.43238067626953,
+        "wallMs": 16333.501000000004
+      }
+    ],
+    "hash": 1671419326496717000
+  },
+  "after": {
+    "seed": "spqr-turbo-6000",
+    "windows": [
+      {
+        "tick": 500,
+        "simMs": {
+          "p50": 1.806332999999995,
+          "p95": 3.349499999999921,
+          "total": 1018.8580370000022
+        },
+        "observerMs": {
+          "p50": 0.005125000000020918,
+          "p95": 0.013417000000004009,
+          "total": 3.6669539999988388
+        },
+        "payloadBytes": 558568,
+        "developed": 466,
+        "owned": 68556,
+        "alive": 106,
+        "heapMB": 120.57245635986328,
+        "wallMs": 1023.5257079999999
+      },
+      {
+        "tick": 1000,
+        "simMs": {
+          "p50": 1.5101250000000164,
+          "p95": 3.6150410000000193,
+          "total": 862.4847779999909
+        },
+        "observerMs": {
+          "p50": 0.004666999999926702,
+          "p95": 0.010291000000052009,
+          "total": 2.6826979999998457
+        },
+        "payloadBytes": 196832,
+        "developed": 1377,
+        "owned": 90894,
+        "alive": 106,
+        "heapMB": 87.38172912597656,
+        "wallMs": 865.8490419999998
+      },
+      {
+        "tick": 1500,
+        "simMs": {
+          "p50": 3.0652499999996508,
+          "p95": 6.306124999999611,
+          "total": 1719.3195859999983
+        },
+        "observerMs": {
+          "p50": 0.008084000000053493,
+          "p95": 0.015499999999974534,
+          "total": 4.455202000002373
+        },
+        "payloadBytes": 920040,
+        "developed": 3050,
+        "owned": 201043,
+        "alive": 106,
+        "heapMB": 142.9003143310547,
+        "wallMs": 1724.5629589999999
+      },
+      {
+        "tick": 2000,
+        "simMs": {
+          "p50": 5.0034579999992275,
+          "p95": 8.804415999999947,
+          "total": 2770.8683780000138
+        },
+        "observerMs": {
+          "p50": 0.012458000000151515,
+          "p95": 0.02154199999949924,
+          "total": 6.544801000002735
+        },
+        "payloadBytes": 1525640,
+        "developed": 5655,
+        "owned": 380652,
+        "alive": 106,
+        "heapMB": 184.74237060546875,
+        "wallMs": 2778.0589169999994
+      },
+      {
+        "tick": 2500,
+        "simMs": {
+          "p50": 7.160041999999521,
+          "p95": 13.366707999999562,
+          "total": 3860.6580850000073
+        },
+        "observerMs": {
+          "p50": 0.016834000000017113,
+          "p95": 0.02525000000059663,
+          "total": 8.59305000000495
+        },
+        "payloadBytes": 2525488,
+        "developed": 9071,
+        "owned": 676870,
+        "alive": 106,
+        "heapMB": 241.27178192138672,
+        "wallMs": 3869.7391669999997
+      },
+      {
+        "tick": 3000,
+        "simMs": {
+          "p50": 7.981791999998677,
+          "p95": 18.359542000000147,
+          "total": 4468.140291000009
+        },
+        "observerMs": {
+          "p50": 0.02049999999871943,
+          "p95": 0.03083399999923131,
+          "total": 10.111682999979166
+        },
+        "payloadBytes": 2295168,
+        "developed": 13089,
+        "owned": 923922,
+        "alive": 104,
+        "heapMB": 312.07425689697266,
+        "wallMs": 4478.813709
+      },
+      {
+        "tick": 3500,
+        "simMs": {
+          "p50": 8.674166999999215,
+          "p95": 21.099041000001307,
+          "total": 4957.618880000018
+        },
+        "observerMs": {
+          "p50": 0.02675000000090222,
+          "p95": 0.041875000000800355,
+          "total": 13.703292000051079
+        },
+        "payloadBytes": 2305888,
+        "developed": 17455,
+        "owned": 1138360,
+        "alive": 103,
+        "heapMB": 244.87405395507812,
+        "wallMs": 4972.034542000001
+      },
+      {
+        "tick": 4000,
+        "simMs": {
+          "p50": 9.774916999998823,
+          "p95": 26.503042000000278,
+          "total": 5621.56876999998
+        },
+        "observerMs": {
+          "p50": 0.02716599999985192,
+          "p95": 0.04208399999697576,
+          "total": 13.570494999963557
+        },
+        "payloadBytes": 1612000,
+        "developed": 21837,
+        "owned": 1227781,
+        "alive": 102,
+        "heapMB": 199.81997680664062,
+        "wallMs": 5635.822375000003
+      },
+      {
+        "tick": 4500,
+        "simMs": {
+          "p50": 12.153959000002942,
+          "p95": 31.731167000001733,
+          "total": 6890.982928999998
+        },
+        "observerMs": {
+          "p50": 0.027916999999433756,
+          "p95": 0.04479199999695993,
+          "total": 13.81146099995749
+        },
+        "payloadBytes": 1700208,
+        "developed": 26207,
+        "owned": 1278646,
+        "alive": 100,
+        "heapMB": 302.7445373535156,
+        "wallMs": 6905.475125000001
+      },
+      {
+        "tick": 5000,
+        "simMs": {
+          "p50": 12.849042000001646,
+          "p95": 34.674333999995724,
+          "total": 7442.648703999974
+        },
+        "observerMs": {
+          "p50": 0.01970900000014808,
+          "p95": 0.027290999998513144,
+          "total": 9.564617000185535
+        },
+        "payloadBytes": 1582936,
+        "developed": 30202,
+        "owned": 1314919,
+        "alive": 96,
+        "heapMB": 464.1635513305664,
+        "wallMs": 7452.966832999999
+      },
+      {
+        "tick": 5500,
+        "simMs": {
+          "p50": 15.177959000000556,
+          "p95": 40.066624999999476,
+          "total": 8464.665211999927
+        },
+        "observerMs": {
+          "p50": 0.021832999998878222,
+          "p95": 0.03262499999982538,
+          "total": 10.749478000070667
+        },
+        "payloadBytes": 1408016,
+        "developed": 34310,
+        "owned": 1325924,
+        "alive": 91,
+        "heapMB": 212.2950210571289,
+        "wallMs": 8643.481334000004
+      },
+      {
+        "tick": 6000,
+        "simMs": {
+          "p50": 16.822500000002037,
+          "p95": 44.97570799999812,
+          "total": 9501.297697000082
+        },
+        "observerMs": {
+          "p50": 0.022499999999126885,
+          "p95": 0.03241600000183098,
+          "total": 10.82871900000464
+        },
+        "payloadBytes": 1694520,
+        "developed": 38597,
+        "owned": 1329285,
+        "alive": 88,
+        "heapMB": 418.9368209838867,
+        "wallMs": 9513.344083000004
+      },
+      {
+        "tick": 6500,
+        "simMs": {
+          "p50": 19.828250000005937,
+          "p95": 52.51595799998904,
+          "total": 11270.40457299992
+        },
+        "observerMs": {
+          "p50": 0.023999999997613486,
+          "p95": 0.03695900000457186,
+          "total": 11.887669000134338
+        },
+        "payloadBytes": 1634592,
+        "developed": 42703,
+        "owned": 1329920,
+        "alive": 85,
+        "heapMB": 187.10564422607422,
+        "wallMs": 11283.297291999996
+      },
+      {
+        "tick": 7000,
+        "simMs": {
+          "p50": 19.082459000012022,
+          "p95": 54.12025000000722,
+          "total": 10996.106344000073
+        },
+        "observerMs": {
+          "p50": 0.022166999988257885,
+          "p95": 0.032124999997904524,
+          "total": 10.366511999964132
+        },
+        "payloadBytes": 1475408,
+        "developed": 46569,
+        "owned": 1331146,
+        "alive": 81,
+        "heapMB": 474.3233108520508,
+        "wallMs": 11007.392332999996
+      },
+      {
+        "tick": 7500,
+        "simMs": {
+          "p50": 20.43787500000326,
+          "p95": 59.30241699999897,
+          "total": 12059.28276300004
+        },
+        "observerMs": {
+          "p50": 0.02412499999627471,
+          "p95": 0.03537499999220017,
+          "total": 11.468871999997646
+        },
+        "payloadBytes": 1373200,
+        "developed": 50256,
+        "owned": 1331655,
+        "alive": 78,
+        "heapMB": 355.60986328125,
+        "wallMs": 12071.770084000003
+      },
+      {
+        "tick": 8000,
+        "simMs": {
+          "p50": 22.911707999999635,
+          "p95": 67.17950000001292,
+          "total": 13570.743124999877
+        },
+        "observerMs": {
+          "p50": 0.02449999999953434,
+          "p95": 0.03900000000430737,
+          "total": 12.226133000047412
+        },
+        "payloadBytes": 1306440,
+        "developed": 53738,
+        "owned": 1331906,
+        "alive": 75,
+        "heapMB": 297.44934844970703,
+        "wallMs": 13584.012750000009
+      }
+    ],
+    "hash": 1671419326496717000
+  },
+  "validation": {
+    "equalFinalHash": true,
+    "equalWindowCountsAndPayloadBytes": true
+  },
+  "totals": {
+    "beforeMeasuredMs": 139896.85739999957,
+    "afterMeasuredMs": 105629.87978800028,
+    "reductionPercent": 24.494458452359336
+  },
+  "baseCommit": "b9a9a66db792b10e28718b9801362f436aaf9016",
+  "beforeSourceHashes": {
+    "simplefront/src/core/development/CityDevelopmentState.ts": "4d709b12fe1437978d9cbe1be714073ecfd8fb44cb56111d92117a77edd73017",
+    "simplefront/src/client/webgpu/CityDevelopmentUpdates.ts": "4eb9ce0f85b1b539ab9444d8372000f05130ad1584bd99cfb27fa99692dd7693"
+  },
+  "inputHashes": {
+    "simplefront/src/core/development/CityDevelopmentConfig.ts": "831e119c1dc2e5833b8b4ff883c966cce10ad9227a01539c70b1fad913d99290",
+    "simplefront/resources/maps/spqr/manifest.json": "06486f8a45fe3602130517b24fcf165d91e8e177d19f30ad2ceef5cd322bc52b",
+    "simplefront/resources/maps/spqr/map.bin": "e9147575714e4cc469fccd639da9f3001608af233e5fea35a2b55d3ec14ceb73",
+    "simplefront/resources/maps/spqr/layers.bin": "4770a0152ef01a2a5c7cdfad7138f8b4b68baa9104159779a5b41726771a5f82"
+  },
+  "baselineProfile": {
+    "intervalUs": 1000,
+    "fromTick": 5000,
+    "toTick": 8000,
+    "topInclusive": [
+      {
+        "functionName": "(root) ",
+        "percent": 100,
+        "sampledMs": 88685.608
+      },
+      {
+        "functionName": " file:///private/tmp/spqr-turbo-probe.mts",
+        "percent": 97.3182255231311,
+        "sampledMs": 86307.26
+      },
+      {
+        "functionName": "executeNextTick simplefront/src/core/GameRunner.ts",
+        "percent": 83.45058873588599,
+        "sampledMs": 74008.662
+      },
+      {
+        "functionName": "executeNextTick simplefront/src/core/game/GameImpl.ts",
+        "percent": 82.95600115860964,
+        "sampledMs": 73570.034
+      },
+      {
+        "functionName": "tickPaintedEconomy simplefront/src/core/execution/utils/PaintedEconomy.ts",
+        "percent": 34.438389372038806,
+        "sampledMs": 30541.895
+      },
+      {
+        "functionName": " simplefront/src/core/game/GameImpl.ts",
+        "percent": 31.647213829779464,
+        "sampledMs": 28066.524
+      },
+      {
+        "functionName": "tickCityDevelopment simplefront/src/core/development/CityDevelopmentExecution.ts",
+        "percent": 23.345317765651448,
+        "sampledMs": 20703.937
+      },
+      {
+        "functionName": "advanceConstructionStep simplefront/src/core/development/CityDevelopmentState.ts",
+        "percent": 21.210397520192906,
+        "sampledMs": 18810.57
+      },
+      {
+        "functionName": "paintedResources simplefront/src/core/execution/utils/PaintedEconomy.ts",
+        "percent": 18.41738627985727,
+        "sampledMs": 16333.571
+      },
+      {
+        "functionName": " simplefront/src/core/development/CityDevelopmentExecution.ts",
+        "percent": 16.51022001224821,
+        "sampledMs": 14642.189
+      },
+      {
+        "functionName": "candidates simplefront/src/core/development/CityDevelopmentState.ts",
+        "percent": 16.480123809942196,
+        "sampledMs": 14615.498
+      },
+      {
+        "functionName": "organicHousingCapacity simplefront/src/core/development/CityDevelopmentExecution.ts",
+        "percent": 14.384451195283004,
+        "sampledMs": 12756.938
+      },
+      {
+        "functionName": "tick simplefront/src/core/execution/AttackExecution.ts",
+        "percent": 14.07404682843241,
+        "sampledMs": 12481.654
+      },
+      {
+        "functionName": "nearbyUnits simplefront/src/core/game/GameImpl.ts",
+        "percent": 10.748270452179796,
+        "sampledMs": 9532.169
+      },
+      {
+        "functionName": "reconcilePaintedCapacity simplefront/src/core/execution/utils/PaintedEconomy.ts",
+        "percent": 10.34713095725746,
+        "sampledMs": 9176.416
+      },
+      {
+        "functionName": "hash simplefront/src/core/game/GameImpl.ts",
+        "percent": 9.543177513086452,
+        "sampledMs": 8463.425
+      },
+      {
+        "functionName": "ownedDevelopedTiles simplefront/src/core/development/CityDevelopmentState.ts",
+        "percent": 8.70936014781564,
+        "sampledMs": 7723.949
+      },
+      {
+        "functionName": "read simplefront/src/client/webgpu/CityDevelopmentUpdates.ts",
+        "percent": 7.993600269392076,
+        "sampledMs": 7089.173
+      },
+      {
+        "functionName": "nearbyUnits simplefront/src/core/game/UnitGrid.ts",
+        "percent": 7.3041941596656805,
+        "sampledMs": 6477.769
+      },
+      {
+        "functionName": "seep simplefront/src/core/execution/AttackExecution.ts",
+        "percent": 5.896487736770097,
+        "sampledMs": 5229.336
+      },
+      {
+        "functionName": "toUpdate simplefront/src/core/game/PlayerImpl.ts",
+        "percent": 5.788612285321425,
+        "sampledMs": 5133.666
+      },
+      {
+        "functionName": "usableCapacity simplefront/src/core/development/CityDevelopmentState.ts",
+        "percent": 5.65934553890638,
+        "sampledMs": 5019.025
+      },
+      {
+        "functionName": "toFullUpdate simplefront/src/core/game/PlayerImpl.ts",
+        "percent": 5.380980192411829,
+        "sampledMs": 4772.155
+      },
+      {
+        "functionName": "tick simplefront/src/core/execution/PaintedAIExecution.ts",
+        "percent": 5.27393914917965,
+        "sampledMs": 4677.225
+      },
+      {
+        "functionName": "owner simplefront/src/core/game/GameImpl.ts",
+        "percent": 5.260679951588086,
+        "sampledMs": 4665.466
+      },
+      {
+        "functionName": "decidePaintedAI simplefront/src/core/execution/utils/PaintedAI.ts",
+        "percent": 5.2272393509440676,
+        "sampledMs": 4635.809
+      },
+      {
+        "functionName": "organicPopulationPerSecond simplefront/src/core/development/CityDevelopmentExecution.ts",
+        "percent": 5.0870463672076305,
+        "sampledMs": 4511.478
+      },
+      {
+        "functionName": "populationPerSecondFor simplefront/src/core/development/CityDevelopmentState.ts",
+        "percent": 5.064649272066783,
+        "sampledMs": 4491.615
+      },
+      {
+        "functionName": "ownerID simplefront/src/core/game/GameImpl.ts",
+        "percent": 4.061286922676337,
+        "sampledMs": 3601.777
+      },
+      {
+        "functionName": "ownerID simplefront/src/core/game/GameMap.ts",
+        "percent": 3.5639085881894164,
+        "sampledMs": 3160.674
+      }
+    ],
+    "note": "Inclusive stacks overlap. Transpiled anonymous functions have no stable symbol label."
+  }
+}

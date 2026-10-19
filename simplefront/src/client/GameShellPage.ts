@@ -24,6 +24,8 @@ import {
 import type { MapData } from "../core/game/GameMapLoader";
 import { UserSettings } from "../core/game/UserSettings";
 import type { Intent } from "../core/Schemas";
+import type { TickChainRecord } from "../core/sync/TickChainProtocol";
+import { ChainRecoveryBudget } from "../core/sync/TickChainRecovery";
 import {
   normalizeFoundationWorldEngineMapConfig,
   type FoundationWorldEngineMapConfig,
@@ -60,6 +62,7 @@ import {
   type ShellView,
 } from "./shell/MapLayerViews";
 import { PaintStroke } from "./shell/PaintStroke";
+import { RenderInvalidation } from "./shell/RenderInvalidation";
 import {
   parseSimpleFrontDifficulty,
   readSimpleFrontDifficulty,
@@ -300,6 +303,11 @@ export class GameShellPage extends FieldViewerBase {
   private worker: Worker | null = null;
   private workerGeneration = 0;
   private workerReady = false;
+  private chainRecovery = new ChainRecoveryBudget();
+  private recoveryTarget: number | null = null;
+  private recoveryTimer: ReturnType<typeof setTimeout> | null = null;
+  private failedChainRecord: TickChainRecord | null = null;
+  private chainStopped = false;
   @state() private nextCityDevelopment?: Readonly<GrowthConfig>;
   private hasNextCityDevelopment = false;
   @state() private activeCityDevelopment?: Readonly<GrowthConfig>;
@@ -345,7 +353,11 @@ export class GameShellPage extends FieldViewerBase {
   /** Byte mirror of the plot conduit for the camera's sub-tile sprite
    *  plane (farmland tilled rows — see CameraRenderer.plotPlane). */
   private plotBytes: Uint8Array | null = null;
-  private plotBytesDirty = false;
+  private plotDirtyTiles: number[] = [];
+  private renderInvalidation = new RenderInvalidation(0, 0);
+  private renderParams: Uint8Array | null = null;
+  private renderKernel: typeof this.kernel = null;
+  private renderedView = "";
   /** LeanFront Simple's compact plot sextets, indexed by tile for the shared
    * hover/HUD. The render path continues to use the common `plot` conduit. */
   private simplePlots = new Map<
@@ -806,7 +818,7 @@ export class GameShellPage extends FieldViewerBase {
       this.hoverChipEl?.remove();
       this.hoverChipEl = null;
       // Nothing being inspected → the mask returns to normal.
-      this.paramValues.hoveredPlayer = 0;
+      this.setHoveredPlayer(0);
     };
     if (
       !container ||
@@ -863,7 +875,7 @@ export class GameShellPage extends FieldViewerBase {
     }
     // Reveal this nation in the overlay (mask off, white outline) and dip our
     // own land, so the chip and the highlight always agree on the subject.
-    this.paramValues.hoveredPlayer = owner;
+    this.setHoveredPlayer(owner);
     const rect = canvas.getBoundingClientRect();
     // Offset off the cursor so the chip never sits under the pointer.
     el.style.left = `${at.x - rect.left + 14}px`;
@@ -1212,8 +1224,25 @@ export class GameShellPage extends FieldViewerBase {
 
   /** Spin up the simulation worker for the current map (Singleplayer, N bots).
    * The worker owns every core `Game` read and returns render/HUD conduits. */
-  private async startWorker(): Promise<void> {
+  private async startWorker(recoverRecord?: TickChainRecord): Promise<void> {
     this.destroySim();
+    // GPU conduits must be cleared with their CPU mirrors, including recovery.
+    for (const buffer of [
+      "owner",
+      "plot",
+      "density",
+      "front",
+      "damage",
+      "supply",
+      "highlight",
+    ])
+      this.kernel?.clearBuffer(buffer);
+    if (!recoverRecord) {
+      this.chainRecovery = new ChainRecoveryBudget();
+      this.recoveryTarget = null;
+      this.failedChainRecord = null;
+      this.chainStopped = false;
+    }
     const generation = this.workerGeneration;
     if (this.ambient && !this.ambientVisible) return;
     const mapType = GameMapType[this.mapKey as keyof typeof GameMapType];
@@ -1222,7 +1251,7 @@ export class GameShellPage extends FieldViewerBase {
     this.ownerScratch = new Uint32Array(n);
     this.plotU32 = new Uint32Array(n);
     this.plotBytes = new Uint8Array(n);
-    this.plotBytesDirty = false;
+    this.plotDirtyTiles = [];
     this.simplePlots.clear();
     this.renderer?.setPlotPlane(this.mapWidth, this.mapHeight);
     this.highlightU32 = new Uint32Array(n);
@@ -1264,6 +1293,7 @@ export class GameShellPage extends FieldViewerBase {
     };
     this.postWorker({
       type: "init",
+      recoverRecord,
       mapType,
       bots: this.simBots,
       difficulty: this.isPaintedGame() ? this.matchDifficulty : undefined,
@@ -1301,6 +1331,23 @@ export class GameShellPage extends FieldViewerBase {
       });
     } else if (msg.type === "frame") {
       this.onWorkerFrame(msg);
+      if (
+        this.recoveryTarget !== null &&
+        msg.chain &&
+        msg.chain.tick >= this.recoveryTarget
+      ) {
+        try {
+          this.chainRecovery.complete();
+        } catch (error) {
+          this.stopChain(String(error));
+          return;
+        }
+        this.recoveryTarget = null;
+        if (this.recoveryTimer) clearTimeout(this.recoveryTimer);
+        this.recoveryTimer = null;
+        this.status =
+          "Recovered from verified replay; unsent actions were discarded.";
+      }
     } else if (msg.type === "preview") {
       this.previewData = msg;
     } else if (msg.type === "action_result") {
@@ -1308,11 +1355,63 @@ export class GameShellPage extends FieldViewerBase {
         ? ""
         : `Action rejected: ${msg.message ?? "invalid action"}`;
     } else if (msg.type === "error") {
-      this.status = msg.message;
+      if (this.recoveryTarget !== null) this.stopChain(msg.message);
+      else this.status = msg.message;
+    } else if (msg.type === "chain_failure") {
+      void this.recoverChain(msg.record, msg.message);
+    } else if (msg.type === "chain_record") {
+      this.downloadChain(msg.record);
     }
   }
 
+  private downloadChain(record: TickChainRecord): void {
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(record)], { type: "application/json" }),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `simplefront-${record.genesis.gameStartInfo.gameID}-tick-${record.appliedThrough.tick}.json`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  private async recoverChain(
+    record: TickChainRecord,
+    message: string,
+  ): Promise<void> {
+    this.failedChainRecord = record;
+    let generation = this.workerGeneration;
+    try {
+      this.chainRecovery.startRebuild();
+      this.recoveryTarget = record.blocks.length - 1;
+      this.status = `Synchronization failed (${message}). Rebuilding from verified history…`;
+      const starting = this.startWorker(record);
+      generation = this.workerGeneration;
+      this.recoveryTimer = setTimeout(() => {
+        if (generation === this.workerGeneration)
+          this.stopChain("Recovery exceeded 120 seconds");
+      }, 120000);
+      await starting;
+    } catch (error) {
+      if (generation === this.workerGeneration) this.stopChain(String(error));
+    }
+  }
+
+  private stopChain(message: string): void {
+    this.chainStopped = true;
+    this.running = false;
+    this.destroySim();
+    this.recoveryTarget = null;
+    this.status = `Match stopped: ${message}. Export the replay for diagnosis, or explicitly restart.`;
+  }
+
   private postWorker(msg: ShellSimIn): void {
+    if (
+      (this.chainStopped || this.recoveryTarget !== null) &&
+      !["init", "running", "export_chain"].includes(msg.type)
+    )
+      return;
+    if (this.chainStopped && msg.type === "running") return;
     this.worker?.postMessage(msg);
   }
 
@@ -1332,7 +1431,9 @@ export class GameShellPage extends FieldViewerBase {
     if (f.owner) {
       const a = f.owner;
       for (let k = 0; k + 1 < a.length; k += 2) {
-        this.ownerScratch[a[k]] = a[k + 1] & 0xfff;
+        const owner = a[k + 1] & 0xfff;
+        if (this.ownerScratch[a[k]] === owner) continue;
+        this.ownerScratch[a[k]] = owner;
         this.markDirty("owner", a[k]);
       }
     }
@@ -1358,9 +1459,11 @@ export class GameShellPage extends FieldViewerBase {
       const updates = f.development.tiles;
       for (let i = 0; i < updates.length; i += 4) {
         const tile = updates[i];
-        this.plotU32[tile] =
-          (this.plotU32[tile] & 0xffff) | (updates[i + 1] << 16);
-        this.markDirty("plot", tile);
+        const plot = (this.plotU32[tile] & 0xffff) | (updates[i + 1] << 16);
+        if (this.plotU32[tile] !== plot) {
+          this.plotU32[tile] = plot;
+          this.markDirty("plot", tile);
+        }
       }
       this.renderer?.applyCityDevelopment(f.development);
     }
@@ -1382,7 +1485,7 @@ export class GameShellPage extends FieldViewerBase {
         const type = a[k + 1] & 0xff;
         if (this.plotBytes[a[k]] !== type) {
           this.plotBytes[a[k]] = type;
-          this.plotBytesDirty = true;
+          this.plotDirtyTiles.push(a[k]);
         }
       }
     }
@@ -1396,13 +1499,14 @@ export class GameShellPage extends FieldViewerBase {
     this.flushDirty("density", this.densityU32!);
     this.flushDirty("damage", this.damageU32!);
     this.flushDirty("supply", this.supplyU32!);
-    if (this.plotBytesDirty && this.plotBytes && this.renderer) {
-      this.renderer.writePlotPlane(
+    if (this.plotDirtyTiles.length && this.plotBytes && this.renderer) {
+      this.renderer.writePlotTiles(
         this.plotBytes,
         this.mapWidth,
         this.mapHeight,
+        this.plotDirtyTiles,
       );
-      this.plotBytesDirty = false;
+      this.plotDirtyTiles = [];
     }
     // Razed tribal plots light a burn-down fire + ash scar (WebGL
     // PlotFirePass parity). One-shot per tile, driven by the renderer clock.
@@ -1481,6 +1585,7 @@ export class GameShellPage extends FieldViewerBase {
   ): void {
     if (!buf || !delta) return;
     for (let k = 0; k + 1 < delta.length; k += 2) {
+      if (buf[delta[k]] === delta[k + 1]) continue;
       buf[delta[k]] = delta[k + 1];
       this.markDirty(name, delta[k]);
     }
@@ -1494,7 +1599,9 @@ export class GameShellPage extends FieldViewerBase {
     if (!buf || !delta) return;
     for (let k = 0; k < delta.length; k += 1) {
       const t = delta[k] & 0x00ffffff;
-      buf[t] = (delta[k] >>> 24) & 0xff;
+      const value = (delta[k] >>> 24) & 0xff;
+      if (buf[t] === value) continue;
+      buf[t] = value;
       this.markDirty(name, t);
     }
   }
@@ -1524,6 +1631,8 @@ export class GameShellPage extends FieldViewerBase {
 
   /** Mark a tile index dirty for a conduit's next partial upload. */
   private markDirty(name: string, i: number): void {
+    this.renderInvalidation.markTile(i);
+    this.needsRedraw = true;
     let a = this.dirtyTiles.get(name);
     if (!a) {
       a = [];
@@ -1565,6 +1674,15 @@ export class GameShellPage extends FieldViewerBase {
   }
 
   private destroySim(): void {
+    if (this.recoveryTimer) clearTimeout(this.recoveryTimer);
+    this.recoveryTimer = null;
+    this.inFlight = false;
+    this.renderInvalidation = new RenderInvalidation(
+      this.mapWidth,
+      this.mapHeight,
+    );
+    this.renderParams = null;
+    this.needsRedraw = true;
     this.workerGeneration++;
     this.workerReady = false;
     this.activeCityDevelopment = undefined;
@@ -1588,7 +1706,7 @@ export class GameShellPage extends FieldViewerBase {
     this.previewQueryTile = -1;
     this.plotU32 = null;
     this.plotBytes = null;
-    this.plotBytesDirty = false;
+    this.plotDirtyTiles = [];
     this.renderer?.setPlotPlane(0, 0);
     this.renderer?.clearCityDevelopment();
     this.highlightU32 = null;
@@ -1733,6 +1851,7 @@ export class GameShellPage extends FieldViewerBase {
   /** Play/pause + turbo drive a selected live game's worker tick loop (the
    * base's pump() path ticks GPU layers, which live games do not use). */
   protected toggleRunning(): void {
+    if (this.chainStopped || this.recoveryTarget !== null) return;
     if (this.matchResult) return;
     if (this.selectedLiveGame() === undefined) return super.toggleRunning();
     this.running = !this.running;
@@ -1744,6 +1863,7 @@ export class GameShellPage extends FieldViewerBase {
   }
 
   protected setTurbo(on: boolean): void {
+    if (this.chainStopped || this.recoveryTarget !== null) return;
     if (this.selectedLiveGame() === undefined) return super.setTurbo(on);
     this.turbo = on;
     this.postWorker({
@@ -1900,25 +2020,32 @@ export class GameShellPage extends FieldViewerBase {
    *  skipped while this is on (it would repaint the derived look). */
   private async uploadBakedTint(): Promise<void> {
     if (!this.kernel || !this.currentMapData) return;
+    const kernel = this.kernel;
+    const mapData = this.currentMapData;
+    const generation = this.workerGeneration;
+    const width = this.mapWidth;
+    const height = this.mapHeight;
     try {
-      const bmp = await buildViewBitmap(
-        "terrain",
-        this.currentMapData,
-        this.mapWidth,
-        this.mapHeight,
-      );
-      const cv = new OffscreenCanvas(this.mapWidth, this.mapHeight);
+      const bmp = await buildViewBitmap("terrain", mapData, width, height);
+      if (
+        this.kernel !== kernel ||
+        this.currentMapData !== mapData ||
+        this.workerGeneration !== generation
+      )
+        return;
+      const cv = new OffscreenCanvas(width, height);
       const c2d = cv.getContext("2d");
       if (!c2d) return;
-      c2d.drawImage(bmp, 0, 0, this.mapWidth, this.mapHeight);
-      const img = c2d.getImageData(0, 0, this.mapWidth, this.mapHeight).data;
-      const packed = new Uint32Array(this.mapWidth * this.mapHeight);
+      c2d.drawImage(bmp, 0, 0, width, height);
+      const img = c2d.getImageData(0, 0, width, height).data;
+      const packed = new Uint32Array(width * height);
       for (let i = 0; i < packed.length; i++) {
         const o = i * 4;
         packed[i] = (img[o] << 16) | (img[o + 1] << 8) | img[o + 2];
       }
-      this.kernel.writeBufferU32Range("tint", packed, 0, packed.length - 1);
+      kernel.writeBufferU32Range("tint", packed, 0, packed.length - 1);
       this.bakedTintOn = true;
+      this.invalidateView();
     } catch {
       // Keep the derived terrain — parity is best-effort.
     }
@@ -2028,17 +2155,6 @@ export class GameShellPage extends FieldViewerBase {
     this.tickCount = 0;
     this.weekReadout = 0;
     this.simplePlots.clear();
-    for (const b of [
-      "owner",
-      "plot",
-      "density",
-      "front",
-      "damage",
-      "supply",
-      "highlight",
-    ]) {
-      this.kernel.clearBuffer(b);
-    }
     // `ready` may arrive before startWorker resolves; it must see the desired
     // state rather than the temporary false used to stop the old worker.
     this.running = true;
@@ -2179,7 +2295,11 @@ export class GameShellPage extends FieldViewerBase {
     }
     const frame = this.kernel.beginFrame();
     this.compiled.runDerive(frame, tier);
-    await frame.finish();
+    try {
+      await frame.finish();
+    } finally {
+      this.invalidateView();
+    }
   }
 
   /** Recolor tier, single-flight: a slider mid-drag can fire faster than the
@@ -2749,36 +2869,87 @@ export class GameShellPage extends FieldViewerBase {
     const next = now + (target - now) * MASK_FADE_RATE;
     // Snap the last sliver so it settles exactly instead of creeping forever.
     this.paramValues.maskFade = Math.abs(target - next) < 0.005 ? target : next;
+    if (this.paramValues.maskFade !== target) this.needsRedraw = true;
   }
 
   /** Render the OpenFront-live overlay from the (already-uploaded) conduits;
    * the terrain season derive runs only every Nth frame (GPU throttle). */
-  private renderOpenfront(): void {
-    if (!this.kernel || !this.compiled) return;
-    this.inFlight = true;
+  private invalidateView(): void {
+    this.renderInvalidation.markAll();
+    this.needsRedraw = true;
+  }
+
+  protected onPlayersUploaded(): void {
+    this.invalidateView();
+  }
+
+  private setHoveredPlayer(owner: number): void {
+    if ((this.paramValues.hoveredPlayer ?? 0) === owner) return;
+    this.paramValues.hoveredPlayer = owner;
+    this.invalidateView();
+  }
+
+  private async renderOpenfront(): Promise<void> {
+    if (!this.kernel || !this.compiled || this.inFlight) return;
+    const kernel = this.kernel;
+    const compiled = this.compiled;
+    if (
+      this.renderKernel !== kernel ||
+      this.renderInvalidation.width !== this.mapWidth ||
+      this.renderInvalidation.height !== this.mapHeight
+    ) {
+      this.renderInvalidation = new RenderInvalidation(
+        this.mapWidth,
+        this.mapHeight,
+      );
+      this.renderKernel = kernel;
+      this.renderParams = null;
+    }
     this.stepMaskFade();
     this.stepAmbient();
     this.stepCameraTween();
-    this.kernel.writeUniform(
-      "P",
-      this.compiled.writeParams(this.paramValues, this.seed),
+    const params = new Uint8Array(
+      compiled.writeParams(this.paramValues, this.seed),
     );
+    if (
+      this.renderedView !== this.view ||
+      !this.renderParams ||
+      params.length !== this.renderParams.length ||
+      params.some((value, i) => value !== this.renderParams![i])
+    ) {
+      this.renderInvalidation.markAll();
+    }
     const doDerive =
       !this.bakedTintOn &&
       this.derivedOk &&
       this.deriveClock++ % SEASON_DERIVE_EVERY === 0;
-    if (doDerive) this.writeTP("terrain");
-    const frame = this.kernel.beginFrame();
-    if (doDerive) this.compiled.runDerive(frame, "season");
-    this.compiled.runView(frame, this.view);
-    frame
-      .finish()
-      .catch((error: unknown) => {
+    if (doDerive) this.renderInvalidation.markAll();
+    const invalidation = this.renderInvalidation;
+    const update = invalidation.take();
+    if (update.kind === "none") return;
+    this.inFlight = true;
+    try {
+      kernel.writeUniform("P", params);
+      this.renderParams = params;
+      this.renderedView = this.view;
+      if (doDerive) this.writeTP("terrain");
+      const frame = kernel.beginFrame();
+      if (doDerive) compiled.runDerive(frame, "season");
+      compiled.runView(
+        frame,
+        this.view,
+        update.kind === "chunks" ? update.ids : undefined,
+      );
+      await frame.finish();
+    } catch (error) {
+      if (this.kernel === kernel && this.renderInvalidation === invalidation) {
         this.status = (error as Error).message;
-      })
-      .finally(() => {
+        this.invalidateView();
+      }
+    } finally {
+      if (this.kernel === kernel && this.renderInvalidation === invalidation)
         this.inFlight = false;
-      });
+    }
   }
 
   // --- views ------------------------------------------------------------------
@@ -2828,6 +2999,7 @@ export class GameShellPage extends FieldViewerBase {
   private async applyGameView(view: string): Promise<void> {
     this.view = view;
     this.showingGame = true;
+    this.invalidateView();
     if (!this.renderer || !this.kernel?.outView || !this.compiled) return;
     this.renderer.setLiveTexture(
       this.kernel.outView,
@@ -2835,6 +3007,10 @@ export class GameShellPage extends FieldViewerBase {
       this.mapHeight,
     );
     // Render one game view frame so the overlay shows immediately (paused too).
+    if (this.selectedLiveGame() !== undefined) {
+      await this.renderOpenfront();
+      return;
+    }
     const frame = this.kernel.beginFrame();
     this.compiled.runView(frame, view);
     await frame.finish();
@@ -3354,6 +3530,19 @@ export class GameShellPage extends FieldViewerBase {
                 </label>`
               : null}
             <span class="text-white/70">zoom ${this.zoomReadout}×</span>
+            ${this.isPaintedGame() &&
+            (this.workerReady || this.failedChainRecord)
+              ? html`<button
+                  class="border border-white/20 px-2 py-1 hover:bg-white/10"
+                  title="Download this match's verified tick and action record"
+                  @click=${() =>
+                    this.chainStopped && this.failedChainRecord
+                      ? this.downloadChain(this.failedChainRecord)
+                      : this.postWorker({ type: "export_chain" })}
+                >
+                  export replay
+                </button>`
+              : null}
             ${this.selectedGame() !== undefined
               ? html`<button
                   class="border border-white/20 px-2 py-1 hover:bg-white/10"

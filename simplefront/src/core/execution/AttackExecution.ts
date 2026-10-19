@@ -521,10 +521,12 @@ export class AttackExecution implements Execution {
   private clashWithOpposing(): void {
     if (this.attack === null || !this.target.isPlayer()) return;
     const opponent = this.target;
+    let ours: TileRef[] | undefined;
     for (const incoming of this._owner.incomingAttacks()) {
       if (!incoming.isActive() || incoming.attacker() !== opponent) continue;
-      // Ascending tile order so the outcome never depends on Map iteration.
-      const ours = [...this.attack.frontTiles()].sort((a, b) => a - b);
+      // spendAt retains drained entries, so this front stays unchanged across
+      // opponents. Ascending order keeps the outcome independent of insertion.
+      ours ??= [...this.attack.frontTiles()].sort((a, b) => a - b);
       for (const a of ours) {
         let here = this.attack.troopsAt(a);
         if (here <= 0) continue;

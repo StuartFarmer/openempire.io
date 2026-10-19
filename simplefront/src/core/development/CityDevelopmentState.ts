@@ -47,6 +47,9 @@ export class CityDevelopmentState {
   private readonly growth = new Map<number, Set<number>>();
   private readonly orderedOwned = new Map<number, number[]>();
   private readonly developmentOrder: Uint32Array;
+  private readonly recentChanges = new Uint32Array(4096);
+  private changeRevision = 0;
+  private historyStart = 0;
   private readonly inspections = new Map<
     number,
     { suitability: number; supports: number; score: number }
@@ -94,6 +97,32 @@ export class CityDevelopmentState {
     return this.occupied.values();
   }
 
+  get developmentRevision(): number {
+    return this.changeRevision;
+  }
+
+  /** Independent readers can miss ticks; an expired cursor requires a full scan. */
+  changesSince(revision: number): number[] | null {
+    if (
+      revision < this.historyStart ||
+      revision > this.changeRevision ||
+      this.changeRevision - revision > this.recentChanges.length
+    )
+      return null;
+    const tiles = new Set<number>();
+    for (let i = revision; i < this.changeRevision; i++)
+      tiles.add(this.recentChanges[i % this.recentChanges.length]);
+    // Preserve the full observer's physical insertion order.
+    return [...tiles].sort(
+      (a, b) => this.developmentOrder[a] - this.developmentOrder[b],
+    );
+  }
+
+  private recordChange(tile: number): void {
+    this.recentChanges[this.changeRevision % this.recentChanges.length] = tile;
+    this.changeRevision++;
+  }
+
   /** Preserve physical insertion order, including after capture, for exact birth arithmetic. */
   ownedDevelopedTiles(owner: number): Iterable<number> {
     if (!this.ownerAt) return this.occupied;
@@ -113,9 +142,10 @@ export class CityDevelopmentState {
   }
 
   ownershipChanged(tile: number, previousOwner: number): void {
+    if (this.level(tile)) this.recordChange(tile);
     if (!this.ownerAt) return;
-    this.owned.get(previousOwner)?.delete(tile);
-    this.orderedOwned.delete(previousOwner);
+    if (this.owned.get(previousOwner)?.delete(tile))
+      this.orderedOwned.delete(previousOwner);
     this.growth.get(previousOwner)?.delete(tile);
     this.indexTile(tile);
   }
@@ -127,12 +157,13 @@ export class CityDevelopmentState {
     const add = (index: Map<number, Set<number>>) => {
       let tiles = index.get(owner);
       if (!tiles) index.set(owner, (tiles = new Set()));
+      if (tiles.has(tile)) return false;
       tiles.add(tile);
+      return true;
     };
-    if (this.level(tile)) {
-      add(this.owned);
-      this.orderedOwned.delete(owner);
-    }
+    // Maturation and nearby growth preserve insertion order. Only membership
+    // changes require sorting the owner's developed tiles again.
+    if (this.level(tile) && add(this.owned)) this.orderedOwned.delete(owner);
     if (
       this.level(tile) ||
       this.terrain.neighbours(tile).some((t) => this.level(t))
@@ -141,6 +172,7 @@ export class CityDevelopmentState {
   }
 
   private indexDevelopment(tile: number): void {
+    this.recordChange(tile);
     this.inspections.delete(tile);
     this.indexTile(tile);
     for (const next of this.terrain.neighbours(tile)) {
@@ -263,9 +295,11 @@ export class CityDevelopmentState {
       front = new Set<number>();
     const pending = this.pendingFor(eligible);
     for (const tile of scope ?? this.occupied) {
-      if (this.level(tile) > 0 && eligible(tile) && this.level(tile) < 100) {
+      if (this.level(tile) > 0 && this.level(tile) < 100) {
         const info = this.inspect(tile);
-        if (info.supports === 4) {
+        // Most developed tiles cannot mature. Check cached geometry before
+        // querying live ownership, damage and structures.
+        if (info.supports === 4 && eligible(tile)) {
           out.push({
             tile,
             kind: "densify",
@@ -486,5 +520,8 @@ export class CityDevelopmentState {
     for (const tile of snapshot.unfinished) this.unfinished.add(tile);
     for (const [id, randomState, elapsedMilliseconds] of snapshot.accounts)
       Object.assign(this.account(id), { randomState, elapsedMilliseconds });
+    // Restore can remove tiles and rewind physical insertion order. Every
+    // existing observer must reconcile a complete snapshot on its next read.
+    this.historyStart = ++this.changeRevision;
   }
 }

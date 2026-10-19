@@ -976,12 +976,22 @@ export class CameraRenderer {
 
   /** Upload the full plot plane (one byte per tile, row-major). */
   writePlotPlane(bytes: Uint8Array, width: number, height: number): void {
-    if (!this.plotTexture) return;
+    if (
+      !this.plotTexture ||
+      !Number.isInteger(width) ||
+      !Number.isInteger(height) ||
+      width <= 0 ||
+      height <= 0 ||
+      bytes.length < width * height
+    )
+      return;
     // bytesPerRow must be 256-aligned; pad through a staging copy if needed.
     const bytesPerRow = Math.ceil(width / 256) * 256;
     let src = bytes;
     if (bytesPerRow !== width) {
-      this.plotStaging ??= new Uint8Array(bytesPerRow * height);
+      const stagingSize = bytesPerRow * height;
+      if (this.plotStaging?.length !== stagingSize)
+        this.plotStaging = new Uint8Array(stagingSize);
       for (let y = 0; y < height; y++) {
         this.plotStaging.set(
           bytes.subarray(y * width, (y + 1) * width),
@@ -996,6 +1006,53 @@ export class CameraRenderer {
       { bytesPerRow, rowsPerImage: height },
       { width, height },
     );
+  }
+
+  /** Upload changed plot tiles as sorted, row-bounded runs. */
+  writePlotTiles(
+    bytes: Uint8Array,
+    width: number,
+    height: number,
+    tiles: readonly number[],
+  ): void {
+    const area = width * height;
+    if (
+      !this.plotTexture ||
+      !Number.isInteger(width) ||
+      !Number.isInteger(height) ||
+      width <= 0 ||
+      height <= 0 ||
+      bytes.length < area
+    )
+      return;
+    const dirty = [...new Set(tiles)]
+      .filter((tile) => Number.isInteger(tile) && tile >= 0 && tile < area)
+      .sort((a, b) => a - b);
+    if (dirty.length > area / 16) {
+      this.writePlotPlane(bytes, width, height);
+      return;
+    }
+    for (let first = 0; first < dirty.length; ) {
+      const tile = dirty[first];
+      let end = first + 1;
+      while (
+        end < dirty.length &&
+        dirty[end] === dirty[end - 1] + 1 &&
+        Math.floor(dirty[end] / width) === Math.floor(tile / width)
+      )
+        end++;
+      const endTile = dirty[end - 1] + 1;
+      this.device.queue.writeTexture(
+        {
+          texture: this.plotTexture,
+          origin: [tile % width, Math.floor(tile / width)],
+        },
+        bytes.subarray(tile, endTile),
+        {},
+        [endTile - tile, 1],
+      );
+      first = end;
+    }
   }
 
   setTransportShips(

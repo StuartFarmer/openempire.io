@@ -1,0 +1,234 @@
+{
+  "generatedAt": "2026-09-09T06:56:07.613Z",
+  "url": "http://127.0.0.1:9017",
+  "sourceHashes": {
+    "harness": "ecb655278b83ffd8192371f6c6242e439f55fbeb5ac65d0edde09ef5ab931e02",
+    "gameShellPage": "2163140a2a0b36e22159f61c81ccb0ec72970ba2dda7cecb911759bca704550c",
+    "cameraRenderer": "1f34f78a595dacac304e1b03a027e173d30602930229bd29d669078a402f247e"
+  },
+  "protocol": {
+    "modes": {
+      "full": "production build with full invalidation before each scripted render and full plot-plane uploads",
+      "optimized": "production invalidation and partial plot uploads"
+    },
+    "duration": "20 seconds per mode, split into four 5-second phases",
+    "cadence": "10 scripted updates/second; worker paused during comparison",
+    "comparability": "same page, captured starting tile values, restored state, deterministic 2x2 all-land patch near the human spawn, camera start centered on that patch, and fixed 200-event scripted sequence",
+    "timings": "main-thread performance.now separately around worker-frame handling and synchronous runView encoding; render completion wall time is labeled separately and is not a GPU timestamp; rAF intervals sampled in page",
+    "uploadScope": "conduitAndPlotUpload* counts game conduit buffer writes and plot-texture writes only; it excludes parameter uniform writes and the 8 KiB region-uniform copy, so it is not total GPU upload traffic",
+    "deviations": [
+      "The four scenarios share one 20-second clip instead of a 20-second Cartesian trial per scenario.",
+      "Representative endpoint cases cover Verdantia at 1080p and Earth XL at 4K rather than the full map/resolution Cartesian product.",
+      "The fighting phase uses deterministic synthetic conduit mutations on a real loaded map after an actual spawn/city smoke.",
+      "Map-switch stale-callback behavior remains unit-tested; the two browser cases mount their maps independently.",
+      "Full mode emulates the old full-dispatch/full-plot-upload boundary on the optimized build; it is not an old-checkout FPS baseline.",
+      "GPU timestamp measurements are recorded by the separate production shader benchmark.",
+      "Camera GPU timestamps and full animated-framebuffer pixel parity are unmeasured here; the separate GPU harness checks compute output bytes including alpha.",
+      "Screenshot hashes are smoke evidence; time-driven camera layers prevent treating cross-mode hashes as a strict pixel-parity oracle."
+    ]
+  },
+  "cases": [
+    {
+      "map": "Verdantia",
+      "width": 1920,
+      "height": 1080,
+      "actualMatch": {
+        "workerFramesCaptured": 64,
+        "startTick": 1,
+        "endTick": 116,
+        "spawned": true,
+        "spawnTile": 65792,
+        "cityTile": -1,
+        "cityCreated": false,
+        "dimensions": [512, 256],
+        "canvasBackingSize": [1920, 1080],
+        "adapter": {
+          "vendor": "apple",
+          "architecture": "metal-3",
+          "device": "",
+          "description": ""
+        },
+        "selectedMap": "Verdantia",
+        "workerReady": true,
+        "bakedTintOn": true
+      },
+      "errors": [],
+      "full": {
+        "durationMs": 20002.400000095367,
+        "phases": ["stationary", "pan", "hover", "synthetic-fighting"],
+        "attempts": 200,
+        "fullViews": 200,
+        "partialViews": 0,
+        "skippedViews": 0,
+        "dirtyFractions": [],
+        "conduitAndPlotUploadCalls": 650,
+        "conduitAndPlotUploadBytes": 6558396,
+        "deltaMs": {
+          "count": 50,
+          "p50": 0.2999997138977051,
+          "p95": 0.40000009536743164
+        },
+        "viewEncodeMs": {
+          "count": 200,
+          "p50": 0,
+          "p95": 0.10000038146972656
+        },
+        "renderCompletionWallMs": {
+          "count": 200,
+          "p50": 1.4000000953674316,
+          "p95": 1.8000001907348633
+        },
+        "rafIntervalsMs": {
+          "count": 1200,
+          "p50": 16.69999999999891,
+          "p95": 16.799999999999272
+        },
+        "screenshotSha256": "21a5cfad91edeee413da8c02651234d8aba832f659fdb079d74dca9ced9ef2f9"
+      },
+      "optimized": {
+        "durationMs": 20001.5,
+        "phases": ["stationary", "pan", "hover", "synthetic-fighting"],
+        "attempts": 200,
+        "fullViews": 51,
+        "partialViews": 49,
+        "skippedViews": 100,
+        "dirtyFractions": [
+          0.03125, 0.03125, 0.03125, 0.03125, 0.03125, 0.03125, 0.03125,
+          0.03125, 0.03125, 0.03125, 0.03125, 0.03125, 0.03125, 0.03125,
+          0.03125, 0.03125, 0.03125, 0.03125, 0.03125, 0.03125, 0.03125,
+          0.03125, 0.03125, 0.03125, 0.03125, 0.03125, 0.03125, 0.03125,
+          0.03125, 0.03125, 0.03125, 0.03125, 0.03125, 0.03125, 0.03125,
+          0.03125, 0.03125, 0.03125, 0.03125, 0.03125, 0.03125, 0.03125,
+          0.03125, 0.03125, 0.03125, 0.03125, 0.03125, 0.03125, 0.03125
+        ],
+        "conduitAndPlotUploadCalls": 700,
+        "conduitAndPlotUploadBytes": 4995,
+        "deltaMs": {
+          "count": 50,
+          "p50": 0.09999990463256836,
+          "p95": 0.20000028610229492
+        },
+        "viewEncodeMs": {
+          "count": 100,
+          "p50": 0,
+          "p95": 0.09999990463256836
+        },
+        "renderCompletionWallMs": {
+          "count": 200,
+          "p50": 0.39999961853027344,
+          "p95": 0.9000000953674316
+        },
+        "rafIntervalsMs": {
+          "count": 1199,
+          "p50": 16.69999999999709,
+          "p95": 16.799999999995634
+        },
+        "screenshotSha256": "21a5cfad91edeee413da8c02651234d8aba832f659fdb079d74dca9ced9ef2f9"
+      }
+    },
+    {
+      "map": "EarthXL",
+      "width": 3840,
+      "height": 2160,
+      "actualMatch": {
+        "workerFramesCaptured": 64,
+        "startTick": 1,
+        "endTick": 116,
+        "spawned": true,
+        "spawnTile": 3934208,
+        "cityTile": -1,
+        "cityCreated": false,
+        "dimensions": [4096, 2048],
+        "canvasBackingSize": [3840, 2160],
+        "adapter": {
+          "vendor": "apple",
+          "architecture": "metal-3",
+          "device": "",
+          "description": ""
+        },
+        "selectedMap": "EarthXL",
+        "workerReady": true,
+        "bakedTintOn": true
+      },
+      "errors": [],
+      "full": {
+        "durationMs": 20000.89999961853,
+        "phases": ["stationary", "pan", "hover", "synthetic-fighting"],
+        "attempts": 200,
+        "fullViews": 200,
+        "partialViews": 0,
+        "skippedViews": 0,
+        "dirtyFractions": [],
+        "conduitAndPlotUploadCalls": 650,
+        "conduitAndPlotUploadBytes": 419435200,
+        "deltaMs": {
+          "count": 50,
+          "p50": 0.5,
+          "p95": 0.7000002861022949
+        },
+        "viewEncodeMs": {
+          "count": 200,
+          "p50": 0,
+          "p95": 0.10000038146972656
+        },
+        "renderCompletionWallMs": {
+          "count": 200,
+          "p50": 2.4000000953674316,
+          "p95": 4.700000286102295
+        },
+        "rafIntervalsMs": {
+          "count": 1199,
+          "p50": 16.69999999999891,
+          "p95": 16.700000000004366
+        },
+        "screenshotSha256": "30ff6b646a60c28969cb55fa3f785978734663ba27d942ada575c1c3a0a2547a"
+      },
+      "optimized": {
+        "durationMs": 20001.5,
+        "phases": ["stationary", "pan", "hover", "synthetic-fighting"],
+        "attempts": 200,
+        "fullViews": 51,
+        "partialViews": 49,
+        "skippedViews": 100,
+        "dirtyFractions": [
+          0.000244140625, 0.000244140625, 0.000244140625, 0.000244140625,
+          0.000244140625, 0.000244140625, 0.000244140625, 0.000244140625,
+          0.000244140625, 0.000244140625, 0.000244140625, 0.000244140625,
+          0.000244140625, 0.000244140625, 0.000244140625, 0.000244140625,
+          0.000244140625, 0.000244140625, 0.000244140625, 0.000244140625,
+          0.000244140625, 0.000244140625, 0.000244140625, 0.000244140625,
+          0.000244140625, 0.000244140625, 0.000244140625, 0.000244140625,
+          0.000244140625, 0.000244140625, 0.000244140625, 0.000244140625,
+          0.000244140625, 0.000244140625, 0.000244140625, 0.000244140625,
+          0.000244140625, 0.000244140625, 0.000244140625, 0.000244140625,
+          0.000244140625, 0.000244140625, 0.000244140625, 0.000244140625,
+          0.000244140625, 0.000244140625, 0.000244140625, 0.000244140625,
+          0.000244140625
+        ],
+        "conduitAndPlotUploadCalls": 700,
+        "conduitAndPlotUploadBytes": 5000,
+        "deltaMs": {
+          "count": 50,
+          "p50": 0.19999980926513672,
+          "p95": 0.3000001907348633
+        },
+        "viewEncodeMs": {
+          "count": 100,
+          "p50": 0,
+          "p95": 0.10000038146972656
+        },
+        "renderCompletionWallMs": {
+          "count": 200,
+          "p50": 0.5999999046325684,
+          "p95": 3.0999999046325684
+        },
+        "rafIntervalsMs": {
+          "count": 1199,
+          "p50": 16.69999999999709,
+          "p95": 16.799999999995634
+        },
+        "screenshotSha256": "30ff6b646a60c28969cb55fa3f785978734663ba27d942ada575c1c3a0a2547a"
+      }
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import palette from "../docs/city-local-palette.json";
 import { CityAges } from "../src/client/games/simplefront/visuals/CityAges";
 import {
@@ -230,6 +230,51 @@ test("worker observer includes capture and neutral ownership without resetting p
     0,
   ]);
   expect(a.troops()).toBe(100);
+});
+
+test("independent visual readers inspect changes without rescanning every city", async () => {
+  const { game, a, b } = await fixture();
+  const model = cityDevelopmentState(a)!.model;
+  const first = new CityDevelopmentUpdates();
+  const second = new CityDevelopmentUpdates();
+  const original = model.deterministicState();
+  expect(first.read(game)).toEqual(second.read(game));
+  const scan = vi.spyOn(model, "developedTiles");
+  try {
+    expect(first.read(game)).toBeUndefined();
+    expect(scan).not.toHaveBeenCalled();
+    const tile = game.ref(30, 30);
+    b.conquer(tile);
+    const capture = first.read(game);
+    expect(capture!.tiles.slice(0, 3)).toEqual(
+      new Uint32Array([tile, 1, b.smallID()]),
+    );
+    expect(second.read(game)).toEqual(capture);
+    expect(scan).not.toHaveBeenCalled();
+
+    const extra = game.ref(31, 30);
+    foundCityDevelopment(game, a, extra);
+    expect(first.read(game)!.tiles[0]).toBe(extra);
+    model.restore(original);
+    const removal = first.read(game)!;
+    expect(Array.from(removal.tiles)).toContain(extra);
+    expect(removal.tiles[Array.from(removal.tiles).indexOf(extra) + 1]).toBe(0);
+    expect(scan).toHaveBeenCalled();
+  } finally {
+    scan.mockRestore();
+  }
+});
+
+test("a visual reader that misses the bounded history falls back to a full scan", async () => {
+  const { game, a, b } = await fixture();
+  const observer = new CityDevelopmentUpdates();
+  observer.read(game);
+  const tile = game.ref(30, 30);
+  for (let i = 0; i < 5001; i++) (i % 2 ? a : b).conquer(tile);
+  const update = observer.read(game)!;
+  expect(update.reset).toBe(false);
+  expect(Array.from(update.tiles).slice(0, 3)).toEqual([tile, 1, b.smallID()]);
+  expect(observer.read(game)).toBeUndefined();
 });
 
 test("full snapshot after a large city replaces every old physical and visual tile", async () => {

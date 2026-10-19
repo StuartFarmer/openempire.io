@@ -17,6 +17,10 @@ import type {
 } from "../../core/game/GameUpdates";
 import type { RulesetID } from "../../core/game/Rulesets";
 import type { Intent } from "../../core/Schemas";
+import type {
+  ChainCursor,
+  TickChainRecord,
+} from "../../core/sync/TickChainProtocol";
 import type { LivePlotAction } from "../games/LiveGameRuntime";
 import type { SimpleFrontMatchResult } from "../shell/SimpleFrontMatch";
 
@@ -96,6 +100,7 @@ export interface ShellFrontLabel {
 
 /** main → worker. */
 export type ShellSimIn =
+  | { type: "export_chain" }
   | {
       type: "init";
       mapType: GameMapType;
@@ -112,6 +117,9 @@ export type ShellSimIn =
       /** Internal next-match integration seam. Only SimpleFront accepts this;
        * absence retains normal-match rules until the release gate. */
       cityDevelopment?: GrowthConfig;
+      /** Developer-only checkpoint cadence. Normal play uses zero. */
+      stateHashEveryTicks?: number;
+      recoverRecord?: TickChainRecord;
     }
   | { type: "running"; running: boolean; turbo: boolean }
   // The worker resolves attack-vs-boat + ratio-scaled troops (needs Game reads).
@@ -131,6 +139,7 @@ export type ShellSimIn =
  * structured-clone data.
  */
 export interface ShellSimFrame {
+  chain?: ChainCursor;
   development?: CityDevelopmentUpdate;
   matchResult?: SimpleFrontMatchResult | null;
   type: "frame";
@@ -172,6 +181,8 @@ export interface ShellSimFrame {
 }
 
 export type ShellSimOut =
+  | { type: "chain_record"; record: TickChainRecord }
+  | { type: "chain_failure"; message: string; record: TickChainRecord }
   // fertility + suitability are the sim's baked per-tile planes
   // (tile-fertility / city-growth specs), shipped once (transferred) for the
   // hover readout — never a separate approximation.

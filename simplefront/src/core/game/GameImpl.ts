@@ -61,6 +61,12 @@ import { TerraNulliusImpl } from "./TerraNulliusImpl";
 import { UnitGrid, UnitPredicate } from "./UnitGrid";
 import { WaterManager } from "./WaterManager";
 
+/** Observation policy only: never changes rules or random state. */
+export interface RuntimeDiagnostics {
+  /** Zero disables automatic checks; omitted preserves legacy checkpoints. */
+  stateHashEveryTicks?: number;
+}
+
 export function createGame(
   humans: PlayerInfo[],
   nations: Nation[],
@@ -68,6 +74,7 @@ export function createGame(
   miniGameMap: GameMap,
   config: Config,
   teamGameSpawnAreas?: TeamGameSpawnAreas,
+  diagnostics: RuntimeDiagnostics = {},
 ): Game {
   const stats = new StatsImpl();
   return new GameImpl(
@@ -78,12 +85,14 @@ export function createGame(
     config,
     stats,
     teamGameSpawnAreas,
+    diagnostics,
   );
 }
 
 export type CellString = string;
 
 export class GameImpl implements Game {
+  private readonly stateHashEveryTicks: number;
   readonly cityDevelopment: CityDevelopmentState | null;
   private _ticks = 0;
   private startTick: number | null = null;
@@ -154,7 +163,14 @@ export class GameImpl implements Game {
     private _config: Config,
     private _stats: Stats,
     teamGameSpawnAreas?: TeamGameSpawnAreas,
+    diagnostics: RuntimeDiagnostics = {},
   ) {
+    this.stateHashEveryTicks = diagnostics.stateHashEveryTicks ?? 10;
+    if (
+      !Number.isSafeInteger(this.stateHashEveryTicks) ||
+      this.stateHashEveryTicks < 0
+    )
+      throw new Error("Invalid state hash interval");
     const constructorStart = performance.now();
 
     this._teamGameSpawnAreas = teamGameSpawnAreas;
@@ -500,7 +516,10 @@ export class GameImpl implements Game {
       );
       if (update !== null) this.addUpdate(update);
     }
-    if (this.ticks() % 10 === 0) {
+    if (
+      this.stateHashEveryTicks > 0 &&
+      this.ticks() % this.stateHashEveryTicks === 0
+    ) {
       this.addUpdate({
         type: GameUpdateType.Hash,
         tick: this.ticks(),

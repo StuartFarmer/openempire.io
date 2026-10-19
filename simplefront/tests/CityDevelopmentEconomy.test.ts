@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { DEFAULT_CONFIG } from "../src/core/development/CityDevelopmentConfig";
 import {
   cityDevelopmentEligibility,
@@ -246,6 +246,32 @@ test("fertility recruits idle troops by game time once per tick", async () => {
   expect(player.troops()).toBeGreaterThan(troops);
   expect(state.troopCredit).toBeGreaterThanOrEqual(0);
   expect(state.troopCredit).toBeLessThan(1);
+});
+
+test("a refill reuses birth and housing calculations after clamping surplus food", async () => {
+  const { game, player } = await cityFixture();
+  player.setTroops(8000);
+  const capacity = paintedResources(game, player).foodCapacityMilli;
+  player.addFoodMilli(capacity + 1000n);
+  const state = paintedState(player);
+  state.troopCredit = 0.75;
+  state.foodCredit = 0.5;
+  state.lastRefillTick = -1;
+  const development = cityDevelopmentState(player)!;
+  development.elapsedMilliseconds = 0;
+  const births = vi.spyOn(development.model, "populationPerSecondFor");
+  const housing = vi.spyOn(development.model, "usableCapacity");
+  try {
+    tickPaintedEconomy(game, player);
+    expect(player.foodMilli()).toBe(capacity);
+    expect(state.foodCredit).toBe(0);
+    expect(player.troops() + state.troopCredit).toBeCloseTo(8052.75, 10);
+    expect(births).toHaveBeenCalledTimes(1);
+    expect(housing).toHaveBeenCalledTimes(1);
+  } finally {
+    births.mockRestore();
+    housing.mockRestore();
+  }
 });
 
 test("core ticks construct only legal owned cells and preserve farms and food", async () => {

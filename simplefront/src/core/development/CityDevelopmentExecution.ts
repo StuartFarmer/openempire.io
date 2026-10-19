@@ -78,14 +78,17 @@ export function tickCityDevelopment(
   player: Player,
   totalPopulation: number,
   birthCredit: number,
+  resources?: { troopCapacity: number; troopGain: number },
 ): { amount: number; credit: number } {
   const state = cityDevelopmentState(player);
   if (!state) return { amount: totalPopulation, credit: 0 };
   const eligibility = cityDevelopmentEligibility(game, player);
-  let housing = organicHousingCapacity(game, player);
+  let housing =
+    resources?.troopCapacity ?? organicHousingCapacity(game, player);
   const gain =
+    resources?.troopGain ??
     organicPopulationPerSecond(game, player, totalPopulation, housing) *
-    (game.config().msPerTick() / 1000);
+      (game.config().msPerTick() / 1000);
   const accumulated = totalPopulation < housing ? birthCredit + gain : 0;
   const whole = Math.min(
     Math.max(0, housing - totalPopulation),

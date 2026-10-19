@@ -164,7 +164,14 @@ export class AttackImpl implements Attack {
       this._reserve += amount;
       return;
     }
-    const ordered = [...tiles].sort((a, b) => a - b);
+    // Straight stretches of the front already supply ordered neighbors.
+    let ordered = tiles;
+    for (let i = 1; i < tiles.length; i++) {
+      if (tiles[i - 1] > tiles[i]) {
+        ordered = [...tiles].sort((a, b) => a - b);
+        break;
+      }
+    }
     const share = Math.floor(amount / ordered.length);
     let left = amount;
     if (share > 0) {
